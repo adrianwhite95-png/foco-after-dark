@@ -6256,6 +6256,12 @@
     };
     let memberProfile = null;
     let staffSession = null;
+    try {
+      const storedStaffSession = JSON.parse(localStorage.getItem("staffSession") || "null");
+      if (storedStaffSession?.venue) {
+        staffSession = storedStaffSession;
+      }
+    } catch (_) {}
     const REWARDS_KEY = "rewardsProgress";
     const BADGES_KEY = "foco_badges_v1";
     const DEAL_CODES_KEY = "dealCodesCache";
@@ -14590,6 +14596,40 @@ let onboardingIndex = 0;
         localStorage.setItem(`${STAFF_REDEMPTION_CACHE_PREFIX}${venueId}`, JSON.stringify(trimmed));
       } catch (_) {}
     }
+    function cacheStaffRedemptionForVenue(entry) {
+      if (!entry) return;
+      const venueId = (entry.requestedVenue || entry.venue || "").toLowerCase();
+      if (!venueId) return;
+      const normalized = {
+        ...entry,
+        code: (entry.code || "").toUpperCase(),
+        passId: (entry.passId || "").toUpperCase(),
+        requestedVenue: entry.requestedVenue ? entry.requestedVenue.toLowerCase() : null,
+        venue: entry.venue ? entry.venue.toLowerCase() : null,
+        status: (entry.status || "pending").toLowerCase(),
+        timestamp: entry.timestamp || new Date().toISOString()
+      };
+      if (!normalized.code) return;
+      const cached = loadStaffRedemptionCache(venueId);
+      const byCode = {};
+      cached.forEach(item => {
+        if (!item?.code) return;
+        byCode[item.code.toUpperCase()] = item;
+      });
+      byCode[normalized.code] = normalized;
+      const merged = Object.values(byCode).sort((a, b) => {
+        const aTs = new Date(a.timestamp || a.verifiedAt || 0).getTime();
+        const bTs = new Date(b.timestamp || b.verifiedAt || 0).getTime();
+        return bTs - aTs;
+      });
+      saveStaffRedemptionCache(venueId, merged);
+      if (staffSession?.venue && staffSession.venue.toLowerCase() === venueId) {
+        redemptionLog = merged.slice();
+        renderStaffVenueLog();
+        updateStaffRadar();
+        renderStaffPendingQueue();
+      }
+    }
     function renderStaffPendingQueue() {
       if (!staffPendingList || !staffPendingCount) return;
       if (!staffSession) {
@@ -15551,9 +15591,7 @@ let onboardingIndex = 0;
         return;
       }
       const venueId = (staffSession.venue || "").toLowerCase();
-      const allEntries = redemptionLog.filter(item => {
-        return (item.venue || "").toLowerCase() === venueId;
-      });
+      const allEntries = redemptionLog.filter(item => entryMatchesVenue(item, venueId));
       const rangeSelect = document.getElementById("staffLogRange");
       const range = rangeSelect?.value || "all";
       const toMstDate = (value) => new Date(new Date(value).toLocaleString("en-US", { timeZone: "America/Denver" }));
@@ -15619,7 +15657,10 @@ let onboardingIndex = 0;
           }[range] || "All time";
           const renderEntry = (entry) => {
             const date = formatMST(entry.timestamp);
-            const venueText = entry.venue ? `<span style="color:#94a3b8;">Venue: ${entry.venue}</span>` : "<span style='color:#94a3b8;'>Venue: Pending</span>";
+            const venueValue = entry.venue || entry.requestedVenue || null;
+            const venueText = venueValue
+              ? `<span style="color:#94a3b8;">Venue: ${venueValue}</span>`
+              : "<span style='color:#94a3b8;'>Venue: Pending</span>";
             const label = entry.perk
               ? entry.perk
               : entry.perkKey === "reward_shot"
@@ -16178,6 +16219,7 @@ let onboardingIndex = 0;
       if (staffPortalTitle) staffPortalTitle.innerHTML = `<span>${venueName}</span> Dashboard`;
       if (staffPortalTagline) staffPortalTagline.textContent = `Live perks, redemptions, and alerts for ${venueName}.`;
       renderStaffVenueLog();
+      renderStaffPendingQueue();
       renderStaffVipDeal();
       refreshStaffCeoReceipts();
       return { success: true, venueId: resolved };
@@ -16202,8 +16244,20 @@ let onboardingIndex = 0;
       updatePendingScanAlerts();
     }
 
-    // Do not auto-reuse staff sessions after logout; require explicit login each time.
-    const storedStaff = null;
+    const storedStaff = staffSession;
+    if (storedStaff?.venue) {
+      const result = applyStaffSession(storedStaff.venue);
+      if (result.success) {
+        const staffAccent = loadStaffAccent(result.venueId) || "cyan";
+        applyStaffAccent(staffAccent);
+        if (staffAccentSelect) staffAccentSelect.value = staffAccent;
+        attachGlobalRealtime();
+        startStaffPerksListener(result.venueId);
+        startStaffRedemptionListener(result.venueId);
+        startStaffMessagesListener(result.venueId);
+        showScreen("staffPortal");
+      }
+    }
 
     function stopStaffMessagesListener() {
       if (staffMessagesUnsub) {
@@ -16437,6 +16491,9 @@ let onboardingIndex = 0;
     }
 
     const handleStaffLogout = () => {
+      if (staffSession?.venue) {
+        saveStaffRedemptionCache(staffSession.venue, redemptionLog);
+      }
       staffSession = null;
       localStorage.removeItem("staffSession");
       staffGateVerified = false;
@@ -16503,10 +16560,16 @@ let onboardingIndex = 0;
     if (landingStaffLogin) {
       landingStaffLogin.addEventListener("click", () => {
         if (staffSession) {
+          const result = applyStaffSession(staffSession.venue);
+          if (!result.success) {
+            showScreen("staffLogin");
+            return;
+          }
           const venueName = venuesInfo[staffSession.venue]?.name || "Your venue";
           if (staffVenueChip) staffVenueChip.textContent = venueName;
           attachGlobalRealtime();
           renderStaffVenueLog();
+          renderStaffPendingQueue();
           refreshStaffCeoReceipts();
           startStaffPerksListener(staffSession.venue);
           startStaffRedemptionListener(staffSession.venue);
@@ -18759,10 +18822,11 @@ let onboardingIndex = 0;
         venuePerkId: selectedVenuePerkId || null,
         venuePerkLabel: selectedPerkLabel || null,
         passId: activePassId,
-        requestedVenue: requestedVenue || null,
+        requestedVenue: requestedVenue ? requestedVenue.toLowerCase() : null,
         status: "pending",
         timestamp: new Date().toISOString(),
       };
+      cacheStaffRedemptionForVenue(entry);
       const synced = await syncRedemptionToCloud(entry);
       if (!synced) {
         if (!unlimited) {
