@@ -896,7 +896,7 @@ function priceForTier(tier = 'standard') {
   return map[tier] || map.standard;
 }
 
-const TOKEN_PACKS = {
+const TOKEN_PACKS_STANDARD = {
   tokens_1: { perk: "tokens", amount: 1, priceCents: 300, priceLabel: "$3.00", label: "Redemption token" },
   tokens_2: { perk: "tokens", amount: 2, priceCents: 600, priceLabel: "$6.00", label: "Redemption tokens" },
   tokens_3: { perk: "tokens", amount: 3, priceCents: 900, priceLabel: "$9.00", label: "Redemption tokens" },
@@ -904,18 +904,26 @@ const TOKEN_PACKS = {
   tokens_5: { perk: "tokens", amount: 5, priceCents: 1500, priceLabel: "$15.00", label: "Redemption tokens" },
 };
 
+const TOKEN_PACKS_VIP = {
+  tokens_1: { perk: "tokens", amount: 1, priceCents: 250, priceLabel: "$2.50", label: "Redemption token" },
+  tokens_2: { perk: "tokens", amount: 2, priceCents: 500, priceLabel: "$5.00", label: "Redemption tokens" },
+  tokens_3: { perk: "tokens", amount: 3, priceCents: 750, priceLabel: "$7.50", label: "Redemption tokens" },
+  tokens_4: { perk: "tokens", amount: 4, priceCents: 1000, priceLabel: "$10.00", label: "Redemption tokens" },
+  tokens_5: { perk: "tokens", amount: 5, priceCents: 1250, priceLabel: "$12.50", label: "Redemption tokens" },
+};
+
 const VOUCHER_PACKS = {
   standard: {
     drink: { perk: "drink", amount: 2, priceCents: 600, priceLabel: "$6.00", label: "$3 drink voucher" },
     shot: { perk: "shot", amount: 4, priceCents: 500, priceLabel: "$5.00", label: "$1 shot voucher" },
     cover: { perk: "cover", amount: 3, priceCents: 2000, priceLabel: "$20.00", label: "Skip Line + No Cover Charge" },
-    ...TOKEN_PACKS,
+    ...TOKEN_PACKS_STANDARD,
   },
   vip: {
     drink: { perk: "drink", amount: 4, priceCents: 1000, priceLabel: "$10.00", label: "$3 drink voucher" },
     shot: { perk: "shot", amount: 4, priceCents: 500, priceLabel: "$5.00", label: "$1 shot voucher" },
     cover: { perk: "cover", amount: 3, priceCents: 1500, priceLabel: "$15.00", label: "Skip Line + No Cover Charge" },
-    ...TOKEN_PACKS,
+    ...TOKEN_PACKS_VIP,
   },
 };
 

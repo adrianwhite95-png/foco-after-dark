@@ -657,7 +657,8 @@
       box-shadow: 0 12px 26px rgba(0,0,0,0.4);
     }
     .staff-logout-top {
-      display: inline-flex;
+      display: flex;
+      width: fit-content;
       justify-content: center;
       align-items: center;
       padding: 10px 18px;
@@ -1287,23 +1288,30 @@
       color: #fef3c7;
       letter-spacing: 0.12em;
     }
+    #landingScreen .app-title {
+      justify-content: center;
+      text-align: center;
+    }
+    #landingScreen .tagline {
+      text-align: center;
+    }
     .landing-live-count {
       margin: 10px auto 14px;
       display: inline-flex;
       align-items: center;
-      gap: 10px;
-      padding: 8px 14px;
+      gap: 8px;
+      padding: 6px 12px;
       border-radius: 999px;
       border: 1px solid rgba(59, 130, 246, 0.35);
       background: rgba(8, 15, 30, 0.75);
       color: #e2e8f0;
-      font-size: 12px;
+      font-size: 11px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       box-shadow: 0 12px 28px rgba(8, 47, 73, 0.45);
     }
     .landing-live-count strong {
-      font-size: 14px;
+      font-size: 12px;
       color: #a5f3fc;
       letter-spacing: 0.08em;
     }
@@ -2887,6 +2895,21 @@
       color: #99f6e4;
       font-size: 13px;
       letter-spacing: 0.08em;
+    }
+    .voucher-price {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .voucher-price .price-strike {
+      text-decoration: line-through;
+      color: #64748b;
+    }
+    .voucher-price .price-vip {
+      color: #f87171;
+      font-weight: 700;
     }
     .perk-grid {
       display: flex;
@@ -10019,6 +10042,10 @@ let onboardingIndex = 0;
       if (metadata?.type) {
         const entry = {
           id: metadata.orderId || `PUR-${Date.now().toString().slice(-6)}`,
+          type: metadata.type || null,
+          tier: metadata.tier || null,
+          pack: metadata.pack || null,
+          amount: metadata.amount || null,
           title: metadata.title || "In-app purchase",
           detail: metadata.detail || "",
           method: metadata.method || "Card",
@@ -10307,6 +10334,10 @@ let onboardingIndex = 0;
         if (!data.clientSecret || !data.publishableKey) {
           throw new Error("Payment could not start.");
         }
+        if (pendingVoucherPack && data.pack?.priceLabel) {
+          pendingVoucherPack.priceLabel = data.pack.priceLabel;
+          pendingVoucherPack.price = data.pack.priceLabel;
+        }
         voucherStripeInstance = Stripe(data.publishableKey);
         voucherClientSecret = data.clientSecret;
         const elementsOptions = {
@@ -10385,6 +10416,10 @@ let onboardingIndex = 0;
         voucherModal.classList.remove("active");
         const orderId = `FO-${Date.now().toString().slice(-6)}`;
         if (pack) {
+          const purchaseTier = normalizeTierKey(pack.tier)
+            || normalizeTierKey(currentMembershipTier)
+            || normalizeTierKey(memberProfile?.tier)
+            || "standard";
           showReceipt([
             { label: "Order #", value: orderId },
             { label: "Processed", value: formatMST(new Date()) },
@@ -10393,6 +10428,7 @@ let onboardingIndex = 0;
             { label: "Total", value: pack.priceLabel || pack.price || "" }
           ], `Charged via ${methodLabel}.`, {
             type: "voucher",
+            tier: purchaseTier,
             pack: pack.id,
             amount: pack.amount,
             method: methodLabel,
@@ -10400,6 +10436,7 @@ let onboardingIndex = 0;
               ? "Redemption tokens"
               : `Voucher add-on (${pack.label || pack.perk})`,
             detail: pack.priceLabel || pack.price || "",
+            total: pack.priceLabel || pack.price || "",
             orderId
           });
         }
@@ -12615,6 +12652,20 @@ let onboardingIndex = 0;
     setInterval(pruneExpiredVipDeals, 60000);
 
     const voucherPacks = {
+      standard: [
+        { id: "tokens_1", perk: "tokens", amount: 1, price: "$3.00", label: "redemption token" },
+        { id: "tokens_2", perk: "tokens", amount: 2, price: "$6.00", label: "redemption tokens" },
+        { id: "tokens_3", perk: "tokens", amount: 3, price: "$9.00", label: "redemption tokens" },
+        { id: "tokens_4", perk: "tokens", amount: 4, price: "$12.00", label: "redemption tokens" },
+        { id: "tokens_5", perk: "tokens", amount: 5, price: "$15.00", label: "redemption tokens" },
+      ],
+      vip: [
+        { id: "tokens_1", perk: "tokens", amount: 1, price: "$2.50", originalPrice: "$3.00", label: "redemption token" },
+        { id: "tokens_2", perk: "tokens", amount: 2, price: "$5.00", originalPrice: "$6.00", label: "redemption tokens" },
+        { id: "tokens_3", perk: "tokens", amount: 3, price: "$7.50", originalPrice: "$9.00", label: "redemption tokens" },
+        { id: "tokens_4", perk: "tokens", amount: 4, price: "$10.00", originalPrice: "$12.00", label: "redemption tokens" },
+        { id: "tokens_5", perk: "tokens", amount: 5, price: "$12.50", originalPrice: "$15.00", label: "redemption tokens" },
+      ],
       default: [
         { id: "tokens_1", perk: "tokens", amount: 1, price: "$3.00", label: "redemption token" },
         { id: "tokens_2", perk: "tokens", amount: 2, price: "$6.00", label: "redemption tokens" },
@@ -12721,7 +12772,7 @@ let onboardingIndex = 0;
       }
       target.innerHTML = purchaseReceipts.slice(0, 8).map(entry => `
         <div class="ceo-log-row">
-          <strong>${entry.title}</strong>
+          <strong>${entry.title}${entry.tier === "vip" ? " · VIP" : ""}</strong>
           <div>${entry.detail}</div>
           <div style="color:#94a3b8;">${entry.method || "Card"} · ${formatMST(entry.timestamp)}</div>
         </div>
@@ -13762,17 +13813,23 @@ let onboardingIndex = 0;
       resetVoucherPaymentState();
       voucherStepPayment.style.display = "none";
       voucherStepPacks.style.display = "block";
-      const packs = voucherPacks[currentMembershipTier] || voucherPacks.default || [];
+      const tierKey = normalizeTierKey(currentMembershipTier)
+        || normalizeTierKey(memberProfile?.tier)
+        || "standard";
+      const packs = voucherPacks[tierKey] || voucherPacks.default || [];
       voucherOptions.innerHTML = packs.map(pack => {
         const suffix = pack.label || (pack.amount === 1 ? "redemption token" : "redemption tokens");
         const label = `+${pack.amount} ${suffix}`;
+        const priceMarkup = pack.originalPrice
+          ? `<span class="price-strike">${pack.originalPrice}</span><span class="price-vip">${pack.price}</span>`
+          : `<span>${pack.price}</span>`;
         return `
         <div class="perk-row" style="justify-content:space-between;background:rgba(15,23,42,0.8);padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,0.3);margin-bottom:8px;">
           <div style="text-align:left;">
             <strong style="display:block;font-size:13px;">${label}</strong>
-            <span style="font-size:12px;color:#9ca3af;">${pack.price}</span>
+            <div class="voucher-price">${priceMarkup}</div>
           </div>
-          <button class="btn btn-primary" type="button" data-perk="${pack.id}" data-amount="${pack.amount}" data-price="${pack.price}" style="width:auto;padding:6px 12px;font-size:11px;">
+          <button class="btn btn-primary" type="button" data-perk="${pack.id}" data-amount="${pack.amount}" data-price="${pack.price}" data-original-price="${pack.originalPrice || ""}" style="width:auto;padding:6px 12px;font-size:11px;">
             Purchase
           </button>
         </div>
@@ -13788,7 +13845,10 @@ let onboardingIndex = 0;
             perk: packMeta.perk || packId,
             amount: parseInt(btn.dataset.amount, 10),
             price: btn.dataset.price,
-            label: packMeta.label || "redemption tokens"
+            originalPrice: btn.dataset.originalPrice || null,
+            priceLabel: btn.dataset.price,
+            label: packMeta.label || "redemption tokens",
+            tier: tierKey
           };
           const packLabel = pendingVoucherPack.amount === 1
             ? "redemption token"
@@ -14615,9 +14675,22 @@ let onboardingIndex = 0;
       };
     }
 
+    function summarizeVipVoucherPurchases() {
+      const receipts = purchaseReceipts || [];
+      const vipReceipts = receipts.filter(entry => entry.type === "voucher" && entry.tier === "vip");
+      const vipRevenue = vipReceipts.reduce((sum, entry) => sum + parseCurrency(entry.total || entry.detail || ""), 0);
+      const vipTokens = vipReceipts.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
+      return {
+        count: vipReceipts.length,
+        revenue: vipRevenue,
+        tokens: vipTokens
+      };
+    }
+
     function renderCeoAnalytics() {
       if (!ceoAnalyticsContent) return;
       const snapshot = computeAnalyticsSnapshot();
+      const vipPurchases = summarizeVipVoucherPurchases();
       const venueOptions = Object.entries(venuesInfo).map(([id, info]) => `<option value="${id}">${info.name}</option>`).join("");
       ceoAnalyticsContent.innerHTML = `
         <div class="analytics-grid">
@@ -14651,6 +14724,14 @@ let onboardingIndex = 0;
           <div class="analytics-section">
             <h5>Breakdown of perk popularity</h5>
             <ul>${snapshot.perkPopularity.map(item => `<li>${item}</li>`).join("")}</ul>
+          </div>
+          <div class="analytics-section">
+            <h5>VIP add-on sales</h5>
+            <ul>
+              <li>${vipPurchases.count} purchases</li>
+              <li>${vipPurchases.tokens} tokens sold</li>
+              <li>$${vipPurchases.revenue.toFixed(2)} revenue</li>
+            </ul>
           </div>
         </div>
         <div class="analytics-section">
