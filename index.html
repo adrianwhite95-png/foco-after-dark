@@ -4778,7 +4778,7 @@
           <div class="nav-dropdown">
             <button type="button" class="nav-toggle" id="navMenuToggle">Menu ▾</button>
             <div class="nav-menu" id="navMenu">
-            <button class="nav-item" data-nav="rewards" id="navRewardsItem">Rewards</button>
+            <button class="nav-item" data-nav="rewards" id="navRewardsItem">Voucher rewards</button>
             <button class="nav-item" data-nav="support">Need help? Contact support</button>
             <button class="nav-item" data-nav="review">Leave a review</button>
             <button class="nav-item" data-nav="about" id="navAboutItem">About</button>
@@ -4946,7 +4946,7 @@
           </div>
           <div class="secondary-actions" id="memberActionButtons">
             <button type="button" class="btn review-btn" id="rewardsTrigger">
-              Rewards
+              Voucher rewards
             </button>
             <button type="button" class="btn btn-secondary" id="manageBillingBtn">
               Manage billing / card
@@ -5887,15 +5887,15 @@
   <div class="modal-backdrop" id="rewardsModal">
     <div class="modal-card">
       <div class="modal-header">
-        <div class="modal-title">Rewards</div>
+        <div class="modal-title">Voucher rewards</div>
         <button class="modal-close" id="rewardsClose" type="button">Close</button>
       </div>
-      <p style="font-size:13px;color:#cbd5f5;">Redeem perks to unlock surprise rewards.</p>
+      <p style="font-size:13px;color:#cbd5f5;">Redeem 5 vouchers to unlock a free redemption token.</p>
       <div class="progress-bar" style="margin:10px 0 6px;">
         <div class="progress-fill" id="rewardsProgressFill"></div>
       </div>
       <p id="rewardsProgressText" style="font-size:12px;color:#e2e8f0;margin:0 0 10px;">0 / 5 redemptions</p>
-      <p id="rewardsNextText" style="font-size:13px;color:#facc15;font-weight:700;margin:0 0 12px;">Next: Free drink voucher</p>
+      <p id="rewardsNextText" style="font-size:13px;color:#facc15;font-weight:700;margin:0 0 12px;">Next: +1 redemption token</p>
       <div class="error" id="rewardsError"></div>
       <div class="payment-actions" style="margin-top:6px;display:flex;gap:8px;justify-content:flex-end;">
         <button type="button" class="btn btn-secondary" id="rewardsCloseBtn">Close</button>
@@ -6268,7 +6268,7 @@
     let ceoHealthUnsub = null;
     let settingsUnsub = null;
     let settingsPollTimer = null;
-    let rewardsProgress = { count: 0, threshold: 5, available: false, rewardType: null };
+    let rewardsProgress = { count: 0, threshold: 5, available: false, rewardType: null, cycleKey: null };
     let memberDocRef = null;
     let currentPassCode = null;
     let onboardingMembershipFlow = false;
@@ -8122,6 +8122,25 @@
       updateRewardsUI();
     }
     rewardsProgress = { ...rewardsProgress, ...loadRewardsProgress() };
+    function getRewardsCycleKey() {
+      const uid = firebaseAuth.currentUser?.uid;
+      const billing = uid ? loadBilling(uid) : {};
+      const window = getVoucherCycleWindow(billing);
+      const start = window?.current?.start;
+      if (!start) return null;
+      return getMstDateKey(start);
+    }
+    function syncRewardsCycle() {
+      const cycleKey = getRewardsCycleKey();
+      if (!cycleKey) return;
+      if (rewardsProgress.cycleKey !== cycleKey) {
+        rewardsProgress = { ...rewardsProgress, count: 0, available: false, rewardType: null, cycleKey };
+        if (allowLocalCache()) {
+          localStorage.setItem(REWARDS_KEY, JSON.stringify(rewardsProgress));
+        }
+        persistMemberState({ rewardsProgress });
+      }
+    }
     const onboardingSteps = [
       { title: "Pick your perk", copy: "Tap “Redeem a perk” and choose a venue perk from the bar you’re at." },
       { title: "Show QR + Pass ID", copy: "Your QR works offline. Staff can also type the Pass ID if scanners are busy." },
@@ -8353,33 +8372,34 @@
 
     function updateRewardsUI() {
       if (!rewardsProgress) return;
+      syncRewardsCycle();
       const nextTarget = 5;
       const progressCount = rewardsProgress.available ? nextTarget : rewardsProgress.count;
       const pct = rewardsProgress.available ? 100 : Math.min(100, Math.floor((progressCount / nextTarget) * 100));
       if (rewardsProgressFill) rewardsProgressFill.style.width = `${pct}%`;
       if (rewardsProgressText) {
         if (rewardsProgress.available) {
-          rewardsProgressText.textContent = "Reward ready: +$1 shot";
+          rewardsProgressText.textContent = "Reward ready: +1 redemption token";
         } else {
           rewardsProgressText.textContent = `${progressCount} / ${nextTarget} redemptions`;
         }
       }
       if (rewardsNextText) {
         if (rewardsProgress.available) {
-          rewardsNextText.textContent = "Tap Redeem reward to claim.";
+          rewardsNextText.textContent = "Tap Redeem reward to claim your token.";
         } else {
           const remaining = nextTarget - progressCount;
-          rewardsNextText.textContent = `${remaining} to go · Next: +$1 shot voucher`;
+          rewardsNextText.textContent = `${remaining} to go · Next: +1 redemption token`;
         }
       }
       if (rewardsRedeemBtn) rewardsRedeemBtn.disabled = !rewardsProgress.available;
       if (rewardsError) rewardsError.textContent = "";
       if (rewardsTrigger) {
-        rewardsTrigger.textContent = rewardsProgress.available ? "Rewards (ready)" : "Rewards";
+        rewardsTrigger.textContent = rewardsProgress.available ? "Voucher rewards (ready)" : "Voucher rewards";
         rewardsTrigger.classList.toggle("reward-ready", rewardsProgress.available);
       }
       if (navRewardsItem) {
-        navRewardsItem.textContent = rewardsProgress.available ? "Rewards (ready)" : "Rewards";
+        navRewardsItem.textContent = rewardsProgress.available ? "Voucher rewards (ready)" : "Voucher rewards";
         navRewardsItem.classList.toggle("reward-ready", rewardsProgress.available);
       }
       evaluateAchievements();
@@ -8645,7 +8665,7 @@
       if (isFreeMember()) return;
       const status = (memberProfile?.paymentStatus || "active").toLowerCase();
       const paymentOk = status === "active";
-      const isBetaTier = tier === "beta" || isBetaAccount;
+      const isBetaTier = tier === "beta" || isBetaAccount || betaPassMode;
       if (!paymentOk && !isBetaTier) {
         updateExpiryDisplay();
         return;
@@ -9899,25 +9919,18 @@ let onboardingIndex = 0;
     });
     if (rewardsRedeemBtn) {
       rewardsRedeemBtn.addEventListener("click", () => {
+        syncRewardsCycle();
         if (!rewardsProgress.available) {
           if (rewardsError) rewardsError.textContent = "Keep redeeming to unlock rewards.";
           return;
         }
-      const code = showRedemptionQr("Reward: shot perk");
-      const entry = {
-        code,
-        perk: "Reward: shot perk",
-        member: passUserName.textContent,
-        ceo: false,
-        perkKey: "reward_shot",
-          passId: (currentPassCode || "").toUpperCase(),
-          status: "pending",
-          timestamp: new Date().toISOString(),
-        };
-        addRedemptionLogEntry(entry);
-        showNeonSuccess(rewardsSuccess, "Reward ready for staff to redeem.", 3200);
+        const current = getPurchasedTokenTotal();
+        setPurchasedTokenTotal(current + 1);
+        updateVoucherBalanceUI();
+        renderRedemptionOptions();
+        showNeonSuccess(rewardsSuccess, "Reward claimed: +1 redemption token.", 3200);
         rewardsProgress.available = false;
-        rewardsProgress.rewardType = null;
+        rewardsProgress.rewardType = "token";
         rewardsProgress.count = 0;
         saveRewardsProgress(rewardsProgress);
         updateRewardsUI();
@@ -11709,10 +11722,11 @@ let onboardingIndex = 0;
     let purchaseReceipts = loadPurchaseReceipts();
     let vipDealsCache = loadVipDealsFromStorage();
     function incrementRewardsProgress() {
+      syncRewardsCycle();
       rewardsProgress.count += 1;
       if (rewardsProgress.count >= 5) {
         rewardsProgress.available = true;
-        rewardsProgress.rewardType = "shot";
+        rewardsProgress.rewardType = "token";
         rewardsProgress.count = 0;
       }
       saveRewardsProgress(rewardsProgress);
@@ -13773,7 +13787,7 @@ let onboardingIndex = 0;
       const billing = uid ? loadBilling(uid) : {};
       const now = new Date();
       const tier = (currentMembershipTier || memberProfile?.tier || "").toLowerCase();
-      const isBetaTier = tier === "beta" || isBetaAccount;
+      const isBetaTier = tier === "beta" || isBetaAccount || betaPassMode;
       const paymentStatus = (memberProfile?.paymentStatus || "active").toLowerCase();
       const paymentOk = paymentStatus === "active";
       const startIso = resolveBillingStart(billing) || memberProfile?.memberSince || null;
@@ -13824,6 +13838,9 @@ let onboardingIndex = 0;
         }
       } else if (memberProfile?.validUntil) {
         validUntil = normalizeDate(memberProfile.validUntil);
+      }
+      if (startDate && validUntil && validUntil < startDate) {
+        validUntil = nextCycleFrom(startDate, now) || oneMonthFrom(startDate);
       }
       if (!validUntil || Number.isNaN(validUntil.getTime())) {
         validUntil = oneMonthFrom(now);
