@@ -8750,12 +8750,17 @@
     }
 
     function computeStats(entries) {
-      const verified = entries.filter(entry => entry.status === "verified" && !entry.archived && !entry.betaArchived);
-      const total = verified.length;
+      const counted = entries.filter(entry => {
+        const status = (entry.status || "").toLowerCase();
+        return ["pending", "verified", "approved", "confirmed"].includes(status)
+          && !entry.archived
+          && !entry.betaArchived;
+      });
+      const total = counted.length;
       const venuesVisited = new Set(
-        verified.map(entry => (entry.venue || "").toLowerCase()).filter(Boolean)
+        counted.map(entry => (entry.venue || entry.requestedVenue || "").toLowerCase()).filter(Boolean)
       ).size;
-      const totalSavings = verified.reduce((sum, entry) => {
+      const totalSavings = counted.reduce((sum, entry) => {
         const key = normalizePerkKey(entry);
         return sum + perkSavings(key);
       }, 0);
@@ -13908,6 +13913,13 @@ let onboardingIndex = 0;
       if (!db || !venueId) return;
       let venueEntries = [];
       let requestedEntries = [];
+      const cached = loadStaffRedemptionCache(venueId);
+      if (cached.length) {
+        redemptionLog = cached.slice();
+        renderStaffVenueLog();
+        updateStaffRadar();
+        renderStaffPendingQueue();
+      }
       const toIso = (ts) => {
         if (!ts) return new Date().toISOString();
         if (ts.toDate) return ts.toDate().toISOString();
@@ -13951,6 +13963,7 @@ let onboardingIndex = 0;
         redemptionLog = Object.values(byCode).sort((a, b) => {
           return new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0);
         });
+        saveStaffRedemptionCache(venueId, redemptionLog);
         renderStaffVenueLog();
         updateStaffRadar();
         renderStaffPendingQueue();
@@ -14475,6 +14488,7 @@ let onboardingIndex = 0;
       redemptionLog.unshift(entry);
       saveRedemptionLog();
       renderStaffVenueLog();
+      renderStaffPendingQueue();
       renderCeoRedemptionLog();
       renderCeoVerifiedVenueLog();
       renderCeoVenueLog();
@@ -14515,6 +14529,7 @@ let onboardingIndex = 0;
     }
 
     const STAFF_SHIFT_PREFIX = "staffShiftStart_";
+    const STAFF_REDEMPTION_CACHE_PREFIX = "staffRedemptions_";
     function getStaffShiftStart(venueId) {
       if (!venueId) return 0;
       const key = `${STAFF_SHIFT_PREFIX}${venueId}`;
@@ -14540,6 +14555,23 @@ let onboardingIndex = 0;
       if (requested) return requested === venueKey;
       if (assigned) return assigned === venueKey;
       return false;
+    }
+    function loadStaffRedemptionCache(venueId) {
+      if (!venueId) return [];
+      try {
+        const raw = localStorage.getItem(`${STAFF_REDEMPTION_CACHE_PREFIX}${venueId}`);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        return [];
+      }
+    }
+    function saveStaffRedemptionCache(venueId, entries = []) {
+      if (!venueId) return;
+      try {
+        const trimmed = entries.slice(0, 200);
+        localStorage.setItem(`${STAFF_REDEMPTION_CACHE_PREFIX}${venueId}`, JSON.stringify(trimmed));
+      } catch (_) {}
     }
     function renderStaffPendingQueue() {
       if (!staffPendingList || !staffPendingCount) return;
@@ -14608,7 +14640,7 @@ let onboardingIndex = 0;
       const venueId = (staffSession.venue || "").toLowerCase();
       const now = Date.now();
       const recent = redemptionLog.filter(entry => {
-        const matchesVenue = venueId ? ((entry.venue || "").toLowerCase() === venueId) : true;
+        const matchesVenue = venueId ? entryMatchesVenue(entry, venueId) : true;
         if (!matchesVenue) return false;
         const ts = new Date(entry.timestamp || entry.createdAt || now).getTime();
         return now - ts <= 60 * 60 * 1000;
