@@ -1,0 +1,19 @@
+{
+  "name": "focoafterdark-functions",
+  "version": "1.0.0",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "start": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "@firebase/logger": "^0.4.2",
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^7.0.3",
+    "nodemailer": "^6.9.15",
+    "stripe": "^12.18.0"
+  }
+}

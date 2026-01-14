@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "foco-after-dark"
+  },
+  "targets": {
+    "foco-after-dark": {
+      "hosting": {
+        "default": [
+          "foco-after-dark"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

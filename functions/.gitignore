@@ -1,0 +1,5 @@
+node_modules/
+.runtimeconfig.json
+npm-debug.log
+.env
+.firebase/

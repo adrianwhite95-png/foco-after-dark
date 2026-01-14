@@ -1,0 +1,222 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isCeoEmail() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email == "ceo@gmail.com";
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    function isCeo() {
+      return isSignedIn() && (request.auth.token.ceo == true || isCeoEmail());
+    }
+
+    function isStaff() {
+      return isSignedIn() && request.auth.token.staff == true;
+    }
+
+    function hasPrivilegedRole() {
+      return isAdmin() || isCeo() || isStaff();
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function ceoVoucherExists(code) {
+      return exists(/databases/$(database)/documents/ceoVouchers/$(code));
+    }
+
+    function immutableRedemptionFieldsUnchanged() {
+      return request.resource.data.code == resource.data.code
+        && request.resource.data.passId == resource.data.passId
+        && request.resource.data.perk == resource.data.perk
+        && request.resource.data.perkKey == resource.data.perkKey
+        && request.resource.data.member == resource.data.member
+        && request.resource.data.ceo == resource.data.ceo;
+    }
+
+    function isPendingStatus(status) {
+      return status == "pending" || status == "requested";
+    }
+
+    function isAppOpen() {
+      return get(/databases/$(database)/documents/settings/app).data.appLocked != true;
+    }
+
+    function canAccessApp() {
+      return isAppOpen() || isCeo() || isAdmin();
+    }
+
+    // CEO-issued vouchers: only server (Admin SDK / Cloud Functions) may create/modify.
+    // Clients may read these only if they are authorized staff/CEO/admin (custom claims).
+    match /ceoVouchers/{code} {
+      allow read: if hasPrivilegedRole() && canAccessApp();
+      allow create, update, delete: if false;
+    }
+
+    // Voucher redemptions (codes)
+    match /redemptions/{code} {
+      // Auth required to read
+      allow read: if isSignedIn() && canAccessApp();
+
+      // Allow clients to create redemptions, but prevent client-created CEO redemptions.
+      // CEO redemptions are allowed only if the code exists in ceoVouchers.
+      // Non-privileged callers may only create pending/requested entries.
+      allow create: if isSignedIn()
+        && canAccessApp()
+        && request.resource.data.code == code
+        && !(request.resource.data.ceo == true && !ceoVoucherExists(code))
+        && (isPendingStatus(request.resource.data.status) || hasPrivilegedRole());
+
+      // Allow updates for authenticated callers, but disallow setting `ceo: true` unless caller has proper claim.
+      // Allow status/venue/verifiedAt updates while locking immutable fields.
+      allow update: if isSignedIn()
+        && canAccessApp()
+        && immutableRedemptionFieldsUnchanged()
+        && !(resource.data.ceo == true && !ceoVoucherExists(code))
+        && (
+          hasPrivilegedRole()
+          || (
+            isPendingStatus(resource.data.status)
+            && isPendingStatus(request.resource.data.status)
+            && request.resource.data.verifiedAt == resource.data.verifiedAt
+            && request.resource.data.used == resource.data.used
+          )
+        );
+
+      // No client delete
+      allow delete: if false;
+    }
+
+    // Tonight’s alerts (staff posts, everyone reads)
+    match /alerts/{id} {
+      allow read: if canAccessApp();
+      allow create, update, delete: if hasPrivilegedRole() && canAccessApp();
+    }
+
+    // VIP-only deals (staff posts, everyone reads)
+    match /vipDeals/{id} {
+      allow read: if canAccessApp();
+      allow create, update, delete: if hasPrivilegedRole() && canAccessApp();
+    }
+
+    // Venue-defined monthly perks (staff writes only for their venue; everyone reads)
+    match /venuePerks/{venueId} {
+      allow read: if canAccessApp();
+      allow create, update: if isSignedIn() && canAccessApp() && (
+        isAdmin() || isCeo() || (isStaff() && request.auth.token.venue == venueId)
+      );
+      allow delete: if isAdmin() || isCeo();
+    }
+
+    // Member profiles (readable to authenticated users; writes limited)
+    match /members/{uid} {
+      allow read: if canAccessApp() && (isOwner(uid) || hasPrivilegedRole());
+      allow create: if canAccessApp() && isOwner(uid);
+      allow update: if canAccessApp() && (isOwner(uid) || hasPrivilegedRole());
+      allow delete: if isOwner(uid) || isAdmin() || isCeo();
+    }
+
+    // Username directory for login-by-username
+    match /usernames/{name} {
+      allow read: if isSignedIn() && canAccessApp();
+      allow create: if isSignedIn() && canAccessApp() && request.resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn()
+        && canAccessApp()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAdmin() || isCeo();
+    }
+
+    // CEO free memberships — lookup by passCode, readable by authed users, writeable only by privileged roles
+    match /freeMemberships/{passCode} {
+      allow read: if isSignedIn() && canAccessApp();
+      allow create, update, delete: if hasPrivilegedRole() && canAccessApp();
+    }
+
+    // Staff → CEO direct messages (per-venue)
+    match /staffMessages/{id} {
+      // Staff can read only their venue messages; CEO/admin can read all.
+      allow read: if isSignedIn() && canAccessApp() && (
+        isAdmin() ||
+        isCeo() ||
+        (isStaff() && (
+          request.auth.uid == resource.data.staffUid ||
+          request.auth.token.venue == resource.data.venueId
+        ))
+      );
+
+      // Staff can create only for their own venue and themselves.
+      allow create: if isSignedIn()
+        && canAccessApp()
+        && isStaff()
+        && request.resource.data.staffUid == request.auth.uid
+        && request.resource.data.message is string
+        && request.resource.data.venueId is string
+        && (request.auth.token.venue == null || request.resource.data.venueId == request.auth.token.venue);
+
+      // CEO/admin can update (reply/read flags + deletes), staff can mark read or hide their copy.
+      allow update: if isSignedIn()
+        && canAccessApp()
+        && (
+          (isAdmin() || isCeo())
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(["reply", "repliedAt", "readByCeo", "readByStaff", "deletedByCeo"])
+        ||
+          (isStaff()
+            && (request.auth.uid == resource.data.staffUid || request.auth.token.venue == resource.data.venueId)
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(["readByStaff", "readByStaffAt", "deletedByStaff"]))
+        )
+        && request.resource.data.venueId == resource.data.venueId
+        && request.resource.data.staffUid == resource.data.staffUid;
+
+      allow delete: if false;
+    }
+
+    // Venue ratings
+    match /venueRatings/{venueId} {
+      allow read: if canAccessApp();
+      allow write: if isSignedIn() && canAccessApp();
+    }
+
+    // Reviews (any signed-in user can create/read; no deletes)
+    match /reviews/{id} {
+      allow read: if canAccessApp();
+      allow create: if isSignedIn() && canAccessApp();
+      allow update, delete: if false;
+    }
+
+    // Close-out reports stored per venue (optional; allow only authed writes, public reads)
+    match /closeOutReports/{id} {
+      allow read: if hasPrivilegedRole() && canAccessApp();
+      allow write: if hasPrivilegedRole() && canAccessApp();
+      allow delete: if isAdmin() || isCeo();
+    }
+
+    // App settings (e.g., launch mode). Readable by all; writable only by privileged roles.
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || isCeo();
+    }
+
+    match /systemEmails/{id} {
+      allow read: if isAdmin() || isCeo();
+      allow write: if isAdmin() || isCeo();
+    }
+
+    match /mail/{id} {
+      allow read: if false;
+      allow write: if isAdmin() || isCeo();
+      allow delete: if false;
+    }
+  }
+}

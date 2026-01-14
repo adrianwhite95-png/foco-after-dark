@@ -1,0 +1,16 @@
+{
+  "name": "FoCo After Dark",
+  "short_name": "FoCo Pass",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#010818",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    {
+      "src": "foco-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
