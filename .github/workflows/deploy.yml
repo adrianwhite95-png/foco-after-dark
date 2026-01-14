@@ -35,6 +35,6 @@ jobs:
 
       - name: Deploy hosting, functions, and rules
         env:
-          PROJECT_ID: foco-after-dark
+          PROJECT_ID: folkloric-alpha-480802-d9
         run: |
           firebase deploy --project "$PROJECT_ID" --only hosting,functions,firestore:rules

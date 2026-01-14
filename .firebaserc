@@ -1,12 +1,12 @@
 {
   "projects": {
-    "default": "foco-after-dark"
+    "default": "folkloric-alpha-480802-d9"
   },
   "targets": {
-    "foco-after-dark": {
+    "folkloric-alpha-480802-d9": {
       "hosting": {
         "default": [
-          "foco-after-dark"
+          "folkloric-alpha-480802-d9"
         ]
       }
     }

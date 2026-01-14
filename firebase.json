@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "foco-after-dark",
+    "site": "folkloric-alpha-480802-d9",
     "public": ".",
     "ignore": [
       "firebase.json",
