@@ -8643,6 +8643,13 @@
     function checkMembershipAutoRenew(tier) {
       if (!tier) return;
       if (isFreeMember()) return;
+      const status = (memberProfile?.paymentStatus || "active").toLowerCase();
+      const paymentOk = status === "active";
+      const isBetaTier = tier === "beta" || isBetaAccount;
+      if (!paymentOk && !isBetaTier) {
+        updateExpiryDisplay();
+        return;
+      }
       const user = firebaseAuth.currentUser;
       const uid = user?.uid;
       if (!uid) return;
@@ -8650,7 +8657,8 @@
       const now = new Date();
       if (!billing.tier) billing.tier = tier;
       if (!billing.nextRenewal) {
-        billing.start = billing.start || now.toISOString();
+        const startIso = resolveBillingStart(billing) || memberProfile?.memberSince || now.toISOString();
+        billing.start = billing.start || startIso;
         billing.nextRenewal = oneMonthFrom(new Date(billing.start)).toISOString();
         saveBilling(uid, billing);
         return;
@@ -13753,22 +13761,54 @@ let onboardingIndex = 0;
       const isBetaTier = tier === "beta" || isBetaAccount;
       const paymentStatus = (memberProfile?.paymentStatus || "active").toLowerCase();
       const paymentOk = paymentStatus === "active";
+      const startIso = resolveBillingStart(billing) || memberProfile?.memberSince || null;
+      const startDate = startIso ? new Date(startIso) : null;
+      const normalizeDate = (value) => {
+        if (!value) return null;
+        const date = value instanceof Date ? value : new Date(value);
+        return Number.isNaN(date.getTime()) ? null : date;
+      };
+      const nextCycleFrom = (anchor, base) => {
+        const start = normalizeDate(anchor);
+        if (!start) return null;
+        let next = oneMonthFrom(start);
+        if (!next || Number.isNaN(next.getTime())) return null;
+        let guard = 0;
+        while (next <= base && guard < 36) {
+          next = oneMonthFrom(next);
+          guard += 1;
+        }
+        return next;
+      };
       let validUntil = null;
       if (isBetaTier) {
-        validUntil = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        validUntil = nextCycleFrom(startDate || now, now) || oneMonthFrom(now);
       } else if (tier === "standard" || tier === "vip") {
-        if (billing?.lastCharge) {
-          validUntil = oneMonthFrom(new Date(billing.lastCharge));
-        } else if (billing?.nextRenewal && paymentOk) {
-          validUntil = new Date(billing.nextRenewal);
-        } else if (memberProfile?.validUntil) {
-          validUntil = new Date(memberProfile.validUntil);
-        }
-        if (paymentOk && (!validUntil || Number.isNaN(validUntil.getTime()) || validUntil < now)) {
-          validUntil = oneMonthFrom(now);
+        if (paymentOk) {
+          validUntil = normalizeDate(billing?.nextRenewal);
+          if (!validUntil && billing?.lastCharge) {
+            validUntil = oneMonthFrom(new Date(billing.lastCharge));
+          }
+          if (!validUntil && startDate) {
+            validUntil = nextCycleFrom(startDate, now);
+          }
+          if (!validUntil) {
+            validUntil = oneMonthFrom(now);
+          }
+          if (validUntil <= now) {
+            validUntil = nextCycleFrom(startDate || validUntil, now) || oneMonthFrom(now);
+          }
+        } else {
+          validUntil = normalizeDate(memberProfile?.validUntil);
+          if (!validUntil) {
+            validUntil = normalizeDate(billing?.nextRenewal);
+          }
+          if (!validUntil && startDate) {
+            validUntil = oneMonthFrom(startDate);
+          }
         }
       } else if (memberProfile?.validUntil) {
-        validUntil = new Date(memberProfile.validUntil);
+        validUntil = normalizeDate(memberProfile.validUntil);
       }
       if (!validUntil || Number.isNaN(validUntil.getTime())) {
         validUntil = oneMonthFrom(now);
@@ -13779,8 +13819,11 @@ let onboardingIndex = 0;
       if (code) {
         setMemberDirectoryEntry(code, { validUntil: iso });
       }
-      if (uid && paymentOk && !billing?.nextRenewal) {
+      if (uid && (paymentOk || isBetaTier) && !billing?.nextRenewal) {
         const bill = loadBilling(uid) || {};
+        if (!bill.start && startIso) {
+          bill.start = startIso;
+        }
         bill.nextRenewal = iso;
         saveBilling(uid, bill);
       }
