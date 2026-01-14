@@ -1559,7 +1559,7 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       gap: 8px;
       flex-wrap: wrap;
     }
@@ -1619,11 +1619,25 @@
       box-shadow: 0 0 20px rgba(250, 204, 21, 0.5);
     }
 
+    .profile-summary {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(8, 14, 28, 0.6);
+      box-shadow: 0 16px 32px rgba(2, 6, 23, 0.45), 0 0 18px rgba(34, 211, 238, 0.12);
+      margin: 8px 0 10px;
+    }
     .user-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin: 6px 0 10px;
+      gap: 12px;
+      margin: 0;
+    }
+    .user-details {
+      display: grid;
+      gap: 4px;
     }
     .username-row {
       display: inline-flex;
@@ -1676,18 +1690,27 @@
       transform: translateY(-1px);
     }
     .avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 999px;
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
       background: radial-gradient(circle at 30% 10%, #a855f7, #0ea5e9);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 600;
+      font-weight: 700;
       font-size: 18px;
       color: #020617;
-      box-shadow: 0 0 16px rgba(59, 130, 246, 0.8);
+      box-shadow: 0 10px 22px rgba(2, 6, 23, 0.45), 0 0 18px rgba(59, 130, 246, 0.6);
       position: relative;
+      }
+    .avatar::before {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.08);
+      pointer-events: none;
     }
     .avatar::after {
       content: attr(data-flair);
@@ -1752,6 +1775,32 @@
       justify-content: space-between;
       margin: 4px 0 10px;
       gap: 10px;
+    }
+    .meta-row.quick-strip {
+      margin: 6px 0 8px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .meta-row.quick-strip .meta-group {
+      flex: 1;
+      min-width: 120px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(11, 19, 40, 0.65);
+    }
+    .meta-row.profile-meta {
+      margin: 0;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .profile-summary .meta-group {
+      flex: 1;
+      min-width: 120px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(11, 19, 40, 0.65);
     }
     .meta-group {
       display: flex;
@@ -4664,7 +4713,7 @@
           </div>
 
           <!-- Quick strip -->
-          <div class="meta-row" style="margin:10px 0;gap:10px;">
+          <div class="meta-row quick-strip">
             <div class="meta-group" style="flex:1;">
               <div class="meta-label">Status</div>
               <div class="meta-value" id="quickStatus">Active</div>
@@ -4680,9 +4729,10 @@
           </div>
 
           <!-- Profile summary -->
-          <div class="user-row">
+          <div class="profile-summary">
+            <div class="user-row">
             <div class="avatar" id="avatarInitials" title="Tap to change color and emoji"></div>
-            <div>
+            <div class="user-details">
               <div class="user-name" id="passUserName">FoCo Member</div>
               <div class="user-tier" id="passTierText">Nightlife Pass • Member</div>
               <div class="pass-id-row">
@@ -4700,7 +4750,7 @@
             </div>
           </div>
 
-          <div class="meta-row">
+          <div class="meta-row profile-meta">
             <div class="meta-group">
               <div class="meta-label">Member Since</div>
               <div class="meta-value" id="memberSinceText">Jan 1, 2024</div>
@@ -4713,6 +4763,7 @@
               <div class="meta-label">Points</div>
               <div class="meta-value" id="pointsBalance">0</div>
             </div>
+          </div>
           </div>
 
           <div class="alerts-card">
@@ -9658,7 +9709,31 @@ let onboardingIndex = 0;
     if (alertPreview) {
       alertPreview.addEventListener("click", async (e) => {
         const expireBtn = e.target.closest("[data-expire-alert]");
+        const deleteBtn = e.target.closest("[data-delete-alert]");
         if (!staffSession) return;
+        if (deleteBtn) {
+          const id = deleteBtn.dataset.deleteAlert;
+          if (!id) return;
+          removeDealCodesForAlert(id);
+          const useLocalCache = allowLocalCache();
+          if (useLocalCache) {
+            tonightAlerts = tonightAlerts.filter(alert => alert.id !== id);
+            saveAlertsToStorage(tonightAlerts);
+            refreshAlertsTicker();
+            renderStaffAlertPreview();
+            renderStaffDealCodes();
+            return;
+          }
+          if (!db) return;
+          try {
+            await deleteDoc(doc(db, "alerts", id));
+            await refreshTonightAlerts();
+            renderStaffDealCodes();
+          } catch (err) {
+            console.error("Failed to delete alert", err);
+          }
+          return;
+        }
         if (expireBtn) {
           const id = expireBtn.dataset.expireAlert;
           const useLocalCache = allowLocalCache();
@@ -11460,6 +11535,21 @@ let onboardingIndex = 0;
       }
       persistMemberState({ dealCodes: map || {} });
     }
+    function removeDealCodesForAlert(alertId) {
+      if (!alertId) return;
+      let current = {};
+      try {
+        current = loadDealCodes();
+      } catch (err) {
+        current = {};
+      }
+      const next = {};
+      Object.entries(current || {}).forEach(([code, info]) => {
+        if (info?.alertId !== alertId) next[code] = info;
+      });
+      dealCodes = next;
+      saveDealCodes(next);
+    }
     function cleanDealCodes() {
       try {
         dealCodes = loadDealCodes();
@@ -13003,7 +13093,9 @@ let onboardingIndex = 0;
             <strong>${alert.title || alert.venueName}</strong><br/>
             <span style="color:#94a3b8;">${alert.meta || alert.venueName || ""}</span><br/>
             <span style="color:#93c5fd;font-size:11px;">Expired ${expires}</span>
-            <div class="log-meta" style="margin-top:4px;"></div>
+            <div class="log-meta" style="margin-top:4px;">
+              <button class="btn btn-secondary" data-delete-alert="${alert.id}">Delete</button>
+            </div>
           </div>
         `;
       }).join("");
@@ -14182,46 +14274,58 @@ let onboardingIndex = 0;
         }).join("");
       }
       if (radarParticles) {
-        const particleCount = Math.min(24, Math.max(4, Math.round(5 + recent.length * 1.6 + hot.length)));
-        radarParticles.innerHTML = Array.from({ length: particleCount }).map((_, idx) => {
-          const seed = (recent[idx]?.timestamp ? new Date(recent[idx].timestamp).getTime() : now) + idx * 61;
-          const left = 10 + seededRandom(seed) * 80;
-          const top = 10 + seededRandom(seed + 2) * 80;
-          const driftX = (seededRandom(seed + 3) - 0.5) * (30 + intensity * 60);
-          const driftY = (seededRandom(seed + 4) - 0.5) * (30 + intensity * 60);
-          const size = 3 + seededRandom(seed + 5) * (5 + intensity * 6);
-          const speed = Math.max(2.4, 7.5 - intensity * 4) + seededRandom(seed + 6) * 2.5;
-          const delay = (seededRandom(seed + 7) * 1.8).toFixed(2);
-          const opacity = (0.25 + intensity * 0.55).toFixed(2);
-          return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;animation-duration:${speed.toFixed(2)}s;animation-delay:${delay}s;--particle-drift-x:${driftX.toFixed(1)}px;--particle-drift-y:${driftY.toFixed(1)}px;opacity:${opacity};"></span>`;
-        }).join("");
+        if (!recent.length) {
+          radarParticles.innerHTML = "";
+        } else {
+          const particleCount = Math.min(24, Math.max(6, Math.round(6 + recent.length * 1.6 + hot.length)));
+          radarParticles.innerHTML = Array.from({ length: particleCount }).map((_, idx) => {
+            const seed = (recent[idx]?.timestamp ? new Date(recent[idx].timestamp).getTime() : now) + idx * 61;
+            const left = 10 + seededRandom(seed) * 80;
+            const top = 10 + seededRandom(seed + 2) * 80;
+            const driftX = (seededRandom(seed + 3) - 0.5) * (30 + intensity * 60);
+            const driftY = (seededRandom(seed + 4) - 0.5) * (30 + intensity * 60);
+            const size = 3 + seededRandom(seed + 5) * (5 + intensity * 6);
+            const speed = Math.max(2.4, 7.5 - intensity * 4) + seededRandom(seed + 6) * 2.5;
+            const delay = (seededRandom(seed + 7) * 1.8).toFixed(2);
+            const opacity = (0.25 + intensity * 0.55).toFixed(2);
+            return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;animation-duration:${speed.toFixed(2)}s;animation-delay:${delay}s;--particle-drift-x:${driftX.toFixed(1)}px;--particle-drift-y:${driftY.toFixed(1)}px;opacity:${opacity};"></span>`;
+          }).join("");
+        }
       }
       if (radarStreaks) {
-        const streakCount = Math.min(10, Math.max(0, Math.round(intensity * 8)));
-        radarStreaks.innerHTML = Array.from({ length: streakCount }).map((_, idx) => {
-          const seed = now + idx * 83;
-          const left = 10 + seededRandom(seed) * 80;
-          const top = 10 + seededRandom(seed + 2) * 80;
-          const length = 60 + seededRandom(seed + 3) * (80 + intensity * 120);
-          const rotation = (seededRandom(seed + 4) * 360).toFixed(1);
-          const speed = Math.max(1.6, 5.4 - intensity * 3.2) + seededRandom(seed + 5) * 2;
-          const delay = (seededRandom(seed + 6) * 2).toFixed(2);
-          const opacity = (0.2 + intensity * 0.55).toFixed(2);
-          return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${length.toFixed(1)}px;--streak-rot:${rotation}deg;--streak-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;--streak-opacity:${opacity};"></span>`;
-        }).join("");
+        if (!recent.length) {
+          radarStreaks.innerHTML = "";
+        } else {
+          const streakCount = Math.min(10, Math.max(0, Math.round(intensity * 8)));
+          radarStreaks.innerHTML = Array.from({ length: streakCount }).map((_, idx) => {
+            const seed = now + idx * 83;
+            const left = 10 + seededRandom(seed) * 80;
+            const top = 10 + seededRandom(seed + 2) * 80;
+            const length = 60 + seededRandom(seed + 3) * (80 + intensity * 120);
+            const rotation = (seededRandom(seed + 4) * 360).toFixed(1);
+            const speed = Math.max(1.6, 5.4 - intensity * 3.2) + seededRandom(seed + 5) * 2;
+            const delay = (seededRandom(seed + 6) * 2).toFixed(2);
+            const opacity = (0.2 + intensity * 0.55).toFixed(2);
+            return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${length.toFixed(1)}px;--streak-rot:${rotation}deg;--streak-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;--streak-opacity:${opacity};"></span>`;
+          }).join("");
+        }
       }
       if (radarBursts) {
-        const burstCount = Math.min(6, Math.max(0, Math.round(intensity * 5)));
-        radarBursts.innerHTML = Array.from({ length: burstCount }).map((_, idx) => {
-          const seed = (recent[idx]?.timestamp ? new Date(recent[idx].timestamp).getTime() : now) + idx * 73;
-          const left = 20 + seededRandom(seed) * 60;
-          const top = 20 + seededRandom(seed + 2) * 60;
-          const size = 16 + seededRandom(seed + 3) * (24 + intensity * 30);
-          const speed = Math.max(2.4, 5.6 - intensity * 2.5) + seededRandom(seed + 4) * 2;
-          const delay = (seededRandom(seed + 5) * 2.5).toFixed(2);
-          const opacity = (0.2 + intensity * 0.6).toFixed(2);
-          return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--burst-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;--burst-opacity:${opacity};"></span>`;
-        }).join("");
+        if (!recent.length) {
+          radarBursts.innerHTML = "";
+        } else {
+          const burstCount = Math.min(6, Math.max(0, Math.round(intensity * 5)));
+          radarBursts.innerHTML = Array.from({ length: burstCount }).map((_, idx) => {
+            const seed = (recent[idx]?.timestamp ? new Date(recent[idx].timestamp).getTime() : now) + idx * 73;
+            const left = 20 + seededRandom(seed) * 60;
+            const top = 20 + seededRandom(seed + 2) * 60;
+            const size = 16 + seededRandom(seed + 3) * (24 + intensity * 30);
+            const speed = Math.max(2.4, 5.6 - intensity * 2.5) + seededRandom(seed + 4) * 2;
+            const delay = (seededRandom(seed + 5) * 2.5).toFixed(2);
+            const opacity = (0.2 + intensity * 0.6).toFixed(2);
+            return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--burst-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;--burst-opacity:${opacity};"></span>`;
+          }).join("");
+        }
       }
       if (radarList) {
         if (!recent.length) {
