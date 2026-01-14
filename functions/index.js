@@ -896,18 +896,34 @@ function priceForTier(tier = 'standard') {
   return map[tier] || map.standard;
 }
 
+const TOKEN_PACKS = {
+  tokens_1: { perk: "tokens", amount: 1, priceCents: 300, priceLabel: "$3.00", label: "Redemption token" },
+  tokens_2: { perk: "tokens", amount: 2, priceCents: 600, priceLabel: "$6.00", label: "Redemption tokens" },
+  tokens_3: { perk: "tokens", amount: 3, priceCents: 900, priceLabel: "$9.00", label: "Redemption tokens" },
+  tokens_4: { perk: "tokens", amount: 4, priceCents: 1200, priceLabel: "$12.00", label: "Redemption tokens" },
+  tokens_5: { perk: "tokens", amount: 5, priceCents: 1500, priceLabel: "$15.00", label: "Redemption tokens" },
+};
+
 const VOUCHER_PACKS = {
   standard: {
     drink: { perk: "drink", amount: 2, priceCents: 600, priceLabel: "$6.00", label: "$3 drink voucher" },
     shot: { perk: "shot", amount: 4, priceCents: 500, priceLabel: "$5.00", label: "$1 shot voucher" },
     cover: { perk: "cover", amount: 3, priceCents: 2000, priceLabel: "$20.00", label: "Skip Line + No Cover Charge" },
+    ...TOKEN_PACKS,
   },
   vip: {
     drink: { perk: "drink", amount: 4, priceCents: 1000, priceLabel: "$10.00", label: "$3 drink voucher" },
     shot: { perk: "shot", amount: 4, priceCents: 500, priceLabel: "$5.00", label: "$1 shot voucher" },
     cover: { perk: "cover", amount: 3, priceCents: 1500, priceLabel: "$15.00", label: "Skip Line + No Cover Charge" },
+    ...TOKEN_PACKS,
   },
 };
+
+function getTokenCycleKey(date = new Date()) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
 
 function resolveVoucherPack(tier, packId) {
   const t = (tier || "standard").toLowerCase();
@@ -919,6 +935,23 @@ function resolveVoucherPack(tier, packId) {
 
 async function applyVoucherPack(uid, pack) {
   const ref = db.collection("members").doc(uid);
+  if (pack.perk === "tokens") {
+    const cycleKey = getTokenCycleKey();
+    let nextCount = pack.amount;
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const data = snap.exists ? snap.data() : {};
+      const currentCycle = data.extraRedemptionTokensCycle || "";
+      const current = currentCycle === cycleKey ? Number(data.extraRedemptionTokens || 0) : 0;
+      nextCount = current + pack.amount;
+      tx.set(ref, {
+        extraRedemptionTokens: nextCount,
+        extraRedemptionTokensCycle: cycleKey,
+        lastVoucherPurchase: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    });
+    return { extraRedemptionTokens: nextCount, extraRedemptionTokensCycle: cycleKey };
+  }
   const updates = {
     [`extraVouchers.${pack.perk}`]: admin.firestore.FieldValue.increment(pack.amount),
     lastVoucherPurchase: admin.firestore.FieldValue.serverTimestamp(),
@@ -926,7 +959,7 @@ async function applyVoucherPack(uid, pack) {
   await ref.set(updates, { merge: true });
   const snap = await ref.get();
   const data = snap.exists ? snap.data() : {};
-  return data.extraVouchers || {};
+  return { extraVouchers: data.extraVouchers || {} };
 }
 
 async function ensureStripeCustomer(uid, email) {
@@ -1284,7 +1317,7 @@ exports.confirmVoucherPurchase = functions.runWith(stripeSecrets).https.onCall(a
   const pack = resolveVoucherPack(tier, packId) || resolveVoucherPack('standard', packId);
   if (!pack) throw new HttpsError('failed-precondition', 'Pack missing');
 
-  const extraVouchers = await applyVoucherPack(uid, pack);
+  const packResult = await applyVoucherPack(uid, pack);
   const memberRef = db.collection('members').doc(uid);
   if (intent.payment_method) {
     await memberRef.set({ defaultPaymentMethodId: intent.payment_method }, { merge: true });
@@ -1292,7 +1325,7 @@ exports.confirmVoucherPurchase = functions.runWith(stripeSecrets).https.onCall(a
   return {
     ok: true,
     pack: { id: pack.id, amount: pack.amount, perk: pack.perk, priceLabel: pack.priceLabel, label: pack.label },
-    extraVouchers
+    ...packResult
   };
 });
 
