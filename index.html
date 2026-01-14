@@ -11249,12 +11249,12 @@ let onboardingIndex = 0;
     let bgUserSelected = false;
     /* accentToBg mapping removed — background selection disabled */
     const ACHIEVEMENTS = [
-      { id: "firstReview", label: "First Voice", desc: "Leave your first review.", icon: "📝" },
-      { id: "tenRedemptions", label: "Night Grinder", desc: "Redeem 10 vouchers.", icon: "🚀" },
-      { id: "threeVenues", label: "City Explorer", desc: "Redeem at 3 venues.", icon: "🧭" },
-      { id: "weekendWarrior", label: "Weekend Warrior", desc: "3 redemptions Fri–Sun.", icon: "🎉" },
-      { id: "shotSpecialist", label: "Shot Specialist", desc: "Redeem 3 shot vouchers.", icon: "🥃" },
-      { id: "skipHero", label: "Line Cutter", desc: "Use a line access perk.", icon: "⏩" },
+      { id: "firstLogin", label: "First Login", desc: "Log in for the first time.", icon: "🔑" },
+      { id: "handleSet", label: "Handle Ready", desc: "Set your @username.", icon: "🏷️" },
+      { id: "firstPerk", label: "First Perk", desc: "Redeem your first voucher.", icon: "🍸" },
+      { id: "threeVenues", label: "City Explorer", desc: "Redeem perks at 3 venues.", icon: "🧭" },
+      { id: "firstReview", label: "First Review", desc: "Leave your first review.", icon: "📝" },
+      { id: "monthlyStreak", label: "Streak Starter", desc: "Redeem 5 perks in a month.", icon: "🔥" },
     ];
     const NIGHT_WHEEL_CHALLENGES = [
       "Start a 10-second dance-off with your crew.",
@@ -11454,6 +11454,12 @@ let onboardingIndex = 0;
       const now = new Date();
       const m = String(now.getMonth() + 1).padStart(2, "0");
       return `${now.getFullYear()}-${m}`;
+    }
+    function getMonthTokenFromDate(date) {
+      const parsed = date instanceof Date ? date : new Date(date);
+      if (Number.isNaN(parsed.getTime())) return getMonthToken();
+      const m = String(parsed.getMonth() + 1).padStart(2, "0");
+      return `${parsed.getFullYear()}-${m}`;
     }
     function normalizeNightWheelState(state) {
       if (!state || typeof state !== "object" || Array.isArray(state)) return {};
@@ -11720,11 +11726,100 @@ let onboardingIndex = 0;
       if (usernameModal) usernameModal.classList.remove("active");
       if (usernameEditError) usernameEditError.textContent = "";
     }
-    function saveUsernameFromModal() {
+    function hasUnlimitedUsernameChanges() {
+      return isCeoActive() || isCeoAccount || memberProfile?.ceo || isFreeMember();
+    }
+    function usernameChangeCountsKey(code) {
+      return `${USERNAME_CHANGE_KEY}_${code}`;
+    }
+    function normalizeUsernameChangeCounts(raw) {
+      if (!raw) return {};
+      if (typeof raw === "string") {
+        const parsed = new Date(raw);
+        if (!Number.isNaN(parsed.getTime())) {
+          return { [getMonthTokenFromDate(parsed)]: 1 };
+        }
+        try {
+          raw = JSON.parse(raw);
+        } catch (_) {
+          return {};
+        }
+      }
+      if (Array.isArray(raw)) {
+        return raw.reduce((acc, stamp) => {
+          const token = getMonthTokenFromDate(stamp);
+          acc[token] = (acc[token] || 0) + 1;
+          return acc;
+        }, {});
+      }
+      if (typeof raw === "object") {
+        return Object.entries(raw).reduce((acc, [key, value]) => {
+          const count = Number(value);
+          if (Number.isFinite(count) && count > 0) acc[key] = count;
+          return acc;
+        }, {});
+      }
+      return {};
+    }
+    function loadUsernameChangeCounts(code) {
+      if (!code) return {};
+      const counts = normalizeUsernameChangeCounts(memberProfile?.usernameChangeCounts);
+      const raw = localStorage.getItem(usernameChangeCountsKey(code));
+      const localCounts = normalizeUsernameChangeCounts(raw);
+      Object.entries(localCounts).forEach(([key, value]) => {
+        counts[key] = Math.max(Number(counts[key] || 0), Number(value || 0));
+      });
+      return counts;
+    }
+    function getUsernameChangesThisMonth(code) {
+      const counts = loadUsernameChangeCounts(code);
+      return Number(counts[getMonthToken()] || 0);
+    }
+    function usernameChangeLimitMessage(code) {
+      const remaining = Math.max(0, 2 - getUsernameChangesThisMonth(code));
+      if (!remaining) return "You can change your username twice per month.";
+      return `You can change your username ${remaining} more time${remaining === 1 ? "" : "s"} this month.`;
+    }
+    function recordUsernameChange(code) {
+      if (!code) return null;
+      const counts = loadUsernameChangeCounts(code);
+      const token = getMonthToken();
+      counts[token] = Number(counts[token] || 0) + 1;
+      localStorage.setItem(usernameChangeCountsKey(code), JSON.stringify(counts));
+      return counts;
+    }
+    async function applyUsernameChange(code, finalName) {
+      const changeCounts = recordUsernameChange(code);
+      const updates = {
+        username: finalName,
+        usernameChangedAt: new Date().toISOString()
+      };
+      if (changeCounts) updates.usernameChangeCounts = changeCounts;
+      memberProfile = { ...(memberProfile || {}), ...updates };
+      if (userUsername) userUsername.textContent = `@${finalName}`;
+      if (userMiniDisplay) userMiniDisplay.textContent = `@${finalName}`;
+      setMemberDirectoryEntry(code, { username: finalName, email: firebaseAuth.currentUser?.email || "" });
+      setPointsForPass(code, getPointsForPass(code));
+      if (firebaseAuth.currentUser?.email) {
+        saveUsernameMapEntry(finalName, firebaseAuth.currentUser.email);
+        if (db) {
+          const unameDoc = doc(db, "usernames", finalName.trim().toLowerCase());
+          setDoc(unameDoc, {
+            email: firebaseAuth.currentUser.email,
+            uid: firebaseAuth.currentUser.uid || "",
+            updatedAt: serverTimestamp()
+          }, { merge: true }).catch(err => console.warn("Username map save failed", err));
+        }
+      }
+      updatePointsUI();
+      evaluateAchievements();
+      await updateMemberProfile(updates);
+    }
+    async function saveUsernameFromModal() {
       const code = (currentPassCode || "").toUpperCase();
       if (!code) return;
       if (!canChangeUsername(code)) {
-        usernameEditError.textContent = "You can change once every 30 days.";
+        usernameEditError.textContent = usernameChangeLimitMessage(code);
         return;
       }
       const next = (usernameEditInput?.value || "").trim();
@@ -11739,43 +11834,14 @@ let onboardingIndex = 0;
         if (usernameEditError) usernameEditError.textContent = "Username already taken. Try another.";
         return;
       }
-      memberProfile = memberProfile || {};
-      memberProfile.username = finalName;
-      updateMemberProfile({ username: finalName, usernameChangedAt: new Date().toISOString() });
-      recordUsernameChange(code);
-      if (userUsername) userUsername.textContent = `@${finalName}`;
-      setPointsForPass(code, getPointsForPass(code));
-      if (firebaseAuth.currentUser?.email) {
-        saveUsernameMapEntry(finalName, firebaseAuth.currentUser.email);
-        if (db) {
-          const unameDoc = doc(db, "usernames", finalName.trim().toLowerCase());
-          setDoc(unameDoc, {
-            email: firebaseAuth.currentUser.email,
-            uid: firebaseAuth.currentUser.uid || "",
-            updatedAt: serverTimestamp()
-          }, { merge: true }).catch(err => console.warn("Username map save failed", err));
-        }
-      }
-      updatePointsUI();
+      await applyUsernameChange(code, finalName);
       closeUsernameModal();
       showToast("Username updated.");
     }
-    function usernameCooldownKey(code) {
-      return `${USERNAME_CHANGE_KEY}_${code}`;
-    }
     function canChangeUsername(code) {
       if (!code) return true;
-      if (isCeoActive() || currentMembershipTier === "vip" || isFreeMember()) return true;
-      const raw = localStorage.getItem(usernameCooldownKey(code));
-      if (!raw) return true;
-      const last = new Date(raw).getTime();
-      if (Number.isNaN(last)) return true;
-      const days = (Date.now() - last) / (1000 * 60 * 60 * 24);
-      return days >= 30;
-    }
-    function recordUsernameChange(code) {
-      if (!code) return;
-      localStorage.setItem(usernameCooldownKey(code), new Date().toISOString());
+      if (hasUnlimitedUsernameChanges()) return true;
+      return getUsernameChangesThisMonth(code) < 2;
     }
     function isUsernameTaken(candidate) {
       if (!candidate) return false;
@@ -11787,11 +11853,11 @@ let onboardingIndex = 0;
       const directory = loadMemberDirectory();
       return Object.values(directory).some(entry => (entry.username || "").toLowerCase() === check);
     }
-    function handleUsernameEdit() {
+    async function handleUsernameEdit() {
       const code = (currentPassCode || "").toUpperCase();
       if (!code) return;
       if (!canChangeUsername(code)) {
-        showToast("You can change your username once every 30 days.");
+        showToast(usernameChangeLimitMessage(code));
         return;
       }
       const current = preferredUsername();
@@ -11808,12 +11874,7 @@ let onboardingIndex = 0;
         showToast("Username already taken. Try another.");
         return;
       }
-      memberProfile = memberProfile || {};
-      memberProfile.username = finalName;
-      updateMemberProfile({ username: finalName, usernameChangedAt: new Date().toISOString() });
-      recordUsernameChange(code);
-      if (userUsername) userUsername.textContent = `@${finalName}`;
-      setPointsForPass(code, getPointsForPass(code));
+      await applyUsernameChange(code, finalName);
       showToast("Username updated.");
     }
     function loadBackgroundTheme() {
@@ -12318,7 +12379,7 @@ let onboardingIndex = 0;
       editUsernameBtn.addEventListener("click", () => {
         const code = (currentPassCode || "").toUpperCase();
         if (!canChangeUsername(code)) {
-          showToast("You can change your username once every 30 days.");
+          showToast(usernameChangeLimitMessage(code));
           return;
         }
         openUsernameModal();
@@ -14361,6 +14422,9 @@ let onboardingIndex = 0;
       const key = currentPassCode.toUpperCase();
       const entry = getAchievementStateForCurrentPass();
       const reviewCount = (badgeDirectory[key]?.reviewsCount) || 0;
+      const loginCount = Number(memberProfile?.loginCount || 0);
+      const usernameChangeCounts = loadUsernameChangeCounts(key);
+      const totalUsernameChanges = Object.values(usernameChangeCounts).reduce((sum, val) => sum + (Number(val) || 0), 0);
       const entries = entriesOverride || redemptionLog;
       const matchPass = (e) => {
         const pid = (e.passId || e.passcode || e.passCode || "").toUpperCase();
@@ -14369,24 +14433,19 @@ let onboardingIndex = 0;
       const verified = entries.filter(e => e.status === "verified" && matchPass(e));
       const verifiedCount = verified.length;
       const uniqueVenues = new Set(verified.map(e => (e.venue || "").toLowerCase())).size;
-      const weekendCount = verified.filter(e => {
-        const d = new Date(e.timestamp || e.verifiedAt || Date.now());
-        const day = d.getDay();
-        return day === 0 || day === 5 || day === 6;
-      }).length;
-      const shotCount = verified.filter(e => (e.perk || e.perkKey || "").toLowerCase().includes("shot")).length;
-      const skipCount = verified.filter(e => {
-        const perkText = (e.perk || e.perkKey || "").toLowerCase();
-        return perkText.includes("line access") || perkText.includes("cover");
+      const currentMonth = getMonthToken();
+      const monthlyRedemptions = verified.filter(e => {
+        const stamp = e.timestamp || e.verifiedAt || Date.now();
+        return getMonthTokenFromDate(stamp) === currentMonth;
       }).length;
       const updates = { ...entry };
       let newUnlocked = !!updates.hasNew;
-      if (reviewCount >= 1) updates.firstReview = true;
-      if (verifiedCount >= 10) updates.tenRedemptions = true;
+      if (loginCount >= 1) updates.firstLogin = true;
+      if (totalUsernameChanges >= 1 || memberProfile?.usernameChangedAt) updates.handleSet = true;
+      if (verifiedCount >= 1) updates.firstPerk = true;
       if (uniqueVenues >= 3) updates.threeVenues = true;
-      if (weekendCount >= 3) updates.weekendWarrior = true;
-      if (shotCount >= 3) updates.shotSpecialist = true;
-      if (skipCount >= 1) updates.skipHero = true;
+      if (reviewCount >= 1) updates.firstReview = true;
+      if (monthlyRedemptions >= 5) updates.monthlyStreak = true;
       ACHIEVEMENTS.forEach(item => {
         if (updates[item.id] && !entry[item.id]) newUnlocked = true;
       });
