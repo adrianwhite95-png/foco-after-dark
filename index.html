@@ -618,6 +618,12 @@
       margin: 0 auto;
       width: 100%;
     }
+    #codesCard {
+      grid-column: 1 / -1;
+      max-width: 860px;
+      margin: 0 auto;
+      width: 100%;
+    }
     .staff-perk-row .perk-limit {
       max-width: 140px;
     }
@@ -3865,6 +3871,12 @@
       --radar-sweep-opacity: 0.55;
       --radar-grid-opacity: 0.22;
       --radar-ping-glow: 0.45;
+      --radar-intensity: 0;
+      --radar-sweep-speed: 6s;
+      --radar-ping-speed: 2.6s;
+      --radar-swirl-speed: 16s;
+      --radar-swirl-opacity: 0.15;
+      --radar-particle-opacity: 0.4;
     }
     .staff-radar .radar-display {
       position: relative;
@@ -3874,10 +3886,12 @@
       overflow: hidden;
       border: 1px solid rgba(148, 163, 184, 0.35);
       box-shadow: 0 12px 26px rgba(0,0,0,0.4), inset 0 0 18px rgba(34,211,238,0.16);
+      filter: saturate(calc(1 + var(--radar-intensity, 0) * 0.4)) brightness(calc(1 + var(--radar-intensity, 0) * 0.12));
     }
     .radar-graffiti {
       position: absolute;
       inset: 0;
+      z-index: 8;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -3898,33 +3912,93 @@
     .radar-grid {
       position: absolute;
       inset: 0;
+      z-index: 1;
       background-image:
         radial-gradient(circle at 50% 50%, rgba(103, 232, 249, 0.25) 0, rgba(103, 232, 249, 0.25) 1px, transparent 1px),
         radial-gradient(circle at 50% 50%, rgba(103, 232, 249, 0.16) 0, rgba(103, 232, 249, 0.16) 1px, transparent 1px);
       background-size: 60px 60px, 120px 120px;
-      opacity: 0.3;
+      opacity: var(--radar-grid-opacity, 0.3);
+    }
+    .radar-swirl {
+      position: absolute;
+      inset: -55%;
+      z-index: 2;
+      background: conic-gradient(
+        from 0deg,
+        hsla(var(--radar-hue, 185), 95%, 70%, 0.28),
+        rgba(103, 232, 249, 0) 35%,
+        hsla(var(--radar-hue, 185), 95%, 70%, 0.22),
+        rgba(103, 232, 249, 0) 70%
+      );
+      opacity: var(--radar-swirl-opacity, 0.15);
+      filter: blur(14px);
+      mix-blend-mode: screen;
+      animation: radarSwirl var(--radar-swirl-speed, 16s) linear infinite;
     }
     .radar-sweep {
       position: absolute;
       inset: -60%;
+      z-index: 3;
       background: conic-gradient(
         from 90deg,
         hsla(var(--radar-hue, 185), 95%, 70%, var(--radar-sweep-opacity, 0.35)),
         rgba(103, 232, 249, 0) 45%
       );
-      animation: radarSweep 6s linear infinite;
+      animation: radarSweep var(--radar-sweep-speed, 6s) linear infinite;
       filter: blur(6px) drop-shadow(0 0 12px rgba(34,211,238,0.35));
       opacity: var(--radar-sweep-opacity, 0.8);
       mix-blend-mode: screen;
     }
+    .radar-streaks,
+    .radar-particles,
+    .radar-bursts {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .radar-streaks {
+      z-index: 4;
+    }
+    .radar-streaks span {
+      position: absolute;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(103, 232, 249, 0), hsla(var(--radar-hue, 185), 95%, 70%, 0.85), rgba(103, 232, 249, 0));
+      transform: translate(-50%, -50%) rotate(var(--streak-rot, 0deg));
+      animation: radarStreak var(--streak-speed, 4.2s) linear infinite;
+      opacity: var(--streak-opacity, 0.4);
+    }
+    .radar-bursts {
+      z-index: 5;
+    }
+    .radar-bursts span {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid hsla(var(--radar-hue, 185), 95%, 70%, 0.85);
+      box-shadow: 0 0 16px hsla(var(--radar-hue, 185), 95%, 70%, 0.6);
+      animation: radarBurst var(--burst-speed, 5s) ease-out infinite;
+      opacity: var(--burst-opacity, 0.55);
+    }
     .radar-pings span {
       position: absolute;
+      z-index: 6;
       width: 12px;
       height: 12px;
       border-radius: 50%;
       border: 1px solid hsla(var(--radar-hue, 185), 90%, 70%, 0.95);
       box-shadow: 0 0 12px hsla(var(--radar-hue, 185), 90%, 70%, var(--radar-ping-glow, 0.65));
-      animation: ping 2.6s ease-out infinite;
+      animation: ping var(--radar-ping-speed, 2.6s) ease-out infinite;
+    }
+    .radar-particles {
+      z-index: 7;
+    }
+    .radar-particles span {
+      position: absolute;
+      border-radius: 50%;
+      background: hsla(var(--radar-hue, 185), 95%, 70%, var(--radar-particle-opacity, 0.4));
+      box-shadow: 0 0 14px hsla(var(--radar-hue, 185), 95%, 70%, calc(var(--radar-particle-opacity, 0.4) + 0.2));
+      transform: translate(-50%, -50%);
+      animation: radarParticle var(--particle-speed, 6s) ease-in-out infinite;
+      opacity: var(--particle-opacity, 0.65);
     }
     .staff-radar .radar-copy {
       margin-top: 10px;
@@ -3993,6 +4067,25 @@
       0% { transform: scale(0.6); opacity: 1; }
       80% { transform: scale(3); opacity: 0; }
       100% { transform: scale(3.2); opacity: 0; }
+    }
+    @keyframes radarSwirl {
+      from { transform: rotate(0deg) scale(1); }
+      to { transform: rotate(360deg) scale(1.04); }
+    }
+    @keyframes radarParticle {
+      0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.25; }
+      45% { transform: translate(calc(-50% + var(--particle-drift-x, 0px)), calc(-50% + var(--particle-drift-y, 0px))) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.35; }
+    }
+    @keyframes radarStreak {
+      0% { transform: translate(-50%, -50%) rotate(var(--streak-rot, 0deg)) scaleX(0.4); opacity: 0.1; }
+      40% { opacity: 0.8; }
+      100% { transform: translate(-50%, -50%) rotate(var(--streak-rot, 0deg)) scaleX(1.1); opacity: 0; }
+    }
+    @keyframes radarBurst {
+      0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0.9; }
+      80% { transform: translate(-50%, -50%) scale(2.6); opacity: 0.1; }
+      100% { transform: translate(-50%, -50%) scale(2.8); opacity: 0; }
     }
     .staff-ticker {
       margin-top: 14px;
@@ -5133,9 +5226,13 @@
       <div class="staff-radar card-hd smooth-enter" id="staffRadar">
         <div class="radar-display">
           <div class="radar-grid"></div>
+          <div class="radar-swirl"></div>
           <div class="radar-sweep"></div>
+          <div class="radar-streaks" id="radarStreaks"></div>
+          <div class="radar-bursts" id="radarBursts"></div>
           <div class="radar-graffiti" id="radarGraffiti">Live Floor</div>
           <div class="radar-pings" id="radarPings"></div>
+          <div class="radar-particles" id="radarParticles"></div>
         </div>
         <div class="radar-copy">
           <div class="radar-title">Live floor pulse</div>
@@ -7637,6 +7734,9 @@
     const staffRadarEl = document.getElementById("staffRadar");
     const radarDisplay = staffRadarEl ? staffRadarEl.querySelector(".radar-display") : null;
     const radarGraffiti = document.getElementById("radarGraffiti");
+    const radarParticles = document.getElementById("radarParticles");
+    const radarStreaks = document.getElementById("radarStreaks");
+    const radarBursts = document.getElementById("radarBursts");
     const scanPendingAlert = document.getElementById("scanPendingAlert");
     const scanPortalAlert = document.getElementById("scanPortalAlert");
     const scanConfirmStatus = document.getElementById("scanConfirmStatus");
@@ -14023,12 +14123,20 @@ let onboardingIndex = 0;
       return "Electric rush";
     }
 
+    function seededRandom(seed) {
+      const val = Math.sin(seed) * 10000;
+      return val - Math.floor(val);
+    }
+
     function updateStaffRadar() {
       if (!staffRadarCount && !staffRadarMood && !radarPings && !radarList) return;
       if (!staffSession) {
         if (staffRadarCount) staffRadarCount.textContent = "Radar idle";
         if (staffRadarMood) staffRadarMood.textContent = "Log in to monitor floor";
         if (radarPings) radarPings.innerHTML = "";
+        if (radarParticles) radarParticles.innerHTML = "";
+        if (radarStreaks) radarStreaks.innerHTML = "";
+        if (radarBursts) radarBursts.innerHTML = "";
         if (radarList) radarList.innerHTML = '<span class="radar-empty">No scans in last 30m.</span>';
         return;
       }
@@ -14043,6 +14151,7 @@ let onboardingIndex = 0;
       const hot = recent.filter(entry => now - new Date(entry.timestamp || now).getTime() <= 7 * 60 * 1000);
         if (staffRadarCount) staffRadarCount.textContent = `${recent.length} scans · last hour`;
         if (staffRadarMood) staffRadarMood.textContent = radarStatusLabel(recent.length, hot.length);
+      const intensity = Math.min(1, (recent.length + hot.length * 1.4) / 12);
       const power = Math.min(1, (recent.length + hot.length * 0.5) / 10);
       if (staffRadarEl) {
         const hue = Math.max(160, Math.min(205, 185 - power * 25));
@@ -14053,6 +14162,12 @@ let onboardingIndex = 0;
         staffRadarEl.style.setProperty("--radar-sweep-opacity", sweepOpacity.toFixed(2));
         staffRadarEl.style.setProperty("--radar-grid-opacity", gridOpacity.toFixed(2));
         staffRadarEl.style.setProperty("--radar-ping-glow", pingGlow.toFixed(2));
+        staffRadarEl.style.setProperty("--radar-intensity", intensity.toFixed(2));
+        staffRadarEl.style.setProperty("--radar-sweep-speed", `${Math.max(2.6, 6 - intensity * 3.5)}s`);
+        staffRadarEl.style.setProperty("--radar-ping-speed", `${Math.max(1.4, 2.8 - intensity * 1.2)}s`);
+        staffRadarEl.style.setProperty("--radar-swirl-speed", `${Math.max(6, 16 - intensity * 8)}s`);
+        staffRadarEl.style.setProperty("--radar-swirl-opacity", (0.12 + intensity * 0.45).toFixed(2));
+        staffRadarEl.style.setProperty("--radar-particle-opacity", (0.35 + intensity * 0.45).toFixed(2));
         staffRadarEl.style.boxShadow = `0 24px 50px rgba(0,0,0,0.5), 0 0 ${24 + power * 26}px rgba(103,232,249,${0.25 + power * 0.35})`;
       }
       if (radarPings) {
@@ -14064,6 +14179,48 @@ let onboardingIndex = 0;
           const delay = (idx * 0.14).toFixed(2);
           const glow = Math.min(0.95, 0.45 + (recent.length * 0.04) + power * 0.2);
           return `<span style="left:${left}%;top:${top}%;animation-delay:${delay}s;opacity:${glow};"></span>`;
+        }).join("");
+      }
+      if (radarParticles) {
+        const particleCount = Math.min(24, Math.max(4, Math.round(5 + recent.length * 1.6 + hot.length)));
+        radarParticles.innerHTML = Array.from({ length: particleCount }).map((_, idx) => {
+          const seed = (recent[idx]?.timestamp ? new Date(recent[idx].timestamp).getTime() : now) + idx * 61;
+          const left = 10 + seededRandom(seed) * 80;
+          const top = 10 + seededRandom(seed + 2) * 80;
+          const driftX = (seededRandom(seed + 3) - 0.5) * (30 + intensity * 60);
+          const driftY = (seededRandom(seed + 4) - 0.5) * (30 + intensity * 60);
+          const size = 3 + seededRandom(seed + 5) * (5 + intensity * 6);
+          const speed = Math.max(2.4, 7.5 - intensity * 4) + seededRandom(seed + 6) * 2.5;
+          const delay = (seededRandom(seed + 7) * 1.8).toFixed(2);
+          const opacity = (0.25 + intensity * 0.55).toFixed(2);
+          return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;animation-duration:${speed.toFixed(2)}s;animation-delay:${delay}s;--particle-drift-x:${driftX.toFixed(1)}px;--particle-drift-y:${driftY.toFixed(1)}px;opacity:${opacity};"></span>`;
+        }).join("");
+      }
+      if (radarStreaks) {
+        const streakCount = Math.min(10, Math.max(0, Math.round(intensity * 8)));
+        radarStreaks.innerHTML = Array.from({ length: streakCount }).map((_, idx) => {
+          const seed = now + idx * 83;
+          const left = 10 + seededRandom(seed) * 80;
+          const top = 10 + seededRandom(seed + 2) * 80;
+          const length = 60 + seededRandom(seed + 3) * (80 + intensity * 120);
+          const rotation = (seededRandom(seed + 4) * 360).toFixed(1);
+          const speed = Math.max(1.6, 5.4 - intensity * 3.2) + seededRandom(seed + 5) * 2;
+          const delay = (seededRandom(seed + 6) * 2).toFixed(2);
+          const opacity = (0.2 + intensity * 0.55).toFixed(2);
+          return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${length.toFixed(1)}px;--streak-rot:${rotation}deg;--streak-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;--streak-opacity:${opacity};"></span>`;
+        }).join("");
+      }
+      if (radarBursts) {
+        const burstCount = Math.min(6, Math.max(0, Math.round(intensity * 5)));
+        radarBursts.innerHTML = Array.from({ length: burstCount }).map((_, idx) => {
+          const seed = (recent[idx]?.timestamp ? new Date(recent[idx].timestamp).getTime() : now) + idx * 73;
+          const left = 20 + seededRandom(seed) * 60;
+          const top = 20 + seededRandom(seed + 2) * 60;
+          const size = 16 + seededRandom(seed + 3) * (24 + intensity * 30);
+          const speed = Math.max(2.4, 5.6 - intensity * 2.5) + seededRandom(seed + 4) * 2;
+          const delay = (seededRandom(seed + 5) * 2.5).toFixed(2);
+          const opacity = (0.2 + intensity * 0.6).toFixed(2);
+          return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--burst-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;--burst-opacity:${opacity};"></span>`;
         }).join("");
       }
       if (radarList) {
