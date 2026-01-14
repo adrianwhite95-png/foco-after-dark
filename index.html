@@ -700,22 +700,22 @@
       margin: 6px 0 12px;
       align-items: center;
     }
-    .staff-accent-row .accent-chip {
-      padding: 8px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,0.28);
-      outline: 2px solid rgba(148,163,184,0.18);
-      outline-offset: 2px;
-      color: #e2e8f0;
-      font-weight: 700;
-      background: rgba(10, 16, 30, 0.9);
-      box-shadow: 0 6px 14px rgba(0,0,0,0.28);
-      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    .staff-accent-label {
+      font-size: 12px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
     }
-    .staff-accent-row .accent-chip.active {
-      border-color: var(--staff-border-strong);
-      box-shadow: 0 10px 20px var(--staff-glow);
-      transform: translateY(-1px);
+    .staff-accent-select {
+      min-width: 200px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--staff-border-strong);
+      background: linear-gradient(120deg, var(--staff-primary), var(--staff-secondary));
+      color: #001018;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      box-shadow: 0 10px 24px var(--staff-glow);
     }
     .chip {
       padding: 8px 12px;
@@ -5074,11 +5074,15 @@
       </div>
     </div>
     <div class="staff-accent-row">
-      <span style="color:#94a3b8;font-size:12px;">Accent:</span>
-      <button type="button" class="accent-chip" data-staff-accent="magenta">Magenta</button>
-      <button type="button" class="accent-chip" data-staff-accent="gold">Gold</button>
-      <button type="button" class="accent-chip" data-staff-accent="jade">Jade</button>
-      <button type="button" class="accent-chip" data-staff-accent="ember">Ember</button>
+      <label class="staff-accent-label" for="staffAccentSelect">Accent</label>
+      <select id="staffAccentSelect" class="staff-accent-select">
+        <option value="cyan">Neon blue</option>
+        <option value="magenta">Magenta</option>
+        <option value="gold">Gold</option>
+        <option value="jade">Jade pulse</option>
+        <option value="electric">Electric iris</option>
+        <option value="ember">Ember bloom</option>
+      </select>
     </div>
     <div class="kpi-row">
       <div class="kpi-chip" id="kpiScans">Scans tonight: <span>0</span></div>
@@ -7652,7 +7656,7 @@
     const kpiScans = document.getElementById("kpiScans");
     const kpiAlerts = document.getElementById("kpiAlerts");
     const kpiVip = document.getElementById("kpiVip");
-    const staffAccentButtons = document.querySelectorAll("[data-staff-accent]");
+    const staffAccentSelect = document.getElementById("staffAccentSelect");
     const alertsList = document.getElementById("alertsList");
     const chargeSavedCardBtn = document.getElementById("chargeSavedCardBtn");
     const receiptOverlay = document.getElementById("receiptOverlay");
@@ -11682,34 +11686,14 @@ let onboardingIndex = 0;
       return localStorage.getItem(`${STAFF_ACCENT_PREFIX}${venueId}`) || null;
     }
     const staffPortalScreen = document.getElementById("staffPortalScreen");
-    const STAFF_ACCENT_PRESETS = {
-      magenta: {
-        primary: "#c084fc",
-        secondary: "#f0abfc",
-        border: "rgba(192,132,252,0.35)",
-        glow: "rgba(192,132,252,0.22)"
-      },
-      gold: {
-        primary: "#f2d08a",
-        secondary: "#d9b45f",
-        border: "rgba(242,208,138,0.4)",
-        glow: "rgba(242,208,138,0.22)"
-      },
-      jade: {
-        primary: "#6ee7b7",
-        secondary: "#34d399",
-        border: "rgba(110,231,183,0.35)",
-        glow: "rgba(110,231,183,0.22)"
-      },
-      ember: {
-        primary: "#fca5a5",
-        secondary: "#fdba74",
-        border: "rgba(252,165,165,0.35)",
-        glow: "rgba(252,165,165,0.22)"
-      }
-    };
     function getStaffAccentPreset(theme) {
-      return STAFF_ACCENT_PRESETS[theme] || STAFF_ACCENT_PRESETS.magenta;
+      const palette = getAccentPreset(theme || "cyan");
+      return {
+        primary: palette.primary,
+        secondary: palette.secondary,
+        border: palette.border,
+        glow: palette.glow
+      };
     }
     function boostGlowAlpha(color, target = 0.75) {
       if (!color || typeof color !== "string") return color;
@@ -11721,12 +11705,13 @@ let onboardingIndex = 0;
     function applyStaffAccent(theme) {
       const palette = getStaffAccentPreset(theme);
       if (staffPortalScreen && palette) {
-        const strongGlow = boostGlowAlpha(palette.glow, 0.5);
-        const strongBorder = boostGlowAlpha(palette.border, 0.45);
+        const strongGlow = boostGlowAlpha(palette.glow, 0.6);
+        const strongBorder = boostGlowAlpha(palette.border, 0.5);
+        const baseGlow = boostGlowAlpha(palette.glow, 0.5);
         staffPortalScreen.style.setProperty("--staff-primary", palette.primary);
         staffPortalScreen.style.setProperty("--staff-secondary", palette.secondary);
         staffPortalScreen.style.setProperty("--staff-border", palette.border);
-        staffPortalScreen.style.setProperty("--staff-glow", palette.glow);
+        staffPortalScreen.style.setProperty("--staff-glow", baseGlow);
         staffPortalScreen.style.setProperty("--staff-glow-strong", strongGlow);
         staffPortalScreen.style.setProperty("--staff-border-strong", strongBorder);
         staffPortalScreen.style.setProperty("--staff-surface", "rgba(6,10,22,0.94)");
@@ -11738,22 +11723,8 @@ let onboardingIndex = 0;
           radarGraffiti.style.filter = `drop-shadow(0 0 12px ${palette.glow})`;
         }
       }
-      if (staffAccentButtons && staffAccentButtons.length) {
-        staffAccentButtons.forEach(btn => {
-          btn.classList.toggle("active", btn.dataset.staffAccent === theme);
-          const btnPalette = getStaffAccentPreset(btn.dataset.staffAccent);
-          if (btnPalette) {
-            const outline = boostGlowAlpha(btnPalette.border, 0.55);
-            btn.style.background = `linear-gradient(120deg, ${btnPalette.primary}, ${btnPalette.secondary})`;
-            btn.style.borderColor = btnPalette.border;
-            btn.style.outline = `2px solid ${outline}`;
-            btn.style.outlineOffset = "2px";
-            btn.style.color = "#001018";
-            btn.style.boxShadow = btn.dataset.staffAccent === theme
-              ? `0 10px 24px ${btnPalette.glow}`
-              : "0 6px 14px rgba(0,0,0,0.25)";
-          }
-        });
+      if (staffAccentSelect) {
+        staffAccentSelect.value = theme;
       }
     }
     function setStaffAccent(theme, venueId) {
@@ -15715,7 +15686,7 @@ let onboardingIndex = 0;
       if (staffPortalTitle) staffPortalTitle.innerHTML = `<span>${venueName}</span> Dashboard`;
       if (staffPortalTagline) staffPortalTagline.textContent = `Live perks, redemptions, and alerts for ${venueName}.`;
       setRadarGraffiti(venueName);
-      const staffAccent = loadStaffAccent(venueId) || "magenta";
+      const staffAccent = loadStaffAccent(venueId) || "cyan";
       applyStaffAccent(staffAccent);
       staffVenueInput.value = "";
       staffPassInput.value = "";
@@ -15784,11 +15755,11 @@ let onboardingIndex = 0;
       renderStaffSentReceipts();
       renderStaffVipDeal();
       renderStaffAlertPreview();
-      applyStaffAccent("magenta");
+      applyStaffAccent("cyan");
       stopStaffPerksListener();
       if (staffPerksList) staffPerksList.innerHTML = "";
-      if (staffAccentButtons && staffAccentButtons.length) {
-        staffAccentButtons.forEach(btn => btn.classList.remove("active"));
+      if (staffAccentSelect) {
+        staffAccentSelect.value = "cyan";
       }
       if (autoCloseOutTimer) {
         clearTimeout(autoCloseOutTimer);
@@ -15810,13 +15781,11 @@ let onboardingIndex = 0;
     if (staffLogoutTop) {
       staffLogoutTop.addEventListener("click", handleStaffLogout);
     }
-      if (staffAccentButtons && staffAccentButtons.length) {
-        staffAccentButtons.forEach(btn => {
-          btn.addEventListener("click", () => {
-            if (!staffSession) return;
-            const theme = btn.dataset.staffAccent;
-            setStaffAccent(theme, staffSession.venue);
-          });
+      if (staffAccentSelect) {
+        staffAccentSelect.addEventListener("change", () => {
+          if (!staffSession) return;
+          const theme = staffAccentSelect.value;
+          setStaffAccent(theme, staffSession.venue);
         });
       }
       if (staffAddPerkBtn) {
