@@ -4640,6 +4640,9 @@
             <button type="button" class="btn redeem-btn" id="redeemTrigger">
               Redeem a perk
             </button>
+            <button type="button" class="btn add-vouchers-btn" id="buyDrinksBtn">
+              Buy redemption tokens
+            </button>
           </div>
           <div class="secondary-actions" id="memberActionButtons">
             <button type="button" class="btn review-btn" id="rewardsTrigger">
@@ -4798,15 +4801,12 @@
               <span>Logins</span>
               <strong id="statLoginCount">0</strong>
             </div>
-            <div class="community-stat">
-              <span>Nights active</span>
-              <strong id="statActiveDays">0</strong>
-            </div>
+          <div class="community-stat">
+            <span>Nights active</span>
+            <strong id="statActiveDays">0</strong>
           </div>
-          <div class="meta-note" id="voucherBalanceNote"></div>
-          <button type="button" class="btn add-vouchers-btn" id="buyDrinksBtn">
-            Buy redemption tokens
-          </button>
+        </div>
+        <div class="meta-note" id="voucherBalanceNote"></div>
           <div class="featured-venues" id="passFeaturedVenues">
             <h4>Featured venues</h4>
             <div class="featured-grid" id="passFeaturedGrid"></div>
@@ -8174,30 +8174,23 @@
         || "standard";
     }
 
-    function getTokenCycleKey() {
-      return getMonthToken();
-    }
-
-    function getExtraRedemptionTokens() {
-      const key = getTokenCycleKey();
+    function getPurchasedTokenTotal() {
       const profile = memberProfile || {};
       const entry = allowLocalCache() && currentPassCode
         ? (loadMemberDirectory()[currentPassCode.toUpperCase()] || {})
         : {};
-      const cycle = profile.extraRedemptionTokensCycle || entry.extraRedemptionTokensCycle || "";
-      if (cycle !== key) return 0;
       const value = Number(profile.extraRedemptionTokens ?? entry.extraRedemptionTokens ?? 0);
       return Number.isFinite(value) ? value : 0;
     }
 
-    function setExtraRedemptionTokens(tokens, cycleKey = getTokenCycleKey()) {
+    function setPurchasedTokenTotal(tokens) {
+      const next = Math.max(0, Number(tokens) || 0);
       if (!memberProfile) memberProfile = {};
-      memberProfile.extraRedemptionTokens = tokens;
-      memberProfile.extraRedemptionTokensCycle = cycleKey;
-      persistMemberState({
-        extraRedemptionTokens: tokens,
-        extraRedemptionTokensCycle: cycleKey
-      });
+      memberProfile.extraRedemptionTokens = next;
+      persistMemberState({ extraRedemptionTokens: next });
+      if (currentPassCode) {
+        setMemberDirectoryEntry(currentPassCode, { extraRedemptionTokens: next });
+      }
     }
 
     function getVoucherBalanceForTier(tierKey) {
@@ -8209,18 +8202,45 @@
       const entries = getMemberRedemptionEntries();
       const uid = firebaseAuth.currentUser?.uid;
       const billing = uid ? loadBilling(uid) : {};
-      const windowInfo = getVoucherCycleWindow(billing);
-      const usedCurrent = countRedemptionsInWindow(entries, windowInfo.current, { includePending: true });
-      const usedPrev = windowInfo.hasPrevious
-        ? countRedemptionsInWindow(entries, windowInfo.previous, { includePending: false })
-        : 0;
-      const carryover = windowInfo.hasPrevious
-        ? Math.min(MAX_VOUCHER_CARRYOVER, Math.max(0, limit - usedPrev))
-        : 0;
-      const extraTokens = getExtraRedemptionTokens();
-      const total = limit + carryover + extraTokens;
-      const remaining = Math.max(0, total - usedCurrent);
-      return { unlimited: false, remaining, limit, carryover, usedCurrent, total, extraTokens };
+      const startIso = resolveBillingStart(billing) || memberProfile?.memberSince || null;
+      let startDate = startIso ? new Date(startIso) : null;
+      if (!startDate || Number.isNaN(startDate.getTime())) {
+        startDate = new Date();
+        startDate.setDate(1);
+        startDate.setHours(0, 0, 0, 0);
+      }
+      const cycles = countBillingCycles(startDate.toISOString(), new Date());
+      const purchasedTotal = getPurchasedTokenTotal();
+      let purchasedRemaining = Math.max(0, purchasedTotal);
+      let carryover = 0;
+      let result = { unlimited: false, remaining: 0, limit, carryover: 0, usedCurrent: 0, total: 0, extraTokens: 0 };
+      for (let i = 0; i < cycles; i += 1) {
+        const cycleStart = shiftMonth(startDate, i);
+        const cycleEnd = oneMonthFrom(cycleStart);
+        const isCurrent = i === cycles - 1;
+        const cycleUsed = countRedemptionsInWindow(entries, { start: cycleStart, end: cycleEnd }, { includePending: isCurrent });
+        const regularAllowance = limit + carryover;
+        const consumedTokens = Math.max(0, cycleUsed - regularAllowance);
+        const purchasedAfter = Math.max(0, purchasedRemaining - consumedTokens);
+        const regularUnused = Math.max(0, regularAllowance - cycleUsed);
+        const nextCarryover = purchasedAfter > 0 ? 0 : Math.min(MAX_VOUCHER_CARRYOVER, regularUnused);
+        if (isCurrent) {
+          const remainingRegular = Math.max(0, regularAllowance - cycleUsed);
+          const remaining = remainingRegular + purchasedAfter;
+          result = {
+            unlimited: false,
+            remaining,
+            limit,
+            carryover,
+            usedCurrent: cycleUsed,
+            total: regularAllowance + purchasedRemaining,
+            extraTokens: purchasedAfter
+          };
+        }
+        purchasedRemaining = purchasedAfter;
+        carryover = nextCarryover;
+      }
+      return result;
     }
 
     function updateVoucherBalanceUI() {
@@ -8241,7 +8261,7 @@
         if (voucherBalanceNote) {
           if (balance.extraTokens) {
             const label = balance.extraTokens === 1 ? "token" : "tokens";
-            voucherBalanceNote.textContent = `Includes ${balance.extraTokens} purchased ${label} this month.`;
+            voucherBalanceNote.textContent = `${balance.extraTokens} purchased ${label} carry over.`;
           } else {
             voucherBalanceNote.textContent = "";
           }
@@ -8249,7 +8269,7 @@
         if (redeemVoucherBalance) {
           const carry = balance.carryover ? ` (incl. ${balance.carryover} carryover)` : "";
           const tokens = balance.extraTokens
-            ? ` (incl. ${balance.extraTokens} purchased token${balance.extraTokens === 1 ? "" : "s"})`
+            ? ` (incl. ${balance.extraTokens} purchased token${balance.extraTokens === 1 ? "" : "s"} carryover)`
             : "";
           redeemVoucherBalance.textContent = `Vouchers left this cycle: ${balance.remaining}${carry}${tokens}.`;
         }
@@ -10341,16 +10361,16 @@ let onboardingIndex = 0;
         const data = resp?.data || {};
         if (!data.ok) throw new Error("Payment incomplete.");
         const pack = data.pack || pendingVoucherPack;
-        if (Number.isFinite(Number(data.extraRedemptionTokens)) && data.extraRedemptionTokensCycle) {
-          setExtraRedemptionTokens(Number(data.extraRedemptionTokens), data.extraRedemptionTokensCycle);
+        if (Number.isFinite(Number(data.extraRedemptionTokens))) {
+          setPurchasedTokenTotal(Number(data.extraRedemptionTokens));
         } else if (data.extraVouchers) {
           extraVouchers = sanitizeExtraVouchers(data.extraVouchers, { allowUnlimited: isCeoActive() });
           if (memberProfile) memberProfile.extraVouchers = { ...extraVouchers };
           persistMemberState({ extraVouchers: memberProfile?.extraVouchers || extraVouchers });
         } else if (pack) {
           if ((pack.perk || "").toLowerCase() === "tokens") {
-            const current = getExtraRedemptionTokens();
-            setExtraRedemptionTokens(current + (pack.amount || 0));
+            const current = getPurchasedTokenTotal();
+            setPurchasedTokenTotal(current + (pack.amount || 0));
           } else {
             adjustExtraVouchers(pack.perk || pack.id, pack.amount);
           }

@@ -919,12 +919,6 @@ const VOUCHER_PACKS = {
   },
 };
 
-function getTokenCycleKey(date = new Date()) {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  return `${year}-${month}`;
-}
-
 function resolveVoucherPack(tier, packId) {
   const t = (tier || "standard").toLowerCase();
   const key = (packId || "").toLowerCase();
@@ -936,21 +930,18 @@ function resolveVoucherPack(tier, packId) {
 async function applyVoucherPack(uid, pack) {
   const ref = db.collection("members").doc(uid);
   if (pack.perk === "tokens") {
-    const cycleKey = getTokenCycleKey();
     let nextCount = pack.amount;
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const data = snap.exists ? snap.data() : {};
-      const currentCycle = data.extraRedemptionTokensCycle || "";
-      const current = currentCycle === cycleKey ? Number(data.extraRedemptionTokens || 0) : 0;
+      const current = Number(data.extraRedemptionTokens || 0);
       nextCount = current + pack.amount;
       tx.set(ref, {
         extraRedemptionTokens: nextCount,
-        extraRedemptionTokensCycle: cycleKey,
         lastVoucherPurchase: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
     });
-    return { extraRedemptionTokens: nextCount, extraRedemptionTokensCycle: cycleKey };
+    return { extraRedemptionTokens: nextCount };
   }
   const updates = {
     [`extraVouchers.${pack.perk}`]: admin.firestore.FieldValue.increment(pack.amount),
