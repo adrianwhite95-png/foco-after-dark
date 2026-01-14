@@ -8754,7 +8754,7 @@
       const log = Array.isArray(redemptionLog) ? redemptionLog : [];
       const todayEntries = log.filter(entry => {
         if ((entry.passId || "").toUpperCase() !== code) return false;
-        if (entry.status !== "verified" && entry.status !== "approved" && entry.status !== "confirmed") return false;
+        if (!["verified", "approved", "confirmed", "pending"].includes(entry.status)) return false;
         const ts = new Date(entry.verifiedAt || entry.timestamp || entry.createdAt || Date.now());
         return getMstDateKey(ts) === todayKey;
       });
@@ -9829,7 +9829,7 @@ let onboardingIndex = 0;
         code,
         perk: "Reward: shot perk",
         member: passUserName.textContent,
-        ceo: isCeoActive(),
+        ceo: false,
         perkKey: "reward_shot",
           passId: (currentPassCode || "").toUpperCase(),
           status: "pending",
@@ -18437,7 +18437,7 @@ let onboardingIndex = 0;
         code,
         perk: rewardLabel,
         member: passUserName.textContent,
-        ceo: isCeoActive(),
+        ceo: false,
         perkKey: selectedPerkId === "reward_shot" ? "reward_shot" : "venue_perk",
         venuePerkId: selectedVenuePerkId || null,
         venuePerkLabel: selectedPerkLabel || null,
