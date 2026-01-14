@@ -1450,15 +1450,63 @@
       border: 1px solid color-mix(in srgb, var(--vibe-primary, #22d3ee) 35%, rgba(103, 232, 249, 0.25));
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 32px var(--vibe-glow, var(--accent-glow-live, rgba(103, 232, 249, 0.16)));
       overflow: hidden;
+      --pulse-intensity: 0;
+      --pulse-aura-speed: 16s;
+      --pulse-spark-opacity: 0.2;
+      --pulse-streak-opacity: 0.2;
+      --pulse-burst-opacity: 0.2;
     }
     .pulse-band::after {
       content: "";
       position: absolute;
       inset: -35%;
       background: conic-gradient(from 0deg, rgba(34, 211, 238, 0.16), transparent 35%, rgba(244, 114, 182, 0.14), transparent 70%);
-      animation: pulseAura 16s linear infinite;
+      animation: pulseAura var(--pulse-aura-speed, 16s) linear infinite;
       pointer-events: none;
       filter: blur(12px);
+      opacity: calc(0.25 + var(--pulse-intensity, 0) * 0.5);
+    }
+    .pulse-sparks,
+    .pulse-streaks,
+    .pulse-bursts {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .pulse-sparks {
+      z-index: 0;
+    }
+    .pulse-sparks span {
+      position: absolute;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--vibe-primary, #22d3ee) 80%, transparent);
+      box-shadow: 0 0 14px var(--vibe-glow, rgba(34, 211, 238, 0.35));
+      transform: translate(-50%, -50%);
+      opacity: var(--pulse-spark-opacity, 0.2);
+      animation: pulseSpark var(--pulse-spark-speed, 6s) ease-in-out infinite;
+    }
+    .pulse-streaks {
+      z-index: 0;
+    }
+    .pulse-streaks span {
+      position: absolute;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--vibe-primary, #22d3ee) 80%, transparent), transparent);
+      transform: translate(-50%, -50%) rotate(var(--pulse-streak-rot, 0deg));
+      opacity: var(--pulse-streak-opacity, 0.2);
+      animation: pulseStreak var(--pulse-streak-speed, 4s) linear infinite;
+    }
+    .pulse-bursts {
+      z-index: 0;
+    }
+    .pulse-bursts span {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid color-mix(in srgb, var(--vibe-secondary, #22c55e) 80%, transparent);
+      box-shadow: 0 0 16px color-mix(in srgb, var(--vibe-primary, #22d3ee) 70%, transparent);
+      transform: translate(-50%, -50%);
+      opacity: var(--pulse-burst-opacity, 0.2);
+      animation: pulseBurst var(--pulse-burst-speed, 5s) ease-out infinite;
     }
     .pulse-content {
       position: relative;
@@ -1505,7 +1553,7 @@
       border-radius: 10px;
       background: linear-gradient(180deg, color-mix(in srgb, var(--vibe-primary, var(--accent-primary-live)) 90%, transparent), color-mix(in srgb, var(--vibe-secondary, var(--accent-secondary-live)) 70%, transparent));
       box-shadow: 0 8px 18px var(--vibe-glow, var(--accent-glow-live, rgba(34, 211, 238, 0.35)));
-      opacity: 0.7;
+      opacity: calc(0.55 + var(--pulse-intensity, 0) * 0.45);
       transition: height 280ms ease, opacity 280ms ease;
       transform-origin: bottom;
       animation: pulseWave var(--pulse-speed, 1.8s) ease-in-out infinite, pulseGlow 3.6s ease-in-out infinite;
@@ -1538,6 +1586,21 @@
       0% { filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.18)); }
       50% { filter: drop-shadow(0 0 16px rgba(244, 114, 182, 0.22)); }
       100% { filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.18)); }
+    }
+    @keyframes pulseSpark {
+      0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.2; }
+      40% { transform: translate(calc(-50% + var(--pulse-drift-x, 0px)), calc(-50% + var(--pulse-drift-y, 0px))) scale(1.1); opacity: 0.9; }
+      100% { transform: translate(-50%, -50%) scale(0.7); opacity: 0.25; }
+    }
+    @keyframes pulseStreak {
+      0% { transform: translate(-50%, -50%) rotate(var(--pulse-streak-rot, 0deg)) scaleX(0.4); opacity: 0.1; }
+      45% { opacity: 0.75; }
+      100% { transform: translate(-50%, -50%) rotate(var(--pulse-streak-rot, 0deg)) scaleX(1.2); opacity: 0; }
+    }
+    @keyframes pulseBurst {
+      0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0.9; }
+      80% { transform: translate(-50%, -50%) scale(2.6); opacity: 0.12; }
+      100% { transform: translate(-50%, -50%) scale(2.8); opacity: 0; }
     }
     @keyframes passIntro {
       0% { opacity: 0; transform: translateY(14px) scale(0.985); }
@@ -4784,6 +4847,9 @@
           <div class="vip-member-deal" id="vipMemberDeal"></div>
 
           <div class="pulse-band" id="pulseBand">
+            <div class="pulse-sparks" id="pulseSparks"></div>
+            <div class="pulse-streaks" id="pulseStreaks"></div>
+            <div class="pulse-bursts" id="pulseBursts"></div>
             <div class="pulse-content">
               <div class="pulse-head">
                 <span class="pulse-chip">FoCo Pulse</span>
@@ -7779,6 +7845,9 @@
     const pulsePassId = document.getElementById("pulsePassId");
     const pulsePrimary = document.getElementById("pulsePrimary");
     const pulseThread = document.getElementById("pulseThread");
+    const pulseSparks = document.getElementById("pulseSparks");
+    const pulseStreaks = document.getElementById("pulseStreaks");
+    const pulseBursts = document.getElementById("pulseBursts");
     const staffRadarCount = document.getElementById("staffRadarCount");
     const staffRadarMood = document.getElementById("staffRadarMood");
     const radarPings = document.getElementById("radarPings");
@@ -8669,6 +8738,7 @@
       updatePulseBand({ total, venuesVisited, avg });
       updatePointsUI();
       updateQuickStrip();
+      updateLastCheckinUI();
       updateVoucherBalanceUI();
       const codeForCache = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
       if (codeForCache) saveStatsCache(codeForCache, { total, venuesVisited, avg });
@@ -8679,10 +8749,19 @@
       if (pulsePassId && code) {
         pulsePassId.textContent = code;
       }
+      const todayKey = getMstDateKey(new Date());
+      const todayEntries = redemptionLog.filter(entry => {
+        if ((entry.passId || "").toUpperCase() !== code) return false;
+        if (entry.status !== "verified" && entry.status !== "approved" && entry.status !== "confirmed") return false;
+        const ts = new Date(entry.verifiedAt || entry.timestamp || entry.createdAt || Date.now());
+        return getMstDateKey(ts) === todayKey;
+      });
+      const todayCount = todayEntries.length;
       if (pulsePrimary) {
-        const total = stats.total || 0;
         const venues = stats.venuesVisited || 0;
-        pulsePrimary.textContent = total ? `${total} verified • ${venues} venues` : "Ready for tonight";
+        pulsePrimary.textContent = todayCount
+          ? `${todayCount} redeemed today • ${venues} venues`
+          : "Ready for tonight";
       }
       if (pulseThread) {
         const bars = Array.from(pulseThread.children);
@@ -8695,6 +8774,12 @@
         };
         const vibeName = window.currentVibe || "social";
         const vibeConfig = (palette[vibeName] || palette.social || { factor: 1 });
+        const intensity = Math.min(1, todayCount / 8);
+        pulseBand.style.setProperty("--pulse-intensity", intensity.toFixed(2));
+        pulseBand.style.setProperty("--pulse-aura-speed", `${Math.max(6, 16 - intensity * 8)}s`);
+        pulseBand.style.setProperty("--pulse-spark-opacity", (0.2 + intensity * 0.6).toFixed(2));
+        pulseBand.style.setProperty("--pulse-streak-opacity", (0.15 + intensity * 0.6).toFixed(2));
+        pulseBand.style.setProperty("--pulse-burst-opacity", (0.12 + intensity * 0.7).toFixed(2));
         bars.forEach((bar, idx) => {
           let base = 12 + Math.sin(idx) * 4;
           switch (vibeName) {
@@ -8704,12 +8789,60 @@
             case "casual": base = 10 + Math.sin(idx * 0.75) * 6; break;   // relaxed low hum
             default: base = 12 + Math.sin(idx) * 4;
           }
-          const spread = Math.max(10, Math.min(68, (total * 2) + base * (vibeConfig.factor || 1)));
+          const spread = Math.max(10, Math.min(72, (todayCount * 5) + base * (vibeConfig.factor || 1)));
           bar.style.setProperty("--pulse-height", `${spread}px`);
-          bar.style.setProperty("--pulse-speed", `${1 + Math.random() * 0.6}s`);
+          bar.style.setProperty("--pulse-speed", `${Math.max(0.6, 1.6 - intensity * 0.6) + Math.random() * 0.4}s`);
           bar.style.setProperty("--pulse-delay", `${Math.random() * 0.6}s`);
-          bar.style.opacity = 0.55 + (0.02 * idx);
+          bar.style.opacity = 0.55 + (0.02 * idx) + intensity * 0.15;
         });
+      }
+      if (pulseSparks || pulseStreaks || pulseBursts) {
+        if (!todayCount) {
+          if (pulseSparks) pulseSparks.innerHTML = "";
+          if (pulseStreaks) pulseStreaks.innerHTML = "";
+          if (pulseBursts) pulseBursts.innerHTML = "";
+        } else {
+          const intensity = Math.min(1, todayCount / 8);
+          if (pulseSparks) {
+            const sparkCount = Math.min(24, 6 + Math.round(todayCount * 2));
+            pulseSparks.innerHTML = Array.from({ length: sparkCount }).map((_, idx) => {
+              const seed = (todayEntries[idx]?.timestamp ? new Date(todayEntries[idx].timestamp).getTime() : Date.now()) + idx * 41;
+              const left = 12 + seededRandom(seed) * 76;
+              const top = 12 + seededRandom(seed + 2) * 76;
+              const size = 4 + seededRandom(seed + 3) * (6 + intensity * 6);
+              const driftX = (seededRandom(seed + 4) - 0.5) * (20 + intensity * 40);
+              const driftY = (seededRandom(seed + 5) - 0.5) * (20 + intensity * 40);
+              const speed = Math.max(2.2, 6.5 - intensity * 3) + seededRandom(seed + 6) * 2;
+              const delay = (seededRandom(seed + 7) * 1.6).toFixed(2);
+              return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--pulse-drift-x:${driftX.toFixed(1)}px;--pulse-drift-y:${driftY.toFixed(1)}px;animation-duration:${speed.toFixed(2)}s;animation-delay:${delay}s;"></span>`;
+            }).join("");
+          }
+          if (pulseStreaks) {
+            const streakCount = Math.min(10, Math.max(0, Math.round(intensity * 8)));
+            pulseStreaks.innerHTML = Array.from({ length: streakCount }).map((_, idx) => {
+              const seed = Date.now() + idx * 73;
+              const left = 15 + seededRandom(seed) * 70;
+              const top = 15 + seededRandom(seed + 2) * 70;
+              const length = 60 + seededRandom(seed + 3) * (90 + intensity * 120);
+              const rotation = (seededRandom(seed + 4) * 360).toFixed(1);
+              const speed = Math.max(1.4, 4.6 - intensity * 2.6) + seededRandom(seed + 5) * 2;
+              const delay = (seededRandom(seed + 6) * 2).toFixed(2);
+              return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${length.toFixed(1)}px;--pulse-streak-rot:${rotation}deg;--pulse-streak-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;"></span>`;
+            }).join("");
+          }
+          if (pulseBursts) {
+            const burstCount = Math.min(6, Math.max(0, Math.round(intensity * 5)));
+            pulseBursts.innerHTML = Array.from({ length: burstCount }).map((_, idx) => {
+              const seed = (todayEntries[idx]?.timestamp ? new Date(todayEntries[idx].timestamp).getTime() : Date.now()) + idx * 67;
+              const left = 18 + seededRandom(seed) * 64;
+              const top = 18 + seededRandom(seed + 2) * 64;
+              const size = 16 + seededRandom(seed + 3) * (24 + intensity * 32);
+              const speed = Math.max(2.2, 5.2 - intensity * 2.4) + seededRandom(seed + 4) * 2;
+              const delay = (seededRandom(seed + 5) * 2.3).toFixed(2);
+              return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--pulse-burst-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;"></span>`;
+            }).join("");
+          }
+        }
       }
       if (pulsePassId) {
         pulsePassId.onclick = async () => {
@@ -13548,17 +13681,28 @@ let onboardingIndex = 0;
       const uid = firebaseAuth.currentUser?.uid;
       const billing = uid ? loadBilling(uid) : {};
       const now = new Date();
+      const tier = (currentMembershipTier || memberProfile?.tier || "").toLowerCase();
+      const isBetaTier = tier === "beta" || isBetaAccount;
+      const paymentStatus = (memberProfile?.paymentStatus || "active").toLowerCase();
+      const paymentOk = paymentStatus === "active";
       let validUntil = null;
-      if (billing?.nextRenewal) {
-        validUntil = new Date(billing.nextRenewal);
+      if (isBetaTier) {
+        validUntil = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      } else if (tier === "standard" || tier === "vip") {
+        if (billing?.lastCharge) {
+          validUntil = oneMonthFrom(new Date(billing.lastCharge));
+        } else if (billing?.nextRenewal && paymentOk) {
+          validUntil = new Date(billing.nextRenewal);
+        } else if (memberProfile?.validUntil) {
+          validUntil = new Date(memberProfile.validUntil);
+        }
+        if (paymentOk && (!validUntil || Number.isNaN(validUntil.getTime()) || validUntil < now)) {
+          validUntil = oneMonthFrom(now);
+        }
       } else if (memberProfile?.validUntil) {
         validUntil = new Date(memberProfile.validUntil);
-      } else if (memberProfile?.memberSince) {
-        validUntil = oneMonthFrom(new Date(memberProfile.memberSince));
-      } else {
-        validUntil = oneMonthFrom(now);
       }
-      if (!validUntil || Number.isNaN(validUntil.getTime()) || validUntil < now) {
+      if (!validUntil || Number.isNaN(validUntil.getTime())) {
         validUntil = oneMonthFrom(now);
       }
       const iso = validUntil.toISOString();
@@ -13567,7 +13711,7 @@ let onboardingIndex = 0;
       if (code) {
         setMemberDirectoryEntry(code, { validUntil: iso });
       }
-      if (uid) {
+      if (uid && paymentOk && !billing?.nextRenewal) {
         const bill = loadBilling(uid) || {};
         bill.nextRenewal = iso;
         saveBilling(uid, bill);
