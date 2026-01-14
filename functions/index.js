@@ -320,6 +320,239 @@ exports.useCeoVoucher = functions.https.onCall(async (data, context) => {
   }
 });
 
+async function resolveMemberByPassCode(passCode, tx) {
+  const passRef = db.collection("passes").doc(passCode);
+  const passSnap = await tx.get(passRef);
+  const passData = passSnap.exists ? passSnap.data() : null;
+  let uid = passData?.uid || null;
+  if (uid) {
+    const memberRef = db.collection("members").doc(uid);
+    const memberSnap = await tx.get(memberRef);
+    return {
+      uid,
+      passRef,
+      memberRef,
+      memberData: memberSnap.exists ? memberSnap.data() : null,
+      passData
+    };
+  }
+  const memberQuery = await tx.get(
+    db.collection("members").where("passCode", "==", passCode).limit(1)
+  );
+  if (memberQuery.empty) return null;
+  const memberDoc = memberQuery.docs[0];
+  uid = memberDoc.id;
+  const memberData = memberDoc.data() || {};
+  tx.set(passRef, {
+    uid,
+    passCode,
+    tier: memberData.tier || "standard",
+    status: memberData.revoked ? "revoked" : "active",
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+  return {
+    uid,
+    passRef,
+    memberRef: memberDoc.ref,
+    memberData,
+    passData: null
+  };
+}
+
+function toMillis(value) {
+  if (!value) return null;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  const parsed = Date.parse(value);
+  if (!Number.isNaN(parsed)) return parsed;
+  return null;
+}
+
+exports.createRedemption = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const passCode = String(data?.passCode || "").trim().toUpperCase();
+  const venueId = String(data?.venueId || "").trim().toLowerCase();
+  const perkId = String(data?.perkId || "").trim();
+  const perkLabel = String(data?.perkLabel || "").trim();
+  const perkKey = String(data?.perkKey || "venue_perk").trim();
+  if (!passCode || !venueId || !perkId) {
+    throw new HttpsError("invalid-argument", "Pass ID, venue, and perk are required.");
+  }
+
+  const now = admin.firestore.Timestamp.now();
+  const perkRef = db.collection("venues").doc(venueId).collection("perks").doc(perkId);
+  const memberDisplayName = (member) =>
+    (member?.displayName || member?.name || member?.fullName || member?.username || "FoCo member");
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const redemptionId = generateCode(6).toUpperCase();
+    try {
+      const result = await db.runTransaction(async (tx) => {
+        const resolved = await resolveMemberByPassCode(passCode, tx);
+        if (!resolved?.uid || !resolved.memberRef) {
+          throw new HttpsError("not-found", "Pass ID not found.");
+        }
+        const memberData = resolved.memberData || {};
+        if (memberData.revoked) {
+          throw new HttpsError("failed-precondition", "Membership is inactive.");
+        }
+        const validUntil = memberData.validUntil;
+        if (validUntil && validUntil !== "never") {
+          const expiryMs = toMillis(validUntil);
+          if (expiryMs && expiryMs < Date.now()) {
+            throw new HttpsError("failed-precondition", "Membership expired.");
+          }
+        }
+        const lastRedeemMs = toMillis(memberData.lastRedemptionAt);
+        if (lastRedeemMs && (Date.now() - lastRedeemMs) < 15000) {
+          throw new HttpsError("resource-exhausted", "Slow down and try again.");
+        }
+
+        const perkSnap = await tx.get(perkRef);
+        if (!perkSnap.exists) {
+          throw new HttpsError("not-found", "Perk not found.");
+        }
+        const perkData = perkSnap.data() || {};
+
+        const venueRedRef = db.collection("venues").doc(venueId).collection("redemptions").doc(redemptionId);
+        const memberRedRef = db.collection("members").doc(resolved.uid).collection("redemptions").doc(redemptionId);
+        const existing = await tx.get(venueRedRef);
+        if (existing.exists) {
+          throw new HttpsError("already-exists", "Try again.");
+        }
+        const payload = {
+          redemptionId,
+          passCode,
+          memberUid: resolved.uid,
+          memberName: memberDisplayName(memberData),
+          tier: memberData.tier || "standard",
+          venueId,
+          perkId,
+          perkKey,
+          perkLabel: perkLabel || perkData.label || "Perk",
+          status: "pending",
+          createdAt: now,
+          updatedAt: now,
+          timestamp: now,
+          requestedVenue: venueId
+        };
+        tx.set(venueRedRef, payload);
+        tx.set(memberRedRef, payload);
+        tx.set(resolved.memberRef, {
+          lastRedemptionAt: now,
+          lastRedemptionVenue: venueId,
+          lastRedemptionPerk: perkId,
+          updatedAt: now
+        }, { merge: true });
+        return payload;
+      });
+
+      return { ok: true, redemptionId: result.redemptionId, redemption: result };
+    } catch (err) {
+      if (err?.code === "already-exists") {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw new HttpsError("internal", "Failed to create redemption.");
+});
+
+exports.verifyRedemption = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const venueId = String(data?.venueId || "").trim().toLowerCase();
+  const redemptionId = String(data?.redemptionId || "").trim().toUpperCase();
+  const action = String(data?.action || "confirm").trim().toLowerCase();
+  if (!venueId || !redemptionId) {
+    throw new HttpsError("invalid-argument", "Redemption code and venue are required.");
+  }
+  const claims = context.auth.token || {};
+  const isPrivileged = claims.admin === true || claims.ceo === true || claims.staff === true;
+  if (!isPrivileged) {
+    throw new HttpsError("permission-denied", "Staff access required.");
+  }
+  if (claims.staff === true && claims.venue && claims.venue !== venueId) {
+    throw new HttpsError("permission-denied", "Wrong venue.");
+  }
+
+  const now = admin.firestore.Timestamp.now();
+  const venueRedRef = db.collection("venues").doc(venueId).collection("redemptions").doc(redemptionId);
+  const ceoVoucherRef = db.collection("ceoVouchers").doc(redemptionId);
+
+  const result = await db.runTransaction(async (tx) => {
+    const redSnap = await tx.get(venueRedRef);
+    if (!redSnap.exists) {
+      const ceoSnap = await tx.get(ceoVoucherRef);
+      if (!ceoSnap.exists) {
+        throw new HttpsError("not-found", "Code not found.");
+      }
+      const ceoPayload = {
+        redemptionId,
+        passCode: "CEO",
+        memberUid: null,
+        memberName: "CEO issued",
+        tier: "ceo",
+        venueId,
+        perkId: ceoSnap.data()?.perk || "ceo_perk",
+        perkKey: "ceo_perk",
+        perkLabel: ceoSnap.data()?.perk || "CEO issued",
+        status: "verified",
+        createdAt: ceoSnap.data()?.createdAt || now,
+        updatedAt: now,
+        verifiedAt: now,
+        timestamp: ceoSnap.data()?.createdAt || now,
+        requestedVenue: venueId,
+        ceo: true
+      };
+      tx.set(venueRedRef, ceoPayload, { merge: true });
+      tx.set(ceoVoucherRef, { used: true, usedAt: now, venueId }, { merge: true });
+      return ceoPayload;
+    }
+    const dataSnap = redSnap.data() || {};
+    if (dataSnap.venueId && dataSnap.venueId !== venueId) {
+      throw new HttpsError("permission-denied", "This code belongs to another venue.");
+    }
+    if (dataSnap.status === "verified" && action === "confirm") {
+      return dataSnap;
+    }
+    const nextStatus = action === "deny" ? "denied" : "verified";
+    const updates = {
+      status: nextStatus,
+      updatedAt: now
+    };
+    if (nextStatus === "verified") {
+      updates.verifiedAt = now;
+    } else {
+      updates.deniedAt = now;
+    }
+    tx.update(venueRedRef, updates);
+
+    const memberUid = dataSnap.memberUid;
+    if (memberUid) {
+      const memberRedRef = db.collection("members").doc(memberUid).collection("redemptions").doc(redemptionId);
+      tx.set(memberRedRef, updates, { merge: true });
+      const memberRef = db.collection("members").doc(memberUid);
+      const memberSnap = await tx.get(memberRef);
+      if (memberSnap.exists) {
+        const memberData = memberSnap.data() || {};
+        const remaining = memberData.perksRemaining;
+        if (remaining && typeof remaining.tokens === "number" && nextStatus === "verified") {
+          tx.update(memberRef, { "perksRemaining.tokens": Math.max(0, remaining.tokens - 1) });
+        } else if (nextStatus === "verified") {
+          tx.set(memberRef, { lastVerifiedAt: now }, { merge: true });
+        }
+      }
+    }
+    return { ...dataSnap, ...updates };
+  });
+
+  return { ok: true, redemption: result };
+});
+
 // Seed user profile and username directory on auth create
 exports.initUserProfile = functions.auth.user().onCreate(async (user) => {
   const uid = user.uid;
@@ -365,6 +598,13 @@ exports.initUserProfile = functions.auth.user().onCreate(async (user) => {
     email
   };
   await memberRef.set(profile, { merge: true });
+  await db.collection('passes').doc(passCode).set({
+    uid,
+    passCode,
+    tier: profile.tier || 'standard',
+    status: 'active',
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
   const uname = (profile.username || '').trim().toLowerCase();
   if (uname) {
     await db.collection('usernames').doc(uname).set({
@@ -447,7 +687,7 @@ exports.nightlyCloseOut = functions.runWith(reportEmailSecrets).pubsub.schedule(
 
   // Redemptions in last 24h
   try {
-    const redSnap = await db.collection('redemptions')
+    const redSnap = await db.collectionGroup('redemptions')
       .where('timestamp', '>=', dayStart)
       .get();
     summary.scansToday = redSnap.size;
@@ -521,7 +761,7 @@ exports.nightlyCloseOut = functions.runWith(reportEmailSecrets).pubsub.schedule(
 
   // VIP deals updated in last 24h
   try {
-    const dealSnap = await db.collection('vipDeals')
+    const dealSnap = await db.collection('deals')
       .where('updatedAt', '>=', dayStart)
       .get();
     summary.vipDealsPosted = dealSnap.size;

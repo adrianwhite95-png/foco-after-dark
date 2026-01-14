@@ -64,6 +64,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Pass index (passCode -> uid). Public-ish read for signed-in users.
+    match /passes/{passCode} {
+      allow read: if isSignedIn() && canAccessApp();
+      allow create, update, delete: if false;
+    }
+
     // Voucher redemptions (codes)
     match /redemptions/{code} {
       // Auth required to read
@@ -98,8 +104,34 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Venues collection with subcollections
+    match /venues/{venueId} {
+      allow read: if canAccessApp();
+      allow write: if isAdmin() || isCeo();
+
+      match /perks/{perkId} {
+        allow read: if canAccessApp();
+        allow create, update, delete: if isSignedIn() && canAccessApp() && (
+          isAdmin() || isCeo() || (isStaff() && request.auth.token.venue == venueId)
+        );
+      }
+
+      match /redemptions/{redemptionId} {
+        allow read: if isSignedIn() && canAccessApp() && (
+          isAdmin() || isCeo() || (isStaff() && request.auth.token.venue == venueId)
+        );
+        allow create, update, delete: if false;
+      }
+    }
+
     // Tonight’s alerts (staff posts, everyone reads)
     match /alerts/{id} {
+      allow read: if canAccessApp();
+      allow create, update, delete: if hasPrivilegedRole() && canAccessApp();
+    }
+
+    // Shared deals (staff posts, everyone reads)
+    match /deals/{id} {
       allow read: if canAccessApp();
       allow create, update, delete: if hasPrivilegedRole() && canAccessApp();
     }
@@ -125,6 +157,11 @@ service cloud.firestore {
       allow create: if canAccessApp() && isOwner(uid);
       allow update: if canAccessApp() && (isOwner(uid) || hasPrivilegedRole());
       allow delete: if isOwner(uid) || isAdmin() || isCeo();
+    }
+
+    match /members/{uid}/redemptions/{redemptionId} {
+      allow read: if canAccessApp() && (isOwner(uid) || hasPrivilegedRole());
+      allow create, update, delete: if false;
     }
 
     // Username directory for login-by-username
