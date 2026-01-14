@@ -4760,8 +4760,8 @@
               <div class="meta-value" id="expiryText">Dec 31, 2025</div>
             </div>
             <div class="meta-group">
-              <div class="meta-label">Points</div>
-              <div class="meta-value" id="pointsBalance">0</div>
+              <div class="meta-label">Last check-in</div>
+              <div class="meta-value" id="lastCheckinText">—</div>
             </div>
           </div>
           </div>
@@ -7255,6 +7255,7 @@
     const passIdTop = document.getElementById("passIdTop");
     const memberSinceText = document.getElementById("memberSinceText");
     const expiryText = document.getElementById("expiryText");
+    const lastCheckinText = document.getElementById("lastCheckinText");
     const pointsBalance = document.getElementById("pointsBalance");
     const ceoPassBanner = document.getElementById("ceoPassBanner");
     const ceoPortalShortcut = document.getElementById("ceoPortalShortcut");
@@ -8595,8 +8596,13 @@
       if (!lastKey || lastKey !== todayKey) {
         activeDays += 1;
       }
-      memberProfile = { ...memberProfile, loginCount, activeDays, lastLoginDate: todayKey };
-      persistMemberState({ loginCount, activeDays, lastLoginDate: todayKey });
+      const lastLoginAt = new Date().toISOString();
+      memberProfile = { ...memberProfile, loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt };
+      persistMemberState({ loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt });
+      if (currentPassCode) {
+        setMemberDirectoryEntry(currentPassCode, { lastLoginAt });
+      }
+      updateLastCheckinUI();
     }
 
     function computeStats(entries) {
@@ -12370,10 +12376,10 @@ let onboardingIndex = 0;
     }
 
     function updatePointsUI() {
-      if (!pointsBalance) return;
       const code = (currentPassCode || "").toUpperCase();
+      if (!code) return;
       const points = getPointsForPass(code);
-      pointsBalance.textContent = `${points} pts`;
+      if (pointsBalance) pointsBalance.textContent = `${points} pts`;
       if (userUsername) {
         userUsername.textContent = `@${preferredUsername()}`;
       }
@@ -12382,8 +12388,26 @@ let onboardingIndex = 0;
 
     function updateQuickStrip() {
       if (quickStatus && statusPill) quickStatus.textContent = statusPill.textContent || "Status";
-      if (quickPoints && pointsBalance) quickPoints.textContent = pointsBalance.textContent || "0 pts";
+      if (quickPoints) {
+        const code = (currentPassCode || "").toUpperCase();
+        const points = code ? getPointsForPass(code) : 0;
+        quickPoints.textContent = `${points} pts`;
+      }
       if (quickSpins && nightWheelRemaining) quickSpins.textContent = nightWheelRemaining.textContent || "Spins left";
+    }
+
+    function updateLastCheckinUI() {
+      if (!lastCheckinText) return;
+      const stamp = memberProfile?.lastLoginAt || "";
+      if (stamp) {
+        lastCheckinText.textContent = formatMST(stamp, { year: "numeric" });
+        return;
+      }
+      if (memberProfile?.lastLoginDate) {
+        lastCheckinText.textContent = memberProfile.lastLoginDate;
+        return;
+      }
+      lastCheckinText.textContent = "—";
     }
     function ensurePointsEntry() {
       const code = (currentPassCode || "").toUpperCase();
