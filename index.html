@@ -8603,7 +8603,8 @@
     function getMemberRedemptionEntries() {
       const passCode = (currentPassCode || "").toUpperCase();
       if (!passCode) return [];
-      return redemptionLog.filter(entry => (entry.passId || "").toUpperCase() === passCode);
+      const log = Array.isArray(redemptionLog) ? redemptionLog : [];
+      return log.filter(entry => (entry.passId || "").toUpperCase() === passCode);
     }
 
     function perkSavings(key) {
@@ -8750,7 +8751,8 @@
         pulsePassId.textContent = code;
       }
       const todayKey = getMstDateKey(new Date());
-      const todayEntries = redemptionLog.filter(entry => {
+      const log = Array.isArray(redemptionLog) ? redemptionLog : [];
+      const todayEntries = log.filter(entry => {
         if ((entry.passId || "").toUpperCase() !== code) return false;
         if (entry.status !== "verified" && entry.status !== "approved" && entry.status !== "confirmed") return false;
         const ts = new Date(entry.verifiedAt || entry.timestamp || entry.createdAt || Date.now());
@@ -11506,7 +11508,7 @@ let onboardingIndex = 0;
     let selectedVenuePerkId = null;
     let selectedPerkLabel = null;
     let selectedRedeemVenue = "";
-    let redemptionLog = [];
+    var redemptionLog = [];
     let ceoGeneratedCodes = [];
     let staffPerksUnsub = null;
     let redeemPerksUnsub = null;
