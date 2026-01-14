@@ -1681,6 +1681,42 @@
       background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(24, 24, 27, 0.9));
       box-shadow: 0 0 20px rgba(250, 204, 21, 0.5);
     }
+    .realtime-pill {
+      position: fixed;
+      top: 14px;
+      right: 18px;
+      z-index: 999;
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.86);
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      transition: color 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+    }
+    .realtime-pill[data-state="live"] {
+      color: #34d399;
+      border-color: rgba(52, 211, 153, 0.6);
+      box-shadow: 0 0 12px rgba(52, 211, 153, 0.35);
+    }
+    .realtime-pill[data-state="syncing"] {
+      color: #fbbf24;
+      border-color: rgba(251, 191, 36, 0.65);
+      box-shadow: 0 0 12px rgba(251, 191, 36, 0.35);
+    }
+    .realtime-pill[data-state="offline"] {
+      color: #f87171;
+      border-color: rgba(248, 113, 113, 0.6);
+      box-shadow: 0 0 12px rgba(248, 113, 113, 0.35);
+    }
+    @media (max-width: 720px) {
+      .realtime-pill {
+        top: 10px;
+        right: 12px;
+      }
+    }
 
     .profile-summary {
       display: grid;
@@ -4479,6 +4515,7 @@
   </style>
 </head>
   <body>
+      <div class="realtime-pill" id="realtimeStatusPill" data-state="syncing">Syncing</div>
       <div id="app">
         <!-- LANDING SCREEN -->
         <div id="landingScreen" class="screen active">
@@ -6066,6 +6103,7 @@
       collection,
       getDocs,
       onSnapshot,
+      collectionGroup,
       query,
       where,
       orderBy,
@@ -6073,7 +6111,8 @@
       addDoc,
       serverTimestamp,
       Timestamp,
-      updateDoc
+      updateDoc,
+      writeBatch
     } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-functions.js";
 
@@ -6107,6 +6146,8 @@
     let ceoMessagesUnsub = null;
     let closeOutReportsUnsub = null;
     let staffRedemptionUnsubs = [];
+    let ceoRedemptionsUnsub = null;
+    let ceoRedemptionsCache = [];
     let staffMessagesCache = [];
     let ceoMessagesCache = [];
     let venuePerksCache = {};
@@ -6274,7 +6315,7 @@
     let ceoHealthUnsub = null;
     let settingsUnsub = null;
     let settingsPollTimer = null;
-    let rewardsProgress = { count: 0, threshold: 5, available: false, rewardType: null, cycleKey: null };
+    let rewardsProgress = { count: 0, threshold: 5, available: false, rewardType: null, cycleKey: null, claimed: 0 };
     let memberDocRef = null;
     let currentPassCode = null;
     let onboardingMembershipFlow = false;
@@ -6756,7 +6797,7 @@
           try {
             if (db) {
               await ensureFirebaseUser();
-              await setDoc(doc(db, "vipDeals", venueId), {
+              await setDoc(doc(db, "deals", venueId), {
                 venueId,
                 venueName,
                 title,
@@ -7396,6 +7437,7 @@
     const ceoPassBanner = document.getElementById("ceoPassBanner");
     const ceoPortalShortcut = document.getElementById("ceoPortalShortcut");
     const ceoVenueLog = document.getElementById("ceoVenueLog");
+    const realtimeStatusPill = document.getElementById("realtimeStatusPill");
     const ceoVenueFilter = document.getElementById("ceoVenueFilter");
     const ceoVenueRange = document.getElementById("ceoVenueRange");
     const ceoCloseOutVenue = document.getElementById("ceoCloseOutVenue");
@@ -8140,7 +8182,7 @@
       const cycleKey = getRewardsCycleKey();
       if (!cycleKey) return;
       if (rewardsProgress.cycleKey !== cycleKey) {
-        rewardsProgress = { ...rewardsProgress, count: 0, available: false, rewardType: null, cycleKey };
+        rewardsProgress = { ...rewardsProgress, count: 0, available: false, rewardType: null, cycleKey, claimed: 0 };
         if (allowLocalCache()) {
           localStorage.setItem(REWARDS_KEY, JSON.stringify(rewardsProgress));
         }
@@ -8998,7 +9040,9 @@
       if (!db || !passCode) return [];
       try {
         await ensureFirebaseUser();
-        const q = query(collection(db, "redemptions"), where("passId", "==", passCode));
+        const uid = firebaseAuth.currentUser?.uid;
+        if (!uid) return [];
+        const q = query(collection(db, "members", uid, "redemptions"));
         const snap = await getDocs(q);
         const toIso = (ts) => {
           if (!ts) return new Date().toISOString();
@@ -9008,19 +9052,19 @@
         return snap.docs.map(docSnap => {
           const data = docSnap.data() || {};
           return {
-            code: (data.code || docSnap.id || "").toUpperCase(),
-            perk: data.perk || data.perkKey || "Perk",
+            code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
+            perk: data.perkLabel || data.perk || data.perkKey || "Perk",
             perkKey: data.perkKey || null,
-            venuePerkId: data.venuePerkId || null,
-            venuePerkLabel: data.venuePerkLabel || null,
-            member: data.member || "FoCo member",
-            passId: (data.passId || passCode).toUpperCase(),
-            venue: data.venue || null,
+            venuePerkId: data.perkId || data.venuePerkId || null,
+            venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
+            member: data.memberName || data.member || "FoCo member",
+            passId: (data.passCode || data.passId || passCode).toUpperCase(),
+            venue: data.venueId || data.venue || null,
             requestedVenue: data.requestedVenue || null,
             ceo: !!data.ceo,
             status: data.status || "pending",
-            timestamp: toIso(data.timestamp),
-            verifiedAt: toIso(data.verifiedAt || data.timestamp),
+            timestamp: toIso(data.createdAt || data.timestamp),
+            verifiedAt: toIso(data.verifiedAt || data.createdAt || data.timestamp),
           };
         });
       } catch (err) {
@@ -9043,6 +9087,7 @@
   function detachRealtime() {
     clearGlobalRealtime();
     clearPassRealtime();
+    clearCeoRedemptionsRealtime();
   }
   function attachRealtime() {
     attachGlobalRealtime();
@@ -9058,6 +9103,37 @@
       }
     } catch (_) {}
   }
+  const realtimeState = {
+    fromCache: false,
+    hasPendingWrites: false
+  };
+  function renderRealtimeStatus() {
+    if (!realtimeStatusPill) return;
+    const offline = !navigator.onLine || realtimeState.fromCache;
+    let label = "Live";
+    if (offline) {
+      label = "Offline";
+    } else if (realtimeState.hasPendingWrites) {
+      label = "Syncing";
+    }
+    realtimeStatusPill.textContent = label;
+    realtimeStatusPill.dataset.state = label.toLowerCase();
+  }
+  function noteRealtimeSnapshot(snapshot) {
+    if (!snapshot?.metadata) return;
+    realtimeState.fromCache = snapshot.metadata.fromCache;
+    realtimeState.hasPendingWrites = snapshot.metadata.hasPendingWrites;
+    renderRealtimeStatus();
+  }
+  window.addEventListener("online", () => {
+    realtimeState.fromCache = false;
+    renderRealtimeStatus();
+  });
+  window.addEventListener("offline", () => {
+    realtimeState.fromCache = true;
+    renderRealtimeStatus();
+  });
+  renderRealtimeStatus();
   function applyVipDealsSnapshot(snapshot) {
     if (!snapshot) return;
     const nextCache = {};
@@ -9103,8 +9179,18 @@
     const nextCache = {};
     snapshot.forEach(docSnap => {
       const data = docSnap.data() || {};
-      const perks = normalizeVenuePerks(data.perks || []);
-      nextCache[docSnap.id] = perks;
+      const venueId = data.venueId || docSnap.ref.parent?.parent?.id;
+      if (!venueId) return;
+      if (!nextCache[venueId]) nextCache[venueId] = [];
+      nextCache[venueId].push({
+        id: docSnap.id,
+        label: data.label || data.title || "",
+        standardQty: data.standardQty ?? data.standard,
+        vipQty: data.vipQty ?? data.vip
+      });
+    });
+    Object.keys(nextCache).forEach(venueId => {
+      nextCache[venueId] = normalizeVenuePerks(nextCache[venueId]);
     });
     venuePerksCache = nextCache;
     refreshFeaturedVenuesData();
@@ -9114,21 +9200,24 @@
     if (appLocked && !isCeoAccount) return;
     if (globalRealtimeUnsubs.length) return;
     try {
-      globalRealtimeUnsubs.push(onSnapshot(collection(db, "vipDeals"), (snap) => {
+      globalRealtimeUnsubs.push(onSnapshot(collection(db, "deals"), { includeMetadataChanges: true }, (snap) => {
+        noteRealtimeSnapshot(snap);
         applyVipDealsSnapshot(snap);
       }));
     } catch (err) {
       console.warn("Global vipDeals listener failed", err);
     }
     try {
-      globalRealtimeUnsubs.push(onSnapshot(collection(db, "alerts"), (snap) => {
+      globalRealtimeUnsubs.push(onSnapshot(collection(db, "alerts"), { includeMetadataChanges: true }, (snap) => {
+        noteRealtimeSnapshot(snap);
         applyAlertsSnapshot(snap);
       }));
     } catch (err) {
       console.warn("Global alerts listener failed", err);
     }
     try {
-      globalRealtimeUnsubs.push(onSnapshot(collection(db, "venuePerks"), (snap) => {
+      globalRealtimeUnsubs.push(onSnapshot(collectionGroup(db, "perks"), { includeMetadataChanges: true }, (snap) => {
+        noteRealtimeSnapshot(snap);
         applyVenuePerksSnapshot(snap);
       }));
     } catch (err) {
@@ -9145,7 +9234,8 @@
       if (uid) {
         try {
           const ref = doc(db, "members", uid);
-          passRealtimeUnsubs.push(onSnapshot(ref, (snap) => {
+          passRealtimeUnsubs.push(onSnapshot(ref, { includeMetadataChanges: true }, (snap) => {
+            noteRealtimeSnapshot(snap);
             if (snap.exists()) {
               const data = snap.data() || {};
               const mergedPass = (data.passCode || data.passId || code || currentPassCode || "").toUpperCase();
@@ -9185,7 +9275,9 @@
       }
       if (code) {
         try {
-          passRealtimeUnsubs.push(onSnapshot(query(collection(db, "redemptions"), where("passId", "==", code)), (snap) => {
+          const redRef = collection(db, "members", uid, "redemptions");
+          passRealtimeUnsubs.push(onSnapshot(query(redRef, orderBy("createdAt", "desc"), limit(200)), { includeMetadataChanges: true }, (snap) => {
+            noteRealtimeSnapshot(snap);
             const toIso = (ts) => {
               if (!ts) return new Date().toISOString();
               if (ts.toDate) return ts.toDate().toISOString();
@@ -9194,19 +9286,19 @@
             const entries = snap.docs.map(docSnap => {
               const data = docSnap.data() || {};
               return {
-                code: (data.code || docSnap.id || "").toUpperCase(),
-                perk: data.perk || data.perkKey || "Perk",
+                code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
+                perk: data.perkLabel || data.perk || data.perkKey || "Perk",
                 perkKey: data.perkKey || null,
-                venuePerkId: data.venuePerkId || null,
-                venuePerkLabel: data.venuePerkLabel || null,
-                member: data.member || "FoCo member",
-                passId: (data.passId || code).toUpperCase(),
-                venue: data.venue || null,
+                venuePerkId: data.perkId || data.venuePerkId || null,
+                venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
+                member: data.memberName || data.member || "FoCo member",
+                passId: (data.passCode || data.passId || code).toUpperCase(),
+                venue: data.venueId || data.venue || null,
                 requestedVenue: data.requestedVenue || null,
                 ceo: !!data.ceo,
                 status: data.status || "pending",
-                timestamp: toIso(data.timestamp),
-                verifiedAt: toIso(data.verifiedAt || data.timestamp),
+                timestamp: toIso(data.createdAt || data.timestamp),
+                verifiedAt: toIso(data.verifiedAt || data.createdAt || data.timestamp),
               };
             });
             if (!entries.length) {
@@ -9220,7 +9312,8 @@
           console.warn("Redemption realtime listener failed", err);
         }
         try {
-          passRealtimeUnsubs.push(onSnapshot(doc(db, "freeMemberships", code), (snap) => {
+          passRealtimeUnsubs.push(onSnapshot(doc(db, "freeMemberships", code), { includeMetadataChanges: true }, (snap) => {
+            noteRealtimeSnapshot(snap);
             if (snap.exists()) {
               const data = snap.data() || {};
               if (data && data.active !== false) {
@@ -9247,6 +9340,7 @@
       // Offline/beta uses whatever local entries exist.
       applyStatsToUi(computeStats(localEntries));
       updateStreakBadge(localEntries);
+      syncRewardsFromEntries(localEntries);
       renderProfileBadges();
       evaluateAchievements(localEntries);
     }
@@ -9656,7 +9750,7 @@ let onboardingIndex = 0;
         }
         try {
           if (db) {
-            await setDoc(doc(db, "vipDeals", venueId), {
+            await setDoc(doc(db, "deals", venueId), {
               venueId,
               venueName,
               title,
@@ -9938,6 +10032,7 @@ let onboardingIndex = 0;
         rewardsProgress.available = false;
         rewardsProgress.rewardType = "token";
         rewardsProgress.count = 0;
+        rewardsProgress.claimed = (Number(rewardsProgress.claimed) || 0) + 1;
         saveRewardsProgress(rewardsProgress);
         updateRewardsUI();
         if (rewardsModal) rewardsModal.classList.remove("active");
@@ -10016,7 +10111,7 @@ let onboardingIndex = 0;
           }
           if (!db) return;
           try {
-            await setDoc(doc(db, "vipDeals", id), {
+            await setDoc(doc(db, "deals", id), {
               expiresAt: Timestamp.fromDate(new Date(Date.now() - 1000)),
               updatedAt: serverTimestamp(),
             }, { merge: true });
@@ -11411,12 +11506,27 @@ let onboardingIndex = 0;
       }
       try {
         await ensureFirebaseUser();
-        await setDoc(doc(db, "venuePerks", venueId), {
-          venueId,
-          venueName,
-          perks,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
+        const perksRef = collection(db, "venues", venueId, "perks");
+        const existing = await getDocs(perksRef);
+        const keepIds = new Set(perks.map(item => item.id));
+        const batch = writeBatch(db);
+        perks.forEach(perk => {
+          const perkRef = doc(db, "venues", venueId, "perks", perk.id);
+          batch.set(perkRef, {
+            venueId,
+            venueName,
+            label: perk.label,
+            standardQty: perk.standardQty,
+            vipQty: perk.vipQty,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        });
+        existing.forEach(docSnap => {
+          if (!keepIds.has(docSnap.id)) {
+            batch.delete(docSnap.ref);
+          }
+        });
+        await batch.commit();
         if (staffPerksSuccess) {
           staffPerksSuccess.style.display = "block";
           setTimeout(() => {
@@ -11446,17 +11556,14 @@ let onboardingIndex = 0;
         renderStaffPerksEditor(venuePerksCache[venueId] || []);
         return;
       }
-      const ref = doc(db, "venuePerks", venueId);
+      const ref = collection(db, "venues", venueId, "perks");
       staffPerksUnsub = onSnapshot(ref, (snap) => {
-        if (snap.exists()) {
-          const data = snap.data() || {};
-          const perks = normalizeVenuePerks(data.perks || []);
-          venuePerksCache[venueId] = perks;
-          renderStaffPerksEditor(perks);
-        } else {
-          venuePerksCache[venueId] = [];
-          renderStaffPerksEditor([]);
-        }
+        const perks = snap.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }));
+        venuePerksCache[venueId] = normalizeVenuePerks(perks);
+        renderStaffPerksEditor(venuePerksCache[venueId]);
       }, (err) => {
         console.warn("Failed to listen for venue perks", err);
         renderStaffPerksEditor(venuePerksCache[venueId] || []);
@@ -11485,14 +11592,13 @@ let onboardingIndex = 0;
       venuePerksCache[venueId] = [];
       redeemPerksLoading = true;
       if (redeemPerksHint) redeemPerksHint.style.display = "block";
-      const ref = doc(db, "venuePerks", venueId);
+      const ref = collection(db, "venues", venueId, "perks");
       redeemPerksUnsub = onSnapshot(ref, (snap) => {
-        if (snap.exists()) {
-          const data = snap.data() || {};
-          venuePerksCache[venueId] = normalizeVenuePerks(data.perks || []);
-        } else {
-          venuePerksCache[venueId] = [];
-        }
+        const perks = snap.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }));
+        venuePerksCache[venueId] = normalizeVenuePerks(perks);
         redeemPerksLoading = false;
         if (redeemPerksHint) redeemPerksHint.style.display = "none";
         renderRedemptionOptions();
@@ -11735,6 +11841,35 @@ let onboardingIndex = 0;
         rewardsProgress.rewardType = "token";
         rewardsProgress.count = 0;
       }
+      saveRewardsProgress(rewardsProgress);
+      updateRewardsUI();
+    }
+    function getCurrentBillingWindow() {
+      const uid = firebaseAuth.currentUser?.uid;
+      const billing = uid ? loadBilling(uid) : {};
+      const startIso = resolveBillingStart(billing) || memberProfile?.memberSince || null;
+      let startDate = startIso ? new Date(startIso) : null;
+      if (!startDate || Number.isNaN(startDate.getTime())) {
+        startDate = new Date();
+        startDate.setDate(1);
+        startDate.setHours(0, 0, 0, 0);
+      }
+      const cycles = countBillingCycles(startDate.toISOString(), new Date());
+      const cycleStart = shiftMonth(startDate, Math.max(0, cycles - 1));
+      const cycleEnd = oneMonthFrom(cycleStart);
+      return { start: cycleStart, end: cycleEnd };
+    }
+    function syncRewardsFromEntries(entries = []) {
+      syncRewardsCycle();
+      const threshold = rewardsProgress.threshold || 5;
+      const claimed = Number(rewardsProgress.claimed) || 0;
+      const window = getCurrentBillingWindow();
+      const verifiedCount = countRedemptionsInWindow(entries, window, { includePending: false });
+      const eligible = Math.max(0, verifiedCount - (claimed * threshold));
+      const available = eligible >= threshold;
+      rewardsProgress.count = available ? 0 : eligible;
+      rewardsProgress.available = available;
+      rewardsProgress.rewardType = "token";
       saveRewardsProgress(rewardsProgress);
       updateRewardsUI();
     }
@@ -13221,7 +13356,7 @@ let onboardingIndex = 0;
         return;
       }
       try {
-        const snapshot = await getDocs(collection(db, "vipDeals"));
+        const snapshot = await getDocs(collection(db, "deals"));
         applyVipDealsSnapshot(snapshot);
         saveVipDealsToStorage(vipDealsCache);
       } catch (err) {
@@ -13934,94 +14069,48 @@ let onboardingIndex = 0;
     function startStaffRedemptionListener(venueId) {
       stopStaffRedemptionListener();
       if (!db || !venueId) return;
-      let venueEntries = [];
-      let requestedEntries = [];
-      const cached = loadStaffRedemptionCache(venueId);
-      if (cached.length) {
-        redemptionLog = cached.slice();
-        renderStaffVenueLog();
-        updateStaffRadar();
-        renderStaffPendingQueue();
-      }
       const toIso = (ts) => {
         if (!ts) return new Date().toISOString();
         if (ts.toDate) return ts.toDate().toISOString();
         return new Date(ts).toISOString();
       };
-      const mapEntries = (snap) => snap.docs.map(docSnap => {
-        const data = docSnap.data() || {};
-        return {
-          code: (data.code || docSnap.id || "").toUpperCase(),
-          perk: data.perk || data.perkKey || "Perk",
-          perkKey: data.perkKey || null,
-          venuePerkId: data.venuePerkId || null,
-          venuePerkLabel: data.venuePerkLabel || null,
-          member: data.member || "FoCo member",
-          passId: (data.passId || "").toUpperCase(),
-          venue: data.venue || null,
-          requestedVenue: data.requestedVenue || null,
-          ceo: !!data.ceo,
-          status: data.status || "pending",
-          timestamp: toIso(data.timestamp),
-          verifiedAt: toIso(data.verifiedAt || data.timestamp),
-        };
-      }).filter(entry => entry.code);
-      const mergeAndRender = () => {
-        const byCode = {};
-        [...venueEntries, ...requestedEntries].forEach(entry => {
-          const key = entry.code.toUpperCase();
-          const existing = byCode[key];
-          if (!existing) {
-            byCode[key] = entry;
-            return;
-          }
-          if (existing.status !== "verified" && entry.status === "verified") {
-            byCode[key] = entry;
-            return;
-          }
-          if (entry.verifiedAt && !existing.verifiedAt) {
-            byCode[key] = entry;
-          }
-        });
-        redemptionLog = Object.values(byCode).sort((a, b) => {
-          return new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0);
-        });
-        saveStaffRedemptionCache(venueId, redemptionLog);
-        renderStaffVenueLog();
-        updateStaffRadar();
-        renderStaffPendingQueue();
-      };
       try {
         const qVenue = query(
-          collection(db, "redemptions"),
-          where("venue", "==", venueId),
-          orderBy("timestamp", "desc"),
+          collection(db, "venues", venueId, "redemptions"),
+          orderBy("createdAt", "desc"),
           limit(200)
         );
-        staffRedemptionUnsubs.push(onSnapshot(qVenue, (snap) => {
-          venueEntries = mapEntries(snap);
-          mergeAndRender();
+        staffRedemptionUnsubs.push(onSnapshot(qVenue, { includeMetadataChanges: true }, (snap) => {
+          noteRealtimeSnapshot(snap);
+          const entries = snap.docs.map(docSnap => {
+            const data = docSnap.data() || {};
+            return {
+              code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
+              perk: data.perkLabel || data.perk || data.perkKey || "Perk",
+              perkKey: data.perkKey || null,
+              venuePerkId: data.perkId || data.venuePerkId || null,
+              venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
+              member: data.memberName || data.member || "FoCo member",
+              passId: (data.passCode || data.passId || "").toUpperCase(),
+              venue: data.venueId || data.venue || null,
+              requestedVenue: data.requestedVenue || null,
+              ceo: !!data.ceo,
+              status: data.status || "pending",
+              timestamp: toIso(data.createdAt || data.timestamp),
+              verifiedAt: toIso(data.verifiedAt || data.timestamp),
+            };
+          }).filter(entry => entry.code);
+          redemptionLog = entries.sort((a, b) => {
+            return new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0);
+          });
+          renderStaffVenueLog();
+          updateStaffRadar();
+          renderStaffPendingQueue();
         }, (err) => {
           console.warn("Staff redemptions listener failed", err);
         }));
       } catch (err) {
         console.warn("Staff redemptions listener failed", err);
-      }
-      try {
-        const qRequested = query(
-          collection(db, "redemptions"),
-          where("requestedVenue", "==", venueId),
-          orderBy("timestamp", "desc"),
-          limit(200)
-        );
-        staffRedemptionUnsubs.push(onSnapshot(qRequested, (snap) => {
-          requestedEntries = mapEntries(snap);
-          mergeAndRender();
-        }, (err) => {
-          console.warn("Staff requested redemptions listener failed", err);
-        }));
-      } catch (err) {
-        console.warn("Staff requested redemptions listener failed", err);
       }
     }
 
@@ -14047,7 +14136,7 @@ let onboardingIndex = 0;
       async function archiveRedemptions() {
         if (!opts.redemptions) return;
         try {
-          const snap = await getDocs(collection(db, "redemptions"));
+          const snap = await getDocs(collectionGroup(db, "redemptions"));
           for (const docSnap of snap.docs) {
             try {
               await updateDoc(docSnap.ref, { betaArchived: true });
@@ -14061,7 +14150,7 @@ let onboardingIndex = 0;
       }
 
       async function deleteAllInCollection(name) {
-        if ((name === "vipDeals" && !opts.vipDeals) ||
+        if ((name === "deals" && !opts.vipDeals) ||
             (name === "alerts" && !opts.alerts) ||
             (name === "closeOutReports" && !opts.closeouts)) {
           return;
@@ -14147,7 +14236,7 @@ let onboardingIndex = 0;
 
       // Execute in sequence to reduce load on Firestore
       await archiveRedemptions();
-      await deleteAllInCollection("vipDeals");
+      await deleteAllInCollection("deals");
       await deleteAllInCollection("alerts");
       await deleteAllInCollection("closeOutReports");
       await resetFreeMemberships();
@@ -14574,13 +14663,14 @@ let onboardingIndex = 0;
       const venueKey = (venueId || "").toLowerCase();
       if (!venueKey) return false;
       const requested = (entry.requestedVenue || "").toLowerCase();
-      const assigned = (entry.venue || "").toLowerCase();
+      const assigned = (entry.venueId || entry.venue || "").toLowerCase();
       if (requested) return requested === venueKey;
       if (assigned) return assigned === venueKey;
       return false;
     }
     function loadStaffRedemptionCache(venueId) {
       if (!venueId) return [];
+      if (db && useCloudProfile()) return [];
       try {
         const raw = localStorage.getItem(`${STAFF_REDEMPTION_CACHE_PREFIX}${venueId}`);
         const parsed = raw ? JSON.parse(raw) : [];
@@ -14591,6 +14681,7 @@ let onboardingIndex = 0;
     }
     function saveStaffRedemptionCache(venueId, entries = []) {
       if (!venueId) return;
+      if (db && useCloudProfile()) return;
       try {
         const trimmed = entries.slice(0, 200);
         localStorage.setItem(`${STAFF_REDEMPTION_CACHE_PREFIX}${venueId}`, JSON.stringify(trimmed));
@@ -14973,7 +15064,7 @@ let onboardingIndex = 0;
         month: 31 * 24 * 60 * 60 * 1000,
         year: 365 * 24 * 60 * 60 * 1000
       };
-      let entries = redemptionLog.filter(e => e.status === "verified");
+      let entries = getCeoRedemptions().filter(e => e.status === "verified");
       if (venueId !== "all") {
         entries = entries.filter(e => (e.venue || "").toLowerCase() === venueId.toLowerCase());
       }
@@ -15107,6 +15198,54 @@ let onboardingIndex = 0;
         ceoReviewsUnsub = null;
       }
       ceoReviewsCache = [];
+    }
+    function clearCeoRedemptionsRealtime() {
+      if (ceoRedemptionsUnsub) {
+        try { ceoRedemptionsUnsub(); } catch (_) {}
+        ceoRedemptionsUnsub = null;
+      }
+      ceoRedemptionsCache = [];
+    }
+    function getCeoRedemptions() {
+      return ceoRedemptionsCache.length ? ceoRedemptionsCache : redemptionLog;
+    }
+    function attachCeoRedemptionsRealtime() {
+      if (!db || !isCeoAccount) return;
+      clearCeoRedemptionsRealtime();
+      try {
+        const q = query(collectionGroup(db, "redemptions"), orderBy("createdAt", "desc"), limit(400));
+        ceoRedemptionsUnsub = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
+          noteRealtimeSnapshot(snap);
+          const toIso = (ts) => {
+            if (!ts) return new Date().toISOString();
+            if (ts.toDate) return ts.toDate().toISOString();
+            return new Date(ts).toISOString();
+          };
+          ceoRedemptionsCache = snap.docs.map(docSnap => {
+            const data = docSnap.data() || {};
+            return {
+              code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
+              perk: data.perkLabel || data.perk || data.perkKey || "Perk",
+              perkKey: data.perkKey || null,
+              venuePerkId: data.perkId || data.venuePerkId || null,
+              venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
+              member: data.memberName || data.member || "FoCo member",
+              passId: (data.passCode || data.passId || "").toUpperCase(),
+              venue: data.venueId || data.venue || null,
+              requestedVenue: data.requestedVenue || null,
+              ceo: !!data.ceo,
+              status: data.status || "pending",
+              timestamp: toIso(data.createdAt || data.timestamp),
+              verifiedAt: toIso(data.verifiedAt || data.createdAt || data.timestamp),
+            };
+          });
+          renderCeoRedemptionLog();
+          renderCeoVenueLog();
+          updateCeoMetrics();
+        }, (err) => console.warn("CEO redemptions realtime failed", err));
+      } catch (err) {
+        console.warn("CEO redemptions realtime failed", err);
+      }
     }
     function attachCeoReviewsRealtime() {
       if (!db || !isCeoAccount) return;
@@ -15305,7 +15444,7 @@ let onboardingIndex = 0;
         if (tierCounts[tier] !== undefined) tierCounts[tier] += 1;
       });
       const totalMembers = Math.max(1, members.length);
-      const verified = redemptionLog.filter(entry => entry.status === "verified");
+      const verified = getCeoRedemptions().filter(entry => entry.status === "verified");
       const valueMap = { drink: 3, shot: 1, cover: 8 };
       const perkCounts = { drink: 0, shot: 0, cover: 0 };
       const perkLabels = {
@@ -15474,9 +15613,10 @@ let onboardingIndex = 0;
 
     function updateCeoMetrics(reviewsOverride) {
       if (!metricTodayRedemptions || !metricActiveVenues || !metricLatestRating) return;
+      const ceoEntries = getCeoRedemptions();
       const today = new Date().toDateString();
-      const todayCount = redemptionLog.filter(entry => new Date(entry.timestamp).toDateString() === today).length;
-      const uniqueVenues = new Set(redemptionLog.filter(entry => entry.venue).map(entry => entry.venue));
+      const todayCount = ceoEntries.filter(entry => new Date(entry.timestamp).toDateString() === today).length;
+      const uniqueVenues = new Set(ceoEntries.filter(entry => entry.venue).map(entry => entry.venue));
       const reviews = Array.isArray(reviewsOverride)
         ? reviewsOverride
         : mergeReviews(ceoReviewsCache, getStoredReviews());
@@ -15490,9 +15630,13 @@ let onboardingIndex = 0;
 
     // CEO sessions should rely on Firebase auth, not local storage shortcuts.
 
-    const RED_COLLECTION = "redemptions";
-    const redemptionsCol = db ? collection(db, RED_COLLECTION) : null;
-    const getRedemptionRef = (code) => db && code ? doc(db, RED_COLLECTION, code.toUpperCase()) : null;
+    const LEGACY_RED_COLLECTION = "redemptions";
+    const getLegacyRedemptionRef = (code) => db && code ? doc(db, LEGACY_RED_COLLECTION, code.toUpperCase()) : null;
+    const getMemberRedemptionRef = (code) => {
+      const uid = firebaseAuth.currentUser?.uid;
+      if (!db || !uid || !code) return null;
+      return doc(db, "members", uid, "redemptions", code.toUpperCase());
+    };
 
     function toTimestamp(value) {
       try {
@@ -15522,7 +15666,7 @@ let onboardingIndex = 0;
         lastCloudSyncError = "auth";
         return false;
       }
-      const ref = getRedemptionRef(entry.code);
+      const ref = getLegacyRedemptionRef(entry.code);
       if (!ref) return false;
       const passId = (entry.passId || "").toUpperCase();
       const payload = {
@@ -15553,7 +15697,7 @@ let onboardingIndex = 0;
     async function fetchCloudRedemption(code) {
       if (!db || !code) return null;
       await ensureFirebaseUser();
-      const ref = getRedemptionRef(code);
+      const ref = getLegacyRedemptionRef(code);
       if (!ref) return null;
       try {
         const snap = await withTimeout(getDoc(ref));
@@ -16009,11 +16153,12 @@ let onboardingIndex = 0;
     }
     function renderCeoRedemptionLog() {
       if (!ceoRedemptionList) return;
-      if (!redemptionLog.length) {
+      const entries = getCeoRedemptions();
+      if (!entries.length) {
         ceoRedemptionList.innerHTML = '<p style="color:#94a3b8;">No redemptions yet.</p>';
         return;
       }
-      ceoRedemptionList.innerHTML = redemptionLog.map(entry => {
+      ceoRedemptionList.innerHTML = entries.map(entry => {
         const date = formatMST(entry.timestamp);
         const venueText = entry.venue ? `<span style="color:#94a3b8;">Venue: ${entry.venue}</span>` : "<span style='color:#94a3b8;'>Venue pending</span>";
         const tierText = entry.perk
@@ -17742,13 +17887,52 @@ let onboardingIndex = 0;
       if (!code) return { success: false, message: "Enter a code." };
       const codeUpper = code.toUpperCase();
       const venueKey = (venueId || "").toLowerCase();
+      const toIso = (ts) => {
+        if (!ts) return new Date().toISOString();
+        if (ts.toDate) return ts.toDate().toISOString();
+        return new Date(ts).toISOString();
+      };
+      const mapEntry = (payload = {}) => ({
+        code: (payload.redemptionId || payload.code || codeUpper).toUpperCase(),
+        perk: payload.perkLabel || payload.perk || payload.perkKey || "Perk",
+        perkKey: payload.perkKey || null,
+        venuePerkId: payload.perkId || payload.venuePerkId || null,
+        venuePerkLabel: payload.perkLabel || payload.venuePerkLabel || null,
+        member: payload.memberName || payload.member || "FoCo member",
+        passId: (payload.passCode || payload.passId || "").toUpperCase(),
+        venue: payload.venueId || payload.venue || null,
+        requestedVenue: payload.requestedVenue || null,
+        ceo: !!payload.ceo,
+        status: payload.status || "pending",
+        timestamp: toIso(payload.createdAt || payload.timestamp),
+        verifiedAt: toIso(payload.verifiedAt || payload.createdAt || payload.timestamp),
+      });
       const isVenueMismatch = (payload) => {
         if (!venueKey) return false;
         const requested = (payload.requestedVenue || "").toLowerCase();
-        const assigned = (payload.venue || "").toLowerCase();
+        const assigned = (payload.venue || payload.venueId || "").toLowerCase();
         if (requested && requested !== venueKey) return true;
         if (assigned && assigned !== venueKey) return true;
         return false;
+      };
+      const callVerify = async () => {
+        if (!functionsClient) {
+          return { success: false, message: "Verification unavailable." };
+        }
+        try {
+          const fn = httpsCallable(functionsClient, "verifyRedemption");
+          const resp = await fn({ redemptionId: codeUpper, venueId: venueKey, action: "confirm" });
+          return { success: true, entry: resp?.data?.redemption || {} };
+        } catch (err) {
+          const code = err?.code || "";
+          if (code === "not-found") {
+            return { success: false, message: "Code not found. Ask member to refresh their pass." };
+          }
+          if (code === "permission-denied") {
+            return { success: false, message: "Access denied for this venue." };
+          }
+          return { success: false, message: err?.message || "Verification failed." };
+        }
       };
       const entry = redemptionLog.find(item => item.code.toUpperCase() === codeUpper);
       if (!entry) {
@@ -17798,73 +17982,28 @@ let onboardingIndex = 0;
           addRedemptionLogEntry(newEntry, { skipSync: true });
           return { success: true, entry: newEntry };
         }
-        let cloud = null;
-        try {
-          cloud = await fetchCloudRedemption(codeUpper);
-        } catch (err) {
-          return { success: false, message: "Couldn’t reach cloud. Check connection and try again." };
+        const verified = await callVerify();
+        if (!verified.success) return verified;
+        const mapped = mapEntry(verified.entry);
+        if (isVenueMismatch(mapped)) {
+          return { success: false, message: "This code is assigned to another venue." };
         }
-        if (cloud) {
-          if (isVenueMismatch(cloud)) {
-            return { success: false, message: "This code is assigned to another venue." };
-          }
-          cloud.status = "verified";
-          cloud.verifiedAt = new Date().toISOString();
-          if (venueId) cloud.venue = venueId;
-          const synced = await syncRedemptionToCloud(cloud);
-          if (!synced) {
-            return { success: false, message: cloudSyncFailureMessage() };
-          }
-          addRedemptionLogEntry(cloud, { skipSync: true });
-          return { success: true, entry: cloud };
-        }
-        return { success: false, message: "Code not found. Ask member to refresh their pass." };
+        addRedemptionLogEntry(mapped, { skipSync: true });
+        return { success: true, entry: mapped };
       }
       if (isVenueMismatch(entry)) {
         return { success: false, message: "This code is assigned to another venue." };
-      }
-      if (!entry.passId) {
-        try {
-          const cloudLookup = await fetchCloudRedemption(codeUpper);
-          if (cloudLookup?.passId) entry.passId = cloudLookup.passId;
-          if (!entry.perk && cloudLookup?.perk) entry.perk = cloudLookup.perk;
-          if (!entry.perkKey && cloudLookup?.perkKey) entry.perkKey = cloudLookup.perkKey;
-          if (!entry.member && cloudLookup?.member) entry.member = cloudLookup.member;
-          if (!entry.timestamp && cloudLookup?.timestamp) entry.timestamp = cloudLookup.timestamp;
-        } catch (_) {}
       }
       const existingStatus = (entry.status || "").toLowerCase();
       if (["verified", "approved", "confirmed"].includes(existingStatus)) {
         return { success: false, message: "Already confirmed earlier." };
       }
-      const updatedEntry = { ...entry };
-      updatedEntry.status = "verified";
-      updatedEntry.verifiedAt = new Date().toISOString();
-      if (venueId) updatedEntry.venue = venueId;
-      if (entry.perkKey === "reward_shot") {
-        updatedEntry.perk = "Reward: shot perk";
-        updatedEntry.perkKey = "reward_shot";
-      }
-      const synced = await syncRedemptionToCloud(updatedEntry);
-      if (!synced) {
-        return { success: false, message: cloudSyncFailureMessage() };
-      }
-      Object.assign(entry, updatedEntry);
-      if (entry.ceo && entry.passId === "CEO") {
-        saveRedemptionLog();
-        renderStaffVenueLog();
-        renderStaffPendingQueue();
-        refreshMemberStats();
-        renderCeoVerifiedVenueLog();
-        return { success: true, entry };
-      }
-      await finalizeEntryRedemption(entry);
-      saveRedemptionLog();
-      incrementRewardsProgress();
-      renderRedemptionOptions();
+      const verified = await callVerify();
+      if (!verified.success) return verified;
+      const mapped = mapEntry(verified.entry);
+      Object.assign(entry, mapped);
       renderStaffVenueLog();
       renderStaffPendingQueue();
-      renderCeoVerifiedVenueLog();
       refreshMemberStats();
       return { success: true, entry };
     }
@@ -18361,7 +18500,7 @@ let onboardingIndex = 0;
         try { redeemWatchUnsub(); } catch (_) {}
         redeemWatchUnsub = null;
       }
-      const ref = getRedemptionRef(code);
+      const ref = getMemberRedemptionRef(code);
       if (!ref) return;
       redeemWatchUnsub = onSnapshot(ref, (snap) => {
         if (!snap.exists()) return;
@@ -18372,19 +18511,19 @@ let onboardingIndex = 0;
           return new Date(ts).toISOString();
         };
         const entry = {
-          code: (data.code || code).toUpperCase(),
-          perk: data.perk || data.perkKey || "Perk",
+          code: (data.redemptionId || data.code || code).toUpperCase(),
+          perk: data.perkLabel || data.perk || data.perkKey || "Perk",
           perkKey: data.perkKey || null,
-          venuePerkId: data.venuePerkId || null,
-          venuePerkLabel: data.venuePerkLabel || null,
-          passId: (data.passId || currentPassCode || "").toUpperCase(),
-          member: data.member || passUserName?.textContent || "FoCo member",
-          venue: data.venue || null,
+          venuePerkId: data.perkId || data.venuePerkId || null,
+          venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
+          passId: (data.passCode || data.passId || currentPassCode || "").toUpperCase(),
+          member: data.memberName || data.member || passUserName?.textContent || "FoCo member",
+          venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
           ceo: !!data.ceo,
           status: data.status || "pending",
-          timestamp: toIso(data.timestamp),
-          verifiedAt: toIso(data.verifiedAt || data.timestamp),
+          timestamp: toIso(data.createdAt || data.timestamp),
+          verifiedAt: toIso(data.verifiedAt || data.createdAt || data.timestamp),
         };
         mergeRedemptionLogEntries([entry]);
       });
@@ -18721,6 +18860,11 @@ let onboardingIndex = 0;
         stopHealthWatch();
       }
       if (isCeoAccount) {
+        attachCeoRedemptionsRealtime();
+      } else {
+        clearCeoRedemptionsRealtime();
+      }
+      if (isCeoAccount) {
         appLockOverride = false;
       }
       applyAppLockState();
@@ -18811,31 +18955,53 @@ let onboardingIndex = 0;
         incrementPendingForCurrent(selectedPerkId);
       }
       renderRedemptionOptions();
-      const code = generateRedemptionCode();
+      if (!functionsClient) {
+        creditInfo.textContent = "Redemption unavailable. Try again.";
+        return;
+      }
       const rewardLabel = selectedPerkId === "reward_shot" ? "Reward: shot perk" : perkLabel;
-      const entry = {
-        code,
-        perk: rewardLabel,
-        member: passUserName.textContent,
-        ceo: false,
-        perkKey: selectedPerkId === "reward_shot" ? "reward_shot" : "venue_perk",
-        venuePerkId: selectedVenuePerkId || null,
-        venuePerkLabel: selectedPerkLabel || null,
-        passId: activePassId,
-        requestedVenue: requestedVenue ? requestedVenue.toLowerCase() : null,
-        status: "pending",
-        timestamp: new Date().toISOString(),
-      };
-      cacheStaffRedemptionForVenue(entry);
-      const synced = await syncRedemptionToCloud(entry);
-      if (!synced) {
+      let payload = null;
+      try {
+        const fn = httpsCallable(functionsClient, "createRedemption");
+        const resp = await fn({
+          passCode: activePassId,
+          venueId: requestedVenue,
+          perkId: selectedVenuePerkId || selectedPerkId,
+          perkLabel: rewardLabel,
+          perkKey: selectedPerkId === "reward_shot" ? "reward_shot" : "venue_perk"
+        });
+        payload = resp?.data?.redemption || null;
+      } catch (err) {
         if (!unlimited) {
           decrementPendingForPass(activePassId, selectedPerkId);
           renderRedemptionOptions();
         }
-        creditInfo.textContent = cloudSyncFailureMessage();
+        creditInfo.textContent = err?.message || "Could not start redemption.";
         return;
       }
+      const code = (payload?.redemptionId || payload?.code || "").toUpperCase();
+      if (!code) {
+        creditInfo.textContent = "Could not start redemption.";
+        return;
+      }
+      const entry = {
+        code,
+        perk: payload?.perkLabel || rewardLabel,
+        member: payload?.memberName || passUserName.textContent,
+        ceo: !!payload?.ceo,
+        perkKey: selectedPerkId === "reward_shot" ? "reward_shot" : "venue_perk",
+        venuePerkId: payload?.perkId || selectedVenuePerkId || null,
+        venuePerkLabel: payload?.perkLabel || selectedPerkLabel || null,
+        passId: (payload?.passCode || activePassId).toUpperCase(),
+        requestedVenue: requestedVenue ? requestedVenue.toLowerCase() : null,
+        status: payload?.status || "pending",
+        timestamp: payload?.createdAt?.toDate
+          ? payload.createdAt.toDate().toISOString()
+          : (payload?.createdAt?.seconds
+            ? new Date(payload.createdAt.seconds * 1000).toISOString()
+            : new Date().toISOString()),
+      };
+      cacheStaffRedemptionForVenue(entry);
       addRedemptionLogEntry(entry, { skipSync: true });
       closeRedeemModal();
       showRedemptionQr(perkLabel, code, requestedVenue);
