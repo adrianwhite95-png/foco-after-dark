@@ -1295,6 +1295,10 @@
     #landingScreen .tagline {
       text-align: center;
     }
+    .landing-live-wrap {
+      display: flex;
+      justify-content: center;
+    }
     .landing-live-count {
       margin: 10px auto 14px;
       display: inline-flex;
@@ -1309,6 +1313,7 @@
       letter-spacing: 0.12em;
       text-transform: uppercase;
       box-shadow: 0 12px 28px rgba(8, 47, 73, 0.45);
+      text-align: center;
     }
     .landing-live-count strong {
       font-size: 12px;
@@ -4236,30 +4241,32 @@
           <div class="tagline" id="landingTagline">
             Nightlife, gamified. Unlock perks, flash your pass, and collect rewards while you move through the city.
           </div>
-          <div class="landing-live-count">
-            <span>Current users</span>
-            <strong id="currentUsersCount">0</strong>
+          <div class="landing-live-wrap">
+            <div class="landing-live-count">
+              <span>Current users</span>
+              <strong id="currentUsersCount">0</strong>
+            </div>
           </div>
       <div class="hero-highlight hero-animated">
         <div class="hero-point neon-card">
           <div class="hero-point-icon pulse">1</div>
           <div>
-            <strong>Pulse of Old Town</strong>
-            <p>Glowing floors, packed dance rooms, and VIP lanes at Fort Collins’ hotspots.</p>
+            <strong>Old Town pulse</strong>
+            <p>Live crowd heat, VIP lanes, and tonight-only drops across Fort Collins.</p>
           </div>
         </div>
         <div class="hero-point neon-card">
           <div class="hero-point-icon pulse">2</div>
           <div>
-            <strong>Monthly venue perks</strong>
-            <p>Venues set the perks each month. Choose where you’re at, redeem instantly, and keep the line moving.</p>
+            <strong>Monthly perk drops</strong>
+            <p>Venues refresh perks monthly. Pick your spot, redeem in seconds, keep the line moving.</p>
           </div>
         </div>
         <div class="hero-point neon-card">
           <div class="hero-point-icon pulse">3</div>
           <div>
             <strong>Built with venues</strong>
-            <p>Live analytics for bars, verified scans for staff, and premium offers for members.</p>
+            <p>Verified scans for staff, real-time venue alerts, and perks built with local partners.</p>
           </div>
         </div>
       </div>
