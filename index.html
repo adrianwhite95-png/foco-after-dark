@@ -7231,6 +7231,7 @@
     }
 
     async function handleAuthenticatedUser(user) {
+      setRealtimeRequiredSources([]);
       if (user?.isAnonymous) {
         if (staffSession || betaPassMode) {
           return;
@@ -7320,6 +7321,7 @@
         applyCachedStats();
         ensurePointsEntry();
         loadAccentTheme();
+        primeMemberRealtime();
         ceoSession = true;
         isCeoAccount = true;
         localStorage.setItem("ceoSession", "true");
@@ -7329,7 +7331,6 @@
         attachCeoReviewsRealtime();
         renderCeoReviews();
         renderPassIdentity(user);
-        refreshMemberStats();
         updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
         attachRealtime();
         startCeoMessagesListener();
@@ -7395,9 +7396,9 @@
       applyCachedStats();
       ensurePointsEntry();
       loadAccentTheme();
+      primeMemberRealtime();
       showPassLoading();
       renderPassIdentity(user);
-      refreshMemberStats();
       showFreeWelcomeToast();
       processFreeFlags(memberProfile?.passCode || currentPassCode);
       updateNightWheelUI();
@@ -8877,6 +8878,20 @@
       }
     }
 
+    function resetMemberStatsUi() {
+      if (statRedemptions) statRedemptions.textContent = "--";
+      if (statVenuesVisited) statVenuesVisited.textContent = "--";
+      if (statAvgSavings) statAvgSavings.textContent = "$-- avg";
+      if (statVouchersLeft) statVouchersLeft.textContent = "--";
+      if (statLoginCount) statLoginCount.textContent = "--";
+      if (statActiveDays) statActiveDays.textContent = "--";
+      if (voucherBalanceNote) voucherBalanceNote.textContent = "Syncing balance...";
+      if (redeemVoucherBalance) redeemVoucherBalance.textContent = "Syncing balance...";
+      updatePulseBand({ total: 0, venuesVisited: 0, avg: 0 });
+      updateLastCheckinUI();
+      updateQuickStrip();
+    }
+
     function applyStatsToUi({ total, venuesVisited, avg }) {
       if (statRedemptions) statRedemptions.textContent = total.toString();
       if (statVenuesVisited) statVenuesVisited.textContent = venuesVisited.toString();
@@ -9104,35 +9119,58 @@
     } catch (_) {}
   }
   const realtimeState = {
-    fromCache: false,
-    hasPendingWrites: false
+    sources: {},
+    requiredSources: []
   };
+  function setRealtimeRequiredSources(list = []) {
+    realtimeState.sources = {};
+    realtimeState.requiredSources = Array.isArray(list) ? list : [];
+    renderRealtimeStatus();
+  }
+  function getRealtimeSourcesForStatus() {
+    const keys = realtimeState.requiredSources.length
+      ? realtimeState.requiredSources
+      : Object.keys(realtimeState.sources);
+    return keys.map(key => realtimeState.sources[key]).filter(Boolean);
+  }
+  function isRealtimeReady() {
+    if (!realtimeState.requiredSources.length) return true;
+    return realtimeState.requiredSources.every(key => realtimeState.sources[key]?.serverSeen);
+  }
   function renderRealtimeStatus() {
     if (!realtimeStatusPill) return;
-    const offline = !navigator.onLine || realtimeState.fromCache;
+    const offline = !navigator.onLine;
+    const sources = getRealtimeSourcesForStatus();
+    const fromCache = sources.some(source => source.fromCache);
+    const ready = isRealtimeReady();
     let label = "Live";
     if (offline) {
       label = "Offline";
-    } else if (realtimeState.hasPendingWrites) {
+    } else if (!ready || fromCache) {
       label = "Syncing";
     }
     realtimeStatusPill.textContent = label;
     realtimeStatusPill.dataset.state = label.toLowerCase();
   }
-  function noteRealtimeSnapshot(snapshot) {
+  function noteRealtimeSnapshot(snapshot, source = "global") {
     if (!snapshot?.metadata) return;
-    realtimeState.fromCache = snapshot.metadata.fromCache;
-    realtimeState.hasPendingWrites = snapshot.metadata.hasPendingWrites;
+    const entry = realtimeState.sources[source] || { serverSeen: false };
+    entry.fromCache = snapshot.metadata.fromCache;
+    entry.hasPendingWrites = snapshot.metadata.hasPendingWrites;
+    if (!snapshot.metadata.fromCache) {
+      entry.serverSeen = true;
+    }
+    realtimeState.sources[source] = entry;
     renderRealtimeStatus();
   }
-  window.addEventListener("online", () => {
-    realtimeState.fromCache = false;
-    renderRealtimeStatus();
-  });
-  window.addEventListener("offline", () => {
-    realtimeState.fromCache = true;
-    renderRealtimeStatus();
-  });
+  function primeMemberRealtime() {
+    if (!useCloudProfile() || !navigator.onLine) return;
+    redemptionLog = [];
+    resetMemberStatsUi();
+    setRealtimeRequiredSources(["member", "memberRedemptions"]);
+  }
+  window.addEventListener("online", () => renderRealtimeStatus());
+  window.addEventListener("offline", () => renderRealtimeStatus());
   renderRealtimeStatus();
   function applyVipDealsSnapshot(snapshot) {
     if (!snapshot) return;
@@ -9201,7 +9239,7 @@
     if (globalRealtimeUnsubs.length) return;
     try {
       globalRealtimeUnsubs.push(onSnapshot(collection(db, "deals"), { includeMetadataChanges: true }, (snap) => {
-        noteRealtimeSnapshot(snap);
+        noteRealtimeSnapshot(snap, "globalDeals");
         applyVipDealsSnapshot(snap);
       }));
     } catch (err) {
@@ -9209,7 +9247,7 @@
     }
     try {
       globalRealtimeUnsubs.push(onSnapshot(collection(db, "alerts"), { includeMetadataChanges: true }, (snap) => {
-        noteRealtimeSnapshot(snap);
+        noteRealtimeSnapshot(snap, "globalAlerts");
         applyAlertsSnapshot(snap);
       }));
     } catch (err) {
@@ -9217,7 +9255,7 @@
     }
     try {
       globalRealtimeUnsubs.push(onSnapshot(collectionGroup(db, "perks"), { includeMetadataChanges: true }, (snap) => {
-        noteRealtimeSnapshot(snap);
+        noteRealtimeSnapshot(snap, "globalPerks");
         applyVenuePerksSnapshot(snap);
       }));
     } catch (err) {
@@ -9235,7 +9273,7 @@
         try {
           const ref = doc(db, "members", uid);
           passRealtimeUnsubs.push(onSnapshot(ref, { includeMetadataChanges: true }, (snap) => {
-            noteRealtimeSnapshot(snap);
+            noteRealtimeSnapshot(snap, "member");
             if (snap.exists()) {
               const data = snap.data() || {};
               const mergedPass = (data.passCode || data.passId || code || currentPassCode || "").toUpperCase();
@@ -9267,6 +9305,10 @@
             updatePointsUI();
             renderVipDealForMember();
             renderPassIdentity(firebaseAuth.currentUser);
+            updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
+            updateExpiryDisplay();
+            updateVoucherBalanceUI();
+            updateLastCheckinUI();
           }
           }));
         } catch (err) {
@@ -9277,7 +9319,7 @@
         try {
           const redRef = collection(db, "members", uid, "redemptions");
           passRealtimeUnsubs.push(onSnapshot(query(redRef, orderBy("createdAt", "desc"), limit(200)), { includeMetadataChanges: true }, (snap) => {
-            noteRealtimeSnapshot(snap);
+            noteRealtimeSnapshot(snap, "memberRedemptions");
             const toIso = (ts) => {
               if (!ts) return new Date().toISOString();
               if (ts.toDate) return ts.toDate().toISOString();
@@ -9313,7 +9355,7 @@
         }
         try {
           passRealtimeUnsubs.push(onSnapshot(doc(db, "freeMemberships", code), { includeMetadataChanges: true }, (snap) => {
-            noteRealtimeSnapshot(snap);
+            noteRealtimeSnapshot(snap, "memberFree");
             if (snap.exists()) {
               const data = snap.data() || {};
               if (data && data.active !== false) {
@@ -14081,7 +14123,7 @@ let onboardingIndex = 0;
           limit(200)
         );
         staffRedemptionUnsubs.push(onSnapshot(qVenue, { includeMetadataChanges: true }, (snap) => {
-          noteRealtimeSnapshot(snap);
+          noteRealtimeSnapshot(snap, "staffRedemptions");
           const entries = snap.docs.map(docSnap => {
             const data = docSnap.data() || {};
             return {
@@ -15215,7 +15257,7 @@ let onboardingIndex = 0;
       try {
         const q = query(collectionGroup(db, "redemptions"), orderBy("createdAt", "desc"), limit(400));
         ceoRedemptionsUnsub = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
-          noteRealtimeSnapshot(snap);
+          noteRealtimeSnapshot(snap, "ceoRedemptions");
           const toIso = (ts) => {
             if (!ts) return new Date().toISOString();
             if (ts.toDate) return ts.toDate().toISOString();
