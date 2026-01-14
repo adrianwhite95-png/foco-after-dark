@@ -13746,6 +13746,16 @@ let onboardingIndex = 0;
         buyDrinksBtn.textContent = "Buy redemption tokens";
       }
     }
+    function isMembershipExpired() {
+      const code = currentPassCode;
+      const hasBlackCard = isCeoAccount || (code ? isBlackCardHolder(code) : false);
+      if (hasBlackCard || isFreeMember()) return false;
+      const validUntil = memberProfile?.validUntil;
+      if (!validUntil || validUntil === "never") return false;
+      const stamp = new Date(validUntil);
+      if (Number.isNaN(stamp.getTime())) return false;
+      return stamp.getTime() < Date.now();
+    }
     function updateExpiryDisplay() {
       if (!expiryText) return;
       const code = currentPassCode;
@@ -18622,6 +18632,13 @@ let onboardingIndex = 0;
     }
 
     redeemTrigger.addEventListener("click", () => {
+      updateExpiryDisplay();
+      if (isMembershipExpired()) {
+        if (typeof showToast === "function") {
+          showToast("Membership expired. Update billing to redeem.");
+        }
+        return;
+      }
       const tier = normalizeTierKey(currentMembershipTier)
         || normalizeTierKey(memberProfile?.tier)
         || (isCeoActive() ? "ceo" : (isFreeMember() ? "free" : null))
@@ -18644,6 +18661,11 @@ let onboardingIndex = 0;
 
     redeemClose.addEventListener("click", closeRedeemModal);
     redeemConfirm.addEventListener("click", async () => {
+      updateExpiryDisplay();
+      if (isMembershipExpired()) {
+        creditInfo.textContent = "Membership expired. Update billing to redeem.";
+        return;
+      }
       if (!selectedPerkId || !selectedPerkLabel) {
         creditInfo.textContent = "Select a perk to redeem.";
         return;
