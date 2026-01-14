@@ -3940,6 +3940,62 @@
       padding: 18px;
       box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
     }
+    .staff-pending {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px dashed var(--staff-border);
+      background: rgba(5, 10, 22, 0.85);
+    }
+    .staff-pending-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 600;
+      color: var(--staff-text);
+      font-size: 13px;
+    }
+    .staff-pending-count {
+      font-size: 12px;
+      color: var(--staff-muted);
+    }
+    .staff-pending-list {
+      margin-top: 8px;
+      display: grid;
+      gap: 8px;
+    }
+    .staff-pending-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--staff-border);
+      background: rgba(2, 6, 23, 0.8);
+      cursor: pointer;
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .staff-pending-row:hover {
+      border-color: var(--staff-border-strong);
+      box-shadow: 0 0 14px var(--staff-glow);
+    }
+    .staff-pending-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 12px;
+      color: var(--staff-text);
+    }
+    .staff-pending-sub {
+      color: var(--staff-muted);
+      font-size: 11px;
+    }
+    .staff-pending-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
     .staff-more {
       margin-top: 12px;
       border-radius: 16px;
@@ -5319,13 +5375,21 @@
             <input id="verifyCode" type="text" placeholder="e.g. ABC123" />
           </div>
           <div class="error" id="verifyError"></div>
-          <p class="support-success" id="verifySuccess">Voucher verified.</p>
+          <p class="support-success" id="verifySuccess">Voucher confirmed.</p>
           <p class="support-success" id="lastVerifiedLine" style="display:none;color:#cbd5f5;"></p>
           <div class="payment-actions" style="margin-top:8px;">
             <button type="submit" class="btn btn-primary">Verify code</button>
             <button type="button" class="btn btn-secondary" id="undoLastVerification" style="flex:0 0 auto;">Undo last</button>
           </div>
         </form>
+        <div class="staff-pending" id="staffPendingWrap">
+          <div class="staff-pending-header">
+            <span>Pending redemptions</span>
+            <span class="staff-pending-count" id="staffPendingCount">0</span>
+          </div>
+          <div class="staff-pending-list" id="staffPendingList">No pending redemptions.</div>
+          <div class="small" style="margin-top:6px;">Tap a pending code to confirm.</div>
+        </div>
         <form id="memberIdForm" style="margin-top:12px;">
           <div class="field">
             <label for="memberIdInput">Quick member ID lookup</label>
@@ -7611,6 +7675,8 @@
     const verifyCodeInput = document.getElementById("verifyCode");
     const verifyError = document.getElementById("verifyError");
     const verifySuccess = document.getElementById("verifySuccess");
+    const staffPendingList = document.getElementById("staffPendingList");
+    const staffPendingCount = document.getElementById("staffPendingCount");
     const memberIdForm = document.getElementById("memberIdForm");
     const memberIdInput = document.getElementById("memberIdInput");
     const memberIdError = document.getElementById("memberIdError");
@@ -13834,6 +13900,7 @@ let onboardingIndex = 0;
         });
         renderStaffVenueLog();
         updateStaffRadar();
+        renderStaffPendingQueue();
       };
       try {
         const qVenue = query(
@@ -14312,6 +14379,10 @@ let onboardingIndex = 0;
       if (sent) {
         markAutoCloseOutSent(venueId);
       }
+      if (staffSession?.venue) {
+        setStaffShiftStart(staffSession.venue, new Date());
+        renderStaffPendingQueue();
+      }
     }
     function scheduleAutoCloseOut() {
       if (autoCloseOutTimer) {
@@ -14388,6 +14459,85 @@ let onboardingIndex = 0;
     function seededRandom(seed) {
       const val = Math.sin(seed) * 10000;
       return val - Math.floor(val);
+    }
+
+    const STAFF_SHIFT_PREFIX = "staffShiftStart_";
+    function getStaffShiftStart(venueId) {
+      if (!venueId) return 0;
+      const key = `${STAFF_SHIFT_PREFIX}${venueId}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const ts = Date.parse(stored);
+        if (!Number.isNaN(ts)) return ts;
+      }
+      const mstNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Denver" }));
+      mstNow.setHours(0, 0, 0, 0);
+      return mstNow.getTime();
+    }
+    function setStaffShiftStart(venueId, stamp = new Date()) {
+      if (!venueId) return;
+      const key = `${STAFF_SHIFT_PREFIX}${venueId}`;
+      localStorage.setItem(key, stamp.toISOString());
+    }
+    function entryMatchesVenue(entry, venueId) {
+      const venueKey = (venueId || "").toLowerCase();
+      if (!venueKey) return false;
+      const requested = (entry.requestedVenue || "").toLowerCase();
+      const assigned = (entry.venue || "").toLowerCase();
+      if (requested) return requested === venueKey;
+      if (assigned) return assigned === venueKey;
+      return false;
+    }
+    function renderStaffPendingQueue() {
+      if (!staffPendingList || !staffPendingCount) return;
+      if (!staffSession) {
+        staffPendingList.innerHTML = '<span class="small" style="color:#94a3b8;">Log in to view pending redemptions.</span>';
+        staffPendingCount.textContent = "0 pending";
+        return;
+      }
+      const venueId = staffSession.venue;
+      const shiftStart = getStaffShiftStart(venueId);
+      const entries = redemptionLog.filter(entry => {
+        if (!entryMatchesVenue(entry, venueId)) return false;
+        const status = (entry.status || "pending").toLowerCase();
+        if (!["pending", "verified", "approved", "confirmed"].includes(status)) return false;
+        const ts = new Date(entry.verifiedAt || entry.timestamp || entry.createdAt || Date.now()).getTime();
+        return ts >= shiftStart;
+      }).sort((a, b) => {
+        const aTs = new Date(a.verifiedAt || a.timestamp || a.createdAt || 0).getTime();
+        const bTs = new Date(b.verifiedAt || b.timestamp || b.createdAt || 0).getTime();
+        const aPending = (a.status || "pending").toLowerCase() === "pending";
+        const bPending = (b.status || "pending").toLowerCase() === "pending";
+        if (aPending !== bPending) return aPending ? -1 : 1;
+        return bTs - aTs;
+      });
+      const pendingCount = entries.filter(entry => (entry.status || "pending").toLowerCase() === "pending").length;
+      staffPendingCount.textContent = pendingCount === entries.length
+        ? `${pendingCount} pending`
+        : `${pendingCount} pending · ${entries.length} total`;
+      if (!entries.length) {
+        staffPendingList.innerHTML = '<span class="small" style="color:#94a3b8;">No pending redemptions yet.</span>';
+        return;
+      }
+      staffPendingList.innerHTML = entries.map(entry => {
+        const isPending = (entry.status || "pending").toLowerCase() === "pending";
+        const statusLabel = isPending ? "pending" : "confirmed";
+        const statusClass = isPending ? "pending" : "verified";
+        const perkLabel = entry.venuePerkLabel || entry.perk || entry.perkKey || "Perk";
+        const venueName = entry.requestedVenue ? getVenueDisplayName(entry.requestedVenue) : getVenueDisplayName(entry.venue);
+        return `
+          <div class="staff-pending-row" data-pending-code="${entry.code}" data-pending-status="${statusLabel}">
+            <div class="staff-pending-meta">
+              <div><strong>${entry.code}</strong> · Pass ID: ${entry.passId || "—"}</div>
+              <div class="staff-pending-sub">${perkLabel}${venueName ? ` · ${venueName}` : ""}</div>
+            </div>
+            <div class="staff-pending-actions">
+              <span class="status-pill-sm ${statusClass}">${statusLabel}</span>
+              ${isPending ? `<button type="button" class="btn btn-secondary" data-pending-confirm="${entry.code}">Confirm</button>` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
     }
 
     function updateStaffRadar() {
@@ -16200,6 +16350,8 @@ let onboardingIndex = 0;
       applyStaffAccent("cyan");
       stopStaffPerksListener();
       if (staffPerksList) staffPerksList.innerHTML = "";
+      if (staffPendingList) staffPendingList.innerHTML = '<span class="small" style="color:#94a3b8;">Log in to view pending redemptions.</span>';
+      if (staffPendingCount) staffPendingCount.textContent = "0 pending";
       if (staffAccentSelect) {
         staffAccentSelect.value = "cyan";
       }
@@ -16330,6 +16482,10 @@ let onboardingIndex = 0;
           markAutoCloseOutSent(staffSession?.venue);
         }
         staffCloseOutStatus.textContent = sent ? "Report sent to focoafterdark@gmail.com." : "Report saved locally. Email delivery failed.";
+        if (staffSession?.venue) {
+          setStaffShiftStart(staffSession.venue, new Date());
+          renderStaffPendingQueue();
+        }
       });
     }
     if (staffVenueLog) {
@@ -16344,13 +16500,37 @@ let onboardingIndex = 0;
           verifyError.textContent = result.message;
         } else {
           verifyError.textContent = "";
-          showNeonSuccess(verifySuccess, "Voucher verified.", 4600);
+          showNeonSuccess(verifySuccess, "Voucher confirmed.", 4600);
           logStaffVerification(result.entry);
           if (lastVerifiedLine) {
             const ts = formatMST(result.entry.timestamp || Date.now());
-            lastVerifiedLine.textContent = `Last verified: ${result.entry.code} • ${ts}`;
+            lastVerifiedLine.textContent = `Last confirmed: ${result.entry.code} • ${ts}`;
             lastVerifiedLine.style.display = "block";
           }
+        }
+      });
+    }
+    if (staffPendingList) {
+      staffPendingList.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-pending-confirm]");
+        const row = e.target.closest("[data-pending-code]");
+        if (!row || !staffSession) return;
+        if ((row.dataset.pendingStatus || "") !== "pending") return;
+        const code = (btn?.dataset.pendingConfirm || row.dataset.pendingCode || "").toUpperCase();
+        if (!code) return;
+        const venueId = staffSession.venue;
+        const result = await verifyCode(code, venueId);
+        if (!result.success) {
+          verifyError.textContent = result.message;
+          return;
+        }
+        verifyError.textContent = "";
+        showNeonSuccess(verifySuccess, "Voucher confirmed.", 4600);
+        logStaffVerification(result.entry);
+        if (lastVerifiedLine) {
+          const ts = formatMST(result.entry.timestamp || Date.now());
+          lastVerifiedLine.textContent = `Last confirmed: ${result.entry.code} • ${ts}`;
+          lastVerifiedLine.style.display = "block";
         }
       });
     }
@@ -17396,10 +17576,22 @@ let onboardingIndex = 0;
     async function verifyCode(code, venueId) {
       if (!code) return { success: false, message: "Enter a code." };
       const codeUpper = code.toUpperCase();
+      const venueKey = (venueId || "").toLowerCase();
+      const isVenueMismatch = (payload) => {
+        if (!venueKey) return false;
+        const requested = (payload.requestedVenue || "").toLowerCase();
+        const assigned = (payload.venue || "").toLowerCase();
+        if (requested && requested !== venueKey) return true;
+        if (assigned && assigned !== venueKey) return true;
+        return false;
+      };
       const entry = redemptionLog.find(item => item.code.toUpperCase() === codeUpper);
       if (!entry) {
         if (dealCodes && dealCodes[codeUpper]) {
           const info = dealCodes[codeUpper];
+          if (venueKey && info.venue && info.venue.toLowerCase() !== venueKey) {
+            return { success: false, message: "This code is assigned to another venue." };
+          }
           const newEntry = {
             code: codeUpper,
             perk: info.perk || "Tonight's deal",
@@ -17448,6 +17640,9 @@ let onboardingIndex = 0;
           return { success: false, message: "Couldn’t reach cloud. Check connection and try again." };
         }
         if (cloud) {
+          if (isVenueMismatch(cloud)) {
+            return { success: false, message: "This code is assigned to another venue." };
+          }
           cloud.status = "verified";
           cloud.verifiedAt = new Date().toISOString();
           if (venueId) cloud.venue = venueId;
@@ -17460,6 +17655,9 @@ let onboardingIndex = 0;
         }
         return { success: false, message: "Code not found. Ask member to refresh their pass." };
       }
+      if (isVenueMismatch(entry)) {
+        return { success: false, message: "This code is assigned to another venue." };
+      }
       if (!entry.passId) {
         try {
           const cloudLookup = await fetchCloudRedemption(codeUpper);
@@ -17470,7 +17668,10 @@ let onboardingIndex = 0;
           if (!entry.timestamp && cloudLookup?.timestamp) entry.timestamp = cloudLookup.timestamp;
         } catch (_) {}
       }
-      if (entry.status === "verified") return { success: false, message: "Already verified earlier." };
+      const existingStatus = (entry.status || "").toLowerCase();
+      if (["verified", "approved", "confirmed"].includes(existingStatus)) {
+        return { success: false, message: "Already confirmed earlier." };
+      }
       const updatedEntry = { ...entry };
       updatedEntry.status = "verified";
       updatedEntry.verifiedAt = new Date().toISOString();
@@ -17487,6 +17688,7 @@ let onboardingIndex = 0;
       if (entry.ceo && entry.passId === "CEO") {
         saveRedemptionLog();
         renderStaffVenueLog();
+        renderStaffPendingQueue();
         refreshMemberStats();
         renderCeoVerifiedVenueLog();
         return { success: true, entry };
@@ -17496,6 +17698,7 @@ let onboardingIndex = 0;
       incrementRewardsProgress();
       renderRedemptionOptions();
       renderStaffVenueLog();
+      renderStaffPendingQueue();
       renderCeoVerifiedVenueLog();
       refreshMemberStats();
       return { success: true, entry };
@@ -17647,11 +17850,11 @@ let onboardingIndex = 0;
           if (verifyCodeInput) verifyCodeInput.focus();
           return;
         }
-        showNeonSuccess(verifySuccess, "Voucher verified.", 4600);
+        showNeonSuccess(verifySuccess, "Voucher confirmed.", 4600);
         logStaffVerification(result.entry);
         if (lastVerifiedLine) {
           const ts = formatMST(result.entry.timestamp || Date.now());
-          lastVerifiedLine.textContent = `Last verified: ${result.entry.code} • ${ts}`;
+          lastVerifiedLine.textContent = `Last confirmed: ${result.entry.code} • ${ts}`;
           lastVerifiedLine.classList.add("visible");
         }
         verifyCodeInput.value = "";
