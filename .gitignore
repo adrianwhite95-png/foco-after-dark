@@ -74,3 +74,7 @@ functions/.config-tmp/
 
 # dataconnect generated files
 .dataconnect
+
+# macOS
+.DS_Store
+**/.DS_Store

@@ -381,6 +381,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
   }
 
   const now = admin.firestore.Timestamp.now();
+  const serverNow = admin.firestore.FieldValue.serverTimestamp();
   const perkRef = db.collection("venues").doc(venueId).collection("perks").doc(perkId);
   const memberDisplayName = (member) =>
     (member?.displayName || member?.name || member?.fullName || member?.username || "FoCo member");
@@ -409,6 +410,18 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
           throw new HttpsError("resource-exhausted", "Slow down and try again.");
         }
 
+        // Prevent double-spend: only one pending redemption at a time per member.
+        const pendingSnap = await tx.get(
+          db.collection("members")
+            .doc(resolved.uid)
+            .collection("redemptions")
+            .where("status", "==", "pending")
+            .limit(1)
+        );
+        if (!pendingSnap.empty) {
+          throw new HttpsError("failed-precondition", "You already have a pending redemption.");
+        }
+
         const perkSnap = await tx.get(perkRef);
         if (!perkSnap.exists) {
           throw new HttpsError("not-found", "Perk not found.");
@@ -421,7 +434,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
         if (existing.exists) {
           throw new HttpsError("already-exists", "Try again.");
         }
-        const payload = {
+        const storedPayload = {
           redemptionId,
           passCode,
           memberUid: resolved.uid,
@@ -432,20 +445,26 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
           perkKey,
           perkLabel: perkLabel || perkData.label || "Perk",
           status: "pending",
-          createdAt: now,
-          updatedAt: now,
-          timestamp: now,
+          createdAt: serverNow,
+          updatedAt: serverNow,
+          timestamp: serverNow,
           requestedVenue: venueId
         };
-        tx.set(venueRedRef, payload);
-        tx.set(memberRedRef, payload);
+        const returnPayload = {
+          ...storedPayload,
+          createdAt: now,
+          updatedAt: now,
+          timestamp: now
+        };
+        tx.set(venueRedRef, storedPayload);
+        tx.set(memberRedRef, storedPayload);
         tx.set(resolved.memberRef, {
-          lastRedemptionAt: now,
+          lastRedemptionAt: serverNow,
           lastRedemptionVenue: venueId,
           lastRedemptionPerk: perkId,
-          updatedAt: now
+          updatedAt: serverNow
         }, { merge: true });
-        return payload;
+        return returnPayload;
       });
 
       return { ok: true, redemptionId: result.redemptionId, redemption: result };
@@ -480,6 +499,7 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
   }
 
   const now = admin.firestore.Timestamp.now();
+  const serverNow = admin.firestore.FieldValue.serverTimestamp();
   const venueRedRef = db.collection("venues").doc(venueId).collection("redemptions").doc(redemptionId);
   const ceoVoucherRef = db.collection("ceoVouchers").doc(redemptionId);
 
@@ -520,34 +540,43 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
       return dataSnap;
     }
     const nextStatus = action === "deny" ? "denied" : "verified";
-    const updates = {
+    const storedUpdates = {
       status: nextStatus,
-      updatedAt: now
+      updatedAt: serverNow
     };
     if (nextStatus === "verified") {
-      updates.verifiedAt = now;
+      storedUpdates.verifiedAt = serverNow;
     } else {
-      updates.deniedAt = now;
+      storedUpdates.deniedAt = serverNow;
     }
-    tx.update(venueRedRef, updates);
+    tx.update(venueRedRef, storedUpdates);
 
     const memberUid = dataSnap.memberUid;
     if (memberUid) {
       const memberRedRef = db.collection("members").doc(memberUid).collection("redemptions").doc(redemptionId);
-      tx.set(memberRedRef, updates, { merge: true });
+      tx.set(memberRedRef, storedUpdates, { merge: true });
       const memberRef = db.collection("members").doc(memberUid);
       const memberSnap = await tx.get(memberRef);
       if (memberSnap.exists) {
         const memberData = memberSnap.data() || {};
         const remaining = memberData.perksRemaining;
         if (remaining && typeof remaining.tokens === "number" && nextStatus === "verified") {
-          tx.update(memberRef, { "perksRemaining.tokens": Math.max(0, remaining.tokens - 1) });
+          tx.update(memberRef, { "perksRemaining.tokens": Math.max(0, remaining.tokens - 1), lastVerifiedAt: serverNow, updatedAt: serverNow });
         } else if (nextStatus === "verified") {
-          tx.set(memberRef, { lastVerifiedAt: now }, { merge: true });
+          tx.set(memberRef, { lastVerifiedAt: serverNow, updatedAt: serverNow }, { merge: true });
         }
       }
     }
-    return { ...dataSnap, ...updates };
+    const returnUpdates = {
+      status: nextStatus,
+      updatedAt: now
+    };
+    if (nextStatus === "verified") {
+      returnUpdates.verifiedAt = now;
+    } else {
+      returnUpdates.deniedAt = now;
+    }
+    return { ...dataSnap, ...returnUpdates };
   });
 
   return { ok: true, redemption: result };

@@ -7230,6 +7230,10 @@
       }
     }
 
+    function isStaffAccount(user) {
+      return !!(user?.uid?.startsWith("staff_") || (user?.email || "").toLowerCase().startsWith("staff+"));
+    }
+
     async function handleAuthenticatedUser(user) {
       setRealtimeRequiredSources([]);
       if (user?.isAnonymous) {
@@ -7243,8 +7247,7 @@
         clearPassLoading();
         return;
       }
-      const isStaffAccount = user?.uid?.startsWith("staff_") || (user?.email || "").toLowerCase().startsWith("staff+");
-      if (isStaffAccount) {
+      if (isStaffAccount(user)) {
         return;
       }
       if (!user) {
@@ -7295,8 +7298,7 @@
 
       applyAppLockState();
       if (appLocked && !isCeoProfile) {
-        clearPassLoading();
-        return;
+        showToast("App is in read-only mode right now.", 2600);
       }
 
       updateLoginStatsForUser(user);
@@ -7321,20 +7323,15 @@
         applyCachedStats();
         ensurePointsEntry();
         loadAccentTheme();
-        primeMemberRealtime();
         ceoSession = true;
         isCeoAccount = true;
         localStorage.setItem("ceoSession", "true");
         maybeRecountMembers();
         updateCeoPassUI();
         renderCeoIssued();
-        attachCeoReviewsRealtime();
         renderCeoReviews();
         renderPassIdentity(user);
         updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
-        attachRealtime();
-        startCeoMessagesListener();
-        attachCloseOutReportsRealtime();
         updatePointsUI();
         updateQuickStrip();
         showScreen("pass");
@@ -7396,13 +7393,11 @@
       applyCachedStats();
       ensurePointsEntry();
       loadAccentTheme();
-      primeMemberRealtime();
       showPassLoading();
       renderPassIdentity(user);
       showFreeWelcomeToast();
       processFreeFlags(memberProfile?.passCode || currentPassCode);
       updateNightWheelUI();
-      attachRealtime();
       if (memberProfile?.username && firebaseAuth.currentUser?.email) {
         saveUsernameMapEntry(memberProfile.username, firebaseAuth.currentUser.email);
       }
@@ -9104,13 +9099,65 @@
     clearPassRealtime();
     clearCeoRedemptionsRealtime();
   }
+  function detachAllRealtimeListeners(reason = "") {
+    logRealtime("detachAll", reason || "");
+    try { detachRealtime(); } catch (_) {}
+    try { stopStaffPerksListener(); } catch (_) {}
+    try { stopRedeemPerksListener(); } catch (_) {}
+    try { stopStaffRedemptionListener(); } catch (_) {}
+    try { stopStaffMessagesListener(); } catch (_) {}
+    try { stopCeoMessagesListener(); } catch (_) {}
+    try { stopCloseOutReportsListener(); } catch (_) {}
+    try { clearCeoReviewsRealtime(); } catch (_) {}
+    try { stopHealthWatch(); } catch (_) {}
+    if (settingsUnsub) { try { settingsUnsub(); } catch (_) {} settingsUnsub = null; }
+    if (appStatsUnsub) { try { appStatsUnsub(); } catch (_) {} appStatsUnsub = null; }
+    if (redeemWatchUnsub) { try { redeemWatchUnsub(); } catch (_) {} redeemWatchUnsub = null; }
+    setRealtimeRequiredSources([]);
+  }
   function attachRealtime() {
     attachGlobalRealtime();
     attachPassRealtime(currentPassCode);
   }
-  function reattachRealtime() {
-    detachRealtime();
+  function attachRealtimeForCurrentContext(reason = "") {
+    if (!authReady) return;
+    const user = firebaseAuth.currentUser;
+    if (!db) return;
+    if (isStaffAccount(user)) {
+      if (staffSession?.venue) {
+        setRealtimeRequiredSources(["settingsApp", "globalPerks", "globalDeals", "globalAlerts", "staffPerks", "staffRedemptions", "staffMessages"]);
+        attachGlobalRealtime();
+        startStaffPerksListener(staffSession.venue);
+        startStaffRedemptionListener(staffSession.venue);
+        startStaffMessagesListener(staffSession.venue);
+      }
+      if (!staffSession?.venue) {
+        setRealtimeRequiredSources(["settingsApp", "globalPerks", "globalDeals", "globalAlerts"]);
+        attachGlobalRealtime();
+      }
+      return;
+    }
+    if (!user || user.isAnonymous) {
+      setRealtimeRequiredSources(["settingsApp", "globalPerks", "globalDeals", "globalAlerts"]);
+      attachGlobalRealtime();
+      return;
+    }
+    primeMemberRealtime();
     attachRealtime();
+    if (isCeoAccount) {
+      attachCeoRedemptionsRealtime();
+      attachCeoReviewsRealtime();
+      attachCloseOutReportsRealtime();
+      startCeoMessagesListener();
+    }
+    if (reason) logRealtime("attachContext", reason);
+  }
+  function reattachRealtime() {
+    if (!authReady) return;
+    detachAllRealtimeListeners("reattach");
+    watchSettingsDoc();
+    watchAppStatsDoc();
+    attachRealtimeForCurrentContext("reattach");
     try {
       if (navigator.onLine) {
         showToast("Live updates reconnected.", 2200);
@@ -9118,6 +9165,21 @@
       }
     } catch (_) {}
   }
+  let authReady = false;
+  let lastAuthUid = null;
+  function logRealtime(...args) {
+    try { console.log("[realtime]", ...args); } catch (_) {}
+  }
+  function isPermissionDeniedError(err) {
+    const code = err?.code || err?.name || "";
+    return code === "permission-denied" || String(code).includes("permission-denied");
+  }
+  function snapshotErrorSummary(err) {
+    const code = err?.code || "";
+    const message = err?.message || String(err || "");
+    return { code, message };
+  }
+
   const realtimeState = {
     sources: {},
     requiredSources: []
@@ -9137,37 +9199,83 @@
     if (!realtimeState.requiredSources.length) return true;
     return realtimeState.requiredSources.every(key => realtimeState.sources[key]?.serverSeen);
   }
+  function hasRealtimeNoAccess() {
+    const sources = getRealtimeSourcesForStatus();
+    return sources.some(source => source.permissionDenied);
+  }
   function renderRealtimeStatus() {
     if (!realtimeStatusPill) return;
-    const offline = !navigator.onLine;
     const sources = getRealtimeSourcesForStatus();
-    const fromCache = sources.some(source => source.fromCache);
+    const fromCache = sources.some(source => source.fromCache) || !navigator.onLine;
     const ready = isRealtimeReady();
+    const hasPendingWrites = sources.some(source => source.hasPendingWrites);
     let label = "Live";
-    if (offline) {
-      label = "Offline";
-    } else if (!ready || fromCache) {
-      label = "Syncing";
-    }
+    if (hasRealtimeNoAccess()) label = "No access";
+    else if (fromCache) label = "Offline";
+    else if (hasPendingWrites || !ready) label = "Syncing";
     realtimeStatusPill.textContent = label;
-    realtimeStatusPill.dataset.state = label.toLowerCase();
+    const token = label.toLowerCase().replace(/\s+/g, "");
+    realtimeStatusPill.dataset.state = token;
   }
   function noteRealtimeSnapshot(snapshot, source = "global") {
     if (!snapshot?.metadata) return;
     const entry = realtimeState.sources[source] || { serverSeen: false };
     entry.fromCache = snapshot.metadata.fromCache;
     entry.hasPendingWrites = snapshot.metadata.hasPendingWrites;
+    entry.permissionDenied = false;
     if (!snapshot.metadata.fromCache) {
       entry.serverSeen = true;
     }
     realtimeState.sources[source] = entry;
     renderRealtimeStatus();
   }
+  function noteRealtimeError(source, err) {
+    const entry = realtimeState.sources[source] || { serverSeen: false };
+    entry.lastError = snapshotErrorSummary(err);
+    entry.permissionDenied = isPermissionDeniedError(err);
+    entry.fromCache = false;
+    entry.hasPendingWrites = false;
+    realtimeState.sources[source] = entry;
+    if (entry.permissionDenied) {
+      logRealtime(`${source}: permission-denied`);
+    }
+    renderRealtimeStatus();
+  }
+  function subscribeSnapshot(label, target, options, onNext, onError) {
+    if (!authReady) return null;
+    try {
+      logRealtime("attach", label);
+      const unsub = onSnapshot(
+        target,
+        options || {},
+        (snap) => {
+          if (options?.includeMetadataChanges) {
+            noteRealtimeSnapshot(snap, label);
+          }
+          onNext(snap);
+        },
+        (err) => {
+          console.error(`[${label}] snapshot failed`, err);
+          noteRealtimeError(label, err);
+          try { if (typeof onError === "function") onError(err); } catch (_) {}
+        }
+      );
+      return () => {
+        try { logRealtime("detach", label); } catch (_) {}
+        try { unsub(); } catch (_) {}
+      };
+    } catch (err) {
+      console.error(`[${label}] snapshot attach failed`, err);
+      noteRealtimeError(label, err);
+      try { if (typeof onError === "function") onError(err); } catch (_) {}
+      return null;
+    }
+  }
   function primeMemberRealtime() {
     if (!useCloudProfile() || !navigator.onLine) return;
     redemptionLog = [];
     resetMemberStatsUi();
-    setRealtimeRequiredSources(["member", "memberRedemptions"]);
+    setRealtimeRequiredSources(["settingsApp", "member", "memberRedemptions", "globalPerks", "globalDeals", "globalAlerts"]);
   }
   window.addEventListener("online", () => renderRealtimeStatus());
   window.addEventListener("offline", () => renderRealtimeStatus());
@@ -9235,29 +9343,28 @@
   }
   function attachGlobalRealtime() {
     if (!db) return;
-    if (appLocked && !isCeoAccount) return;
     if (globalRealtimeUnsubs.length) return;
     try {
-      globalRealtimeUnsubs.push(onSnapshot(collection(db, "deals"), { includeMetadataChanges: true }, (snap) => {
-        noteRealtimeSnapshot(snap, "globalDeals");
+      const unsub = subscribeSnapshot("globalDeals", collection(db, "deals"), { includeMetadataChanges: true }, (snap) => {
         applyVipDealsSnapshot(snap);
-      }));
+      });
+      if (unsub) globalRealtimeUnsubs.push(unsub);
     } catch (err) {
       console.warn("Global vipDeals listener failed", err);
     }
     try {
-      globalRealtimeUnsubs.push(onSnapshot(collection(db, "alerts"), { includeMetadataChanges: true }, (snap) => {
-        noteRealtimeSnapshot(snap, "globalAlerts");
+      const unsub = subscribeSnapshot("globalAlerts", collection(db, "alerts"), { includeMetadataChanges: true }, (snap) => {
         applyAlertsSnapshot(snap);
-      }));
+      });
+      if (unsub) globalRealtimeUnsubs.push(unsub);
     } catch (err) {
       console.warn("Global alerts listener failed", err);
     }
     try {
-      globalRealtimeUnsubs.push(onSnapshot(collectionGroup(db, "perks"), { includeMetadataChanges: true }, (snap) => {
-        noteRealtimeSnapshot(snap, "globalPerks");
+      const unsub = subscribeSnapshot("globalPerks", collectionGroup(db, "perks"), { includeMetadataChanges: true }, (snap) => {
         applyVenuePerksSnapshot(snap);
-      }));
+      });
+      if (unsub) globalRealtimeUnsubs.push(unsub);
     } catch (err) {
       console.warn("Global venuePerks listener failed", err);
     }
@@ -9265,15 +9372,13 @@
     function attachPassRealtime(passCodeArg) {
       clearPassRealtime();
       if (!db) return;
-      if (appLocked && !isCeoAccount) return;
       const uid = firebaseAuth.currentUser?.uid || null;
       // Pass code is needed for redemptions; prefer actual passCode over uid
       const code = (memberProfile?.passCode || memberProfile?.passId || currentPassCode || passCodeArg || "").toUpperCase();
       if (uid) {
         try {
           const ref = doc(db, "members", uid);
-          passRealtimeUnsubs.push(onSnapshot(ref, { includeMetadataChanges: true }, (snap) => {
-            noteRealtimeSnapshot(snap, "member");
+          const unsub = subscribeSnapshot("member", ref, { includeMetadataChanges: true }, (snap) => {
             if (snap.exists()) {
               const data = snap.data() || {};
               const mergedPass = (data.passCode || data.passId || code || currentPassCode || "").toUpperCase();
@@ -9310,16 +9415,16 @@
             updateVoucherBalanceUI();
             updateLastCheckinUI();
           }
-          }));
+          });
+          if (unsub) passRealtimeUnsubs.push(unsub);
         } catch (err) {
           console.warn("Member realtime listener failed", err);
         }
       }
-      if (code) {
+      if (code && uid) {
         try {
           const redRef = collection(db, "members", uid, "redemptions");
-          passRealtimeUnsubs.push(onSnapshot(query(redRef, orderBy("createdAt", "desc"), limit(200)), { includeMetadataChanges: true }, (snap) => {
-            noteRealtimeSnapshot(snap, "memberRedemptions");
+          const unsub = subscribeSnapshot("memberRedemptions", query(redRef, orderBy("createdAt", "desc"), limit(200)), { includeMetadataChanges: true }, (snap) => {
             const toIso = (ts) => {
               if (!ts) return new Date().toISOString();
               if (ts.toDate) return ts.toDate().toISOString();
@@ -9349,13 +9454,13 @@
               return;
             }
             mergeRedemptionLogEntries(entries);
-          }));
+          });
+          if (unsub) passRealtimeUnsubs.push(unsub);
         } catch (err) {
           console.warn("Redemption realtime listener failed", err);
         }
         try {
-          passRealtimeUnsubs.push(onSnapshot(doc(db, "freeMemberships", code), { includeMetadataChanges: true }, (snap) => {
-            noteRealtimeSnapshot(snap, "memberFree");
+          const unsub = subscribeSnapshot("memberFree", doc(db, "freeMemberships", code), { includeMetadataChanges: true }, (snap) => {
             if (snap.exists()) {
               const data = snap.data() || {};
               if (data && data.active !== false) {
@@ -9369,7 +9474,8 @@
                 updateQuickStrip();
               }
             }
-          }));
+          });
+          if (unsub) passRealtimeUnsubs.push(unsub);
         } catch (err) {
           console.warn("Free membership realtime listener failed", err);
         }
@@ -9641,10 +9747,6 @@
       staffTickerEntries = staffTickerEntries.slice(0, 5);
       renderStaffTicker();
       updateStaffRadar();
-      if (staffRadarCount) {
-        const current = parseInt((staffRadarCount.textContent || "0").split(" ")[0], 10) || 0;
-        staffRadarCount.textContent = `${current + 1} scans · last hour`;
-      }
     }
     renderStaffTicker();
 let onboardingIndex = 0;
@@ -9910,8 +10012,7 @@ let onboardingIndex = 0;
       } catch (err) {
         console.warn("Sign-out skipped (probably no auth user):", err);
       }
-      clearPassRealtime();
-      clearGlobalRealtime();
+      detachAllRealtimeListeners("logout");
       resetInMemoryCaches();
       ["betaSkipActive", "staffSession", "ceoSession"].forEach(key => localStorage.removeItem(key));
       exitBetaPassMode();
@@ -11535,6 +11636,10 @@ let onboardingIndex = 0;
         if (staffPerksError) staffPerksError.textContent = "Staff login required.";
         return;
       }
+      if (!guardWriteAction("saveVenuePerks")) {
+        if (staffPerksError) staffPerksError.textContent = "App is locked (read-only).";
+        return;
+      }
       clearStaffPerksNotices();
       const perks = collectStaffPerksFromDom();
       if (!perks) return;
@@ -11599,15 +11704,14 @@ let onboardingIndex = 0;
         return;
       }
       const ref = collection(db, "venues", venueId, "perks");
-      staffPerksUnsub = onSnapshot(ref, (snap) => {
+      staffPerksUnsub = subscribeSnapshot("staffPerks", ref, { includeMetadataChanges: true }, (snap) => {
         const perks = snap.docs.map(docSnap => ({
           id: docSnap.id,
           ...docSnap.data()
         }));
         venuePerksCache[venueId] = normalizeVenuePerks(perks);
         renderStaffPerksEditor(venuePerksCache[venueId]);
-      }, (err) => {
-        console.warn("Failed to listen for venue perks", err);
+      }, () => {
         renderStaffPerksEditor(venuePerksCache[venueId] || []);
       });
     }
@@ -11635,7 +11739,7 @@ let onboardingIndex = 0;
       redeemPerksLoading = true;
       if (redeemPerksHint) redeemPerksHint.style.display = "block";
       const ref = collection(db, "venues", venueId, "perks");
-      redeemPerksUnsub = onSnapshot(ref, (snap) => {
+      redeemPerksUnsub = subscribeSnapshot("redeemPerks", ref, { includeMetadataChanges: true }, (snap) => {
         const perks = snap.docs.map(docSnap => ({
           id: docSnap.id,
           ...docSnap.data()
@@ -11644,8 +11748,7 @@ let onboardingIndex = 0;
         redeemPerksLoading = false;
         if (redeemPerksHint) redeemPerksHint.style.display = "none";
         renderRedemptionOptions();
-      }, (err) => {
-        console.warn("Venue perks listener failed", err);
+      }, () => {
         redeemPerksLoading = false;
         if (redeemPerksHint) redeemPerksHint.style.display = "none";
         renderRedemptionOptions();
@@ -13392,7 +13495,6 @@ let onboardingIndex = 0;
 
     async function refreshVipDeals() {
       if (!db) return;
-      if (appLocked && !isCeoAccount) return;
       if (useCloudProfile()) {
         attachGlobalRealtime();
         return;
@@ -13455,7 +13557,6 @@ let onboardingIndex = 0;
         renderStaffAlertPreview();
         return;
       }
-      if (appLocked && !isCeoAccount) return;
       if (useCloudProfile()) {
         attachGlobalRealtime();
         return;
@@ -14122,8 +14223,7 @@ let onboardingIndex = 0;
           orderBy("createdAt", "desc"),
           limit(200)
         );
-        staffRedemptionUnsubs.push(onSnapshot(qVenue, { includeMetadataChanges: true }, (snap) => {
-          noteRealtimeSnapshot(snap, "staffRedemptions");
+        const unsub = subscribeSnapshot("staffRedemptions", qVenue, { includeMetadataChanges: true }, (snap) => {
           const entries = snap.docs.map(docSnap => {
             const data = docSnap.data() || {};
             return {
@@ -14148,9 +14248,8 @@ let onboardingIndex = 0;
           renderStaffVenueLog();
           updateStaffRadar();
           renderStaffPendingQueue();
-        }, (err) => {
-          console.warn("Staff redemptions listener failed", err);
-        }));
+        });
+        if (unsub) staffRedemptionUnsubs.push(unsub);
       } catch (err) {
         console.warn("Staff redemptions listener failed", err);
       }
@@ -15256,8 +15355,7 @@ let onboardingIndex = 0;
       clearCeoRedemptionsRealtime();
       try {
         const q = query(collectionGroup(db, "redemptions"), orderBy("createdAt", "desc"), limit(400));
-        ceoRedemptionsUnsub = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
-          noteRealtimeSnapshot(snap, "ceoRedemptions");
+        ceoRedemptionsUnsub = subscribeSnapshot("ceoRedemptions", q, { includeMetadataChanges: true }, (snap) => {
           const toIso = (ts) => {
             if (!ts) return new Date().toISOString();
             if (ts.toDate) return ts.toDate().toISOString();
@@ -15284,7 +15382,7 @@ let onboardingIndex = 0;
           renderCeoRedemptionLog();
           renderCeoVenueLog();
           updateCeoMetrics();
-        }, (err) => console.warn("CEO redemptions realtime failed", err));
+        });
       } catch (err) {
         console.warn("CEO redemptions realtime failed", err);
       }
@@ -15294,7 +15392,7 @@ let onboardingIndex = 0;
       clearCeoReviewsRealtime();
       try {
         const q = query(collection(db, "reviews"), orderBy("timestampMs", "desc"));
-        ceoReviewsUnsub = onSnapshot(q, (snap) => {
+        ceoReviewsUnsub = subscribeSnapshot("ceoReviews", q, { includeMetadataChanges: true }, (snap) => {
           ceoReviewsCache = snap.docs.map(docSnap => {
             const data = docSnap.data() || {};
             return normalizeReviewEntry({
@@ -15303,7 +15401,7 @@ let onboardingIndex = 0;
             });
           }).sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
           renderCeoReviews(ceoReviewsCache);
-        }, (err) => console.warn("CEO reviews realtime failed", err));
+        });
       } catch (err) {
         console.warn("CEO reviews realtime failed", err);
       }
@@ -16431,19 +16529,16 @@ let onboardingIndex = 0;
       updatePendingScanAlerts();
     }
 
-    const storedStaff = staffSession;
-    if (storedStaff?.venue) {
-      const result = applyStaffSession(storedStaff.venue);
-      if (result.success) {
-        const staffAccent = loadStaffAccent(result.venueId) || "cyan";
-        applyStaffAccent(staffAccent);
-        if (staffAccentSelect) staffAccentSelect.value = staffAccent;
-        attachGlobalRealtime();
-        startStaffPerksListener(result.venueId);
-        startStaffRedemptionListener(result.venueId);
-        startStaffMessagesListener(result.venueId);
-        showScreen("staffPortal");
-      }
+    function restoreStaffSessionIfPossible(user) {
+      if (!staffSession?.venue) return false;
+      if (!isStaffAccount(user)) return false;
+      const result = applyStaffSession(staffSession.venue);
+      if (!result.success) return false;
+      const staffAccent = loadStaffAccent(result.venueId) || "cyan";
+      applyStaffAccent(staffAccent);
+      if (staffAccentSelect) staffAccentSelect.value = staffAccent;
+      showScreen("staffPortal");
+      return true;
     }
 
     function stopStaffMessagesListener() {
@@ -16467,7 +16562,7 @@ let onboardingIndex = 0;
         orderBy("generatedAt", "desc"),
         limit(200)
       );
-      closeOutReportsUnsub = onSnapshot(q, (snap) => {
+      closeOutReportsUnsub = subscribeSnapshot("closeOutReports", q, { includeMetadataChanges: true }, (snap) => {
         const reports = [];
         snap.forEach(docSnap => {
           const data = docSnap.data() || {};
@@ -16498,8 +16593,6 @@ let onboardingIndex = 0;
         });
         closeOutReports = reports;
         renderCeoCloseOutReports();
-      }, (err) => {
-        console.warn("closeOutReports realtime failed", err);
       });
     }
     function startStaffMessagesListener(venueId) {
@@ -16509,7 +16602,7 @@ let onboardingIndex = 0;
         collection(db, "staffMessages"),
         where("venueId", "==", venueId)
       );
-      staffMessagesUnsub = onSnapshot(q, (snap) => {
+      staffMessagesUnsub = subscribeSnapshot("staffMessages", q, { includeMetadataChanges: true }, (snap) => {
         const msgs = [];
         snap.forEach((docSnap) => {
           const data = docSnap.data() || {};
@@ -16536,7 +16629,7 @@ let onboardingIndex = 0;
         orderBy("createdAt", "desc"),
         limit(50)
       );
-      ceoMessagesUnsub = onSnapshot(q, (snap) => {
+      ceoMessagesUnsub = subscribeSnapshot("ceoMessages", q, { includeMetadataChanges: true }, (snap) => {
         const msgs = [];
         snap.forEach((docSnap) => {
           const data = docSnap.data() || {};
@@ -16628,22 +16721,20 @@ let onboardingIndex = 0;
       staffGateCodeValue = "";
       staffGateVerified = false;
       localStorage.removeItem(ACCENT_KEY);
-      attachGlobalRealtime();
       renderStaffVenueLog();
       renderStaffVipDeal();
       renderStaffAlertPreview();
       renderStaffDealCodes();
-      startStaffPerksListener(venueId);
       refreshStaffCeoReceipts();
       updateStaffKpis(tonightAlerts.filter(a => a.venueId === venueId).length, !!vipDealsCache[venueId]);
       scheduleAutoCloseOut();
       showScreen("staffPortal");
+      attachRealtimeForCurrentContext("staff-login");
       if (verifyCodeInput) verifyCodeInput.focus();
       handlePendingScanVerification();
       startIdleTimer();
       loadBackgroundTheme();
       updateStaffCloseoutStamp();
-      startStaffMessagesListener(venueId);
     }
 
     staffLoginForm.addEventListener("submit", (e) => {
@@ -16712,6 +16803,7 @@ let onboardingIndex = 0;
         clearTimeout(autoCloseOutTimer);
         autoCloseOutTimer = null;
       }
+      reattachRealtime();
     };
 
     if (staffLogoutLink) {
@@ -16754,13 +16846,11 @@ let onboardingIndex = 0;
           }
           const venueName = venuesInfo[staffSession.venue]?.name || "Your venue";
           if (staffVenueChip) staffVenueChip.textContent = venueName;
-          attachGlobalRealtime();
           renderStaffVenueLog();
           renderStaffPendingQueue();
           refreshStaffCeoReceipts();
-          startStaffPerksListener(staffSession.venue);
-          startStaffRedemptionListener(staffSession.venue);
           showScreen("staffPortal");
+          attachRealtimeForCurrentContext("staff-restore");
         } else {
           showScreen("staffLogin");
         }
@@ -17274,15 +17364,18 @@ let onboardingIndex = 0;
         ceoAppLockToggle.classList.toggle("btn-secondary", locked);
       }
       if (shouldBlock && !appLockOverride) {
-        if (firebaseAuth?.currentUser && !appLockSignoutPending) {
-          appLockSignoutPending = true;
-          signOut(firebaseAuth).catch(() => {}).finally(() => {
-            appLockSignoutPending = false;
-          });
-        }
-        detachRealtime();
-        showScreen("landing");
+        logRealtime("appLocked: read-only");
       }
+    }
+
+    function isAppReadOnlyMode() {
+      return appLocked === true && isCeoAccount !== true;
+    }
+    function guardWriteAction(actionLabel, message = "App is locked (read-only).") {
+      if (!isAppReadOnlyMode()) return true;
+      logRealtime("blockedWrite", actionLabel);
+      showToast(message, 2600);
+      return false;
     }
 
     function stopHealthWatch() {
@@ -17302,7 +17395,7 @@ let onboardingIndex = 0;
         settingsPollTimer = null;
       }
       const ref = doc(db, "settings", "app");
-      settingsUnsub = onSnapshot(ref, (snap) => {
+      settingsUnsub = subscribeSnapshot("settingsApp", ref, { includeMetadataChanges: true }, (snap) => {
         const data = snap.exists() ? snap.data() : {};
         isLaunched = !!data.launched;
         appLocked = !!data.appLocked;
@@ -17323,8 +17416,6 @@ let onboardingIndex = 0;
           const ts = data.lastCloseoutEmail.toDate ? data.lastCloseoutEmail.toDate() : new Date(data.lastCloseoutEmail);
           staffCloseoutStamp.textContent = `Last close-out email: ${ts.toLocaleString("en-US", { timeZone: "America/Denver" })}`;
         }
-      }, (err) => {
-        console.warn("Settings listener failed", err);
       });
     }
 
@@ -17353,15 +17444,13 @@ let onboardingIndex = 0;
         appStatsUnsub = null;
       }
       const ref = doc(db, "settings", "appStats");
-      appStatsUnsub = onSnapshot(ref, (snap) => {
+      appStatsUnsub = subscribeSnapshot("appStats", ref, { includeMetadataChanges: true }, (snap) => {
         const data = snap.exists() ? snap.data() : {};
         const count = Number(data.membersCount || 0);
         currentUsersCount.textContent = count.toLocaleString();
         if ((!snap.exists() || count === 0) && isCeoAccount) {
           maybeRecountMembers();
         }
-      }, (err) => {
-        console.warn("App stats listener failed", err);
       });
     }
 
@@ -17617,7 +17706,7 @@ let onboardingIndex = 0;
       if (!db || !isCeoAccount || !ceoSystemHealth) return;
       stopHealthWatch();
       const ref = doc(db, "settings", "health");
-      ceoHealthUnsub = onSnapshot(ref, async (snap) => {
+      ceoHealthUnsub = subscribeSnapshot("ceoHealth", ref, { includeMetadataChanges: true }, async (snap) => {
         let data = snap.exists() ? snap.data() : {};
         if (!snap.exists()) {
           try {
@@ -17651,8 +17740,7 @@ let onboardingIndex = 0;
           ceoSystemHealth.textContent = "Close-out email: unknown";
         }
         ceoSystemHealth.style.color = color;
-      }, (err) => {
-        console.warn("Health watch failed", err);
+      }, () => {
         ceoSystemHealth.textContent = "Health status unavailable";
         ceoSystemHealth.style.color = "#fbbf24";
       });
@@ -17927,6 +18015,9 @@ let onboardingIndex = 0;
 
     async function verifyCode(code, venueId) {
       if (!code) return { success: false, message: "Enter a code." };
+      if (!guardWriteAction("verifyRedemption")) {
+        return { success: false, message: "App is locked (read-only)." };
+      }
       const codeUpper = code.toUpperCase();
       const venueKey = (venueId || "").toLowerCase();
       const toIso = (ts) => {
@@ -18030,7 +18121,9 @@ let onboardingIndex = 0;
         if (isVenueMismatch(mapped)) {
           return { success: false, message: "This code is assigned to another venue." };
         }
-        addRedemptionLogEntry(mapped, { skipSync: true });
+        if (!useCloudProfile()) {
+          addRedemptionLogEntry(mapped, { skipSync: true });
+        }
         return { success: true, entry: mapped };
       }
       if (isVenueMismatch(entry)) {
@@ -18043,10 +18136,12 @@ let onboardingIndex = 0;
       const verified = await callVerify();
       if (!verified.success) return verified;
       const mapped = mapEntry(verified.entry);
-      Object.assign(entry, mapped);
-      renderStaffVenueLog();
-      renderStaffPendingQueue();
-      refreshMemberStats();
+      if (!useCloudProfile()) {
+        Object.assign(entry, mapped);
+        renderStaffVenueLog();
+        renderStaffPendingQueue();
+        refreshMemberStats();
+      }
       return { success: true, entry };
     }
 
@@ -18544,7 +18639,7 @@ let onboardingIndex = 0;
       }
       const ref = getMemberRedemptionRef(code);
       if (!ref) return;
-      redeemWatchUnsub = onSnapshot(ref, (snap) => {
+      redeemWatchUnsub = subscribeSnapshot("redeemWatch", ref, { includeMetadataChanges: true }, (snap) => {
         if (!snap.exists()) return;
         const data = snap.data() || {};
         const toIso = (ts) => {
@@ -18959,6 +19054,10 @@ let onboardingIndex = 0;
 
     redeemClose.addEventListener("click", closeRedeemModal);
     redeemConfirm.addEventListener("click", async () => {
+      if (!guardWriteAction("createRedemption")) {
+        creditInfo.textContent = "App is locked (read-only).";
+        return;
+      }
       updateExpiryDisplay();
       if (isMembershipExpired()) {
         creditInfo.textContent = "Membership expired. Update billing to redeem.";
@@ -19043,8 +19142,10 @@ let onboardingIndex = 0;
             ? new Date(payload.createdAt.seconds * 1000).toISOString()
             : new Date().toISOString()),
       };
-      cacheStaffRedemptionForVenue(entry);
-      addRedemptionLogEntry(entry, { skipSync: true });
+      if (!useCloudProfile()) {
+        cacheStaffRedemptionForVenue(entry);
+        addRedemptionLogEntry(entry, { skipSync: true });
+      }
       closeRedeemModal();
       showRedemptionQr(perkLabel, code, requestedVenue);
     });
@@ -19291,18 +19392,29 @@ let onboardingIndex = 0;
   // One-time hooks
   attachCopyHandlers();
 
-  // Listen for auth state changes
-  // Start settings watch after everything is defined
-  watchSettingsDoc();
-  watchAppStatsDoc();
   window.addEventListener("pageshow", refreshOnLaunch);
 
   onAuthStateChanged(firebaseAuth, async (user) => {
+    authReady = true;
+    const nextUid = user?.uid || null;
+    if (nextUid !== lastAuthUid) {
+      detachAllRealtimeListeners("auth-change");
+    }
+    lastAuthUid = nextUid;
+    try {
+      watchSettingsDoc();
+      watchAppStatsDoc();
+    } catch (_) {}
+    if (restoreStaffSessionIfPossible(user)) {
+      attachRealtimeForCurrentContext("staff-restore");
+      return;
+    }
     await handleAuthenticatedUser(user);
-    reattachRealtime();
+    attachRealtimeForCurrentContext("auth-change");
   });
 
   window.addEventListener("online", () => {
+    logRealtime("online");
     reattachRealtime();
     if (reconnectBanner) reconnectBanner.style.display = "none";
   });

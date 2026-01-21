@@ -53,8 +53,16 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/settings/app).data.appLocked != true;
     }
 
+    function isAppLocked() {
+      return get(/databases/$(database)/documents/settings/app).data.appLocked == true;
+    }
+
     function canAccessApp() {
       return isAppOpen() || isCeo() || isAdmin();
+    }
+
+    function canWriteApp() {
+      return !isAppLocked() || isAdmin() || isCeo();
     }
 
     // CEO-issued vouchers: only server (Admin SDK / Cloud Functions) may create/modify.
@@ -66,7 +74,7 @@ service cloud.firestore {
 
     // Pass index (passCode -> uid). Public-ish read for signed-in users.
     match /passes/{passCode} {
-      allow read: if isSignedIn() && canAccessApp();
+      allow read: if isSignedIn();
       allow create, update, delete: if false;
     }
 
@@ -106,18 +114,19 @@ service cloud.firestore {
 
     // Venues collection with subcollections
     match /venues/{venueId} {
-      allow read: if canAccessApp();
-      allow write: if isAdmin() || isCeo();
+      allow read: if true;
+      allow write: if (isAdmin() || isCeo()) && canWriteApp();
 
       match /perks/{perkId} {
-        allow read: if canAccessApp();
-        allow create, update, delete: if isSignedIn() && canAccessApp() && (
-          isAdmin() || isCeo() || (isStaff() && request.auth.token.venue == venueId)
+        allow read: if true;
+        allow create, update, delete: if isSignedIn() && (
+          (isAdmin() || isCeo())
+          || (isStaff() && !isAppLocked() && request.auth.token.venue == venueId)
         );
       }
 
       match /redemptions/{redemptionId} {
-        allow read: if isSignedIn() && canAccessApp() && (
+        allow read: if isSignedIn() && (
           isAdmin() || isCeo() || (isStaff() && request.auth.token.venue == venueId)
         );
         allow create, update, delete: if false;
@@ -126,50 +135,59 @@ service cloud.firestore {
 
     // Tonight’s alerts (staff posts, everyone reads)
     match /alerts/{id} {
-      allow read: if canAccessApp();
-      allow create, update, delete: if hasPrivilegedRole() && canAccessApp();
+      allow read: if true;
+      allow create, update, delete: if isSignedIn() && canWriteApp() && (
+        isAdmin() || isCeo() || (isStaff() && !isAppLocked())
+      );
     }
 
     // Shared deals (staff posts, everyone reads)
     match /deals/{id} {
-      allow read: if canAccessApp();
-      allow create, update, delete: if hasPrivilegedRole() && canAccessApp();
+      allow read: if true;
+      allow create, update, delete: if isSignedIn() && canWriteApp() && (
+        isAdmin() || isCeo() || (isStaff() && !isAppLocked())
+      );
     }
 
     // VIP-only deals (staff posts, everyone reads)
     match /vipDeals/{id} {
-      allow read: if canAccessApp();
-      allow create, update, delete: if hasPrivilegedRole() && canAccessApp();
+      allow read: if true;
+      allow create, update, delete: if isSignedIn() && canWriteApp() && (
+        isAdmin() || isCeo() || (isStaff() && !isAppLocked())
+      );
     }
 
     // Venue-defined monthly perks (staff writes only for their venue; everyone reads)
     match /venuePerks/{venueId} {
-      allow read: if canAccessApp();
-      allow create, update: if isSignedIn() && canAccessApp() && (
-        isAdmin() || isCeo() || (isStaff() && request.auth.token.venue == venueId)
+      allow read: if true;
+      allow create, update: if isSignedIn() && canWriteApp() && (
+        isAdmin() || isCeo() || (isStaff() && !isAppLocked() && request.auth.token.venue == venueId)
       );
-      allow delete: if isAdmin() || isCeo();
+      allow delete: if (isAdmin() || isCeo()) && canWriteApp();
     }
 
     // Member profiles (readable to authenticated users; writes limited)
     match /members/{uid} {
-      allow read: if canAccessApp() && (isOwner(uid) || hasPrivilegedRole());
-      allow create: if canAccessApp() && isOwner(uid);
-      allow update: if canAccessApp() && (isOwner(uid) || hasPrivilegedRole());
+      allow read: if isSignedIn() && (isOwner(uid) || hasPrivilegedRole());
+      allow create: if isSignedIn() && isOwner(uid);
+      allow update: if isSignedIn() && (
+        (isAdmin() || isCeo())
+        || (isOwner(uid) && !isAppLocked())
+      );
       allow delete: if isOwner(uid) || isAdmin() || isCeo();
     }
 
     match /members/{uid}/redemptions/{redemptionId} {
-      allow read: if canAccessApp() && (isOwner(uid) || hasPrivilegedRole());
+      allow read: if isSignedIn() && (isOwner(uid) || hasPrivilegedRole());
       allow create, update, delete: if false;
     }
 
     // Username directory for login-by-username
     match /usernames/{name} {
-      allow read: if isSignedIn() && canAccessApp();
-      allow create: if isSignedIn() && canAccessApp() && request.resource.data.uid == request.auth.uid;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid && !isAppLocked();
       allow update: if isSignedIn()
-        && canAccessApp()
+        && !isAppLocked()
         && resource.data.uid == request.auth.uid
         && request.resource.data.uid == request.auth.uid;
       allow delete: if isAdmin() || isCeo();
@@ -177,14 +195,14 @@ service cloud.firestore {
 
     // CEO free memberships — lookup by passCode, readable by authed users, writeable only by privileged roles
     match /freeMemberships/{passCode} {
-      allow read: if isSignedIn() && canAccessApp();
-      allow create, update, delete: if hasPrivilegedRole() && canAccessApp();
+      allow read: if isSignedIn();
+      allow create, update, delete: if hasPrivilegedRole() && canWriteApp();
     }
 
     // Staff → CEO direct messages (per-venue)
     match /staffMessages/{id} {
       // Staff can read only their venue messages; CEO/admin can read all.
-      allow read: if isSignedIn() && canAccessApp() && (
+      allow read: if isSignedIn() && (
         isAdmin() ||
         isCeo() ||
         (isStaff() && (
@@ -195,7 +213,7 @@ service cloud.firestore {
 
       // Staff can create only for their own venue and themselves.
       allow create: if isSignedIn()
-        && canAccessApp()
+        && !isAppLocked()
         && isStaff()
         && request.resource.data.staffUid == request.auth.uid
         && request.resource.data.message is string
@@ -204,12 +222,13 @@ service cloud.firestore {
 
       // CEO/admin can update (reply/read flags + deletes), staff can mark read or hide their copy.
       allow update: if isSignedIn()
-        && canAccessApp()
+        && canWriteApp()
         && (
           (isAdmin() || isCeo())
             && request.resource.data.diff(resource.data).changedKeys().hasOnly(["reply", "repliedAt", "readByCeo", "readByStaff", "deletedByCeo"])
         ||
           (isStaff()
+            && !isAppLocked()
             && (request.auth.uid == resource.data.staffUid || request.auth.token.venue == resource.data.venueId)
             && request.resource.data.diff(resource.data).changedKeys().hasOnly(["readByStaff", "readByStaffAt", "deletedByStaff"]))
         )
@@ -221,21 +240,21 @@ service cloud.firestore {
 
     // Venue ratings
     match /venueRatings/{venueId} {
-      allow read: if canAccessApp();
-      allow write: if isSignedIn() && canAccessApp();
+      allow read: if true;
+      allow write: if isSignedIn() && !isAppLocked();
     }
 
     // Reviews (any signed-in user can create/read; no deletes)
     match /reviews/{id} {
-      allow read: if canAccessApp();
-      allow create: if isSignedIn() && canAccessApp();
+      allow read: if true;
+      allow create: if isSignedIn() && !isAppLocked();
       allow update, delete: if false;
     }
 
     // Close-out reports stored per venue (optional; allow only authed writes, public reads)
     match /closeOutReports/{id} {
-      allow read: if hasPrivilegedRole() && canAccessApp();
-      allow write: if hasPrivilegedRole() && canAccessApp();
+      allow read: if hasPrivilegedRole();
+      allow write: if hasPrivilegedRole() && canWriteApp();
       allow delete: if isAdmin() || isCeo();
     }
 
