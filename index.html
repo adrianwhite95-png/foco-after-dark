@@ -6247,7 +6247,7 @@
       };
       window.addEventListener("error", (event) => {
         if (!event?.message) return;
-        console.error("Global error:", event);
+        console.error("[window.error]", event.message || event.error || event);
         if (event.message.includes("Firestore/Listen/channel")
           || event.message.includes("Firestore/Write/channel")
           || event.message.includes("access control checks")) {
@@ -6259,7 +6259,8 @@
       });
       window.addEventListener("unhandledrejection", (event) => {
         const message = event.reason?.message || event.reason || "Unhandled promise rejection";
-        console.error(event);
+        console.error("[unhandledrejection]", event.reason || event);
+        if (typeof event.preventDefault === "function") event.preventDefault();
         if (String(message).includes("Firestore/Listen/channel")
           || String(message).includes("Firestore/Write/channel")
           || String(message).includes("access control checks")) {
@@ -9388,13 +9389,8 @@
   function requestReattach(reason = "", options = {}) {
     if (!authReady || !firebaseAuth.currentUser) return null;
     const now = Date.now();
-    if (reattachInFlight) {
-      reattachQueued = true;
-      return reattachInFlight;
-    }
-    if (now - lastReattachAt < 150) {
-      return reattachInFlight;
-    }
+    if (reattachInFlight) return reattachInFlight;
+    if (now - lastReattachAt < 1000) return null;
     reattachInFlight = Promise.resolve().then(() => {
       lastReattachAt = Date.now();
       if (options.force) {
@@ -9410,10 +9406,6 @@
       } catch (_) {}
     }).finally(() => {
       reattachInFlight = null;
-      if (reattachQueued) {
-        reattachQueued = false;
-        requestReattach("queued");
-      }
     });
     return reattachInFlight;
   }
@@ -9424,7 +9416,6 @@
   let pillUpdateTimer = null;
   let lastPillUpdateAt = 0;
   let reattachInFlight = null;
-  let reattachQueued = false;
   let lastReattachAt = 0;
   function logRealtime(...args) {
     if (!DEBUG_MODE) return;
@@ -9660,11 +9651,18 @@
           console.error(`[${label}] snapshot failed`, err);
           noteRealtimeError(label, err);
           if (isPermissionDeniedError(err)) {
+            const wasBlocked = blockedRealtimeLabels.has(label);
             blockRealtimeLabel(label, "permission-denied");
-            detachRealtimeLabel(label, "permission-denied");
+            if (!wasBlocked) {
+              setTimeout(() => detachRealtimeLabel(label, "permission-denied"), 0);
+            }
           } else if (isFailedPreconditionError(err)) {
+            const wasBlocked = blockedRealtimeLabels.has(label);
             blockRealtimeLabel(label, "failed-precondition");
-            detachRealtimeLabel(label, "failed-precondition");
+            if (!wasBlocked) {
+              showToast("Index missing – contact admin.", 3200);
+              setTimeout(() => detachRealtimeLabel(label, "failed-precondition"), 0);
+            }
           }
           try { if (typeof onError === "function") onError(err); } catch (_) {}
         }
