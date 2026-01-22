@@ -6247,7 +6247,7 @@
       };
       window.addEventListener("error", (event) => {
         if (!event?.message) return;
-        console.error("[window.error]", event.message || event.error || event);
+        console.error("[window.error]", event.message || event.error);
         if (event.message.includes("Firestore/Listen/channel")
           || event.message.includes("Firestore/Write/channel")
           || event.message.includes("access control checks")) {
@@ -6259,7 +6259,7 @@
       });
       window.addEventListener("unhandledrejection", (event) => {
         const message = event.reason?.message || event.reason || "Unhandled promise rejection";
-        console.error("[unhandledrejection]", event.reason || event);
+        console.error("[unhandledrejection]", event.reason);
         if (typeof event.preventDefault === "function") event.preventDefault();
         if (String(message).includes("Firestore/Listen/channel")
           || String(message).includes("Firestore/Write/channel")
@@ -9388,6 +9388,7 @@
   }
   function requestReattach(reason = "", options = {}) {
     if (!authReady || !firebaseAuth.currentUser) return null;
+    if (!authClaimsReady) return null;
     const now = Date.now();
     if (reattachInFlight) return reattachInFlight;
     if (now - lastReattachAt < 1000) return null;
@@ -9660,7 +9661,7 @@
             const wasBlocked = blockedRealtimeLabels.has(label);
             blockRealtimeLabel(label, "failed-precondition");
             if (!wasBlocked) {
-              showToast("Index missing – contact admin.", 3200);
+              showToast("Index building: redemptions createdAt. Try again in a minute.", 3600);
               setTimeout(() => detachRealtimeLabel(label, "failed-precondition"), 0);
             }
           }
