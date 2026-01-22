@@ -19502,6 +19502,7 @@ let onboardingIndex = 0;
         const fn = httpsCallable(functionsClient, "createRedemption");
         const resp = await fn({
           passCode: activePassId,
+          memberUid: firebaseAuth.currentUser?.uid || null,
           venueId: requestedVenue,
           perkId: selectedVenuePerkId || selectedPerkId,
           perkLabel: rewardLabel,
@@ -19517,6 +19518,11 @@ let onboardingIndex = 0;
         if (!unlimited) {
           decrementPendingForPass(activePassId, selectedPerkId);
           renderRedemptionOptions();
+        }
+        const missing = Array.isArray(err?.details?.missingFields) ? err.details.missingFields : null;
+        if (missing && missing.length) {
+          creditInfo.textContent = `Missing: ${missing.join(", ")}`;
+          return;
         }
         creditInfo.textContent = err?.message || "Could not start redemption.";
         return;
