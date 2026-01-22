@@ -305,6 +305,22 @@
       font-weight: 700;
       text-shadow: 0 0 10px rgba(244,114,182,0.75), 0 0 22px rgba(168,85,247,0.25);
     }
+    #roleBanner {
+      position: fixed;
+      top: 12px;
+      right: 14px;
+      z-index: 1200;
+      background: rgba(15, 23, 42, 0.85);
+      color: #e2e8f0;
+      border: 1px solid rgba(148,163,184,0.3);
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 11px;
+      line-height: 1.3;
+      backdrop-filter: blur(10px);
+      max-width: 260px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
 
     .btn {
       width: 100%;
@@ -6072,6 +6088,7 @@
   </div>
 
   <footer class="global-footer">© 2026 Dreeboy LLC</footer>
+  <div id="roleBanner"></div>
 
   <!-- Firebase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -6128,7 +6145,9 @@
       appId: "1:962947086594:web:9c931c93a90992f4826a1b",
       measurementId: "G-FCLG1RNRYZ"
     };
-    const SAFE_MODE = new URLSearchParams(window.location.search).get("safe") === "1";
+    const params = new URLSearchParams(window.location.search);
+    const SAFE_MODE = params.get("safe") === "1";
+    const DEBUG_MODE = params.get("debug") === "1";
 
     const app = initializeApp(firebaseConfig);
     const firebaseAuth = getAuth(app);
@@ -6170,6 +6189,12 @@
     let authClaimsReady = false;
     let pendingStaffVenueId = null;
     const blockedRealtimeLabels = new Set();
+    const vipDealsMap = new Map();
+    const alertsMap = new Map();
+    const venuePerksMap = new Map();
+    let memberRedemptionsMap = new Map();
+    let staffRedemptionsMap = new Map();
+    let staffRedemptionsVenue = null;
     if (betaPassMode) {
       localStorage.removeItem("betaSkipActive");
       betaPassMode = false;
@@ -6221,6 +6246,32 @@
       });
     }
     attachGlobalErrorHandlers();
+
+    function detectRoleLabel(user) {
+      if (!user) return "guest";
+      if (isStaffAccount(user)) return "staff";
+      if (isCeoAccount || hasCeoClaim()) return "ceo";
+      if (user.isAnonymous) return "anon";
+      return "user";
+    }
+    function updateRoleBanner() {
+      if (!roleBanner) return;
+      const user = firebaseAuth.currentUser;
+      const uid = user?.uid || "—";
+      const role = detectRoleLabel(user);
+      const ceo = !!authClaims?.ceo;
+      const admin = !!authClaims?.admin;
+      const staff = !!authClaims?.staff;
+      roleBanner.innerHTML = `
+        <div><strong>${role.toUpperCase()}</strong></div>
+        <div>uid: ${uid}</div>
+        <div>authReady: ${authReady}</div>
+        <div>claimsReady: ${authClaimsReady}</div>
+        <div>isSafari: ${isSafari}</div>
+        <div>safe: ${SAFE_MODE}</div>
+        <div>claims: ceo=${ceo} admin=${admin} staff=${staff}</div>
+      `;
+    }
 
     function stopIdleTimer() {
       if (idleTimer) clearTimeout(idleTimer);
@@ -7168,17 +7219,24 @@
       authClaims = null;
       if (!user) {
         authClaimsReady = true;
+        updateRoleBanner();
         return null;
       }
       try {
         const token = await user.getIdTokenResult(true);
         authClaims = token?.claims || {};
         console.info("[claims]", authClaims);
+        if (isStaffAccount(user)) {
+          console.info("[staff] claims", authClaims);
+          showToast("Staff claims loaded.", 1400);
+        }
         authClaimsReady = true;
+        updateRoleBanner();
         return authClaims;
       } catch (err) {
         authClaimsReady = true;
         console.warn("[auth] claims fetch failed", err);
+        updateRoleBanner();
         return null;
       }
     }
@@ -8055,6 +8113,7 @@
     const scanConfirmBack = document.getElementById("scanConfirmBack");
     const offlineBadge = document.getElementById("offlineBadge");
     const offlineCopy = document.getElementById("offlineCopy");
+    const roleBanner = document.getElementById("roleBanner");
     const onboardingOverlay = document.getElementById("onboardingOverlay");
     const onboardingTitle = document.getElementById("onboardingTitle");
     const onboardingBody = document.getElementById("onboardingBody");
@@ -9181,6 +9240,9 @@
   function detachAllRealtimeListeners(reason = "") {
     logRealtime("detachAll", reason || "");
     try { detachRealtime(); } catch (_) {}
+    memberRedemptionsMap = new Map();
+    staffRedemptionsMap = new Map();
+    staffRedemptionsVenue = null;
     try { stopStaffPerksListener(); } catch (_) {}
     try { stopRedeemPerksListener(); } catch (_) {}
     try { stopStaffRedemptionListener(); } catch (_) {}
@@ -9254,16 +9316,19 @@
     const hasStaffAccess = hasStaffClaim();
     if (isStaffAccount(user)) {
       if (!hasStaffAccess) {
+        showToast("Staff access pending verification.", 1800);
         logRealtime("attachSkipped", "staff-no-claim");
         return;
       }
-      if (staffSession?.venue) {
-        setRealtimeRequiredSources(["settingsApp", "staffRedemptions"]);
-        attachGlobalRealtime();
-        startStaffPerksListener(staffSession.venue);
-        startStaffRedemptionListener(staffSession.venue);
-        startStaffMessagesListener(staffSession.venue);
-      }
+        if (staffSession?.venue) {
+          setRealtimeRequiredSources(["settingsApp", "staffRedemptions"]);
+          attachGlobalRealtime();
+          startStaffPerksListener(staffSession.venue);
+          startStaffRedemptionListener(staffSession.venue);
+          startStaffMessagesListener(staffSession.venue);
+          console.info("[staff] attach staff listeners", { venueId: staffSession.venue });
+          showToast(`Staff live queue: ${staffSession.venue}`, 1400);
+        }
       if (!staffSession?.venue) {
         setRealtimeRequiredSources(["settingsApp"]);
         attachGlobalRealtime();
@@ -9304,7 +9369,10 @@
   let lastAuthUid = null;
   let realtimeStage2Timer = null;
   let heartbeatServerLogged = false;
+  let pillUpdateTimer = null;
+  let lastPillUpdateAt = 0;
   function logRealtime(...args) {
+    if (!DEBUG_MODE) return;
     try { console.log("[realtime]", ...args); } catch (_) {}
   }
   function isPermissionDeniedError(err) {
@@ -9398,6 +9466,21 @@
     const token = label.toLowerCase().replace(/\s+/g, "");
     realtimeStatusPill.dataset.state = token;
   }
+  function scheduleRealtimeStatusRender() {
+    const now = Date.now();
+    const remaining = 250 - (now - lastPillUpdateAt);
+    if (remaining <= 0) {
+      lastPillUpdateAt = now;
+      renderRealtimeStatus();
+      return;
+    }
+    if (pillUpdateTimer) return;
+    pillUpdateTimer = setTimeout(() => {
+      pillUpdateTimer = null;
+      lastPillUpdateAt = Date.now();
+      renderRealtimeStatus();
+    }, remaining);
+  }
   function noteRealtimeSnapshot(snapshot, source = "global") {
     if (!snapshot?.metadata) return;
     const entry = realtimeState.sources[source] || { serverSeen: false };
@@ -9408,7 +9491,7 @@
       entry.serverSeen = true;
     }
     realtimeState.sources[source] = entry;
-    renderRealtimeStatus();
+    scheduleRealtimeStatusRender();
   }
   function noteRealtimeError(source, err) {
     const entry = realtimeState.sources[source] || { serverSeen: false };
@@ -9420,7 +9503,7 @@
     if (entry.permissionDenied) {
       logRealtime(`${source}: permission-denied`);
     }
-    renderRealtimeStatus();
+    scheduleRealtimeStatusRender();
   }
   function subscribeSnapshot(label, target, options, onNext, onError) {
     if (!authReady || !firebaseAuth.currentUser) return null;
@@ -9487,9 +9570,18 @@
   renderRealtimeStatus();
   function applyVipDealsSnapshot(snapshot) {
     if (!snapshot) return;
+    const changes = snapshot.docChanges ? snapshot.docChanges() : [];
+    if (!changes.length) return;
+    changes.forEach(change => {
+      if (change.type === "removed") {
+        vipDealsMap.delete(change.doc.id);
+        return;
+      }
+      vipDealsMap.set(change.doc.id, change.doc.data());
+    });
     const nextCache = {};
-    snapshot.forEach(docSnap => {
-      nextCache[docSnap.id] = docSnap.data();
+    vipDealsMap.forEach((value, key) => {
+      nextCache[key] = value;
     });
     vipDealsCache = nextCache;
     renderVipDealForMember();
@@ -9499,16 +9591,20 @@
   function applyAlertsSnapshot(snapshot) {
     if (!snapshot) return;
     const now = Date.now();
-    const fetched = [];
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data() || {};
+    const changes = snapshot.docChanges ? snapshot.docChanges() : [];
+    if (!changes.length) return;
+    changes.forEach(change => {
+      const data = change.doc.data() || {};
       const expiresAtMs = data.expiresAt?.toMillis
         ? data.expiresAt.toMillis()
         : (data.expiresAt ? new Date(data.expiresAt).getTime() : null);
-      if (expiresAtMs && expiresAtMs <= now) return;
+      if (change.type === "removed" || (expiresAtMs && expiresAtMs <= now)) {
+        alertsMap.delete(change.doc.id);
+        return;
+      }
       const createdAtMs = data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now();
-      fetched.push({
-        id: docSnap.id,
+      alertsMap.set(change.doc.id, {
+        id: change.doc.id,
         venueId: data.venueId,
         venueName: data.venueName || venuesInfo[data.venueId]?.name || "FoCo venue",
         title: data.title || data.venueName || "FoCo alert",
@@ -9518,7 +9614,7 @@
         createdAt: createdAtMs,
       });
     });
-    fetched.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const fetched = Array.from(alertsMap.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     tonightAlerts = fetched;
     alertsCache = [...fetched];
     refreshAlertsTicker();
@@ -9527,18 +9623,29 @@
   }
   function applyVenuePerksSnapshot(snapshot) {
     if (!snapshot) return;
-    const nextCache = {};
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data() || {};
-      const venueId = data.venueId || docSnap.ref.parent?.parent?.id;
+    const changes = snapshot.docChanges ? snapshot.docChanges() : [];
+    if (!changes.length) return;
+    changes.forEach(change => {
+      const data = change.doc.data() || {};
+      const venueId = data.venueId || change.doc.ref.parent?.parent?.id;
       if (!venueId) return;
-      if (!nextCache[venueId]) nextCache[venueId] = [];
-      nextCache[venueId].push({
-        id: docSnap.id,
+      const key = `${venueId}:${change.doc.id}`;
+      if (change.type === "removed") {
+        venuePerksMap.delete(key);
+        return;
+      }
+      venuePerksMap.set(key, {
+        id: change.doc.id,
+        venueId,
         label: data.label || data.title || "",
         standardQty: data.standardQty ?? data.standard,
         vipQty: data.vipQty ?? data.vip
       });
+    });
+    const nextCache = {};
+    venuePerksMap.forEach((value) => {
+      if (!nextCache[value.venueId]) nextCache[value.venueId] = [];
+      nextCache[value.venueId].push(value);
     });
     Object.keys(nextCache).forEach(venueId => {
       nextCache[venueId] = normalizeVenuePerks(nextCache[venueId]);
@@ -9640,15 +9747,21 @@
         try {
           const redRef = collection(db, "members", uid, "redemptions");
           const unsub = subscribeSnapshot("memberRedemptions", query(redRef, orderBy("createdAt", "desc"), limit(200)), null, (snap) => {
+            const changes = snap.docChanges ? snap.docChanges() : [];
+            if (!changes.length) return;
             const toIso = (ts) => {
               if (!ts) return new Date().toISOString();
               if (ts.toDate) return ts.toDate().toISOString();
               return new Date(ts).toISOString();
             };
-            const entries = snap.docs.map(docSnap => {
-              const data = docSnap.data() || {};
-              return {
-                code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
+            changes.forEach(change => {
+              if (change.type === "removed") {
+                memberRedemptionsMap.delete(change.doc.id);
+                return;
+              }
+              const data = change.doc.data() || {};
+              memberRedemptionsMap.set(change.doc.id, {
+                code: (data.redemptionId || data.code || change.doc.id || "").toUpperCase(),
                 perk: data.perkLabel || data.perk || data.perkKey || "Perk",
                 perkKey: data.perkKey || null,
                 venuePerkId: data.perkId || data.venuePerkId || null,
@@ -9661,8 +9774,9 @@
                 status: data.status || "pending",
                 timestamp: toIso(data.createdAt || data.timestamp),
                 verifiedAt: toIso(data.verifiedAt || data.createdAt || data.timestamp),
-              };
+              });
             });
+            const entries = Array.from(memberRedemptionsMap.values());
             if (!entries.length) {
               redemptionLog = [];
               refreshMemberStats();
@@ -14447,6 +14561,10 @@ let onboardingIndex = 0;
     function startStaffRedemptionListener(venueId) {
       stopStaffRedemptionListener();
       if (!db || !venueId || !authClaimsReady || !hasStaffClaim()) return;
+      if (staffRedemptionsVenue !== venueId) {
+        staffRedemptionsMap = new Map();
+        staffRedemptionsVenue = venueId;
+      }
       const toIso = (ts) => {
         if (!ts) return new Date().toISOString();
         if (ts.toDate) return ts.toDate().toISOString();
@@ -14459,10 +14577,16 @@ let onboardingIndex = 0;
           limit(200)
         );
         const unsub = subscribeSnapshot("staffRedemptions", qVenue, null, (snap) => {
-          const entries = snap.docs.map(docSnap => {
-            const data = docSnap.data() || {};
-            return {
-              code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
+          const changes = snap.docChanges ? snap.docChanges() : [];
+          if (!changes.length) return;
+          changes.forEach(change => {
+            if (change.type === "removed") {
+              staffRedemptionsMap.delete(change.doc.id);
+              return;
+            }
+            const data = change.doc.data() || {};
+            staffRedemptionsMap.set(change.doc.id, {
+              code: (data.redemptionId || data.code || change.doc.id || "").toUpperCase(),
               perk: data.perkLabel || data.perk || data.perkKey || "Perk",
               perkKey: data.perkKey || null,
               venuePerkId: data.perkId || data.venuePerkId || null,
@@ -14475,8 +14599,9 @@ let onboardingIndex = 0;
               status: data.status || "pending",
               timestamp: toIso(data.createdAt || data.timestamp),
               verifiedAt: toIso(data.verifiedAt || data.timestamp),
-            };
-          }).filter(entry => entry.code);
+            });
+          });
+          const entries = Array.from(staffRedemptionsMap.values()).filter(entry => entry.code);
           redemptionLog = entries.sort((a, b) => {
             return new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0);
           });
@@ -16735,7 +16860,6 @@ let onboardingIndex = 0;
       if (!resolved) return { success: false, message: "Enter a venue code." };
       staffSession = { venue: resolved, at: new Date().toISOString() };
       localStorage.setItem("staffSession", JSON.stringify(staffSession));
-      persistMemberState({ staffSession });
       const venueExists = venuesInfo[resolved];
       const venueName = venueExists ? venuesInfo[resolved].name : (resolved === "beta" ? "FoCo Beta Venue" : "Your venue");
       staffVenueLabel.textContent = venueName;
@@ -16745,6 +16869,7 @@ let onboardingIndex = 0;
       renderStaffPendingQueue();
       renderStaffVipDeal();
       refreshStaffCeoReceipts();
+      updateRoleBanner();
       return { success: true, venueId: resolved };
     }
     async function handlePendingScanVerification() {
@@ -16881,6 +17006,8 @@ let onboardingIndex = 0;
 
     async function processStaffLogin() {
       staffLoginError.textContent = "";
+      console.info("[staff] start");
+      showToast("Staff login starting…", 1400);
       if (!staffGateVerified) {
         openStaffGate();
         staffLoginError.textContent = "Enter staff access code to continue.";
@@ -16929,6 +17056,8 @@ let onboardingIndex = 0;
       if (fallbackEmail) {
         try {
           await signInWithEmailAndPassword(firebaseAuth, fallbackEmail, pass);
+          console.info("[staff] auth ok (email)");
+          showToast("Staff auth verified.", 1400);
         } catch (err) {
           console.warn("Staff fallback sign-in failed", err);
           staffLoginError.textContent = "Staff auth failed. Try again.";
@@ -16937,6 +17066,8 @@ let onboardingIndex = 0;
       } else {
         try {
           await signInWithCustomToken(firebaseAuth, token);
+          console.info("[staff] auth ok (token)");
+          showToast("Staff auth verified.", 1400);
         } catch (err) {
           console.warn("Staff token sign-in failed", err);
           staffLoginError.textContent = "Staff auth failed. Try again.";
@@ -16948,6 +17079,8 @@ let onboardingIndex = 0;
         staffLoginError.textContent = result.message;
         return;
       }
+      console.info("[staff] applyStaffSession", { venueId });
+      showToast(`Staff session set: ${venueId}`, 1400);
       const venueName = venuesInfo[venueId]?.name || (venueId === "beta" ? "FoCo Beta Venue" : "Your venue");
       if (staffVenueChip) staffVenueChip.textContent = venueName;
       if (staffVenueLabel) staffVenueLabel.textContent = venueName;
@@ -19664,16 +19797,20 @@ let onboardingIndex = 0;
 
   onAuthStateChanged(firebaseAuth, async (user) => {
     authReady = true;
+    updateRoleBanner();
     detachAllRealtimeListeners("auth-change");
     blockedRealtimeLabels.clear();
     lastAuthUid = user?.uid || null;
     if (!user) {
       authClaimsReady = false;
       authClaims = null;
+      updateRoleBanner();
       return;
     }
     await refreshAuthClaims(user);
-    if (user.isAnonymous) {
+    const allowAnonStaff = user.isAnonymous && (pendingStaffVenueId || staffSession);
+    if (user.isAnonymous && !allowAnonStaff) {
+      updateRoleBanner();
       return;
     }
     if (pendingStaffVenueId && isStaffAccount(user)) {
