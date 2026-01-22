@@ -9113,6 +9113,7 @@
     if (settingsUnsub) { try { settingsUnsub(); } catch (_) {} settingsUnsub = null; }
     if (appStatsUnsub) { try { appStatsUnsub(); } catch (_) {} appStatsUnsub = null; }
     if (redeemWatchUnsub) { try { redeemWatchUnsub(); } catch (_) {} redeemWatchUnsub = null; }
+    clearAllRealtimeListeners("detachAll");
     setRealtimeRequiredSources([]);
   }
   function attachRealtime() {
@@ -9125,26 +9126,27 @@
     if (!db) return;
     if (isStaffAccount(user)) {
       if (staffSession?.venue) {
-        setRealtimeRequiredSources(["settingsApp", "globalPerks", "globalDeals", "globalAlerts", "staffPerks", "staffRedemptions", "staffMessages"]);
+        setRealtimeRequiredSources(["settingsApp", "staffRedemptions"]);
         attachGlobalRealtime();
         startStaffPerksListener(staffSession.venue);
         startStaffRedemptionListener(staffSession.venue);
         startStaffMessagesListener(staffSession.venue);
       }
       if (!staffSession?.venue) {
-        setRealtimeRequiredSources(["settingsApp", "globalPerks", "globalDeals", "globalAlerts"]);
+        setRealtimeRequiredSources(["settingsApp"]);
         attachGlobalRealtime();
       }
       return;
     }
     if (!user || user.isAnonymous) {
-      setRealtimeRequiredSources(["settingsApp", "globalPerks", "globalDeals", "globalAlerts"]);
+      setRealtimeRequiredSources(["settingsApp"]);
       attachGlobalRealtime();
       return;
     }
     primeMemberRealtime();
     attachRealtime();
     if (isCeoAccount) {
+      setRealtimeRequiredSources(["settingsApp", "member", "memberRedemptions", "ceoRedemptions"]);
       attachCeoRedemptionsRealtime();
       attachCeoReviewsRealtime();
       attachCloseOutReportsRealtime();
@@ -9184,6 +9186,29 @@
     sources: {},
     requiredSources: []
   };
+  const activeRealtimeUnsubs = new Map();
+  const pillHeartbeatLabels = new Set([
+    "settingsApp",
+    "member",
+    "memberRedemptions",
+    "staffRedemptions",
+    "ceoRedemptions"
+  ]);
+
+  function clearActiveRealtimeListener(label, reason = "") {
+    const existing = activeRealtimeUnsubs.get(label);
+    if (existing) {
+      logRealtime("detach", label, reason);
+      try { existing(); } catch (_) {}
+      activeRealtimeUnsubs.delete(label);
+    }
+  }
+  function clearAllRealtimeListeners(reason = "") {
+    Array.from(activeRealtimeUnsubs.keys()).forEach((label) => {
+      clearActiveRealtimeListener(label, reason);
+    });
+    activeRealtimeUnsubs.clear();
+  }
   function setRealtimeRequiredSources(list = []) {
     realtimeState.sources = {};
     realtimeState.requiredSources = Array.isArray(list) ? list : [];
@@ -9200,15 +9225,16 @@
     return realtimeState.requiredSources.every(key => realtimeState.sources[key]?.serverSeen);
   }
   function hasRealtimeNoAccess() {
-    const sources = getRealtimeSourcesForStatus();
+    const sources = Object.values(realtimeState.sources);
     return sources.some(source => source.permissionDenied);
   }
   function renderRealtimeStatus() {
     if (!realtimeStatusPill) return;
     const sources = getRealtimeSourcesForStatus();
     const fromCache = sources.some(source => source.fromCache) || !navigator.onLine;
+    const allSources = Object.values(realtimeState.sources);
     const ready = isRealtimeReady();
-    const hasPendingWrites = sources.some(source => source.hasPendingWrites);
+    const hasPendingWrites = allSources.some(source => source.hasPendingWrites);
     let label = "Live";
     if (hasRealtimeNoAccess()) label = "No access";
     else if (fromCache) label = "Offline";
@@ -9243,13 +9269,23 @@
   }
   function subscribeSnapshot(label, target, options, onNext, onError) {
     if (!authReady) return null;
+    if (activeRealtimeUnsubs.has(label)) {
+      clearActiveRealtimeListener(label, "replace");
+    }
     try {
       logRealtime("attach", label);
+      let effectiveOptions = options || {};
+      if (pillHeartbeatLabels.has(label)) {
+        effectiveOptions = { ...effectiveOptions, includeMetadataChanges: true };
+      } else if (effectiveOptions.includeMetadataChanges) {
+        effectiveOptions = { ...effectiveOptions };
+        delete effectiveOptions.includeMetadataChanges;
+      }
       const unsub = onSnapshot(
         target,
-        options || {},
+        effectiveOptions,
         (snap) => {
-          if (options?.includeMetadataChanges) {
+          if (pillHeartbeatLabels.has(label)) {
             noteRealtimeSnapshot(snap, label);
           }
           onNext(snap);
@@ -9260,10 +9296,15 @@
           try { if (typeof onError === "function") onError(err); } catch (_) {}
         }
       );
-      return () => {
+      const wrapped = () => {
+        if (activeRealtimeUnsubs.get(label) === wrapped) {
+          activeRealtimeUnsubs.delete(label);
+        }
         try { logRealtime("detach", label); } catch (_) {}
         try { unsub(); } catch (_) {}
       };
+      activeRealtimeUnsubs.set(label, wrapped);
+      return wrapped;
     } catch (err) {
       console.error(`[${label}] snapshot attach failed`, err);
       noteRealtimeError(label, err);
@@ -9275,7 +9316,7 @@
     if (!useCloudProfile() || !navigator.onLine) return;
     redemptionLog = [];
     resetMemberStatsUi();
-    setRealtimeRequiredSources(["settingsApp", "member", "memberRedemptions", "globalPerks", "globalDeals", "globalAlerts"]);
+    setRealtimeRequiredSources(["settingsApp", "member", "memberRedemptions"]);
   }
   window.addEventListener("online", () => renderRealtimeStatus());
   window.addEventListener("offline", () => renderRealtimeStatus());
@@ -9345,7 +9386,7 @@
     if (!db) return;
     if (globalRealtimeUnsubs.length) return;
     try {
-      const unsub = subscribeSnapshot("globalDeals", collection(db, "deals"), { includeMetadataChanges: true }, (snap) => {
+      const unsub = subscribeSnapshot("globalDeals", collection(db, "deals"), null, (snap) => {
         applyVipDealsSnapshot(snap);
       });
       if (unsub) globalRealtimeUnsubs.push(unsub);
@@ -9353,7 +9394,7 @@
       console.warn("Global vipDeals listener failed", err);
     }
     try {
-      const unsub = subscribeSnapshot("globalAlerts", collection(db, "alerts"), { includeMetadataChanges: true }, (snap) => {
+      const unsub = subscribeSnapshot("globalAlerts", collection(db, "alerts"), null, (snap) => {
         applyAlertsSnapshot(snap);
       });
       if (unsub) globalRealtimeUnsubs.push(unsub);
@@ -9361,7 +9402,7 @@
       console.warn("Global alerts listener failed", err);
     }
     try {
-      const unsub = subscribeSnapshot("globalPerks", collectionGroup(db, "perks"), { includeMetadataChanges: true }, (snap) => {
+      const unsub = subscribeSnapshot("globalPerks", collectionGroup(db, "perks"), null, (snap) => {
         applyVenuePerksSnapshot(snap);
       });
       if (unsub) globalRealtimeUnsubs.push(unsub);
@@ -9378,7 +9419,7 @@
       if (uid) {
         try {
           const ref = doc(db, "members", uid);
-          const unsub = subscribeSnapshot("member", ref, { includeMetadataChanges: true }, (snap) => {
+          const unsub = subscribeSnapshot("member", ref, null, (snap) => {
             if (snap.exists()) {
               const data = snap.data() || {};
               const mergedPass = (data.passCode || data.passId || code || currentPassCode || "").toUpperCase();
@@ -9424,7 +9465,7 @@
       if (code && uid) {
         try {
           const redRef = collection(db, "members", uid, "redemptions");
-          const unsub = subscribeSnapshot("memberRedemptions", query(redRef, orderBy("createdAt", "desc"), limit(200)), { includeMetadataChanges: true }, (snap) => {
+          const unsub = subscribeSnapshot("memberRedemptions", query(redRef, orderBy("createdAt", "desc"), limit(200)), null, (snap) => {
             const toIso = (ts) => {
               if (!ts) return new Date().toISOString();
               if (ts.toDate) return ts.toDate().toISOString();
@@ -9460,7 +9501,7 @@
           console.warn("Redemption realtime listener failed", err);
         }
         try {
-          const unsub = subscribeSnapshot("memberFree", doc(db, "freeMemberships", code), { includeMetadataChanges: true }, (snap) => {
+          const unsub = subscribeSnapshot("memberFree", doc(db, "freeMemberships", code), null, (snap) => {
             if (snap.exists()) {
               const data = snap.data() || {};
               if (data && data.active !== false) {
@@ -11704,7 +11745,7 @@ let onboardingIndex = 0;
         return;
       }
       const ref = collection(db, "venues", venueId, "perks");
-      staffPerksUnsub = subscribeSnapshot("staffPerks", ref, { includeMetadataChanges: true }, (snap) => {
+      staffPerksUnsub = subscribeSnapshot("staffPerks", ref, null, (snap) => {
         const perks = snap.docs.map(docSnap => ({
           id: docSnap.id,
           ...docSnap.data()
@@ -11739,7 +11780,7 @@ let onboardingIndex = 0;
       redeemPerksLoading = true;
       if (redeemPerksHint) redeemPerksHint.style.display = "block";
       const ref = collection(db, "venues", venueId, "perks");
-      redeemPerksUnsub = subscribeSnapshot("redeemPerks", ref, { includeMetadataChanges: true }, (snap) => {
+      redeemPerksUnsub = subscribeSnapshot("redeemPerks", ref, null, (snap) => {
         const perks = snap.docs.map(docSnap => ({
           id: docSnap.id,
           ...docSnap.data()
@@ -13496,7 +13537,6 @@ let onboardingIndex = 0;
     async function refreshVipDeals() {
       if (!db) return;
       if (useCloudProfile()) {
-        attachGlobalRealtime();
         return;
       }
       try {
@@ -13558,7 +13598,6 @@ let onboardingIndex = 0;
         return;
       }
       if (useCloudProfile()) {
-        attachGlobalRealtime();
         return;
       }
       try {
@@ -14223,7 +14262,7 @@ let onboardingIndex = 0;
           orderBy("createdAt", "desc"),
           limit(200)
         );
-        const unsub = subscribeSnapshot("staffRedemptions", qVenue, { includeMetadataChanges: true }, (snap) => {
+        const unsub = subscribeSnapshot("staffRedemptions", qVenue, null, (snap) => {
           const entries = snap.docs.map(docSnap => {
             const data = docSnap.data() || {};
             return {
@@ -15355,7 +15394,7 @@ let onboardingIndex = 0;
       clearCeoRedemptionsRealtime();
       try {
         const q = query(collectionGroup(db, "redemptions"), orderBy("createdAt", "desc"), limit(400));
-        ceoRedemptionsUnsub = subscribeSnapshot("ceoRedemptions", q, { includeMetadataChanges: true }, (snap) => {
+        ceoRedemptionsUnsub = subscribeSnapshot("ceoRedemptions", q, null, (snap) => {
           const toIso = (ts) => {
             if (!ts) return new Date().toISOString();
             if (ts.toDate) return ts.toDate().toISOString();
@@ -15392,7 +15431,7 @@ let onboardingIndex = 0;
       clearCeoReviewsRealtime();
       try {
         const q = query(collection(db, "reviews"), orderBy("timestampMs", "desc"));
-        ceoReviewsUnsub = subscribeSnapshot("ceoReviews", q, { includeMetadataChanges: true }, (snap) => {
+        ceoReviewsUnsub = subscribeSnapshot("ceoReviews", q, null, (snap) => {
           ceoReviewsCache = snap.docs.map(docSnap => {
             const data = docSnap.data() || {};
             return normalizeReviewEntry({
@@ -16562,7 +16601,7 @@ let onboardingIndex = 0;
         orderBy("generatedAt", "desc"),
         limit(200)
       );
-      closeOutReportsUnsub = subscribeSnapshot("closeOutReports", q, { includeMetadataChanges: true }, (snap) => {
+      closeOutReportsUnsub = subscribeSnapshot("closeOutReports", q, null, (snap) => {
         const reports = [];
         snap.forEach(docSnap => {
           const data = docSnap.data() || {};
@@ -16602,7 +16641,7 @@ let onboardingIndex = 0;
         collection(db, "staffMessages"),
         where("venueId", "==", venueId)
       );
-      staffMessagesUnsub = subscribeSnapshot("staffMessages", q, { includeMetadataChanges: true }, (snap) => {
+      staffMessagesUnsub = subscribeSnapshot("staffMessages", q, null, (snap) => {
         const msgs = [];
         snap.forEach((docSnap) => {
           const data = docSnap.data() || {};
@@ -16629,7 +16668,7 @@ let onboardingIndex = 0;
         orderBy("createdAt", "desc"),
         limit(50)
       );
-      ceoMessagesUnsub = subscribeSnapshot("ceoMessages", q, { includeMetadataChanges: true }, (snap) => {
+      ceoMessagesUnsub = subscribeSnapshot("ceoMessages", q, null, (snap) => {
         const msgs = [];
         snap.forEach((docSnap) => {
           const data = docSnap.data() || {};
@@ -17444,7 +17483,7 @@ let onboardingIndex = 0;
         appStatsUnsub = null;
       }
       const ref = doc(db, "settings", "appStats");
-      appStatsUnsub = subscribeSnapshot("appStats", ref, { includeMetadataChanges: true }, (snap) => {
+      appStatsUnsub = subscribeSnapshot("appStats", ref, null, (snap) => {
         const data = snap.exists() ? snap.data() : {};
         const count = Number(data.membersCount || 0);
         currentUsersCount.textContent = count.toLocaleString();
@@ -17706,7 +17745,7 @@ let onboardingIndex = 0;
       if (!db || !isCeoAccount || !ceoSystemHealth) return;
       stopHealthWatch();
       const ref = doc(db, "settings", "health");
-      ceoHealthUnsub = subscribeSnapshot("ceoHealth", ref, { includeMetadataChanges: true }, async (snap) => {
+      ceoHealthUnsub = subscribeSnapshot("ceoHealth", ref, null, async (snap) => {
         let data = snap.exists() ? snap.data() : {};
         if (!snap.exists()) {
           try {
@@ -18639,7 +18678,7 @@ let onboardingIndex = 0;
       }
       const ref = getMemberRedemptionRef(code);
       if (!ref) return;
-      redeemWatchUnsub = subscribeSnapshot("redeemWatch", ref, { includeMetadataChanges: true }, (snap) => {
+      redeemWatchUnsub = subscribeSnapshot("redeemWatch", ref, null, (snap) => {
         if (!snap.exists()) return;
         const data = snap.data() || {};
         const toIso = (ts) => {
