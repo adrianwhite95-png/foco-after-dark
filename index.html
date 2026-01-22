@@ -14828,6 +14828,9 @@ let onboardingIndex = 0;
 
 
     function renderRedemptionOptions() {
+      const prevSelectedId = selectedPerkId;
+      const prevSelectedLabel = selectedPerkLabel;
+      const prevVenuePerkId = selectedVenuePerkId;
       const tier = normalizeTierKey(currentMembershipTier)
         || normalizeTierKey(memberProfile?.tier)
         || (isCeoActive() ? "ceo" : (isFreeMember() ? "free" : null))
@@ -14837,6 +14840,9 @@ let onboardingIndex = 0;
         if (redemptionOptionsGrid) redemptionOptionsGrid.innerHTML = "";
         if (redeemVoucherBalance) redeemVoucherBalance.textContent = "";
         if (voucherBalanceNote) voucherBalanceNote.textContent = "";
+        selectedPerkId = null;
+        selectedVenuePerkId = null;
+        selectedPerkLabel = null;
         return;
       }
       if (!redemptionOptionsGrid) return;
@@ -14883,24 +14889,37 @@ let onboardingIndex = 0;
         return;
       }
       const passId = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
+      const selectedMatch = perksForTier.find(perk => perk.id === prevSelectedId || perk.id === prevVenuePerkId) || null;
+      const selectedId = selectedMatch ? selectedMatch.id : null;
       redemptionOptionsGrid.innerHTML = perksForTier.map(perk => {
         const usage = getVenuePerkUsage(perk.id, passId, venueId);
         const tierQty = getTierQtyForPerk(perk, tier);
         const remaining = unlimitedAccess ? Infinity : Math.max(0, tierQty - usage.total);
         const disabled = unlimitedAccess ? "" : (remaining <= 0 ? "disabled" : "");
         const displayLabel = perk.label;
+        const isSelected = selectedId && perk.id === selectedId;
         return `
-          <button type="button" class="perk-option ${disabled}" data-perk="${perk.id}" data-label="${displayLabel}" data-venue-perk="${perk.id}">
+          <button type="button" class="perk-option ${disabled} ${isSelected ? "selected" : ""}" data-perk="${perk.id}" data-label="${displayLabel}" data-venue-perk="${perk.id}">
             <span class="perk-label">${displayLabel}</span>
             <span class="perk-remaining">${unlimitedAccess ? "Unlimited" : `${remaining} left`}</span>
           </button>
         `;
       }).join("\n");
-      selectedPerkId = null;
-      selectedVenuePerkId = null;
-      selectedPerkLabel = null;
-      const guidance = unlimitedAccess ? "Unlimited perks available. Select a venue perk to redeem." : "Select a venue perk to redeem.";
-      creditInfo.textContent = guidance;
+      if (selectedMatch) {
+        selectedPerkId = selectedId;
+        selectedVenuePerkId = selectedId;
+        selectedPerkLabel = prevSelectedLabel || selectedMatch.label;
+        const selectedRemaining = unlimitedAccess
+          ? "Unlimited"
+          : `${Math.max(0, getTierQtyForPerk(selectedMatch, tier) - getVenuePerkUsage(selectedMatch.id, passId, venueId).total)} left`;
+        creditInfo.textContent = `${selectedPerkLabel} • ${selectedRemaining}`;
+      } else {
+        selectedPerkId = null;
+        selectedVenuePerkId = null;
+        selectedPerkLabel = null;
+        const guidance = unlimitedAccess ? "Unlimited perks available. Select a venue perk to redeem." : "Select a venue perk to redeem.";
+        creditInfo.textContent = guidance;
+      }
     }
 
     let pendingVoucherPack = null;
@@ -19465,6 +19484,14 @@ let onboardingIndex = 0;
       if (isMembershipExpired()) {
         creditInfo.textContent = "Membership expired. Update billing to redeem.";
         return;
+      }
+      if (!selectedPerkId || !selectedPerkLabel) {
+        const selectedBtn = redemptionOptionsGrid?.querySelector(".perk-option.selected");
+        if (selectedBtn) {
+          selectedPerkId = selectedBtn.dataset.perk || selectedPerkId;
+          selectedVenuePerkId = selectedBtn.dataset.venuePerk || selectedVenuePerkId;
+          selectedPerkLabel = selectedBtn.dataset.label || selectedPerkLabel;
+        }
       }
       if (!selectedPerkId || !selectedPerkLabel) {
         creditInfo.textContent = "Select a perk to redeem.";
