@@ -305,23 +305,6 @@
       font-weight: 700;
       text-shadow: 0 0 10px rgba(244,114,182,0.75), 0 0 22px rgba(168,85,247,0.25);
     }
-    #roleBanner {
-      position: fixed;
-      top: 12px;
-      right: 14px;
-      z-index: 1200;
-      background: rgba(15, 23, 42, 0.85);
-      color: #e2e8f0;
-      border: 1px solid rgba(148,163,184,0.3);
-      border-radius: 12px;
-      padding: 8px 12px;
-      font-size: 11px;
-      line-height: 1.3;
-      backdrop-filter: blur(10px);
-      max-width: 260px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-    }
-
     .btn {
       width: 100%;
       margin-top: 10px;
@@ -6088,12 +6071,11 @@
   </div>
 
   <footer class="global-footer">© 2026 Dreeboy LLC</footer>
-  <div id="roleBanner"></div>
 
   <!-- Firebase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" crossorigin="anonymous"></script>
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
     import {
       getAuth,
       onAuthStateChanged,
@@ -6112,7 +6094,6 @@
     } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
     import { getAnalytics, isSupported as analyticsIsSupported } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
     import {
-      getFirestore,
       initializeFirestore,
       memoryLocalCache,
       doc,
@@ -6148,18 +6129,18 @@
     const params = new URLSearchParams(window.location.search);
     const SAFE_MODE = params.get("safe") === "1";
     const DEBUG_MODE = params.get("debug") === "1";
-    const SHOW_ROLE_BANNER = params.get("role") === "1" || DEBUG_MODE;
 
-    const app = initializeApp(firebaseConfig);
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     const firebaseAuth = getAuth(app);
     const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|crios|android/i.test(navigator.userAgent);
-    const db = isSafari
-      ? initializeFirestore(app, {
+    const firestoreSettings = isSafari
+      ? {
         localCache: memoryLocalCache(),
         experimentalAutoDetectLongPolling: true,
         useFetchStreams: false
-      })
-      : getFirestore(app);
+      }
+      : {};
+    const db = initializeFirestore(app, firestoreSettings);
     if (isSafari) {
       console.info("[auth] Safari detected: Firestore persistence disabled");
     }
@@ -6214,71 +6195,6 @@
         // Analytics isn’t available (e.g. served from file:// or unsupported browser). Ignore silently.
       });
     // Avoid auto-creating anonymous accounts; sign in only when needed.
-
-    function attachGlobalErrorHandlers() {
-      const ensureBanner = () => {
-        let el = document.getElementById("appErrorBanner");
-        if (!el) {
-          el = document.createElement("div");
-          el.id = "appErrorBanner";
-          el.style.position = "fixed";
-          el.style.top = "12px";
-          el.style.left = "50%";
-          el.style.transform = "translateX(-50%)";
-          el.style.background = "rgba(239, 68, 68, 0.95)";
-          el.style.color = "#fff";
-          el.style.padding = "10px 16px";
-          el.style.borderRadius = "999px";
-          el.style.fontSize = "13px";
-          el.style.zIndex = "9999";
-          el.style.boxShadow = "0 10px 30px rgba(0,0,0,0.35)";
-          document.body.appendChild(el);
-        }
-        return el;
-      };
-      window.addEventListener("error", (event) => {
-        if (!event?.message) return;
-        console.error("[window.error]", event.message || event.error);
-        const banner = ensureBanner();
-        const location = event.filename ? ` (${event.filename}:${event.lineno || 0})` : "";
-        banner.textContent = `Error: ${event.message}${location}`;
-      });
-      window.addEventListener("unhandledrejection", (event) => {
-        const message = event.reason?.message || event.reason || "Unhandled promise rejection";
-        console.error("[unhandledrejection]", event.reason);
-        const banner = ensureBanner();
-        banner.textContent = `Error: ${message}`;
-      });
-    }
-    attachGlobalErrorHandlers();
-
-    function detectRoleLabel(user) {
-      if (!user) return "guest";
-      if (isStaffAccount(user)) return "staff";
-      if (isCeoAccount || hasCeoClaim()) return "ceo";
-      if (user.isAnonymous) return "anon";
-      return "user";
-    }
-    function updateRoleBanner() {
-      if (!roleBanner) return;
-      roleBanner.style.display = SHOW_ROLE_BANNER ? "block" : "none";
-      if (!SHOW_ROLE_BANNER) return;
-      const user = firebaseAuth.currentUser;
-      const uid = user?.uid || "—";
-      const role = detectRoleLabel(user);
-      const ceo = !!authClaims?.ceo;
-      const admin = !!authClaims?.admin;
-      const staff = !!authClaims?.staff;
-      roleBanner.innerHTML = `
-        <div><strong>${role.toUpperCase()}</strong></div>
-        <div>uid: ${uid}</div>
-        <div>authReady: ${authReady}</div>
-        <div>claimsReady: ${authClaimsReady}</div>
-        <div>isSafari: ${isSafari}</div>
-        <div>safe: ${SAFE_MODE}</div>
-        <div>claims: ceo=${ceo} admin=${admin} staff=${staff}</div>
-      `;
-    }
 
     function stopIdleTimer() {
       if (idleTimer) clearTimeout(idleTimer);
@@ -7226,7 +7142,6 @@
       authClaims = null;
       if (!user) {
         authClaimsReady = true;
-        updateRoleBanner();
         return null;
       }
       try {
@@ -7245,12 +7160,10 @@
           showToast("Staff claims loaded.", 1400);
         }
         authClaimsReady = true;
-        updateRoleBanner();
         return authClaims;
       } catch (err) {
         authClaimsReady = true;
         console.warn("[auth] claims fetch failed", err);
-        updateRoleBanner();
         return null;
       }
     }
@@ -8127,7 +8040,6 @@
     const scanConfirmBack = document.getElementById("scanConfirmBack");
     const offlineBadge = document.getElementById("offlineBadge");
     const offlineCopy = document.getElementById("offlineCopy");
-    const roleBanner = document.getElementById("roleBanner");
     const onboardingOverlay = document.getElementById("onboardingOverlay");
     const onboardingTitle = document.getElementById("onboardingTitle");
     const onboardingBody = document.getElementById("onboardingBody");
@@ -9275,43 +9187,6 @@
     attachGlobalRealtime();
     attachPassRealtime(currentPassCode);
   }
-  function attachRealtimeStage1(reason = "") {
-    if (!authReady || !firebaseAuth.currentUser || !db) return;
-    if (!authClaimsReady) {
-      logRealtime("attachSkipped", "claims-not-ready");
-      return;
-    }
-    watchSettingsDoc();
-    const user = firebaseAuth.currentUser;
-    if (user.isAnonymous) {
-      setRealtimeRequiredSources(["settingsApp"]);
-      if (reason) logRealtime("attachStage1", reason);
-      return;
-    }
-    if (isStaffAccount(user)) {
-      setRealtimeRequiredSources(["settingsApp"]);
-      if (reason) logRealtime("attachStage1", reason);
-      return;
-    }
-    setRealtimeRequiredSources(["settingsApp", "member"]);
-    attachPassRealtime(currentPassCode, { minimal: true });
-    if (reason) logRealtime("attachStage1", reason);
-  }
-  function scheduleRealtimeStage2(reason = "") {
-    if (SAFE_MODE) {
-      logRealtime("attachSkipped", "safe-mode");
-      return;
-    }
-    if (realtimeStage2Timer) {
-      clearTimeout(realtimeStage2Timer);
-    }
-    requestAnimationFrame(() => {
-      realtimeStage2Timer = setTimeout(() => {
-        realtimeStage2Timer = null;
-        attachRealtimeForCurrentContext(reason || "stage2");
-      }, 0);
-    });
-  }
   function attachRealtimeForCurrentContext(reason = "") {
     if (!authReady) return;
     const user = firebaseAuth.currentUser;
@@ -9366,38 +9241,11 @@
     }
     if (reason) logRealtime("attachContext", reason);
   }
-  function requestReattach(reason = "", options = {}) {
-    if (!authReady || !firebaseAuth.currentUser) return null;
-    if (!authClaimsReady) return null;
-    const now = Date.now();
-    if (reattachInFlight) return reattachInFlight;
-    if (now - lastReattachAt < 1000) return null;
-    reattachInFlight = Promise.resolve().then(() => {
-      lastReattachAt = Date.now();
-      if (options.force) {
-        detachAllRealtimeListeners("force-reattach");
-      }
-      attachRealtimeStage1(reason || "reattach");
-      scheduleRealtimeStage2(reason || "reattach");
-      try {
-        if (navigator.onLine && reason === "online") {
-          showToast("Live updates reconnected.", 2200);
-          if (reconnectBanner) reconnectBanner.style.display = "none";
-        }
-      } catch (_) {}
-    }).finally(() => {
-      reattachInFlight = null;
-    });
-    return reattachInFlight;
-  }
   let authReady = false;
   let lastAuthUid = null;
-  let realtimeStage2Timer = null;
   let heartbeatServerLogged = false;
   let pillUpdateTimer = null;
   let lastPillUpdateAt = 0;
-  let reattachInFlight = null;
-  let lastReattachAt = 0;
   function logRealtime(...args) {
     if (!DEBUG_MODE) return;
     try { console.log("[realtime]", ...args); } catch (_) {}
@@ -9454,7 +9302,7 @@
     requiredSources: []
   };
   const activeRealtimeUnsubs = new Map();
-  const failedPreconditionLabels = new Set();
+  const indexToastLabels = new Set();
   const pillHeartbeatLabels = new Set([
     "settingsApp"
   ]);
@@ -9550,10 +9398,6 @@
   }
   function subscribeSnapshot(label, target, options, onNext, onError) {
     if (!authReady || !firebaseAuth.currentUser) return null;
-    if (failedPreconditionLabels.has(label)) {
-      logRealtime("attachSkipped", label, "failed-precondition");
-      return null;
-    }
     const existing = activeRealtimeUnsubs.get(label);
     if (typeof existing === "function") {
       return existing;
@@ -9580,8 +9424,8 @@
           if (isPermissionDeniedError(err)) {
             // no detach on permission errors; avoid churn
           } else if (isFailedPreconditionError(err)) {
-            if (!failedPreconditionLabels.has(label)) {
-              failedPreconditionLabels.add(label);
+            if (!indexToastLabels.has(label)) {
+              indexToastLabels.add(label);
               showToast("Index building: redemptions createdAt. Try again in a minute.", 3600);
             }
           }
@@ -16958,7 +16802,6 @@ let onboardingIndex = 0;
       renderStaffPendingQueue();
       renderStaffVipDeal();
       refreshStaffCeoReceipts();
-      updateRoleBanner();
       return { success: true, venueId: resolved };
     }
     async function handlePendingScanVerification() {
@@ -19912,20 +19755,17 @@ let onboardingIndex = 0;
 
   onAuthStateChanged(firebaseAuth, async (user) => {
     authReady = true;
-    updateRoleBanner();
     detachAllRealtimeListeners("auth-change");
     blockedWriteLabels.clear();
     lastAuthUid = user?.uid || null;
     if (!user) {
       authClaimsReady = false;
       authClaims = null;
-      updateRoleBanner();
       return;
     }
     await refreshAuthClaims(user);
     const allowAnonStaff = user.isAnonymous && (pendingStaffVenueId || staffSession);
     if (user.isAnonymous && !allowAnonStaff) {
-      updateRoleBanner();
       return;
     }
     if (pendingStaffVenueId && isStaffAccount(user)) {
@@ -19933,13 +19773,11 @@ let onboardingIndex = 0;
       pendingStaffVenueId = null;
     }
     if (restoreStaffSessionIfPossible(user)) {
-      attachRealtimeStage1("staff-restore");
-      scheduleRealtimeStage2("staff-restore");
+      attachRealtimeForCurrentContext("staff-restore");
       return;
     }
     await handleAuthenticatedUser(user);
-    attachRealtimeStage1("auth-change");
-    scheduleRealtimeStage2("auth-change");
+    attachRealtimeForCurrentContext("auth-change");
   });
 
   window.addEventListener("online", () => {
