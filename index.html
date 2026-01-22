@@ -6128,6 +6128,7 @@
       appId: "1:962947086594:web:9c931c93a90992f4826a1b",
       measurementId: "G-FCLG1RNRYZ"
     };
+    const SAFE_MODE = new URLSearchParams(window.location.search).get("safe") === "1";
 
     const app = initializeApp(firebaseConfig);
     const firebaseAuth = getAuth(app);
@@ -6141,11 +6142,15 @@
     const BETA_FALLBACK_EMAIL = "beta@focoafterdark.com";
     const BETA_FALLBACK_CODE = "beta";
     let functionsClient = null;
-    try {
-      functionsClient = getFunctions(app, "us-central1");
-    } catch (err) {
-      // Functions client may not be available in older environments — fallback will be used.
-      console.warn('Functions client unavailable', err);
+    if (!SAFE_MODE) {
+      try {
+        functionsClient = getFunctions(app, "us-central1");
+      } catch (err) {
+        // Functions client may not be available in older environments — fallback will be used.
+        console.warn('Functions client unavailable', err);
+      }
+    } else {
+      console.info("[safe-mode] Cloud Functions disabled");
     }
     let analytics = null;
     let anonPromise = null;
@@ -6421,12 +6426,6 @@
           startIdleTimer();
           // Reveal portal contents with smooth staggered animation
           revealPortal(name);
-          if (name === "staffPortal" && staffSession?.venue) {
-            startStaffMessagesListener(staffSession.venue);
-          }
-          if (name === "ceoPortal" && isCeoAccount) {
-            startCeoMessagesListener();
-          }
         } else {
           stopIdleTimer();
         }
@@ -7001,6 +7000,11 @@
           }
           updateRememberedEmail(remember ? email : null);
         } catch (err) {
+          console.warn("[auth] sign-in failed", {
+            code: err?.code,
+            message: err?.message,
+            emailEmpty: !email
+          });
           authError.textContent = formatAuthError(err);
         } finally {
           authSubmitInFlight = false;
@@ -7062,6 +7066,11 @@
         await signInWithEmailAndPassword(firebaseAuth, email, password);
         updateRememberedEmail(remember ? email : null);
       } catch (err) {
+        console.warn("[auth] sign-in failed", {
+          code: err?.code,
+          message: err?.message,
+          emailEmpty: !email
+        });
         authError.textContent = formatAuthError(err);
       } finally {
         authSubmitInFlight = false;
@@ -9189,11 +9198,57 @@
     attachGlobalRealtime();
     attachPassRealtime(currentPassCode);
   }
+  function attachRealtimeStage1(reason = "") {
+    if (!authReady || !firebaseAuth.currentUser || !db) return;
+    if (!authClaimsReady) {
+      logRealtime("attachSkipped", "claims-not-ready");
+      return;
+    }
+    watchSettingsDoc();
+    const user = firebaseAuth.currentUser;
+    if (user.isAnonymous) {
+      setRealtimeRequiredSources(["settingsApp"]);
+      if (reason) logRealtime("attachStage1", reason);
+      return;
+    }
+    if (isStaffAccount(user)) {
+      setRealtimeRequiredSources(["settingsApp"]);
+      if (reason) logRealtime("attachStage1", reason);
+      return;
+    }
+    setRealtimeRequiredSources(["settingsApp", "member"]);
+    attachPassRealtime(currentPassCode, { minimal: true });
+    if (reason) logRealtime("attachStage1", reason);
+  }
+  function scheduleRealtimeStage2(reason = "") {
+    if (SAFE_MODE) {
+      logRealtime("attachSkipped", "safe-mode");
+      return;
+    }
+    if (realtimeStage2Timer) {
+      clearTimeout(realtimeStage2Timer);
+    }
+    requestAnimationFrame(() => {
+      realtimeStage2Timer = setTimeout(() => {
+        realtimeStage2Timer = null;
+        attachRealtimeForCurrentContext(reason || "stage2");
+      }, 0);
+    });
+  }
   function attachRealtimeForCurrentContext(reason = "") {
     if (!authReady) return;
     const user = firebaseAuth.currentUser;
     if (!db) return;
     if (!user) return;
+    if (SAFE_MODE) {
+      logRealtime("attachSkipped", "safe-mode");
+      return;
+    }
+    if (!authClaimsReady) {
+      logRealtime("attachSkipped", "claims-not-ready");
+      return;
+    }
+    watchAppStatsDoc();
     const hasCeoAccess = hasCeoClaim();
     const hasStaffAccess = hasStaffClaim();
     if (isStaffAccount(user)) {
@@ -9235,9 +9290,8 @@
     if (!authReady) return;
     detachAllRealtimeListeners("reattach");
     if (!firebaseAuth.currentUser) return;
-    watchSettingsDoc();
-    watchAppStatsDoc();
-    attachRealtimeForCurrentContext("reattach");
+    attachRealtimeStage1("reattach");
+    scheduleRealtimeStage2("reattach");
     try {
       if (navigator.onLine) {
         showToast("Live updates reconnected.", 2200);
@@ -9247,6 +9301,7 @@
   }
   let authReady = false;
   let lastAuthUid = null;
+  let realtimeStage2Timer = null;
   function logRealtime(...args) {
     try { console.log("[realtime]", ...args); } catch (_) {}
   }
@@ -9501,9 +9556,10 @@
       console.warn("Global venuePerks listener failed", err);
     }
   }
-    function attachPassRealtime(passCodeArg) {
+    function attachPassRealtime(passCodeArg, options = {}) {
       clearPassRealtime();
       if (!db) return;
+      if (!authClaimsReady) return;
       const uid = firebaseAuth.currentUser?.uid || null;
       // Pass code is needed for redemptions; prefer actual passCode over uid
       const code = (memberProfile?.passCode || memberProfile?.passId || currentPassCode || passCodeArg || "").toUpperCase();
@@ -9553,6 +9609,7 @@
           console.warn("Member realtime listener failed", err);
         }
       }
+      if (options.minimal) return;
       if (code && uid) {
         try {
           const redRef = collection(db, "members", uid, "redemptions");
@@ -11841,6 +11898,10 @@ let onboardingIndex = 0;
       stopStaffPerksListener();
       if (!venueId) {
         renderStaffPerksEditor([]);
+        return;
+      }
+      if (!authClaimsReady || !hasStaffClaim()) {
+        renderStaffPerksEditor(venuePerksCache[venueId] || []);
         return;
       }
       if (!db) {
@@ -14359,7 +14420,7 @@ let onboardingIndex = 0;
     }
     function startStaffRedemptionListener(venueId) {
       stopStaffRedemptionListener();
-      if (!db || !venueId) return;
+      if (!db || !venueId || !authClaimsReady || !hasStaffClaim()) return;
       const toIso = (ts) => {
         if (!ts) return new Date().toISOString();
         if (ts.toDate) return ts.toDate().toISOString();
@@ -14760,14 +14821,10 @@ let onboardingIndex = 0;
     }
     function loadCloseOutReports() {
       if (useCloudProfile()) {
-        if (isCeoAccount) {
-          attachCloseOutReportsRealtime();
-        } else {
-          closeOutReports = Array.isArray(memberProfile?.closeOutReports)
-            ? memberProfile.closeOutReports
-            : [];
-          renderCeoCloseOutReports();
-        }
+        closeOutReports = Array.isArray(memberProfile?.closeOutReports)
+          ? memberProfile.closeOutReports
+          : [];
+        renderCeoCloseOutReports();
         return;
       }
       try {
@@ -15501,7 +15558,7 @@ let onboardingIndex = 0;
       return ceoRedemptionsCache.length ? ceoRedemptionsCache : redemptionLog;
     }
     function attachCeoRedemptionsRealtime() {
-      if (!db || !isCeoAccount || !hasCeoClaim()) return;
+      if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim()) return;
       clearCeoRedemptionsRealtime();
       try {
         const q = query(collectionGroup(db, "redemptions"), orderBy("createdAt", "desc"), limit(400));
@@ -15538,7 +15595,7 @@ let onboardingIndex = 0;
       }
     }
     function attachCeoReviewsRealtime() {
-      if (!db || !isCeoAccount || !hasCeoClaim()) return;
+      if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim()) return;
       clearCeoReviewsRealtime();
       try {
         const q = query(collection(db, "reviews"), orderBy("timestampMs", "desc"));
@@ -16711,7 +16768,7 @@ let onboardingIndex = 0;
       }
     }
     function attachCloseOutReportsRealtime() {
-      if (!db || !isCeoAccount || !hasCeoClaim()) return;
+      if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim()) return;
       stopCloseOutReportsListener();
       const q = query(
         collection(db, "closeOutReports"),
@@ -16752,7 +16809,7 @@ let onboardingIndex = 0;
       });
     }
     function startStaffMessagesListener(venueId) {
-      if (!venueId || !db || !hasStaffClaim()) return;
+      if (!venueId || !db || !authClaimsReady || !hasStaffClaim()) return;
       stopStaffMessagesListener();
       const q = query(
         collection(db, "staffMessages"),
@@ -16778,7 +16835,7 @@ let onboardingIndex = 0;
       renderCeoMessages([]);
     }
     function startCeoMessagesListener() {
-      if (!isCeoAccount || !db || !hasCeoClaim()) return;
+      if (!isCeoAccount || !db || !authClaimsReady || !hasCeoClaim()) return;
       stopCeoMessagesListener();
       const q = query(
         collection(db, "staffMessages"),
@@ -17184,7 +17241,6 @@ let onboardingIndex = 0;
       avatarInitials.textContent = "CEO";
       passTierText.textContent = "VIP CEO Black Card";
       renderCeoIssued();
-      attachCeoReviewsRealtime();
       renderCeoReviews();
       showScreen("pass");
       startIdleTimer();
@@ -17528,6 +17584,13 @@ let onboardingIndex = 0;
       return appLocked === true && !hasCeoClaim() && !hasAdminClaim();
     }
     function guardWriteAction(actionLabel, message = "App is locked (read-only).", options = {}) {
+      if (SAFE_MODE) {
+        logRealtime("blockedWrite: safeMode", actionLabel);
+        if (!options.silent) {
+          showToast("Safe mode: writes disabled.", 2400);
+        }
+        return false;
+      }
       if (!authReady || !firebaseAuth.currentUser) {
         logRealtime("blockedWrite: no-auth", actionLabel);
         return false;
@@ -17790,7 +17853,7 @@ let onboardingIndex = 0;
     }
 
     async function loadCeoMembersSummary() {
-      if (!functionsClient || !isCeoAccount || !ceoMembersCard) return;
+      if (!functionsClient || !isCeoAccount || !authClaimsReady || !hasCeoClaim() || !ceoMembersCard) return;
       if (ceoMembersTotals) ceoMembersTotals.textContent = "Loading…";
       if (ceoMembersList) ceoMembersList.innerHTML = "";
       try {
@@ -17867,7 +17930,7 @@ let onboardingIndex = 0;
     });
 
     function startHealthWatch() {
-      if (!db || !isCeoAccount || !hasCeoClaim() || !ceoSystemHealth) return;
+      if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim() || !ceoSystemHealth) return;
       stopHealthWatch();
       const ref = doc(db, "settings", "health");
       ceoHealthUnsub = subscribeSnapshot("ceoHealth", ref, null, async (snap) => {
@@ -19120,6 +19183,7 @@ let onboardingIndex = 0;
 
     function updateCeoPassUI() {
       const ceoActive = isCeoActive();
+      const canCeoRealtime = authClaimsReady && hasCeoClaim() && !SAFE_MODE;
       if (ceoPassBanner) {
         ceoPassBanner.classList.toggle("active", isCeoAccount);
       }
@@ -19154,22 +19218,22 @@ let onboardingIndex = 0;
       }
       if (ceoMembersCard) {
         ceoMembersCard.style.display = isCeoAccount ? "" : "none";
-        if (isCeoAccount) loadCeoMembersSummary();
+        if (isCeoAccount && canCeoRealtime) loadCeoMembersSummary();
       }
       if (ceoLaunchCard) {
         ceoLaunchCard.style.display = isCeoAccount ? "" : "none";
-        if (isCeoAccount) loadLaunchMode();
+        if (isCeoAccount && canCeoRealtime) loadLaunchMode();
       }
       if (ceoAppLockCard) {
         ceoAppLockCard.style.display = isCeoAccount ? "" : "none";
       }
       if (ceoSystemHealthCard) {
         ceoSystemHealthCard.style.display = isCeoAccount ? "" : "none";
-        if (isCeoAccount) startHealthWatch();
+        if (isCeoAccount && canCeoRealtime) startHealthWatch();
       } else {
         stopHealthWatch();
       }
-      if (isCeoAccount) {
+      if (isCeoAccount && canCeoRealtime) {
         attachCeoRedemptionsRealtime();
       } else {
         clearCeoRedemptionsRealtime();
@@ -19585,16 +19649,14 @@ let onboardingIndex = 0;
       applyStaffSession(pendingStaffVenueId);
       pendingStaffVenueId = null;
     }
-    try {
-      watchSettingsDoc();
-      watchAppStatsDoc();
-    } catch (_) {}
     if (restoreStaffSessionIfPossible(user)) {
-      attachRealtimeForCurrentContext("staff-restore");
+      attachRealtimeStage1("staff-restore");
+      scheduleRealtimeStage2("staff-restore");
       return;
     }
     await handleAuthenticatedUser(user);
-    attachRealtimeForCurrentContext("auth-change");
+    attachRealtimeStage1("auth-change");
+    scheduleRealtimeStage2("auth-change");
   });
 
   window.addEventListener("online", () => {
