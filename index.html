@@ -6246,7 +6246,6 @@
       window.addEventListener("unhandledrejection", (event) => {
         const message = event.reason?.message || event.reason || "Unhandled promise rejection";
         console.error("[unhandledrejection]", event.reason);
-        if (typeof event.preventDefault === "function") event.preventDefault();
         const banner = ensureBanner();
         banner.textContent = `Error: ${message}`;
       });
@@ -9579,13 +9578,12 @@
           console.error(`[${label}] snapshot failed`, err);
           noteRealtimeError(label, err);
           if (isPermissionDeniedError(err)) {
-            setTimeout(() => detachRealtimeLabel(label, "permission-denied"), 0);
+            // no detach on permission errors; avoid churn
           } else if (isFailedPreconditionError(err)) {
             if (!failedPreconditionLabels.has(label)) {
               failedPreconditionLabels.add(label);
               showToast("Index building: redemptions createdAt. Try again in a minute.", 3600);
             }
-            setTimeout(() => detachRealtimeLabel(label, "failed-precondition"), 0);
           }
           try { if (typeof onError === "function") onError(err); } catch (_) {}
         }
@@ -15786,8 +15784,10 @@ let onboardingIndex = 0;
     function getCeoRedemptions() {
       return ceoRedemptionsCache.length ? ceoRedemptionsCache : redemptionLog;
     }
+    let ceoRedemptionsUnavailable = false;
     function attachCeoRedemptionsRealtime() {
       if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim()) return;
+      if (ceoRedemptionsUnavailable) return;
       clearCeoRedemptionsRealtime();
       try {
         const q = query(collectionGroup(db, "redemptions"), orderBy("createdAt", "desc"), limit(400));
@@ -15822,7 +15822,12 @@ let onboardingIndex = 0;
           });
         }, (err) => {
           if (isFailedPreconditionError(err)) {
-            showToast("Index building for CEO activity. Try again in a minute.", 3200);
+            ceoRedemptionsUnavailable = true;
+            showToast("CEO feed unavailable until index builds.", 3200);
+            if (ceoRedemptionBtn) ceoRedemptionBtn.disabled = true;
+            if (ceoRedemptionList) {
+              ceoRedemptionList.innerHTML = '<p style="color:#94a3b8;">CEO feed unavailable until index builds.</p>';
+            }
           }
         });
       } catch (err) {
@@ -19622,6 +19627,11 @@ let onboardingIndex = 0;
           showToast(`Redeem failed: missing fields ${missing.join("/")}`, 3200);
           creditInfo.textContent = `Missing: ${missing.join(", ")}`;
           return;
+        }
+        if ((err?.code || "").includes("permission-denied")) {
+          showToast("Not allowed.", 2600);
+        } else if ((err?.code || "").includes("internal")) {
+          showToast("Internal error (see console details).", 3000);
         }
         creditInfo.textContent = err?.message || "Could not start redemption.";
         return;

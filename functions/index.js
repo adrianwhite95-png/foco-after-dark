@@ -505,9 +505,15 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
 
     throw new HttpsError("internal", "Failed to create redemption.");
   } catch (err) {
+    console.error("[createRedemption]", {
+      uid: context.auth?.uid || null,
+      dataKeys: Object.keys(data || {}),
+      err: err?.message || err
+    });
     if (err instanceof HttpsError) throw err;
     throw new HttpsError("internal", "createRedemption failed", {
-      original: String(err?.message || err)
+      original: String(err?.message || err),
+      stack: String(err?.stack || "")
     });
   }
 });
