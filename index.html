@@ -6157,7 +6157,6 @@
       ? initializeFirestore(app, {
         localCache: memoryLocalCache(),
         experimentalForceLongPolling: true,
-        experimentalAutoDetectLongPolling: true,
         useFetchStreams: false
       })
       : getFirestore(app);
