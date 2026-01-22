@@ -376,8 +376,21 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
   const perkId = String(data?.perkId || "").trim();
   const perkLabel = String(data?.perkLabel || "").trim();
   const perkKey = String(data?.perkKey || "venue_perk").trim();
-  if (!passCode || !venueId || !perkId) {
-    throw new HttpsError("invalid-argument", "Pass ID, venue, and perk are required.");
+  const missingFields = [];
+  if (!passCode) missingFields.push("passCode");
+  if (!venueId) missingFields.push("venueId");
+  if (!perkId) missingFields.push("perkId");
+  if (missingFields.length) {
+    console.warn("[createRedemption] invalid-argument", {
+      uid: context.auth.uid,
+      missingFields,
+      receivedKeys: Object.keys(data || {}),
+      passCodeLength: passCode.length
+    });
+    throw new HttpsError("invalid-argument", "Missing required fields.", {
+      missingFields,
+      receivedKeys: Object.keys(data || {})
+    });
   }
 
   const now = admin.firestore.Timestamp.now();

@@ -7173,6 +7173,7 @@
       try {
         const token = await user.getIdTokenResult(true);
         authClaims = token?.claims || {};
+        console.info("[claims]", authClaims);
         authClaimsReady = true;
         return authClaims;
       } catch (err) {
@@ -9302,6 +9303,7 @@
   let authReady = false;
   let lastAuthUid = null;
   let realtimeStage2Timer = null;
+  let heartbeatServerLogged = false;
   function logRealtime(...args) {
     try { console.log("[realtime]", ...args); } catch (_) {}
   }
@@ -9313,6 +9315,22 @@
     const code = err?.code || "";
     const message = err?.message || String(err || "");
     return { code, message };
+  }
+  function logHeartbeatSnapshot(label, snap) {
+    if (!snap?.metadata) return;
+    if (!SAFE_MODE) return;
+    const meta = snap.metadata || {};
+    console.info("[heartbeat]", {
+      label,
+      exists: snap.exists(),
+      path: snap.ref?.path,
+      fromCache: meta.fromCache,
+      hasPendingWrites: meta.hasPendingWrites
+    });
+    if (!meta.fromCache && !heartbeatServerLogged) {
+      heartbeatServerLogged = true;
+      console.info("[heartbeat] server snapshot received");
+    }
   }
 
   const realtimeState = {
@@ -9567,6 +9585,7 @@
         try {
           const ref = doc(db, "members", uid);
           const unsub = subscribeSnapshot("member", ref, null, (snap) => {
+            logHeartbeatSnapshot("member", snap);
             if (snap.exists()) {
               const data = snap.data() || {};
               const mergedPass = (data.passCode || data.passId || code || currentPassCode || "").toUpperCase();
@@ -9602,6 +9621,13 @@
             updateExpiryDisplay();
             updateVoucherBalanceUI();
             updateLastCheckinUI();
+          } else if (guardWriteAction("seedMemberDoc", "App is locked (read-only).", { silent: true })) {
+            const seed = {
+              passCode: (code || currentPassCode || "").toUpperCase(),
+              memberSince: new Date().toISOString(),
+              updatedAt: serverTimestamp()
+            };
+            setDoc(ref, seed, { merge: true }).catch(err => console.warn("Seed member doc failed", err));
           }
           });
           if (unsub) passRealtimeUnsubs.push(unsub);
@@ -19350,6 +19376,11 @@ let onboardingIndex = 0;
         });
         payload = resp?.data?.redemption || null;
       } catch (err) {
+        console.warn("[createRedemption] failed", {
+          code: err?.code,
+          message: err?.message,
+          details: err?.details
+        });
         if (!unlimited) {
           decrementPendingForPass(activePassId, selectedPerkId);
           renderRedemptionOptions();
