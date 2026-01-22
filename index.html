@@ -19456,11 +19456,7 @@ let onboardingIndex = 0;
         });
         payload = resp?.data?.redemption || null;
       } catch (err) {
-        console.warn("[createRedemption] failed", {
-          code: err?.code,
-          message: err?.message,
-          details: err?.details
-        });
+        console.warn("[createRedemption] failed", err);
         if (!unlimited) {
           decrementPendingForPass(activePassId, selectedPerkId);
           renderRedemptionOptions();
@@ -19473,6 +19469,8 @@ let onboardingIndex = 0;
         }
         if ((err?.code || "").includes("permission-denied")) {
           showToast("Not allowed.", 2600);
+        } else if ((err?.code || "").includes("failed-precondition")) {
+          showToast(err?.message || "Unavailable right now.", 2800);
         } else if ((err?.code || "").includes("internal")) {
           showToast("Internal error (see console details).", 3000);
         }
