@@ -6156,7 +6156,7 @@
     const db = isSafari
       ? initializeFirestore(app, {
         localCache: memoryLocalCache(),
-        experimentalForceLongPolling: true,
+        experimentalAutoDetectLongPolling: true,
         useFetchStreams: false
       })
       : getFirestore(app);
@@ -9478,50 +9478,11 @@
     "settingsApp"
   ]);
 
-  function normalizeQueryValue(value) {
-    if (value == null) return "";
-    if (typeof value.toMillis === "function") return value.toMillis();
-    if (value?.seconds) return value.seconds;
-    if (value?.path) return value.path;
-    return String(value);
-  }
-  function getTargetSignature(label, target) {
-    try {
-      if (!target) return `label:${label}`;
-      if (target.path) return `doc:${target.path}`;
-      if (target._query) {
-        const q = target._query;
-        const path = q.path?.canonicalString
-          ? q.path.canonicalString()
-          : (q.path?.toString?.() || "");
-        const filters = (q.filters || []).map((f) => {
-          const field = f.field?.canonicalString ? f.field.canonicalString() : (f.field?.toString?.() || "");
-          const op = f.op || f.operator || "";
-          const val = normalizeQueryValue(f.value);
-          return `${field}${op}${val}`;
-        }).join("|");
-        const orderBy = (q.explicitOrderBy || []).map((o) => {
-          const field = o.field?.canonicalString ? o.field.canonicalString() : (o.field?.toString?.() || "");
-          const dir = o.dir || o.direction || "";
-          return `${field}:${dir}`;
-        }).join("|");
-        const limit = q.limit || "";
-        return `query:${path}|f=${filters}|o=${orderBy}|l=${limit}`;
-      }
-      if (target._queryOptions?.parent?.path) {
-        return `query:${target._queryOptions.parent.path}`;
-      }
-    } catch (_) {
-      return `label:${label}`;
-    }
-    return `label:${label}`;
-  }
-
   function clearActiveRealtimeListener(label, reason = "") {
     const existing = activeRealtimeUnsubs.get(label);
-    if (existing?.unsub) {
+    if (typeof existing === "function") {
       logRealtime("detach", label, reason);
-      try { existing.unsub(); } catch (_) {}
+      try { existing(); } catch (_) {}
       activeRealtimeUnsubs.delete(label);
     }
   }
@@ -9623,13 +9584,8 @@
       logRealtime("attachSkipped", label, "blocked");
       return null;
     }
-    const signature = getTargetSignature(label, target);
     const existing = activeRealtimeUnsubs.get(label);
-    if (existing?.signature === signature) {
-      logRealtime("attachSkipped", label, "same-target");
-      return existing.unsub;
-    }
-    if (existing?.unsub) {
+    if (typeof existing === "function") {
       clearActiveRealtimeListener(label, "replace");
     }
     try {
@@ -9670,13 +9626,13 @@
       );
       const wrapped = () => {
         const current = activeRealtimeUnsubs.get(label);
-        if (current?.unsub === wrapped) {
+        if (current === wrapped) {
           activeRealtimeUnsubs.delete(label);
         }
         try { logRealtime("detach", label); } catch (_) {}
         try { unsub(); } catch (_) {}
       };
-      activeRealtimeUnsubs.set(label, { unsub: wrapped, signature });
+      activeRealtimeUnsubs.set(label, wrapped);
       return wrapped;
     } catch (err) {
       console.error(`[${label}] snapshot attach failed`, err);
@@ -19703,6 +19659,7 @@ let onboardingIndex = 0;
         }
         const missing = Array.isArray(err?.details?.missingFields) ? err.details.missingFields : null;
         if (missing && missing.length) {
+          showToast(`Redeem failed: missing fields ${missing.join("/")}`, 3200);
           creditInfo.textContent = `Missing: ${missing.join(", ")}`;
           return;
         }
