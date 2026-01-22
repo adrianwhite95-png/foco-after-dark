@@ -6148,6 +6148,7 @@
     const params = new URLSearchParams(window.location.search);
     const SAFE_MODE = params.get("safe") === "1";
     const DEBUG_MODE = params.get("debug") === "1";
+    const SHOW_ROLE_BANNER = params.get("role") === "1" || DEBUG_MODE;
 
     const app = initializeApp(firebaseConfig);
     const firebaseAuth = getAuth(app);
@@ -6256,6 +6257,8 @@
     }
     function updateRoleBanner() {
       if (!roleBanner) return;
+      roleBanner.style.display = SHOW_ROLE_BANNER ? "block" : "none";
+      if (!SHOW_ROLE_BANNER) return;
       const user = firebaseAuth.currentUser;
       const uid = user?.uid || "—";
       const role = detectRoleLabel(user);
