@@ -368,142 +368,148 @@ function toMillis(value) {
 }
 
 exports.createRedemption = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new HttpsError("unauthenticated", "Sign in required.");
-  }
-  const passCode = String(data?.passCode || "").trim().toUpperCase();
-  const venueId = String(data?.venueId || "").trim().toLowerCase();
-  const perkId = String(data?.perkId || "").trim();
-  const perkLabel = String(data?.perkLabel || "").trim();
-  const perkKey = String(data?.perkKey || "venue_perk").trim();
-  const missingFields = [];
-  if (!passCode) missingFields.push("passCode");
-  if (!venueId) missingFields.push("venueId");
-  if (!perkId) missingFields.push("perkId");
-  if (missingFields.length) {
-    console.warn("[createRedemption] invalid-argument", {
-      uid: context.auth.uid,
-      missingFields,
-      receivedKeys: Object.keys(data || {}),
-      passCodeLength: passCode.length
-    });
-    throw new HttpsError("invalid-argument", "Missing required fields.", {
-      missingFields,
-      receivedKeys: Object.keys(data || {})
-    });
-  }
-
-  const now = admin.firestore.Timestamp.now();
-  const serverNow = admin.firestore.FieldValue.serverTimestamp();
-  const perkRef = db.collection("venues").doc(venueId).collection("perks").doc(perkId);
-  const memberDisplayName = (member) =>
-    (member?.displayName || member?.name || member?.fullName || member?.username || "FoCo member");
-
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const redemptionId = generateCode(6).toUpperCase();
-    try {
-      const result = await db.runTransaction(async (tx) => {
-        const resolved = await resolveMemberByPassCode(passCode, tx);
-        if (!resolved?.uid || !resolved.memberRef) {
-          throw new HttpsError("not-found", "Pass ID not found.");
-        }
-        const memberData = resolved.memberData || {};
-        const claims = context.auth?.token || {};
-        const isPrivileged = claims.admin === true || claims.ceo === true;
-        if (resolved.uid !== context.auth.uid && !isPrivileged) {
-          throw new HttpsError("permission-denied", "Pass ID does not match signed-in user.");
-        }
-        const resolvedPassCode = (memberData.passCode || passCode || "").toUpperCase();
-        const passRef = db.collection("passes").doc(resolvedPassCode);
-        tx.set(passRef, {
-          uid: resolved.uid,
-          passCode: resolvedPassCode,
-          tier: memberData.tier || "standard",
-          status: memberData.revoked ? "revoked" : "active",
-          updatedAt: serverNow
-        }, { merge: true });
-        if (memberData.revoked) {
-          throw new HttpsError("failed-precondition", "Membership is inactive.");
-        }
-        const validUntil = memberData.validUntil;
-        if (validUntil && validUntil !== "never") {
-          const expiryMs = toMillis(validUntil);
-          if (expiryMs && expiryMs < Date.now()) {
-            throw new HttpsError("failed-precondition", "Membership expired.");
-          }
-        }
-        const lastRedeemMs = toMillis(memberData.lastRedemptionAt);
-        if (lastRedeemMs && (Date.now() - lastRedeemMs) < 15000) {
-          throw new HttpsError("resource-exhausted", "Slow down and try again.");
-        }
-
-        // Prevent double-spend: only one pending redemption at a time per member.
-        const pendingSnap = await tx.get(
-          db.collection("members")
-            .doc(resolved.uid)
-            .collection("redemptions")
-            .where("status", "==", "pending")
-            .limit(1)
-        );
-        if (!pendingSnap.empty) {
-          throw new HttpsError("failed-precondition", "You already have a pending redemption.");
-        }
-
-        const perkSnap = await tx.get(perkRef);
-        if (!perkSnap.exists) {
-          throw new HttpsError("not-found", "Perk not found.");
-        }
-        const perkData = perkSnap.data() || {};
-
-        const venueRedRef = db.collection("venues").doc(venueId).collection("redemptions").doc(redemptionId);
-        const memberRedRef = db.collection("members").doc(resolved.uid).collection("redemptions").doc(redemptionId);
-        const existing = await tx.get(venueRedRef);
-        if (existing.exists) {
-          throw new HttpsError("already-exists", "Try again.");
-        }
-        const storedPayload = {
-          redemptionId,
-          passCode: resolvedPassCode || passCode,
-          memberUid: resolved.uid,
-          memberName: memberDisplayName(memberData),
-          tier: memberData.tier || "standard",
-          venueId,
-          perkId,
-          perkKey,
-          perkLabel: perkLabel || perkData.label || "Perk",
-          status: "pending",
-          createdAt: serverNow,
-          updatedAt: serverNow,
-          timestamp: serverNow,
-          requestedVenue: venueId
-        };
-        const returnPayload = {
-          ...storedPayload,
-          createdAt: now,
-          updatedAt: now,
-          timestamp: now
-        };
-        tx.set(venueRedRef, storedPayload);
-        tx.set(memberRedRef, storedPayload);
-        tx.set(resolved.memberRef, {
-          lastRedemptionAt: serverNow,
-          lastRedemptionVenue: venueId,
-          lastRedemptionPerk: perkId,
-          updatedAt: serverNow
-        }, { merge: true });
-        return returnPayload;
-      });
-
-      return { ok: true, redemptionId: result.redemptionId, redemption: result };
-    } catch (err) {
-      if (err?.code === "already-exists") {
-        continue;
-      }
-      throw err;
+  try {
+    if (!context.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
     }
-  }
+    const passCode = String(data?.passCode || "").trim().toUpperCase();
+    const venueId = String(data?.venueId || "").trim().toLowerCase();
+    const perkId = String(data?.perkId || "").trim();
+    const perkLabel = String(data?.perkLabel || "").trim();
+    const perkKey = String(data?.perkKey || "venue_perk").trim();
+    const missingFields = [];
+    if (!passCode) missingFields.push("passCode");
+    if (!venueId) missingFields.push("venueId");
+    if (!perkId) missingFields.push("perkId");
+    if (missingFields.length) {
+      console.warn("[createRedemption] invalid-argument", {
+        uid: context.auth.uid,
+        missingFields,
+        receivedKeys: Object.keys(data || {}),
+        passCodeLength: passCode.length
+      });
+      throw new HttpsError("invalid-argument", "Missing required fields.", {
+        missingFields,
+        receivedKeys: Object.keys(data || {})
+      });
+    }
 
-  throw new HttpsError("internal", "Failed to create redemption.");
+    const now = admin.firestore.Timestamp.now();
+    const serverNow = admin.firestore.FieldValue.serverTimestamp();
+    const perkRef = db.collection("venues").doc(venueId).collection("perks").doc(perkId);
+    const memberDisplayName = (member) =>
+      (member?.displayName || member?.name || member?.fullName || member?.username || "FoCo member");
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const redemptionId = generateCode(6).toUpperCase();
+      try {
+        const result = await db.runTransaction(async (tx) => {
+          const resolved = await resolveMemberByPassCode(passCode, tx);
+          if (!resolved?.uid || !resolved.memberRef) {
+            throw new HttpsError("not-found", "Pass ID not found.");
+          }
+          const memberData = resolved.memberData || {};
+          const claims = context.auth?.token || {};
+          const isPrivileged = claims.admin === true || claims.ceo === true;
+          if (resolved.uid !== context.auth.uid && !isPrivileged) {
+            throw new HttpsError("permission-denied", "Pass ID does not match signed-in user.");
+          }
+          const resolvedPassCode = (memberData.passCode || passCode || "").toUpperCase();
+          const passRef = db.collection("passes").doc(resolvedPassCode);
+          tx.set(passRef, {
+            uid: resolved.uid,
+            passCode: resolvedPassCode,
+            tier: memberData.tier || "standard",
+            status: memberData.revoked ? "revoked" : "active",
+            updatedAt: serverNow
+          }, { merge: true });
+          if (memberData.revoked) {
+            throw new HttpsError("failed-precondition", "Membership is inactive.");
+          }
+          const validUntil = memberData.validUntil;
+          if (validUntil && validUntil !== "never") {
+            const expiryMs = toMillis(validUntil);
+            if (expiryMs && expiryMs < Date.now()) {
+              throw new HttpsError("failed-precondition", "Membership expired.");
+            }
+          }
+          const lastRedeemMs = toMillis(memberData.lastRedemptionAt);
+          if (lastRedeemMs && (Date.now() - lastRedeemMs) < 15000) {
+            throw new HttpsError("resource-exhausted", "Slow down and try again.");
+          }
+
+          const pendingSnap = await tx.get(
+            db.collection("members")
+              .doc(resolved.uid)
+              .collection("redemptions")
+              .where("status", "==", "pending")
+              .limit(1)
+          );
+          if (!pendingSnap.empty) {
+            throw new HttpsError("failed-precondition", "You already have a pending redemption.");
+          }
+
+          const perkSnap = await tx.get(perkRef);
+          if (!perkSnap.exists) {
+            throw new HttpsError("not-found", "Perk not found.");
+          }
+          const perkData = perkSnap.data() || {};
+
+          const venueRedRef = db.collection("venues").doc(venueId).collection("redemptions").doc(redemptionId);
+          const memberRedRef = db.collection("members").doc(resolved.uid).collection("redemptions").doc(redemptionId);
+          const existing = await tx.get(venueRedRef);
+          if (existing.exists) {
+            throw new HttpsError("already-exists", "Try again.");
+          }
+          const storedPayload = {
+            redemptionId,
+            passCode: resolvedPassCode || passCode,
+            memberUid: resolved.uid,
+            memberName: memberDisplayName(memberData),
+            tier: memberData.tier || "standard",
+            venueId,
+            perkId,
+            perkKey,
+            perkLabel: perkLabel || perkData.label || "Perk",
+            status: "pending",
+            createdAt: serverNow,
+            updatedAt: serverNow,
+            timestamp: serverNow,
+            requestedVenue: venueId
+          };
+          const returnPayload = {
+            ...storedPayload,
+            createdAt: now,
+            updatedAt: now,
+            timestamp: now
+          };
+          tx.set(venueRedRef, storedPayload);
+          tx.set(memberRedRef, storedPayload);
+          tx.set(resolved.memberRef, {
+            lastRedemptionAt: serverNow,
+            lastRedemptionVenue: venueId,
+            lastRedemptionPerk: perkId,
+            updatedAt: serverNow
+          }, { merge: true });
+          return returnPayload;
+        });
+
+        return { ok: true, redemptionId: result.redemptionId, redemption: result };
+      } catch (err) {
+        if (err?.code === "already-exists") {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new HttpsError("internal", "Failed to create redemption.");
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    throw new HttpsError("internal", "createRedemption failed", {
+      original: String(err?.message || err)
+    });
+  }
 });
 
 exports.verifyRedemption = functions.https.onCall(async (data, context) => {

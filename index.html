@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="foco-logo.png" />
   <!-- GSAP for advanced animations -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer crossorigin="anonymous"></script>
   <!-- lightweight canvas particles will be initialized by app JS when allowed -->
   <style>
     /* Global styles */
@@ -6091,7 +6091,7 @@
   <div id="roleBanner"></div>
 
   <!-- Firebase SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" crossorigin="anonymous"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
     import {
@@ -6193,7 +6193,6 @@
     let authClaims = null;
     let authClaimsReady = false;
     let pendingStaffVenueId = null;
-    const blockedRealtimeLabels = new Set();
     const blockedWriteLabels = new Set();
     const vipDealsMap = new Map();
     const alertsMap = new Map();
@@ -6201,7 +6200,6 @@
     let memberRedemptionsMap = new Map();
     let staffRedemptionsMap = new Map();
     let staffRedemptionsVenue = null;
-    const transportState = { blocked: false, message: null, at: null };
     if (betaPassMode) {
       localStorage.removeItem("betaSkipActive");
       betaPassMode = false;
@@ -6238,21 +6236,9 @@
         }
         return el;
       };
-      const markTransportBlocked = (message) => {
-        if (!message) return;
-        transportState.blocked = true;
-        transportState.at = Date.now();
-        transportState.message = message;
-        scheduleRealtimeStatusRender();
-      };
       window.addEventListener("error", (event) => {
         if (!event?.message) return;
         console.error("[window.error]", event.message || event.error);
-        if (event.message.includes("Firestore/Listen/channel")
-          || event.message.includes("Firestore/Write/channel")
-          || event.message.includes("access control checks")) {
-          markTransportBlocked(event.message);
-        }
         const banner = ensureBanner();
         const location = event.filename ? ` (${event.filename}:${event.lineno || 0})` : "";
         banner.textContent = `Error: ${event.message}${location}`;
@@ -6261,11 +6247,6 @@
         const message = event.reason?.message || event.reason || "Unhandled promise rejection";
         console.error("[unhandledrejection]", event.reason);
         if (typeof event.preventDefault === "function") event.preventDefault();
-        if (String(message).includes("Firestore/Listen/channel")
-          || String(message).includes("Firestore/Write/channel")
-          || String(message).includes("access control checks")) {
-          markTransportBlocked(String(message));
-        }
         const banner = ensureBanner();
         banner.textContent = `Error: ${message}`;
       });
@@ -9474,6 +9455,7 @@
     requiredSources: []
   };
   const activeRealtimeUnsubs = new Map();
+  const failedPreconditionLabels = new Set();
   const pillHeartbeatLabels = new Set([
     "settingsApp"
   ]);
@@ -9494,11 +9476,6 @@
       clearActiveRealtimeListener(label, reason);
     });
     activeRealtimeUnsubs.clear();
-  }
-  function blockRealtimeLabel(label, reason = "") {
-    if (!label) return;
-    blockedRealtimeLabels.add(label);
-    logRealtime("blocked", label, reason || "permission-denied");
   }
   function setRealtimeRequiredSources(list = []) {
     realtimeState.sources = {};
@@ -9526,8 +9503,7 @@
     const ready = isRealtimeReady();
     const hasPendingWrites = allSources.some(source => source.hasPendingWrites);
     let label = "Live";
-    if (transportState.blocked) label = "Transport blocked";
-    else if (hasRealtimeNoAccess()) label = "No access";
+    if (hasRealtimeNoAccess()) label = "No access";
     else if (!navigator.onLine) label = "Offline";
     else if (!ready || hasPendingWrites) label = "Syncing";
     realtimeStatusPill.textContent = label;
@@ -9557,11 +9533,6 @@
     entry.permissionDenied = false;
     if (!snapshot.metadata.fromCache) {
       entry.serverSeen = true;
-      if (transportState.blocked) {
-        transportState.blocked = false;
-        transportState.message = null;
-        transportState.at = null;
-      }
     }
     realtimeState.sources[source] = entry;
     scheduleRealtimeStatusRender();
@@ -9580,13 +9551,13 @@
   }
   function subscribeSnapshot(label, target, options, onNext, onError) {
     if (!authReady || !firebaseAuth.currentUser) return null;
-    if (blockedRealtimeLabels.has(label)) {
-      logRealtime("attachSkipped", label, "blocked");
+    if (failedPreconditionLabels.has(label)) {
+      logRealtime("attachSkipped", label, "failed-precondition");
       return null;
     }
     const existing = activeRealtimeUnsubs.get(label);
     if (typeof existing === "function") {
-      clearActiveRealtimeListener(label, "replace");
+      return existing;
     }
     try {
       logRealtime("attach", label);
@@ -9608,18 +9579,13 @@
           console.error(`[${label}] snapshot failed`, err);
           noteRealtimeError(label, err);
           if (isPermissionDeniedError(err)) {
-            const wasBlocked = blockedRealtimeLabels.has(label);
-            blockRealtimeLabel(label, "permission-denied");
-            if (!wasBlocked) {
-              setTimeout(() => detachRealtimeLabel(label, "permission-denied"), 0);
-            }
+            setTimeout(() => detachRealtimeLabel(label, "permission-denied"), 0);
           } else if (isFailedPreconditionError(err)) {
-            const wasBlocked = blockedRealtimeLabels.has(label);
-            blockRealtimeLabel(label, "failed-precondition");
-            if (!wasBlocked) {
+            if (!failedPreconditionLabels.has(label)) {
+              failedPreconditionLabels.add(label);
               showToast("Index building: redemptions createdAt. Try again in a minute.", 3600);
-              setTimeout(() => detachRealtimeLabel(label, "failed-precondition"), 0);
             }
+            setTimeout(() => detachRealtimeLabel(label, "failed-precondition"), 0);
           }
           try { if (typeof onError === "function") onError(err); } catch (_) {}
         }
@@ -9637,9 +9603,6 @@
     } catch (err) {
       console.error(`[${label}] snapshot attach failed`, err);
       noteRealtimeError(label, err);
-      if (isPermissionDeniedError(err)) {
-        blockRealtimeLabel(label, "permission-denied");
-      }
       try { if (typeof onError === "function") onError(err); } catch (_) {}
       return null;
     }
@@ -9785,7 +9748,6 @@
               if (mergedPass && mergedPass !== currentPassCode) {
                 currentPassCode = mergedPass;
                 persistLocalPassCode(currentPassCode);
-                setTimeout(() => requestReattach("passcode-change"), 0);
               }
               if (mergedPass) setMemberDirectoryEntry(mergedPass, memberProfile);
               if (data.accent) applyAccentTheme(data.accent);
@@ -17297,7 +17259,6 @@ let onboardingIndex = 0;
         clearTimeout(autoCloseOutTimer);
         autoCloseOutTimer = null;
       }
-      requestReattach("staff-reattach");
     };
 
     if (staffLogoutLink) {
@@ -17344,7 +17305,6 @@ let onboardingIndex = 0;
           renderStaffPendingQueue();
           refreshStaffCeoReceipts();
           showScreen("staffPortal");
-          requestReattach("staff-restore");
         } else {
           showScreen("staffLogin");
         }
@@ -19944,7 +19904,6 @@ let onboardingIndex = 0;
     authReady = true;
     updateRoleBanner();
     detachAllRealtimeListeners("auth-change");
-    blockedRealtimeLabels.clear();
     blockedWriteLabels.clear();
     lastAuthUid = user?.uid || null;
     if (!user) {
@@ -19975,11 +19934,10 @@ let onboardingIndex = 0;
 
   window.addEventListener("online", () => {
     logRealtime("online");
-    requestReattach("online");
     if (reconnectBanner) reconnectBanner.style.display = "none";
   });
     </script>
-    <script src="https://js.stripe.com/v3"></script>
+    <script src="https://js.stripe.com/v3" crossorigin="anonymous"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
