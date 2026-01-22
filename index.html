@@ -10734,8 +10734,12 @@ let onboardingIndex = 0;
             uid: firebaseAuth.currentUser.uid,
             passCode: (memberProfile?.passCode || currentPassCode || "").toUpperCase(),
             updatedAt: serverTimestamp()
-          }, { merge: true }).catch(err => console.warn("Username map save failed", err));
+          }, { merge: true }).catch(err => {
+            if (err?.code === "permission-denied") return;
+            console.warn("Username map save failed", err);
+          });
         } catch (err) {
+          if (err?.code === "permission-denied") return;
           console.warn("Username map save failed", err);
         }
       }
@@ -19466,8 +19470,10 @@ let onboardingIndex = 0;
         creditInfo.textContent = "Select a perk to redeem.";
         return;
       }
-      const requestedVenue = redeemVenueSelect ? redeemVenueSelect.value : "";
-      if (redeemVenueSelect && !requestedVenue) {
+      const requestedVenue = redeemVenueSelect
+        ? (redeemVenueSelect.value || selectedRedeemVenue || "")
+        : (selectedRedeemVenue || "");
+      if (!requestedVenue) {
         creditInfo.textContent = "Select a venue before redeeming.";
         return;
       }
@@ -19499,7 +19505,21 @@ let onboardingIndex = 0;
         creditInfo.textContent = "Redemption unavailable. Try again.";
         return;
       }
+      const perkId = selectedVenuePerkId || selectedPerkId;
+      if (!perkId) {
+        creditInfo.textContent = "Select a perk to redeem.";
+        return;
+      }
       const rewardLabel = selectedPerkId === "reward_shot" ? "Reward: shot perk" : perkLabel;
+      if (DEBUG_MODE) {
+        console.info("[createRedemption] payload", {
+          passCode: activePassId ? "set" : "",
+          memberUid: firebaseAuth.currentUser?.uid || null,
+          venueId: requestedVenue,
+          perkId,
+          perkLabel: rewardLabel
+        });
+      }
       let payload = null;
       try {
         const fn = httpsCallable(functionsClient, "createRedemption");
@@ -19507,7 +19527,7 @@ let onboardingIndex = 0;
           passCode: activePassId,
           memberUid: firebaseAuth.currentUser?.uid || null,
           venueId: requestedVenue,
-          perkId: selectedVenuePerkId || selectedPerkId,
+          perkId,
           perkLabel: rewardLabel,
           perkKey: selectedPerkId === "reward_shot" ? "reward_shot" : "venue_perk"
         });

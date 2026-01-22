@@ -188,6 +188,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Fallback: allow CEO/admin to read any redemptions subcollection (collectionGroup).
+    match /{path=**}/redemptions/{redemptionId} {
+      allow read: if isSignedIn() && (isAdmin() || isCeo());
+      allow create, update, delete: if false;
+    }
+
     // Username directory for login-by-username
     match /usernames/{name} {
       allow read: if isSignedIn();
