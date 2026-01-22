@@ -9451,6 +9451,10 @@
     const code = err?.code || err?.name || "";
     return code === "permission-denied" || String(code).includes("permission-denied");
   }
+  function isFailedPreconditionError(err) {
+    const code = err?.code || err?.name || "";
+    return code === "failed-precondition" || String(code).includes("failed-precondition");
+  }
   function snapshotErrorSummary(err) {
     const code = err?.code || "";
     const message = err?.message || String(err || "");
@@ -9658,6 +9662,9 @@
           if (isPermissionDeniedError(err)) {
             blockRealtimeLabel(label, "permission-denied");
             detachRealtimeLabel(label, "permission-denied");
+          } else if (isFailedPreconditionError(err)) {
+            blockRealtimeLabel(label, "failed-precondition");
+            detachRealtimeLabel(label, "failed-precondition");
           }
           try { if (typeof onError === "function") onError(err); } catch (_) {}
         }
@@ -15896,6 +15903,10 @@ let onboardingIndex = 0;
             renderCeoVenueLog();
             updateCeoMetrics();
           });
+        }, (err) => {
+          if (isFailedPreconditionError(err)) {
+            showToast("Index building for CEO activity. Try again in a minute.", 3200);
+          }
         });
       } catch (err) {
         console.warn("CEO redemptions realtime failed", err);
