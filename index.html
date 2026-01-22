@@ -6096,6 +6096,8 @@
     import { getAnalytics, isSupported as analyticsIsSupported } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
     import {
       getFirestore,
+      initializeFirestore,
+      memoryLocalCache,
       doc,
       getDoc,
       setDoc,
@@ -6129,7 +6131,13 @@
 
     const app = initializeApp(firebaseConfig);
     const firebaseAuth = getAuth(app);
-    const db = getFirestore(app);
+    const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|crios|android/i.test(navigator.userAgent);
+    const db = isSafari
+      ? initializeFirestore(app, { localCache: memoryLocalCache() })
+      : getFirestore(app);
+    if (isSafari) {
+      console.info("[auth] Safari detected: Firestore persistence disabled");
+    }
     const BETA_FALLBACK_EMAIL = "beta@focoafterdark.com";
     const BETA_FALLBACK_CODE = "beta";
     let functionsClient = null;
@@ -6151,6 +6159,12 @@
     let staffMessagesCache = [];
     let ceoMessagesCache = [];
     let venuePerksCache = {};
+    let authSubmitInFlight = false;
+    let authAttemptCounter = 0;
+    let authClaims = null;
+    let authClaimsReady = false;
+    let pendingStaffVenueId = null;
+    const blockedRealtimeLabels = new Set();
     if (betaPassMode) {
       localStorage.removeItem("betaSkipActive");
       betaPassMode = false;
@@ -6796,6 +6810,7 @@
           }
           try {
             if (db) {
+              if (!guardWriteAction("postVipDeal")) return;
               await ensureFirebaseUser();
               await setDoc(doc(db, "deals", venueId), {
                 venueId,
@@ -6842,6 +6857,7 @@
           }
           try {
             if (db) {
+              if (!guardWriteAction("postAlert")) return;
               await ensureFirebaseUser();
               const alertDoc = doc(collection(db, "alerts"));
               await setDoc(alertDoc, {
@@ -6929,11 +6945,28 @@
         localStorage.removeItem(REMEMBER_EMAIL_KEY);
       }
     }
+    function logAuthAttempt(email, context) {
+      authAttemptCounter += 1;
+      const safeEmail = (email || "").trim();
+      console.info("[auth] sign-in attempt", {
+        attempt: authAttemptCounter,
+        context: context || "authForm",
+        emailLength: safeEmail.length,
+        hasAt: safeEmail.includes("@"),
+        projectId: firebaseConfig.projectId,
+        authDomain: firebaseConfig.authDomain
+      });
+      return authAttemptCounter;
+    }
     loadRememberedEmail();
 
     authForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       authError.textContent = "";
+      if (authSubmitInFlight) {
+        console.info("[auth] submit ignored: already in flight");
+        return;
+      }
       let email = authEmail.value.trim();
       const password = authPassword.value.trim();
       const firstName = firstNameInput.value.trim();
@@ -6949,9 +6982,12 @@
       }
       const remember = !!(rememberMe && rememberMe.checked);
       if (isCeoCredentials(email, password)) {
+        authSubmitInFlight = true;
+        const attemptId = logAuthAttempt(email, "ceo");
         try {
           await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
           try {
+            console.info("[auth] signInWithEmailAndPassword (ceo)", { attempt: attemptId });
             await signInWithEmailAndPassword(firebaseAuth, email, password);
           } catch (err) {
             if (err?.code === "auth/user-not-found") {
@@ -6964,11 +7000,10 @@
             }
           }
           updateRememberedEmail(remember ? email : null);
-          if (firebaseAuth.currentUser) {
-            await handleAuthenticatedUser(firebaseAuth.currentUser);
-          }
         } catch (err) {
           authError.textContent = formatAuthError(err);
+        } finally {
+          authSubmitInFlight = false;
         }
         return;
       }
@@ -7019,15 +7054,17 @@
           email = raw;
         }
       }
+      authSubmitInFlight = true;
+      const attemptId = logAuthAttempt(email, authMode);
       try {
         await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
+        console.info("[auth] signInWithEmailAndPassword", { attempt: attemptId });
         await signInWithEmailAndPassword(firebaseAuth, email, password);
         updateRememberedEmail(remember ? email : null);
-        if (firebaseAuth.currentUser) {
-          await handleAuthenticatedUser(firebaseAuth.currentUser);
-        }
       } catch (err) {
         authError.textContent = formatAuthError(err);
+      } finally {
+        authSubmitInFlight = false;
       }
     });
 
@@ -7056,7 +7093,9 @@
             if (db) {
               const memberRef = doc(db, "members", cred.user.uid);
               profilePayload.memberSince = new Date().toISOString();
-              await setDoc(memberRef, profilePayload, { merge: true });
+              if (guardWriteAction("signupProfile", "App is locked (read-only).", { silent: true })) {
+                await setDoc(memberRef, profilePayload, { merge: true });
+              }
             } else if (allowLocalCache()) {
               localStorage.setItem(`memberMeta_${cred.user.uid}`, JSON.stringify(profilePayload));
             }
@@ -7065,12 +7104,14 @@
         saveUsernameMapEntry(username, email);
         if (db) {
           const unameDoc = doc(db, "usernames", username.trim().toLowerCase());
-          await setDoc(unameDoc, {
-            email,
-            uid: cred.user.uid,
-            passCode: (memberProfile?.passCode || "").toUpperCase(),
-            createdAt: serverTimestamp()
-          }, { merge: true });
+          if (guardWriteAction("signupUsername", "App is locked (read-only).", { silent: true })) {
+            await setDoc(unameDoc, {
+              email,
+              uid: cred.user.uid,
+              passCode: (memberProfile?.passCode || "").toUpperCase(),
+              createdAt: serverTimestamp()
+            }, { merge: true });
+          }
         }
       }
       if (onboardingMembershipFlow) {
@@ -7111,6 +7152,34 @@
         default:
           return err?.message || "Something went wrong. Try again.";
       }
+    }
+
+    async function refreshAuthClaims(user) {
+      authClaimsReady = false;
+      authClaims = null;
+      if (!user) {
+        authClaimsReady = true;
+        return null;
+      }
+      try {
+        const token = await user.getIdTokenResult(true);
+        authClaims = token?.claims || {};
+        authClaimsReady = true;
+        return authClaims;
+      } catch (err) {
+        authClaimsReady = true;
+        console.warn("[auth] claims fetch failed", err);
+        return null;
+      }
+    }
+    function hasAdminClaim() {
+      return !!authClaims?.admin;
+    }
+    function hasCeoClaim() {
+      return !!(authClaims?.ceo || authClaims?.admin);
+    }
+    function hasStaffClaim() {
+      return !!(authClaims?.staff || authClaims?.admin || authClaims?.ceo);
     }
 
     function persistLocalPassCode(code) {
@@ -9124,7 +9193,14 @@
     if (!authReady) return;
     const user = firebaseAuth.currentUser;
     if (!db) return;
+    if (!user) return;
+    const hasCeoAccess = hasCeoClaim();
+    const hasStaffAccess = hasStaffClaim();
     if (isStaffAccount(user)) {
+      if (!hasStaffAccess) {
+        logRealtime("attachSkipped", "staff-no-claim");
+        return;
+      }
       if (staffSession?.venue) {
         setRealtimeRequiredSources(["settingsApp", "staffRedemptions"]);
         attachGlobalRealtime();
@@ -9138,25 +9214,27 @@
       }
       return;
     }
-    if (!user || user.isAnonymous) {
+    if (user.isAnonymous) {
       setRealtimeRequiredSources(["settingsApp"]);
-      attachGlobalRealtime();
       return;
     }
     primeMemberRealtime();
     attachRealtime();
-    if (isCeoAccount) {
+    if (isCeoAccount && hasCeoAccess) {
       setRealtimeRequiredSources(["settingsApp", "member", "memberRedemptions", "ceoRedemptions"]);
       attachCeoRedemptionsRealtime();
       attachCeoReviewsRealtime();
       attachCloseOutReportsRealtime();
       startCeoMessagesListener();
+    } else if (isCeoAccount && !hasCeoAccess) {
+      logRealtime("attachSkipped", "ceo-no-claim");
     }
     if (reason) logRealtime("attachContext", reason);
   }
   function reattachRealtime() {
     if (!authReady) return;
     detachAllRealtimeListeners("reattach");
+    if (!firebaseAuth.currentUser) return;
     watchSettingsDoc();
     watchAppStatsDoc();
     attachRealtimeForCurrentContext("reattach");
@@ -9188,11 +9266,7 @@
   };
   const activeRealtimeUnsubs = new Map();
   const pillHeartbeatLabels = new Set([
-    "settingsApp",
-    "member",
-    "memberRedemptions",
-    "staffRedemptions",
-    "ceoRedemptions"
+    "settingsApp"
   ]);
 
   function clearActiveRealtimeListener(label, reason = "") {
@@ -9203,11 +9277,19 @@
       activeRealtimeUnsubs.delete(label);
     }
   }
+  function detachRealtimeLabel(label, reason = "") {
+    clearActiveRealtimeListener(label, reason || "manual");
+  }
   function clearAllRealtimeListeners(reason = "") {
     Array.from(activeRealtimeUnsubs.keys()).forEach((label) => {
       clearActiveRealtimeListener(label, reason);
     });
     activeRealtimeUnsubs.clear();
+  }
+  function blockRealtimeLabel(label, reason = "") {
+    if (!label) return;
+    blockedRealtimeLabels.add(label);
+    logRealtime("blocked", label, reason || "permission-denied");
   }
   function setRealtimeRequiredSources(list = []) {
     realtimeState.sources = {};
@@ -9268,7 +9350,11 @@
     renderRealtimeStatus();
   }
   function subscribeSnapshot(label, target, options, onNext, onError) {
-    if (!authReady) return null;
+    if (!authReady || !firebaseAuth.currentUser) return null;
+    if (blockedRealtimeLabels.has(label)) {
+      logRealtime("attachSkipped", label, "blocked");
+      return null;
+    }
     if (activeRealtimeUnsubs.has(label)) {
       clearActiveRealtimeListener(label, "replace");
     }
@@ -9285,14 +9371,16 @@
         target,
         effectiveOptions,
         (snap) => {
-          if (pillHeartbeatLabels.has(label)) {
-            noteRealtimeSnapshot(snap, label);
-          }
+          noteRealtimeSnapshot(snap, label);
           onNext(snap);
         },
         (err) => {
           console.error(`[${label}] snapshot failed`, err);
           noteRealtimeError(label, err);
+          if (isPermissionDeniedError(err)) {
+            blockRealtimeLabel(label, "permission-denied");
+            detachRealtimeLabel(label, "permission-denied");
+          }
           try { if (typeof onError === "function") onError(err); } catch (_) {}
         }
       );
@@ -9308,6 +9396,9 @@
     } catch (err) {
       console.error(`[${label}] snapshot attach failed`, err);
       noteRealtimeError(label, err);
+      if (isPermissionDeniedError(err)) {
+        blockRealtimeLabel(label, "permission-denied");
+      }
       try { if (typeof onError === "function") onError(err); } catch (_) {}
       return null;
     }
@@ -9723,6 +9814,7 @@
           if (!id || !db) return;
           const msg = staffMessagesCache.find(item => item.id === id);
           if (!msg || msg.readByStaff) return;
+          if (!guardWriteAction("markStaffMessageRead")) return;
           try {
             await updateDoc(doc(db, "staffMessages", id), { readByStaff: true });
           } catch (err) {
@@ -9765,6 +9857,7 @@
           if (!id || !isCeoAccount || !db) return;
           const msg = ceoMessagesCache.find(item => item.id === id);
           if (!msg || msg.readByCeo) return;
+          if (!guardWriteAction("markCeoMessageRead")) return;
           try {
             await updateDoc(doc(db, "staffMessages", id), { readByCeo: true });
           } catch (err) {
@@ -9935,6 +10028,7 @@ let onboardingIndex = 0;
         }
         try {
           if (db) {
+            if (!guardWriteAction("postVipDeal")) return;
             await setDoc(doc(db, "deals", venueId), {
               venueId,
               venueName,
@@ -10244,6 +10338,7 @@ let onboardingIndex = 0;
           }
           if (!db) return;
           try {
+            if (!guardWriteAction("deleteAlert")) return;
             await deleteDoc(doc(db, "alerts", id));
             await refreshTonightAlerts();
             renderStaffDealCodes();
@@ -10266,6 +10361,7 @@ let onboardingIndex = 0;
           }
           if (!db) return;
           try {
+            if (!guardWriteAction("expireAlert")) return;
             await setDoc(doc(db, "alerts", id), {
               expiresAt: Timestamp.fromDate(new Date(Date.now() - 1000)),
               updatedAt: serverTimestamp(),
@@ -10295,6 +10391,7 @@ let onboardingIndex = 0;
           }
           if (!db) return;
           try {
+            if (!guardWriteAction("expireVipDeal")) return;
             await setDoc(doc(db, "deals", id), {
               expiresAt: Timestamp.fromDate(new Date(Date.now() - 1000)),
               updatedAt: serverTimestamp(),
@@ -10427,6 +10524,9 @@ let onboardingIndex = 0;
       map[key] = email;
       saveUsernameMap(map);
       if (db && firebaseAuth?.currentUser) {
+        if (!guardWriteAction("saveUsernameMapEntry", "App is locked (read-only).", { silent: true })) {
+          return;
+        }
         try {
           const unameDoc = doc(db, "usernames", key);
           setDoc(unameDoc, {
@@ -10595,7 +10695,9 @@ let onboardingIndex = 0;
           perks: { tier: "standard", remaining: getDefaultPerkState("standard") },
           memberSince: new Date().toISOString(),
         };
-        await setDoc(memberDocRef, memberProfile);
+        if (guardWriteAction("createMemberProfile", "App is locked (read-only).", { silent: true })) {
+          await setDoc(memberDocRef, memberProfile);
+        }
         }
       } catch (err) {
         console.warn("Failed to load member profile:", err);
@@ -10705,6 +10807,7 @@ let onboardingIndex = 0;
       memberProfile = { ...(memberProfile || {}), ...updates };
       persistLocalProfileUpdates(updates);
       if (!memberDocRef || !db) return;
+      if (!guardWriteAction("updateMemberProfile", "App is locked (read-only).", { silent: true })) return;
       try {
         await setDoc(memberDocRef, updates, { merge: true });
         if (memberProfile?.passCode) {
@@ -11935,6 +12038,9 @@ let onboardingIndex = 0;
       if (!db) return;
       const uid = firebaseAuth.currentUser?.uid;
       if (!uid) return;
+      if (!guardWriteAction("persistMemberState", "App is locked (read-only).", { silent: true })) {
+        return;
+      }
       const payload = { ...partial };
       if (payload.nightWheel && (payload.nightWheel.then || typeof payload.nightWheel.then === "function")) {
         delete payload.nightWheel;
@@ -13132,10 +13238,11 @@ let onboardingIndex = 0;
         ? { freeMembership: true, revoked: false, tier: targetTier, perks: perkState, validUntil: "never", freeGrantedAt: serverTimestamp ? serverTimestamp() : new Date().toISOString() }
         : { freeMembership: false, revoked: true, tier: null, perks: null, validUntil: null };
       try {
-        if (docRef) {
+        const canWrite = guardWriteAction("setFreeMembership", "App is locked (read-only).", { silent: true });
+        if (canWrite && docRef) {
           await setDoc(docRef, updates, { merge: true });
         }
-        if (freeDocRef) {
+        if (canWrite && freeDocRef) {
           await setDoc(freeDocRef, { ...updates, active: enabled, passCode: code }, { merge: true });
         }
       } catch (err) {
@@ -13535,7 +13642,7 @@ let onboardingIndex = 0;
     async function refreshStaffCeoReceipts() { return; }
 
     async function refreshVipDeals() {
-      if (!db) return;
+      if (!db || !firebaseAuth.currentUser) return;
       if (useCloudProfile()) {
         return;
       }
@@ -13597,6 +13704,7 @@ let onboardingIndex = 0;
         renderStaffAlertPreview();
         return;
       }
+      if (!firebaseAuth.currentUser) return;
       if (useCloudProfile()) {
         return;
       }
@@ -13958,6 +14066,7 @@ let onboardingIndex = 0;
         }
         if (!changed) return;
         const ref = doc(db, "members", profile._docId);
+        if (!guardWriteAction("decrementPerkBalance", "App is locked (read-only).", { silent: true })) return;
         await setDoc(ref, {
           perks: perksSnapshot,
           extraVouchers: extras,
@@ -14296,6 +14405,8 @@ let onboardingIndex = 0;
 
     async function performBetaReset(options = {}) {
       if (!db) throw new Error("No database");
+      if (!guardWriteAction("betaReset")) throw new Error("App is locked.");
+      if (!hasCeoClaim()) throw new Error("CEO claims required");
       await ensureFirebaseUser();
       const user = firebaseAuth.currentUser;
       const email = (user?.email || "").toLowerCase();
@@ -15390,7 +15501,7 @@ let onboardingIndex = 0;
       return ceoRedemptionsCache.length ? ceoRedemptionsCache : redemptionLog;
     }
     function attachCeoRedemptionsRealtime() {
-      if (!db || !isCeoAccount) return;
+      if (!db || !isCeoAccount || !hasCeoClaim()) return;
       clearCeoRedemptionsRealtime();
       try {
         const q = query(collectionGroup(db, "redemptions"), orderBy("createdAt", "desc"), limit(400));
@@ -15427,7 +15538,7 @@ let onboardingIndex = 0;
       }
     }
     function attachCeoReviewsRealtime() {
-      if (!db || !isCeoAccount) return;
+      if (!db || !isCeoAccount || !hasCeoClaim()) return;
       clearCeoReviewsRealtime();
       try {
         const q = query(collection(db, "reviews"), orderBy("timestampMs", "desc"));
@@ -15840,6 +15951,10 @@ let onboardingIndex = 0;
     async function syncRedemptionToCloud(entry) {
       lastCloudSyncError = null;
       if (!db || !entry || !entry.code) return false;
+      if (!guardWriteAction("syncRedemption", "App is locked (read-only).", { silent: true })) {
+        lastCloudSyncError = "locked";
+        return false;
+      }
       const user = await ensureFirebaseUser();
       if (!user) {
         lastCloudSyncError = "auth";
@@ -16325,6 +16440,7 @@ let onboardingIndex = 0;
           generatedAt,
           source: "staff"
         };
+        if (!guardWriteAction("persistCloseOutReport", "App is locked (read-only).", { silent: true })) return;
         await addDoc(collection(db, "closeOutReports"), payload);
       } catch (err) {
         console.warn("Close-out cloud save failed", err);
@@ -16571,6 +16687,7 @@ let onboardingIndex = 0;
     function restoreStaffSessionIfPossible(user) {
       if (!staffSession?.venue) return false;
       if (!isStaffAccount(user)) return false;
+      if (!hasStaffClaim()) return false;
       const result = applyStaffSession(staffSession.venue);
       if (!result.success) return false;
       const staffAccent = loadStaffAccent(result.venueId) || "cyan";
@@ -16594,7 +16711,7 @@ let onboardingIndex = 0;
       }
     }
     function attachCloseOutReportsRealtime() {
-      if (!db || !isCeoAccount) return;
+      if (!db || !isCeoAccount || !hasCeoClaim()) return;
       stopCloseOutReportsListener();
       const q = query(
         collection(db, "closeOutReports"),
@@ -16635,7 +16752,7 @@ let onboardingIndex = 0;
       });
     }
     function startStaffMessagesListener(venueId) {
-      if (!venueId || !db) return;
+      if (!venueId || !db || !hasStaffClaim()) return;
       stopStaffMessagesListener();
       const q = query(
         collection(db, "staffMessages"),
@@ -16661,7 +16778,7 @@ let onboardingIndex = 0;
       renderCeoMessages([]);
     }
     function startCeoMessagesListener() {
-      if (!isCeoAccount || !db) return;
+      if (!isCeoAccount || !db || !hasCeoClaim()) return;
       stopCeoMessagesListener();
       const q = query(
         collection(db, "staffMessages"),
@@ -16725,6 +16842,7 @@ let onboardingIndex = 0;
         }
         return;
       }
+      pendingStaffVenueId = venueId;
       if (fallbackEmail) {
         try {
           await signInWithEmailAndPassword(firebaseAuth, fallbackEmail, pass);
@@ -16768,7 +16886,6 @@ let onboardingIndex = 0;
       updateStaffKpis(tonightAlerts.filter(a => a.venueId === venueId).length, !!vipDealsCache[venueId]);
       scheduleAutoCloseOut();
       showScreen("staffPortal");
-      attachRealtimeForCurrentContext("staff-login");
       if (verifyCodeInput) verifyCodeInput.focus();
       handlePendingScanVerification();
       startIdleTimer();
@@ -17408,13 +17525,21 @@ let onboardingIndex = 0;
     }
 
     function isAppReadOnlyMode() {
-      return appLocked === true && isCeoAccount !== true;
+      return appLocked === true && !hasCeoClaim() && !hasAdminClaim();
     }
-    function guardWriteAction(actionLabel, message = "App is locked (read-only).") {
-      if (!isAppReadOnlyMode()) return true;
-      logRealtime("blockedWrite", actionLabel);
-      showToast(message, 2600);
-      return false;
+    function guardWriteAction(actionLabel, message = "App is locked (read-only).", options = {}) {
+      if (!authReady || !firebaseAuth.currentUser) {
+        logRealtime("blockedWrite: no-auth", actionLabel);
+        return false;
+      }
+      if (isAppReadOnlyMode()) {
+        logRealtime("blockedWrite", actionLabel);
+        if (!options.silent) {
+          showToast(message, 2600);
+        }
+        return false;
+      }
+      return true;
     }
 
     function stopHealthWatch() {
@@ -17424,7 +17549,7 @@ let onboardingIndex = 0;
       }
     }
     function watchSettingsDoc() {
-      if (!db) return;
+      if (!db || !authReady || !firebaseAuth.currentUser) return;
       if (settingsUnsub) {
         settingsUnsub();
         settingsUnsub = null;
@@ -17462,7 +17587,7 @@ let onboardingIndex = 0;
     let recountMembersAttempted = false;
     async function maybeRecountMembers() {
       if (recountMembersAttempted) return;
-      if (!functionsClient || !isCeoAccount) return;
+      if (!functionsClient || !isCeoAccount || !hasCeoClaim()) return;
       recountMembersAttempted = true;
       try {
         const fn = httpsCallable(functionsClient, "recountMembers");
@@ -17477,7 +17602,7 @@ let onboardingIndex = 0;
       }
     }
     function watchAppStatsDoc() {
-      if (!db || !currentUsersCount) return;
+      if (!db || !currentUsersCount || !authReady || !firebaseAuth.currentUser) return;
       if (appStatsUnsub) {
         appStatsUnsub();
         appStatsUnsub = null;
@@ -17541,7 +17666,7 @@ let onboardingIndex = 0;
     }
 
     async function loadLaunchMode() {
-      if (!functionsClient || !isCeoAccount) return;
+      if (!functionsClient || !isCeoAccount || !hasCeoClaim()) return;
       try {
         const fn = httpsCallable(functionsClient, "getLaunchMode");
         const resp = await fn({});
@@ -17742,15 +17867,17 @@ let onboardingIndex = 0;
     });
 
     function startHealthWatch() {
-      if (!db || !isCeoAccount || !ceoSystemHealth) return;
+      if (!db || !isCeoAccount || !hasCeoClaim() || !ceoSystemHealth) return;
       stopHealthWatch();
       const ref = doc(db, "settings", "health");
       ceoHealthUnsub = subscribeSnapshot("ceoHealth", ref, null, async (snap) => {
         let data = snap.exists() ? snap.data() : {};
         if (!snap.exists()) {
           try {
-            await setDoc(ref, { lastCloseoutEmail: new Date() }, { merge: true });
-            data = { lastCloseoutEmail: new Date() };
+            if (guardWriteAction("seedHealthDoc", "App is locked (read-only).", { silent: true })) {
+              await setDoc(ref, { lastCloseoutEmail: new Date() }, { merge: true });
+              data = { lastCloseoutEmail: new Date() };
+            }
           } catch (seedErr) {
             console.warn("Could not seed health doc", seedErr);
           }
@@ -18356,6 +18483,7 @@ let onboardingIndex = 0;
           return;
         }
         try {
+          if (!guardWriteAction("sendStaffMessage")) return;
           await ensureFirebaseUser();
           const nowTs = Timestamp.now();
           const docRef = await addDoc(collection(db, "staffMessages"), {
@@ -18412,6 +18540,7 @@ let onboardingIndex = 0;
         const ids = getSelectedStaffMessageIds();
         if (!ids.length) return;
         try {
+          if (!guardWriteAction("deleteStaffMessages")) return;
           await ensureFirebaseUser();
           await Promise.all(ids.map(id => updateDoc(doc(db, "staffMessages", id), { deletedByStaff: true })));
           startStaffMessagesListener(staffSession.venue);
@@ -18431,6 +18560,7 @@ let onboardingIndex = 0;
         const ids = staffMessagesCache.filter(msg => !msg.deletedByStaff).map(msg => msg.id);
         if (!ids.length) return;
         try {
+          if (!guardWriteAction("clearStaffMessages")) return;
           await ensureFirebaseUser();
           await Promise.all(ids.map(id => updateDoc(doc(db, "staffMessages", id), { deletedByStaff: true })));
           startStaffMessagesListener(staffSession.venue);
@@ -18456,6 +18586,7 @@ let onboardingIndex = 0;
           if (ceoReplyError) ceoReplyError.textContent = "Select a message to reply.";
           return;
         }
+        if (!guardWriteAction("ceoReplyMessage")) return;
         if (!reply) {
           if (ceoReplyError) ceoReplyError.textContent = "Enter a reply.";
           return;
@@ -18485,6 +18616,7 @@ let onboardingIndex = 0;
       ceoClearMessages.addEventListener("click", async () => {
         if (!isCeoAccount || !ceoMessagesCache.length) return;
         try {
+          if (!guardWriteAction("ceoClearMessages")) return;
           await Promise.all(
             ceoMessagesCache.map(msg => updateDoc(doc(db, "staffMessages", msg.id), { deletedByCeo: true }))
           );
@@ -18525,10 +18657,12 @@ let onboardingIndex = 0;
         reviews.unshift(reviewEntry);
         saveReviews(reviews);
         if (db) {
-          addDoc(collection(db, "reviews"), {
-            ...reviewEntry,
-            timestamp: serverTimestamp()
-          }).catch(err => console.warn("Failed to save review to cloud", err));
+          if (guardWriteAction("submitReview", "App is locked (read-only).", { silent: true })) {
+            addDoc(collection(db, "reviews"), {
+              ...reviewEntry,
+              timestamp: serverTimestamp()
+            }).catch(err => console.warn("Failed to save review to cloud", err));
+          }
         }
         reviewNotes.value = "";
         setReviewStars(0);
@@ -19435,11 +19569,22 @@ let onboardingIndex = 0;
 
   onAuthStateChanged(firebaseAuth, async (user) => {
     authReady = true;
-    const nextUid = user?.uid || null;
-    if (nextUid !== lastAuthUid) {
-      detachAllRealtimeListeners("auth-change");
+    detachAllRealtimeListeners("auth-change");
+    blockedRealtimeLabels.clear();
+    lastAuthUid = user?.uid || null;
+    if (!user) {
+      authClaimsReady = false;
+      authClaims = null;
+      return;
     }
-    lastAuthUid = nextUid;
+    await refreshAuthClaims(user);
+    if (user.isAnonymous) {
+      return;
+    }
+    if (pendingStaffVenueId && isStaffAccount(user)) {
+      applyStaffSession(pendingStaffVenueId);
+      pendingStaffVenueId = null;
+    }
     try {
       watchSettingsDoc();
       watchAppStatsDoc();
