@@ -15672,6 +15672,9 @@ let onboardingIndex = 0;
             if (ceoRedemptionList) {
               ceoRedemptionList.innerHTML = '<p style="color:#94a3b8;">CEO feed unavailable until index builds.</p>';
             }
+            setTimeout(() => {
+              clearCeoRedemptionsRealtime();
+            }, 0);
           }
         });
       } catch (err) {
