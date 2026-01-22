@@ -6154,7 +6154,12 @@
     const firebaseAuth = getAuth(app);
     const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|crios|android/i.test(navigator.userAgent);
     const db = isSafari
-      ? initializeFirestore(app, { localCache: memoryLocalCache() })
+      ? initializeFirestore(app, {
+        localCache: memoryLocalCache(),
+        experimentalForceLongPolling: true,
+        experimentalAutoDetectLongPolling: true,
+        useFetchStreams: false
+      })
       : getFirestore(app);
     if (isSafari) {
       console.info("[auth] Safari detected: Firestore persistence disabled");
@@ -6190,12 +6195,14 @@
     let authClaimsReady = false;
     let pendingStaffVenueId = null;
     const blockedRealtimeLabels = new Set();
+    const blockedWriteLabels = new Set();
     const vipDealsMap = new Map();
     const alertsMap = new Map();
     const venuePerksMap = new Map();
     let memberRedemptionsMap = new Map();
     let staffRedemptionsMap = new Map();
     let staffRedemptionsVenue = null;
+    const transportState = { blocked: false, message: null, at: null };
     if (betaPassMode) {
       localStorage.removeItem("betaSkipActive");
       betaPassMode = false;
@@ -6232,9 +6239,21 @@
         }
         return el;
       };
+      const markTransportBlocked = (message) => {
+        if (!message) return;
+        transportState.blocked = true;
+        transportState.at = Date.now();
+        transportState.message = message;
+        scheduleRealtimeStatusRender();
+      };
       window.addEventListener("error", (event) => {
         if (!event?.message) return;
         console.error("Global error:", event);
+        if (event.message.includes("Firestore/Listen/channel")
+          || event.message.includes("Firestore/Write/channel")
+          || event.message.includes("access control checks")) {
+          markTransportBlocked(event.message);
+        }
         const banner = ensureBanner();
         const location = event.filename ? ` (${event.filename}:${event.lineno || 0})` : "";
         banner.textContent = `Error: ${event.message}${location}`;
@@ -6242,6 +6261,11 @@
       window.addEventListener("unhandledrejection", (event) => {
         const message = event.reason?.message || event.reason || "Unhandled promise rejection";
         console.error(event);
+        if (String(message).includes("Firestore/Listen/channel")
+          || String(message).includes("Firestore/Write/channel")
+          || String(message).includes("access control checks")) {
+          markTransportBlocked(String(message));
+        }
         const banner = ensureBanner();
         banner.textContent = `Error: ${message}`;
       });
@@ -7226,9 +7250,16 @@
         return null;
       }
       try {
+        await user.getIdToken(true);
         const token = await user.getIdTokenResult(true);
         authClaims = token?.claims || {};
         console.info("[claims]", authClaims);
+        console.info("[claims-proof]", {
+          uid: user.uid,
+          ceo: !!authClaims?.ceo,
+          staff: !!authClaims?.staff,
+          admin: !!authClaims?.admin
+        });
         if (isStaffAccount(user)) {
           console.info("[staff] claims", authClaims);
           showToast("Staff claims loaded.", 1400);
@@ -9355,18 +9386,37 @@
     }
     if (reason) logRealtime("attachContext", reason);
   }
-  function reattachRealtime() {
-    if (!authReady) return;
-    detachAllRealtimeListeners("reattach");
-    if (!firebaseAuth.currentUser) return;
-    attachRealtimeStage1("reattach");
-    scheduleRealtimeStage2("reattach");
-    try {
-      if (navigator.onLine) {
-        showToast("Live updates reconnected.", 2200);
-        if (reconnectBanner) reconnectBanner.style.display = "none";
+  function requestReattach(reason = "", options = {}) {
+    if (!authReady || !firebaseAuth.currentUser) return null;
+    const now = Date.now();
+    if (reattachInFlight) {
+      reattachQueued = true;
+      return reattachInFlight;
+    }
+    if (now - lastReattachAt < 150) {
+      return reattachInFlight;
+    }
+    reattachInFlight = Promise.resolve().then(() => {
+      lastReattachAt = Date.now();
+      if (options.force) {
+        detachAllRealtimeListeners("force-reattach");
       }
-    } catch (_) {}
+      attachRealtimeStage1(reason || "reattach");
+      scheduleRealtimeStage2(reason || "reattach");
+      try {
+        if (navigator.onLine && reason === "online") {
+          showToast("Live updates reconnected.", 2200);
+          if (reconnectBanner) reconnectBanner.style.display = "none";
+        }
+      } catch (_) {}
+    }).finally(() => {
+      reattachInFlight = null;
+      if (reattachQueued) {
+        reattachQueued = false;
+        requestReattach("queued");
+      }
+    });
+    return reattachInFlight;
   }
   let authReady = false;
   let lastAuthUid = null;
@@ -9374,9 +9424,29 @@
   let heartbeatServerLogged = false;
   let pillUpdateTimer = null;
   let lastPillUpdateAt = 0;
+  let reattachInFlight = null;
+  let reattachQueued = false;
+  let lastReattachAt = 0;
   function logRealtime(...args) {
     if (!DEBUG_MODE) return;
     try { console.log("[realtime]", ...args); } catch (_) {}
+  }
+  const renderThrottle = new Map();
+  function scheduleThrottledRender(key, fn, interval = 120) {
+    const state = renderThrottle.get(key) || { pending: false, last: 0 };
+    if (state.pending) return;
+    const now = Date.now();
+    const wait = Math.max(0, interval - (now - state.last));
+    state.pending = true;
+    renderThrottle.set(key, state);
+    setTimeout(() => {
+      state.pending = false;
+      state.last = Date.now();
+      renderThrottle.set(key, state);
+      requestAnimationFrame(() => {
+        try { fn(); } catch (err) { console.warn(`[render] ${key} failed`, err); }
+      });
+    }, wait);
   }
   function isPermissionDeniedError(err) {
     const code = err?.code || err?.name || "";
@@ -9413,11 +9483,50 @@
     "settingsApp"
   ]);
 
+  function normalizeQueryValue(value) {
+    if (value == null) return "";
+    if (typeof value.toMillis === "function") return value.toMillis();
+    if (value?.seconds) return value.seconds;
+    if (value?.path) return value.path;
+    return String(value);
+  }
+  function getTargetSignature(label, target) {
+    try {
+      if (!target) return `label:${label}`;
+      if (target.path) return `doc:${target.path}`;
+      if (target._query) {
+        const q = target._query;
+        const path = q.path?.canonicalString
+          ? q.path.canonicalString()
+          : (q.path?.toString?.() || "");
+        const filters = (q.filters || []).map((f) => {
+          const field = f.field?.canonicalString ? f.field.canonicalString() : (f.field?.toString?.() || "");
+          const op = f.op || f.operator || "";
+          const val = normalizeQueryValue(f.value);
+          return `${field}${op}${val}`;
+        }).join("|");
+        const orderBy = (q.explicitOrderBy || []).map((o) => {
+          const field = o.field?.canonicalString ? o.field.canonicalString() : (o.field?.toString?.() || "");
+          const dir = o.dir || o.direction || "";
+          return `${field}:${dir}`;
+        }).join("|");
+        const limit = q.limit || "";
+        return `query:${path}|f=${filters}|o=${orderBy}|l=${limit}`;
+      }
+      if (target._queryOptions?.parent?.path) {
+        return `query:${target._queryOptions.parent.path}`;
+      }
+    } catch (_) {
+      return `label:${label}`;
+    }
+    return `label:${label}`;
+  }
+
   function clearActiveRealtimeListener(label, reason = "") {
     const existing = activeRealtimeUnsubs.get(label);
-    if (existing) {
+    if (existing?.unsub) {
       logRealtime("detach", label, reason);
-      try { existing(); } catch (_) {}
+      try { existing.unsub(); } catch (_) {}
       activeRealtimeUnsubs.delete(label);
     }
   }
@@ -9457,14 +9566,14 @@
   function renderRealtimeStatus() {
     if (!realtimeStatusPill) return;
     const sources = getRealtimeSourcesForStatus();
-    const fromCache = sources.some(source => source.fromCache) || !navigator.onLine;
     const allSources = Object.values(realtimeState.sources);
     const ready = isRealtimeReady();
     const hasPendingWrites = allSources.some(source => source.hasPendingWrites);
     let label = "Live";
-    if (hasRealtimeNoAccess()) label = "No access";
-    else if (fromCache) label = "Offline";
-    else if (hasPendingWrites || !ready) label = "Syncing";
+    if (transportState.blocked) label = "Transport blocked";
+    else if (hasRealtimeNoAccess()) label = "No access";
+    else if (!navigator.onLine) label = "Offline";
+    else if (!ready || hasPendingWrites) label = "Syncing";
     realtimeStatusPill.textContent = label;
     const token = label.toLowerCase().replace(/\s+/g, "");
     realtimeStatusPill.dataset.state = token;
@@ -9492,6 +9601,11 @@
     entry.permissionDenied = false;
     if (!snapshot.metadata.fromCache) {
       entry.serverSeen = true;
+      if (transportState.blocked) {
+        transportState.blocked = false;
+        transportState.message = null;
+        transportState.at = null;
+      }
     }
     realtimeState.sources[source] = entry;
     scheduleRealtimeStatusRender();
@@ -9514,7 +9628,13 @@
       logRealtime("attachSkipped", label, "blocked");
       return null;
     }
-    if (activeRealtimeUnsubs.has(label)) {
+    const signature = getTargetSignature(label, target);
+    const existing = activeRealtimeUnsubs.get(label);
+    if (existing?.signature === signature) {
+      logRealtime("attachSkipped", label, "same-target");
+      return existing.unsub;
+    }
+    if (existing?.unsub) {
       clearActiveRealtimeListener(label, "replace");
     }
     try {
@@ -9544,13 +9664,14 @@
         }
       );
       const wrapped = () => {
-        if (activeRealtimeUnsubs.get(label) === wrapped) {
+        const current = activeRealtimeUnsubs.get(label);
+        if (current?.unsub === wrapped) {
           activeRealtimeUnsubs.delete(label);
         }
         try { logRealtime("detach", label); } catch (_) {}
         try { unsub(); } catch (_) {}
       };
-      activeRealtimeUnsubs.set(label, wrapped);
+      activeRealtimeUnsubs.set(label, { unsub: wrapped, signature });
       return wrapped;
     } catch (err) {
       console.error(`[${label}] snapshot attach failed`, err);
@@ -9703,7 +9824,7 @@
               if (mergedPass && mergedPass !== currentPassCode) {
                 currentPassCode = mergedPass;
                 persistLocalPassCode(currentPassCode);
-                setTimeout(() => reattachRealtime(), 0);
+                setTimeout(() => requestReattach("passcode-change"), 0);
               }
               if (mergedPass) setMemberDirectoryEntry(mergedPass, memberProfile);
               if (data.accent) applyAccentTheme(data.accent);
@@ -10347,7 +10468,6 @@ let onboardingIndex = 0;
       } catch (err) {
         console.warn("Sign-out skipped (probably no auth user):", err);
       }
-      detachAllRealtimeListeners("logout");
       resetInMemoryCaches();
       ["betaSkipActive", "staffSession", "ceoSession"].forEach(key => localStorage.removeItem(key));
       exitBetaPassMode();
@@ -10719,6 +10839,7 @@ let onboardingIndex = 0;
     }
     function saveUsernameMapEntry(username, email) {
       if (!username || !email) return;
+      if (blockedWriteLabels.has("usernames")) return;
       const map = loadUsernameMap();
       const key = username.trim().toLowerCase();
       map[key] = email;
@@ -10735,11 +10856,17 @@ let onboardingIndex = 0;
             passCode: (memberProfile?.passCode || currentPassCode || "").toUpperCase(),
             updatedAt: serverTimestamp()
           }, { merge: true }).catch(err => {
-            if (err?.code === "permission-denied") return;
+            if (err?.code === "permission-denied") {
+              blockedWriteLabels.add("usernames");
+              return;
+            }
             console.warn("Username map save failed", err);
           });
         } catch (err) {
-          if (err?.code === "permission-denied") return;
+          if (err?.code === "permission-denied") {
+            blockedWriteLabels.add("usernames");
+            return;
+          }
           console.warn("Username map save failed", err);
         }
       }
@@ -14612,9 +14739,11 @@ let onboardingIndex = 0;
           redemptionLog = entries.sort((a, b) => {
             return new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0);
           });
-          renderStaffVenueLog();
-          updateStaffRadar();
-          renderStaffPendingQueue();
+          scheduleThrottledRender("staffRedemptions", () => {
+            renderStaffVenueLog();
+            updateStaffRadar();
+            renderStaffPendingQueue();
+          });
         });
         if (unsub) staffRedemptionUnsubs.push(unsub);
       } catch (err) {
@@ -15763,9 +15892,11 @@ let onboardingIndex = 0;
               verifiedAt: toIso(data.verifiedAt || data.createdAt || data.timestamp),
             };
           });
-          renderCeoRedemptionLog();
-          renderCeoVenueLog();
-          updateCeoMetrics();
+          scheduleThrottledRender("ceoRedemptions", () => {
+            renderCeoRedemptionLog();
+            renderCeoVenueLog();
+            updateCeoMetrics();
+          });
         });
       } catch (err) {
         console.warn("CEO redemptions realtime failed", err);
@@ -17201,7 +17332,7 @@ let onboardingIndex = 0;
         clearTimeout(autoCloseOutTimer);
         autoCloseOutTimer = null;
       }
-      reattachRealtime();
+      requestReattach("staff-reattach");
     };
 
     if (staffLogoutLink) {
@@ -17248,7 +17379,7 @@ let onboardingIndex = 0;
           renderStaffPendingQueue();
           refreshStaffCeoReceipts();
           showScreen("staffPortal");
-          attachRealtimeForCurrentContext("staff-restore");
+          requestReattach("staff-restore");
         } else {
           showScreen("staffLogin");
         }
@@ -17798,16 +17929,12 @@ let onboardingIndex = 0;
     }
     function watchSettingsDoc() {
       if (!db || !authReady || !firebaseAuth.currentUser) return;
-      if (settingsUnsub) {
-        settingsUnsub();
-        settingsUnsub = null;
-      }
       if (settingsPollTimer) {
         clearInterval(settingsPollTimer);
         settingsPollTimer = null;
       }
       const ref = doc(db, "settings", "app");
-      settingsUnsub = subscribeSnapshot("settingsApp", ref, { includeMetadataChanges: true }, (snap) => {
+      const unsub = subscribeSnapshot("settingsApp", ref, { includeMetadataChanges: true }, (snap) => {
         const data = snap.exists() ? snap.data() : {};
         isLaunched = !!data.launched;
         appLocked = !!data.appLocked;
@@ -17829,6 +17956,7 @@ let onboardingIndex = 0;
           staffCloseoutStamp.textContent = `Last close-out email: ${ts.toLocaleString("en-US", { timeZone: "America/Denver" })}`;
         }
       });
+      if (unsub) settingsUnsub = unsub;
     }
 
     let appStatsUnsub = null;
@@ -17851,12 +17979,8 @@ let onboardingIndex = 0;
     }
     function watchAppStatsDoc() {
       if (!db || !currentUsersCount || !authReady || !firebaseAuth.currentUser) return;
-      if (appStatsUnsub) {
-        appStatsUnsub();
-        appStatsUnsub = null;
-      }
       const ref = doc(db, "settings", "appStats");
-      appStatsUnsub = subscribeSnapshot("appStats", ref, null, (snap) => {
+      const unsub = subscribeSnapshot("appStats", ref, null, (snap) => {
         const data = snap.exists() ? snap.data() : {};
         const count = Number(data.membersCount || 0);
         currentUsersCount.textContent = count.toLocaleString();
@@ -17864,6 +17988,7 @@ let onboardingIndex = 0;
           maybeRecountMembers();
         }
       });
+      if (unsub) appStatsUnsub = unsub;
     }
 
     async function checkVersionOnLaunch(options = {}) {
@@ -19541,7 +19666,6 @@ let onboardingIndex = 0;
       if (DEBUG_MODE) {
         console.info("[createRedemption] payload", {
           passCode: activePassId ? "set" : "",
-          memberUid: firebaseAuth.currentUser?.uid || null,
           venueId: requestedVenue,
           perkId,
           perkLabel: rewardLabel
@@ -19552,7 +19676,6 @@ let onboardingIndex = 0;
         const fn = httpsCallable(functionsClient, "createRedemption");
         const resp = await fn({
           passCode: activePassId,
-          memberUid: firebaseAuth.currentUser?.uid || null,
           venueId: requestedVenue,
           perkId,
           perkLabel: rewardLabel,
@@ -19856,6 +19979,7 @@ let onboardingIndex = 0;
     updateRoleBanner();
     detachAllRealtimeListeners("auth-change");
     blockedRealtimeLabels.clear();
+    blockedWriteLabels.clear();
     lastAuthUid = user?.uid || null;
     if (!user) {
       authClaimsReady = false;
@@ -19885,7 +20009,7 @@ let onboardingIndex = 0;
 
   window.addEventListener("online", () => {
     logRealtime("online");
-    reattachRealtime();
+    requestReattach("online");
     if (reconnectBanner) reconnectBanner.style.display = "none";
   });
     </script>

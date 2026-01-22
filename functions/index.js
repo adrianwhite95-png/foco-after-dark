@@ -359,21 +359,6 @@ async function resolveMemberByPassCode(passCode, tx) {
   };
 }
 
-async function resolveMemberByUid(uid, tx) {
-  if (!uid) return null;
-  const memberRef = db.collection("members").doc(uid);
-  const memberSnap = await tx.get(memberRef);
-  if (!memberSnap.exists) return null;
-  const memberData = memberSnap.data() || {};
-  return {
-    uid,
-    passRef: null,
-    memberRef,
-    memberData,
-    passData: null
-  };
-}
-
 function toMillis(value) {
   if (!value) return null;
   if (typeof value.toMillis === "function") return value.toMillis();
@@ -387,13 +372,12 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
   const passCode = String(data?.passCode || "").trim().toUpperCase();
-  const memberUid = String(data?.memberUid || context.auth.uid || "").trim();
   const venueId = String(data?.venueId || "").trim().toLowerCase();
   const perkId = String(data?.perkId || "").trim();
   const perkLabel = String(data?.perkLabel || "").trim();
   const perkKey = String(data?.perkKey || "venue_perk").trim();
   const missingFields = [];
-  if (!passCode && !memberUid) missingFields.push("passCode");
+  if (!passCode) missingFields.push("passCode");
   if (!venueId) missingFields.push("venueId");
   if (!perkId) missingFields.push("perkId");
   if (missingFields.length) {
@@ -419,28 +403,25 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
     const redemptionId = generateCode(6).toUpperCase();
     try {
       const result = await db.runTransaction(async (tx) => {
-        let resolved = passCode ? await resolveMemberByPassCode(passCode, tx) : null;
-        if (!resolved && memberUid) {
-          resolved = await resolveMemberByUid(memberUid, tx);
-        }
+        const resolved = await resolveMemberByPassCode(passCode, tx);
         if (!resolved?.uid || !resolved.memberRef) {
           throw new HttpsError("not-found", "Pass ID not found.");
         }
         const memberData = resolved.memberData || {};
-        const resolvedPassCode = (memberData.passCode || passCode || "").toUpperCase();
-        if (resolvedPassCode) {
-          const passRef = db.collection("passes").doc(resolvedPassCode);
-          tx.set(passRef, {
-            uid: resolved.uid,
-            passCode: resolvedPassCode,
-            tier: memberData.tier || "standard",
-            status: memberData.revoked ? "revoked" : "active",
-            updatedAt: serverNow
-          }, { merge: true });
-          if (memberData.passCode !== resolvedPassCode) {
-            tx.set(resolved.memberRef, { passCode: resolvedPassCode, updatedAt: serverNow }, { merge: true });
-          }
+        const claims = context.auth?.token || {};
+        const isPrivileged = claims.admin === true || claims.ceo === true;
+        if (resolved.uid !== context.auth.uid && !isPrivileged) {
+          throw new HttpsError("permission-denied", "Pass ID does not match signed-in user.");
         }
+        const resolvedPassCode = (memberData.passCode || passCode || "").toUpperCase();
+        const passRef = db.collection("passes").doc(resolvedPassCode);
+        tx.set(passRef, {
+          uid: resolved.uid,
+          passCode: resolvedPassCode,
+          tier: memberData.tier || "standard",
+          status: memberData.revoked ? "revoked" : "active",
+          updatedAt: serverNow
+        }, { merge: true });
         if (memberData.revoked) {
           throw new HttpsError("failed-precondition", "Membership is inactive.");
         }
