@@ -33,8 +33,8 @@ jobs:
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
 
-      - name: Deploy hosting, functions, and rules
+      - name: Deploy hosting, functions, rules, and indexes
         env:
           PROJECT_ID: foco-after-dark
         run: |
-          firebase deploy --project "$PROJECT_ID" --only hosting,functions,firestore:rules
+          firebase deploy --project "$PROJECT_ID" --only hosting,functions,firestore:rules,firestore:indexes
