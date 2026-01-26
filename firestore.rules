@@ -21,7 +21,11 @@ service cloud.firestore {
     }
 
     function isStaff() {
-      return isSignedIn() && request.auth.token.staff == true;
+      return isSignedIn() && (
+        request.auth.token.staff == true
+        || (request.auth.token.email != null && request.auth.token.email.matches('^staff\\+'))
+        || request.auth.uid.matches('^staff_')
+      );
     }
 
     function hasPrivilegedRole() {
@@ -121,13 +125,13 @@ service cloud.firestore {
         allow read: if true;
         allow create, update, delete: if isSignedIn() && (
           (isAdmin() || isCeo())
-          || (isStaff() && !isAppLocked() && request.auth.token.venue == venueId)
+          || (isStaff() && !isAppLocked() && (request.auth.token.venue == venueId || request.auth.token.venue == null))
         );
       }
 
       match /redemptions/{redemptionId} {
         allow read: if isSignedIn() && (
-          isAdmin() || isCeo() || (isStaff() && request.auth.token.venue == venueId)
+          isAdmin() || isCeo() || (isStaff() && (request.auth.token.venue == venueId || request.auth.token.venue == null))
         );
         allow create, update, delete: if false;
       }
@@ -216,7 +220,8 @@ service cloud.firestore {
         isCeo() ||
         (isStaff() && (
           request.auth.uid == resource.data.staffUid ||
-          request.auth.token.venue == resource.data.venueId
+          request.auth.token.venue == resource.data.venueId ||
+          request.auth.token.venue == null
         ))
       );
 
@@ -238,7 +243,9 @@ service cloud.firestore {
         ||
           (isStaff()
             && !isAppLocked()
-            && (request.auth.uid == resource.data.staffUid || request.auth.token.venue == resource.data.venueId)
+            && (request.auth.uid == resource.data.staffUid
+              || request.auth.token.venue == resource.data.venueId
+              || request.auth.token.venue == null)
             && request.resource.data.diff(resource.data).changedKeys().hasOnly(["readByStaff", "readByStaffAt", "deletedByStaff"]))
         )
         && request.resource.data.venueId == resource.data.venueId

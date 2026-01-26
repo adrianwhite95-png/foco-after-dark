@@ -9205,9 +9205,7 @@
     const hasStaffAccess = hasStaffClaim();
     if (isStaffAccount(user)) {
       if (!hasStaffAccess) {
-        showToast("Staff access pending verification.", 1800);
-        logRealtime("attachSkipped", "staff-no-claim");
-        return;
+        logRealtime("attachNotice", "staff-no-claim");
       }
         if (staffSession?.venue) {
           setRealtimeRequiredSources(["settingsApp", "staffRedemptions"]);
@@ -9231,10 +9229,7 @@
     primeMemberRealtime();
     attachRealtime();
     if (isCeoAccount && hasCeoAccess) {
-      setRealtimeRequiredSources(["settingsApp", "member", "memberRedemptions", "ceoRedemptions"]);
-      attachCeoRedemptionsRealtime();
-      attachCeoReviewsRealtime();
-      attachCloseOutReportsRealtime();
+      setRealtimeRequiredSources(["settingsApp", "member", "memberRedemptions"]);
       startCeoMessagesListener();
     } else if (isCeoAccount && !hasCeoAccess) {
       logRealtime("attachSkipped", "ceo-no-claim");
