@@ -629,6 +629,9 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
     if (dataSnap.status === "verified" && action === "confirm") {
       return dataSnap;
     }
+    const memberUid = dataSnap.memberUid;
+    const memberRef = memberUid ? db.collection("members").doc(memberUid) : null;
+    const memberSnap = memberRef ? await tx.get(memberRef) : null;
     const nextStatus = action === "deny" ? "denied" : "verified";
     const storedUpdates = {
       status: nextStatus,
@@ -641,13 +644,10 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
     }
     tx.update(venueRedRef, storedUpdates);
 
-    const memberUid = dataSnap.memberUid;
     if (memberUid) {
       const memberRedRef = db.collection("members").doc(memberUid).collection("redemptions").doc(redemptionId);
       tx.set(memberRedRef, storedUpdates, { merge: true });
-      const memberRef = db.collection("members").doc(memberUid);
-      const memberSnap = await tx.get(memberRef);
-      if (memberSnap.exists) {
+      if (memberSnap && memberSnap.exists) {
         const memberData = memberSnap.data() || {};
         const remaining = memberData.perksRemaining;
         if (remaining && typeof remaining.tokens === "number" && nextStatus === "verified") {
