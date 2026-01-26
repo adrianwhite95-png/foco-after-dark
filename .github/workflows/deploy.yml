@@ -41,20 +41,20 @@ jobs:
             echo "$FIREBASE_SERVICE_ACCOUNT" | base64 --decode > "$RUNNER_TEMP/firebase-service-account.json"
           fi
           python - <<'PY'
-import json, os, sys
-path = os.path.join(os.environ["RUNNER_TEMP"], "firebase-service-account.json")
-try:
-    data = json.load(open(path, "r"))
-except Exception as exc:
-    print("Service account JSON invalid:", exc)
-    sys.exit(1)
-for key in ("client_email", "project_id", "private_key"):
-    if not data.get(key):
-        print("Service account JSON missing:", key)
-        sys.exit(1)
-print("Using service account:", data["client_email"])
-print("Service account project:", data["project_id"])
-PY
+          import json, os, sys
+          path = os.path.join(os.environ["RUNNER_TEMP"], "firebase-service-account.json")
+          try:
+              data = json.load(open(path, "r"))
+          except Exception as exc:
+              print("Service account JSON invalid:", exc)
+              sys.exit(1)
+          for key in ("client_email", "project_id", "private_key"):
+              if not data.get(key):
+                  print("Service account JSON missing:", key)
+                  sys.exit(1)
+          print("Using service account:", data["client_email"])
+          print("Service account project:", data["project_id"])
+          PY
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
 
       - name: Deploy hosting, functions, rules, and indexes
