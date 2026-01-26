@@ -1,4 +1,4 @@
-const CACHE_VERSION = "foco-cache-v8";
+const CACHE_VERSION = "foco-cache-v9";
 const CORE_ASSETS = ["/", "/index.html", "/manifest.json", "/foco-logo.png"];
 
 self.addEventListener("install", (event) => {
@@ -19,6 +19,11 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) {
+    // Don't intercept cross-origin requests (prevents opaque SW responses)
+    return;
+  }
 
   // Network-first for HTML to pick up fresh deploys
   const accept = event.request.headers.get("accept") || "";
@@ -28,8 +33,10 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_VERSION).then(cache => cache.put(event.request, clone));
+          if (response && response.ok && response.type === "basic") {
+            const clone = response.clone();
+            caches.open(CACHE_VERSION).then(cache => cache.put(event.request, clone));
+          }
           return response;
         })
         .catch(() => caches.match(event.request))
@@ -42,8 +49,10 @@ self.addEventListener("fetch", (event) => {
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((resp) => {
-        const clone = resp.clone();
-        caches.open(CACHE_VERSION).then(cache => cache.put(event.request, clone));
+        if (resp && resp.ok && resp.type === "basic") {
+          const clone = resp.clone();
+          caches.open(CACHE_VERSION).then(cache => cache.put(event.request, clone));
+        }
         return resp;
       });
     })
