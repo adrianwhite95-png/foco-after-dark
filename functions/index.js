@@ -491,10 +491,14 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
           }
 
           const perkSnap = await tx.get(perkRef);
+          let perkData = perkSnap.data() || {};
           if (!perkSnap.exists) {
-            throw new HttpsError("not-found", "Perk not found.");
+            if (perkLabel) {
+              perkData = { label: perkLabel };
+            } else {
+              throw new HttpsError("not-found", "Perk not found.");
+            }
           }
-          const perkData = perkSnap.data() || {};
 
           const venueRedRef = db.collection("venues").doc(venueId).collection("redemptions").doc(redemptionId);
           const memberRedRef = db.collection("members").doc(resolved.uid).collection("redemptions").doc(redemptionId);
