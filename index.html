@@ -4857,6 +4857,136 @@
       font-size: 18px;
       letter-spacing: -0.3px;
     }
+
+    /* Member pass header cleanup */
+    .pass-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .pass-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .pass-brand .app-title {
+      font-size: 18px !important;
+    }
+    .status-pill {
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .profile-summary .user-row {
+      align-items: center;
+      gap: 14px;
+    }
+    .avatar {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      box-shadow: none;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+    }
+    .user-details {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .user-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .user-tier {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+    .pass-id-chip,
+    .username-chip {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+    .username-edit {
+      border-radius: 10px;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      box-shadow: none;
+    }
+    .meta-row.profile-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    /* Staff queue cards */
+    .staff-pending-row {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      align-items: center;
+    }
+    .staff-pending-row .staff-pending-meta strong {
+      font-size: 15px;
+      color: var(--text);
+    }
+    .staff-pending-sub {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .staff-pending-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .staff-pending-actions button {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    /* CEO metrics layout */
+    .ceo-card {
+      padding: 22px;
+    }
+    .ceo-metrics {
+      margin: 16px 0 18px;
+      gap: 14px;
+    }
+    .ceo-metric-card strong {
+      font-size: 20px;
+      color: var(--text);
+    }
+    .ceo-metric-card span {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
   </style>
 </head>
   <body>
