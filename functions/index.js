@@ -325,65 +325,86 @@ async function resolveMemberByPassCode(passCode, tx, fallbackUid = null) {
   const passSnap = await tx.get(passRef);
   const passData = passSnap.exists ? passSnap.data() : null;
   let uid = passData?.uid || null;
+  let memberRef = null;
+  let memberData = null;
+  let passWrite = null;
+  let memberPassUpdate = null;
+
   if (uid) {
-    const memberRef = db.collection("members").doc(uid);
+    memberRef = db.collection("members").doc(uid);
     const memberSnap = await tx.get(memberRef);
+    memberData = memberSnap.exists ? memberSnap.data() : null;
     return {
       uid,
       passRef,
       memberRef,
-      memberData: memberSnap.exists ? memberSnap.data() : null,
-      passData
+      memberData,
+      passData,
+      passWrite: null,
+      memberPassUpdate: null
     };
   }
+
   const memberQuery = await tx.get(
     db.collection("members").where("passCode", "==", passCode).limit(1)
   );
   if (memberQuery.empty) {
     if (!fallbackUid) return null;
-    const memberRef = db.collection("members").doc(fallbackUid);
+    memberRef = db.collection("members").doc(fallbackUid);
     const memberSnap = await tx.get(memberRef);
     if (!memberSnap.exists) return null;
-    const memberData = memberSnap.data() || {};
+    memberData = memberSnap.data() || {};
     const existingPass = (memberData.passCode || "").toString().toUpperCase();
     if (existingPass && existingPass !== passCode) {
       throw new HttpsError("permission-denied", "Pass ID does not match signed-in user.");
     }
     const finalPass = existingPass || passCode;
     if (!existingPass && finalPass) {
-      tx.set(memberRef, { passCode: finalPass, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      memberPassUpdate = { passCode: finalPass, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
     }
-    tx.set(passRef, {
-      uid: fallbackUid,
-      passCode: finalPass,
-      tier: memberData.tier || "standard",
-      status: memberData.revoked ? "revoked" : "active",
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    passWrite = {
+      ref: passRef,
+      data: {
+        uid: fallbackUid,
+        passCode: finalPass,
+        tier: memberData.tier || "standard",
+        status: memberData.revoked ? "revoked" : "active",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }
+    };
     return {
       uid: fallbackUid,
       passRef,
       memberRef,
       memberData: { ...memberData, passCode: finalPass },
-      passData: null
+      passData: null,
+      passWrite,
+      memberPassUpdate
     };
   }
+
   const memberDoc = memberQuery.docs[0];
   uid = memberDoc.id;
-  const memberData = memberDoc.data() || {};
-  tx.set(passRef, {
-    uid,
-    passCode,
-    tier: memberData.tier || "standard",
-    status: memberData.revoked ? "revoked" : "active",
-    updatedAt: admin.firestore.FieldValue.serverTimestamp()
-  }, { merge: true });
+  memberRef = memberDoc.ref;
+  memberData = memberDoc.data() || {};
+  passWrite = {
+    ref: passRef,
+    data: {
+      uid,
+      passCode,
+      tier: memberData.tier || "standard",
+      status: memberData.revoked ? "revoked" : "active",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }
+  };
   return {
     uid,
     passRef,
-    memberRef: memberDoc.ref,
+    memberRef,
     memberData,
-    passData: null
+    passData: null,
+    passWrite,
+    memberPassUpdate: null
   };
 }
 
@@ -443,14 +464,6 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
             throw new HttpsError("permission-denied", "Pass ID does not match signed-in user.");
           }
           const resolvedPassCode = (memberData.passCode || passCode || "").toUpperCase();
-          const passRef = db.collection("passes").doc(resolvedPassCode);
-          tx.set(passRef, {
-            uid: resolved.uid,
-            passCode: resolvedPassCode,
-            tier: memberData.tier || "standard",
-            status: memberData.revoked ? "revoked" : "active",
-            updatedAt: serverNow
-          }, { merge: true });
           if (memberData.revoked) {
             throw new HttpsError("failed-precondition", "Membership is inactive.");
           }
@@ -488,6 +501,12 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
           const existing = await tx.get(venueRedRef);
           if (existing.exists) {
             throw new HttpsError("already-exists", "Try again.");
+          }
+          if (resolved.passWrite) {
+            tx.set(resolved.passWrite.ref, resolved.passWrite.data, { merge: true });
+          }
+          if (resolved.memberPassUpdate) {
+            tx.set(resolved.memberRef, resolved.memberPassUpdate, { merge: true });
           }
           const storedPayload = {
             redemptionId,
