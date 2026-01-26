@@ -4559,27 +4559,28 @@
     .landing-wrapper {
       padding: 26px 22px 22px;
       gap: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
     }
     #landingTagline {
       font-size: 15px;
       line-height: 1.5;
       max-width: 520px;
+      text-align: center;
     }
-    .landing-live-wrap { justify-content: center; }
-    .landing-live-count {
-      padding: 10px 16px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(10, 12, 20, 0.7);
-      box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+    .brand-logo-landing {
+      align-self: center;
     }
-    .landing-live-count strong {
-      color: var(--text);
-      font-size: 18px;
+    #landingScreen .app-title {
+      text-align: center;
     }
     .hero-highlight {
       display: grid;
       gap: 12px;
+      width: 100%;
+      text-align: left;
     }
     .hero-point {
       border-radius: 16px;
@@ -4595,7 +4596,21 @@
       text-transform: uppercase;
     }
     .hero-point p { font-size: 13px; }
-    .landing-bg img { filter: brightness(0.85) saturate(1.2); }
+    .landing-bg img { filter: brightness(0.65) saturate(1.1); }
+    .landing-bg::before {
+      opacity: 0.35;
+      mix-blend-mode: normal;
+    }
+    .landing-logo-overlay {
+      opacity: 0.08 !important;
+      mix-blend-mode: normal !important;
+      filter: none !important;
+    }
+    #landingScreen.active .landing-wrapper::before { opacity: 0.18; }
+    #landingScreen.active .landing-wrapper::after {
+      border-color: rgba(148, 163, 184, 0.12);
+      box-shadow: inset 0 0 18px rgba(14, 165, 233, 0.05);
+    }
     .landing-orbs span { opacity: 0.55; }
     .landing-stars { opacity: 0.55; }
     .landing-feature-grid {
@@ -4603,6 +4618,8 @@
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 12px;
       margin-top: 8px;
+      width: 100%;
+      text-align: left;
     }
     .landing-feature-card {
       padding: 14px 16px;
@@ -4885,6 +4902,7 @@
       gap: 12px;
       margin-top: 12px;
     }
+    .pass-card .meta-row.quick-strip { display: none; }
     .pass-card .meta-group {
       background: rgba(255,255,255,0.03);
       border: 1px solid var(--border);
@@ -4991,6 +5009,18 @@
     .profile-summary .user-row {
       align-items: center;
       gap: 14px;
+    }
+    .profile-summary {
+      padding: 12px;
+    }
+    .profile-summary .user-details {
+      gap: 4px;
+    }
+    .profile-summary .pass-id-row { margin-top: 4px; }
+    .profile-summary .username-row { margin-top: 4px; }
+    .profile-summary .user-tagline {
+      font-size: 11px;
+      color: var(--muted);
     }
     .avatar {
       width: 54px;
@@ -5120,12 +5150,6 @@
           <div class="app-title"><span>FoCo</span> After Dark 21+</div>
           <div class="tagline" id="landingTagline">
             The nightlife pass for Fort Collins. Redeem perks at local bars, track your nights out, and keep vouchers ready on your phone.
-          </div>
-          <div class="landing-live-wrap">
-            <div class="landing-live-count">
-              <span>Current users</span>
-              <strong id="currentUsersCount">0</strong>
-            </div>
           </div>
       <div class="hero-highlight hero-animated">
         <div class="hero-point neon-card">
