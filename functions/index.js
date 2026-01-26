@@ -320,7 +320,7 @@ exports.useCeoVoucher = functions.https.onCall(async (data, context) => {
   }
 });
 
-async function resolveMemberByPassCode(passCode, tx) {
+async function resolveMemberByPassCode(passCode, tx, fallbackUid = null) {
   const passRef = db.collection("passes").doc(passCode);
   const passSnap = await tx.get(passRef);
   const passData = passSnap.exists ? passSnap.data() : null;
@@ -339,7 +339,35 @@ async function resolveMemberByPassCode(passCode, tx) {
   const memberQuery = await tx.get(
     db.collection("members").where("passCode", "==", passCode).limit(1)
   );
-  if (memberQuery.empty) return null;
+  if (memberQuery.empty) {
+    if (!fallbackUid) return null;
+    const memberRef = db.collection("members").doc(fallbackUid);
+    const memberSnap = await tx.get(memberRef);
+    if (!memberSnap.exists) return null;
+    const memberData = memberSnap.data() || {};
+    const existingPass = (memberData.passCode || "").toString().toUpperCase();
+    if (existingPass && existingPass !== passCode) {
+      throw new HttpsError("permission-denied", "Pass ID does not match signed-in user.");
+    }
+    const finalPass = existingPass || passCode;
+    if (!existingPass && finalPass) {
+      tx.set(memberRef, { passCode: finalPass, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    }
+    tx.set(passRef, {
+      uid: fallbackUid,
+      passCode: finalPass,
+      tier: memberData.tier || "standard",
+      status: memberData.revoked ? "revoked" : "active",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return {
+      uid: fallbackUid,
+      passRef,
+      memberRef,
+      memberData: { ...memberData, passCode: finalPass },
+      passData: null
+    };
+  }
   const memberDoc = memberQuery.docs[0];
   uid = memberDoc.id;
   const memberData = memberDoc.data() || {};
@@ -404,7 +432,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
       const redemptionId = generateCode(6).toUpperCase();
       try {
         const result = await db.runTransaction(async (tx) => {
-          const resolved = await resolveMemberByPassCode(passCode, tx);
+          const resolved = await resolveMemberByPassCode(passCode, tx, context.auth?.uid || null);
           if (!resolved?.uid || !resolved.memberRef) {
             throw new HttpsError("not-found", "Pass ID not found.");
           }

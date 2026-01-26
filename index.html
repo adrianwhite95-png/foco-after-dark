@@ -1723,7 +1723,7 @@
       gap: 8px;
       padding: 10px;
       border-radius: 18px;
-      border: 1px solid rgba(148, 163, 184, 0.35);
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 45%, rgba(148, 163, 184, 0.35));
       background: rgba(8, 14, 28, 0.6);
       box-shadow: 0 16px 32px rgba(2, 6, 23, 0.45), 0 0 18px rgba(34, 211, 238, 0.12);
       margin: 8px 0 10px;
@@ -1755,7 +1755,7 @@
       gap: 6px;
       padding: 5px 10px;
       border-radius: 999px;
-      border: 1px solid rgba(125, 211, 252, 0.45);
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 55%, rgba(125, 211, 252, 0.35));
       background: rgba(8, 14, 28, 0.7);
       color: #e2e8f0;
       font-size: 12px;
@@ -1767,14 +1767,14 @@
       padding: 4px 8px;
       border-radius: 10px;
       background: rgba(15, 23, 42, 0.8);
-      border: 1px solid rgba(148, 163, 184, 0.35);
+      border: 1px solid color-mix(in srgb, var(--accent-secondary-live) 45%, rgba(148, 163, 184, 0.35));
       color: #e2e8f0;
       font-weight: 600;
     }
     .username-edit {
-      border: 1px solid rgba(34, 211, 238, 0.55);
-      background: rgba(34, 211, 238, 0.14);
-      color: #a5f3fc;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 55%, rgba(34, 211, 238, 0.25));
+      background: color-mix(in srgb, var(--accent-primary-live) 20%, rgba(34, 211, 238, 0.1));
+      color: var(--accent-primary-live);
       border-radius: 8px;
       padding: 2px 6px;
       font-size: 11px;
@@ -1785,7 +1785,7 @@
       transition: box-shadow 160ms ease, transform 160ms ease;
     }
     .username-edit:hover {
-      box-shadow: 0 0 10px rgba(34, 211, 238, 0.35);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--accent-primary-live) 55%, rgba(34, 211, 238, 0.35));
       transform: translateY(-1px);
     }
     .avatar {
@@ -4598,17 +4598,42 @@
     .landing-bg img { filter: brightness(0.85) saturate(1.2); }
     .landing-orbs span { opacity: 0.55; }
     .landing-stars { opacity: 0.55; }
+    .landing-feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .landing-feature-card {
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(10, 12, 20, 0.7);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+    }
+    .landing-feature-card strong {
+      display: block;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent-primary-live);
+      margin-bottom: 6px;
+    }
+    .landing-feature-card p {
+      font-size: 12px;
+      line-height: 1.45;
+    }
 
     .pass-card {
       background: rgba(8, 10, 18, 0.88);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-card);
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 45%, var(--border));
+      box-shadow: var(--shadow-card), 0 0 26px color-mix(in srgb, var(--accent-primary-live) 28%, transparent);
     }
     .pass-card::after { opacity: 0.22; }
     .profile-summary {
       padding: 14px;
       border-radius: 16px;
-      border: 1px solid var(--border);
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 45%, var(--border));
       background: rgba(8, 10, 18, 0.55);
       box-shadow: none;
     }
@@ -4630,7 +4655,7 @@
     .meta-row.quick-strip .meta-group,
     .profile-summary .meta-group {
       background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
+      border: 1px solid color-mix(in srgb, var(--accent-secondary-live) 35%, var(--border));
     }
     .meta-label {
       font-size: 10px;
@@ -4682,7 +4707,7 @@
       font-weight: 600;
       text-transform: none;
       letter-spacing: 0.02em;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      background: linear-gradient(120deg, var(--accent-primary-live), var(--accent-secondary-live));
       border: none;
       color: #050608;
       box-shadow: 0 8px 22px rgba(0,0,0,0.35);
@@ -4729,7 +4754,7 @@
       border: 1px solid rgba(255,255,255,0.06);
       background: rgba(255,255,255,0.03);
     }
-    .perk-dot { background: var(--accent); box-shadow: none; }
+    .perk-dot { background: var(--accent-primary-live); box-shadow: none; }
 
     .community-stats {
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -4785,7 +4810,7 @@
       text-shadow: none;
       animation: none;
     }
-    .app-title span { color: var(--accent); }
+    .app-title span { color: var(--accent-primary-live); }
     .global-footer { color: var(--muted); text-shadow: none; animation: none; }
     .divider { background: var(--border); }
     input, select, textarea {
@@ -4801,13 +4826,6 @@
     #passScreen {
       background: rgba(8, 10, 14, 0.85);
       border: 1px solid var(--border);
-    }
-    #landingScreen.active .landing-wrapper,
-    #landingScreen.active .landing-wrapper::before,
-    #landingScreen.active .landing-wrapper::after,
-    #landingScreen.active .hero-point,
-    #landingScreen.active #landingGetPassBtn {
-      animation: none;
     }
     .landing-wrapper {
       background: rgba(255,255,255,0.02);
@@ -5130,6 +5148,20 @@
             <strong>Built with venues</strong>
             <p>Perks are set by local bars each month with verified redemptions.</p>
           </div>
+        </div>
+      </div>
+      <div class="landing-feature-grid">
+        <div class="landing-feature-card">
+          <strong>Pass on your phone</strong>
+          <p>Your FoCo After Dark pass is always ready. Tap to copy your ID and redeem quickly at the bar.</p>
+        </div>
+        <div class="landing-feature-card">
+          <strong>Real-time perks</strong>
+          <p>Perks update live as venues change their offers. Pick a venue and redeem in seconds.</p>
+        </div>
+        <div class="landing-feature-card">
+          <strong>Track your nights</strong>
+          <p>See your voucher balance, nights active, and rewards progress all in one profile.</p>
         </div>
       </div>
       <button id="landingGetPassBtn" class="btn btn-primary">
@@ -13007,6 +13039,8 @@ let onboardingIndex = 0;
     function applyAccentTheme(theme = "cyan") {
       const palette = getAccentPreset(theme);
       const root = document.documentElement;
+      root.style.setProperty("--accent", palette.primary);
+      root.style.setProperty("--accent2", palette.secondary);
       root.style.setProperty("--accent-cyan", palette.primary);
       root.style.setProperty("--accent-green", palette.secondary);
       root.style.setProperty("--border-strong", palette.border);
@@ -18817,7 +18851,9 @@ let onboardingIndex = 0;
         button.classList.add("selected");
         selectedPerkId = button.dataset.perk;
         selectedVenuePerkId = button.dataset.venuePerk || null;
-        selectedPerkLabel = button.dataset.label || "Perk";
+        selectedPerkLabel = button.dataset.label
+          || button.querySelector(".perk-label")?.textContent
+          || "Perk";
         const remaining = getRemainingFor(selectedPerkId);
         const remainingText = (isCeoActive() || isFreeMember())
           ? "Unlimited"
@@ -19938,12 +19974,14 @@ let onboardingIndex = 0;
         creditInfo.textContent = "Membership expired. Update billing to redeem.";
         return;
       }
-      if (!selectedPerkId || !selectedPerkLabel) {
+      if (!selectedPerkId) {
         const selectedBtn = redemptionOptionsGrid?.querySelector(".perk-option.selected");
         if (selectedBtn) {
           selectedPerkId = selectedBtn.dataset.perk || selectedPerkId;
           selectedVenuePerkId = selectedBtn.dataset.venuePerk || selectedVenuePerkId;
-          selectedPerkLabel = selectedBtn.dataset.label || selectedPerkLabel;
+          selectedPerkLabel = selectedBtn.dataset.label
+            || selectedBtn.querySelector(".perk-label")?.textContent
+            || selectedPerkLabel;
         } else {
           const available = redemptionOptionsGrid
             ? Array.from(redemptionOptionsGrid.querySelectorAll(".perk-option:not(.disabled)"))
@@ -19953,13 +19991,18 @@ let onboardingIndex = 0;
             fallbackBtn.classList.add("selected");
             selectedPerkId = fallbackBtn.dataset.perk || selectedPerkId;
             selectedVenuePerkId = fallbackBtn.dataset.venuePerk || selectedVenuePerkId;
-            selectedPerkLabel = fallbackBtn.dataset.label || selectedPerkLabel;
+            selectedPerkLabel = fallbackBtn.dataset.label
+              || fallbackBtn.querySelector(".perk-label")?.textContent
+              || selectedPerkLabel;
           }
         }
       }
-      if (!selectedPerkId || !selectedPerkLabel) {
+      if (!selectedPerkId) {
         creditInfo.textContent = "Select a perk to redeem.";
         return;
+      }
+      if (!selectedPerkLabel) {
+        selectedPerkLabel = "Perk";
       }
       const requestedVenue = redeemVenueSelect
         ? (redeemVenueSelect.value || selectedRedeemVenue || "")
