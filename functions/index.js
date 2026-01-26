@@ -1769,16 +1769,20 @@ exports.getStaffLoginToken = functions.runWith(staffLoginSecrets).https.onCall(a
   const passNorm = passphrase.trim().toLowerCase();
   const loginCode = getStaffVenueLoginCode(venueId).toLowerCase();
   const expectedPass = `foco-${loginCode}`.toLowerCase();
+  const legacyPass = loginCode;
+  const betaLegacyPass = "betastaff";
   if (isBeta) {
     const appSnap = await db.collection('settings').doc('app').get();
     const launched = appSnap.exists ? !!appSnap.data().launched : false;
     if (launched) throw new HttpsError('permission-denied', 'Beta access is disabled in live mode');
-    if (passNorm !== expectedPass) {
+    if (passNorm !== expectedPass && passNorm !== betaLegacyPass && passNorm !== legacyPass) {
       throw new HttpsError('permission-denied', 'Invalid passphrase');
     }
   } else {
     if (!STAFF_VENUES[venueId]) throw new HttpsError('not-found', 'Unknown venue');
-    if (passNorm !== expectedPass) throw new HttpsError('permission-denied', 'Invalid passphrase');
+    if (passNorm !== expectedPass && passNorm !== legacyPass) {
+      throw new HttpsError('permission-denied', 'Invalid passphrase');
+    }
   }
 
   const uid = `staff_${venueId}`;

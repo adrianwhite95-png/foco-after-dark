@@ -4515,19 +4515,19 @@
 
     /* Premium redesign overrides (visual only) */
     :root {
-      --bg: #07070a;
-      --card: rgba(255,255,255,0.04);
-      --border: rgba(255,255,255,0.08);
-      --text: rgba(255,255,255,0.92);
-      --muted: rgba(255,255,255,0.55);
-      --accent: #00f7ff;
-      --accent2: #a855f7;
+      --bg: #05060b;
+      --card: rgba(10, 12, 20, 0.82);
+      --border: rgba(255,255,255,0.07);
+      --text: rgba(245,248,255,0.94);
+      --muted: rgba(197,207,223,0.62);
+      --accent: #2df5ff;
+      --accent2: #ff4fd8;
       --bg-deep: var(--bg);
       --bg-card: var(--card);
       --bg-card-alt: var(--card);
-      --bg-panel: rgba(255,255,255,0.03);
+      --bg-panel: rgba(16, 18, 28, 0.65);
       --border-soft: var(--border);
-      --border-strong: rgba(255,255,255,0.18);
+      --border-strong: rgba(255,255,255,0.16);
       --text-primary: var(--text);
       --text-secondary: rgba(255,255,255,0.7);
       --text-muted: var(--muted);
@@ -4536,9 +4536,9 @@
       --accent-cyan-2: var(--accent);
       --accent-magenta-2: var(--accent2);
       --accent-green: var(--accent);
-      --shadow-card: 0 8px 30px rgba(0,0,0,0.35);
-      --shadow-neon: 0 0 30px rgba(0,247,255,0.12);
-      --radius-card: 18px;
+      --shadow-card: 0 14px 40px rgba(0,0,0,0.45);
+      --shadow-neon: 0 0 40px rgba(45,245,255,0.18);
+      --radius-card: 20px;
       --font-base: "Space Grotesk", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
@@ -4546,15 +4546,98 @@
 
     body {
       background:
-        radial-gradient(circle at 20% 0%, rgba(0,247,255,0.08), transparent 45%),
-        radial-gradient(circle at 80% 10%, rgba(168,85,247,0.08), transparent 45%),
-        var(--bg);
+        radial-gradient(circle at 18% -5%, rgba(45,245,255,0.18), transparent 50%),
+        radial-gradient(circle at 85% 5%, rgba(255,79,216,0.14), transparent 55%),
+        linear-gradient(180deg, #05060b 0%, #070a12 45%, #05060b 100%);
       color: var(--text);
-      padding: 24px 16px 54px;
+      padding: 28px 18px 64px;
     }
-    body::before { opacity: 0.18; filter: blur(6px) brightness(0.6) saturate(0.8); }
-    body::after { opacity: 0.02; }
-    #app { max-width: 980px; }
+    body::before { opacity: 0.38; filter: blur(3px) brightness(0.7) saturate(1.15); }
+    body::after { opacity: 0.04; }
+    #app { max-width: 1040px; }
+
+    .landing-wrapper {
+      padding: 26px 22px 22px;
+      gap: 18px;
+    }
+    #landingTagline {
+      font-size: 15px;
+      line-height: 1.5;
+      max-width: 520px;
+    }
+    .landing-live-wrap { justify-content: center; }
+    .landing-live-count {
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(10, 12, 20, 0.7);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+    }
+    .landing-live-count strong {
+      color: var(--text);
+      font-size: 18px;
+    }
+    .hero-highlight {
+      display: grid;
+      gap: 12px;
+    }
+    .hero-point {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(10, 12, 20, 0.66);
+      padding: 14px 16px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    }
+    .hero-point strong {
+      font-size: 14px;
+      color: var(--text);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .hero-point p { font-size: 13px; }
+    .landing-bg img { filter: brightness(0.85) saturate(1.2); }
+    .landing-orbs span { opacity: 0.55; }
+    .landing-stars { opacity: 0.55; }
+
+    .pass-card {
+      background: rgba(8, 10, 18, 0.88);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-card);
+    }
+    .pass-card::after { opacity: 0.22; }
+    .profile-summary {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(8, 10, 18, 0.55);
+      box-shadow: none;
+    }
+    .user-row { gap: 14px; }
+    .user-details { gap: 6px; }
+    .user-name { font-size: 16px; }
+    .user-tier { font-size: 11px; letter-spacing: 0.14em; }
+    .avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      box-shadow: 0 12px 26px rgba(0,0,0,0.45), 0 0 20px rgba(45,245,255,0.22);
+    }
+    .meta-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .meta-row.quick-strip .meta-group,
+    .profile-summary .meta-group {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+    }
+    .meta-label {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .meta-value { font-size: 13px; }
 
     h1, h2, h3, .app-title, .portal-title {
       font-weight: 700;
@@ -4572,6 +4655,8 @@
       border-radius: 18px;
       padding: 28px 18px;
       box-shadow: var(--shadow-card);
+      backdrop-filter: blur(14px) saturate(1.08);
+      -webkit-backdrop-filter: blur(14px) saturate(1.08);
     }
     .card-hd,
     .vip-deal-card,
@@ -5016,7 +5101,7 @@
         </div>
           <div class="app-title"><span>FoCo</span> After Dark 21+</div>
           <div class="tagline" id="landingTagline">
-            Nightlife, gamified. Unlock perks, flash your pass, and collect rewards while you move through the city.
+            The nightlife pass for Fort Collins. Redeem perks at local bars, track your nights out, and keep vouchers ready on your phone.
           </div>
           <div class="landing-live-wrap">
             <div class="landing-live-count">
@@ -5028,22 +5113,22 @@
         <div class="hero-point neon-card">
           <div class="hero-point-icon pulse">1</div>
           <div>
-            <strong>Old Town pulse</strong>
-            <p>Live crowd energy, nightlife perks, and on-the-spot voucher redemptions.</p>
+            <strong>Tonight’s perks</strong>
+            <p>See what each venue is offering right now and redeem in seconds.</p>
           </div>
         </div>
         <div class="hero-point neon-card">
           <div class="hero-point-icon pulse">2</div>
           <div>
-            <strong>Monthly perk drops</strong>
-            <p>Venues refresh perks monthly. Pick your spot, redeem in seconds, keep the line moving.</p>
+            <strong>Instant redemption</strong>
+            <p>Show your pass. Staff verifies live so your balance updates immediately.</p>
           </div>
         </div>
         <div class="hero-point neon-card">
           <div class="hero-point-icon pulse">3</div>
           <div>
             <strong>Built with venues</strong>
-            <p>Verified voucher checks for staff, real-time venue alerts, and perks built with local partners.</p>
+            <p>Perks are set by local bars each month with verified redemptions.</p>
           </div>
         </div>
       </div>
@@ -5821,7 +5906,7 @@
         <button type="button" class="btn btn-primary" id="staffLoginSubmit">Log in</button>
       </form>
       <p class="small" id="staffBetaHint" style="margin-top:10px;text-align:center;">
-        Beta access? Use venue code “beta” and passphrase “betastaff”.
+        Beta access? Use venue code “beta” and passphrase “betastaff” (or “foco-beta”).
       </p>
       <button type="button" class="btn btn-secondary back-btn" id="staffLoginBack" style="margin-top:12px;">
         Back to start
@@ -17218,6 +17303,7 @@ let onboardingIndex = 0;
 
     let staffGateVerified = false;
     let staffGateCodeValue = "";
+    let staffGateResumeLogin = false;
 
     function openStaffGate() {
       if (!staffGateOverlay) return;
@@ -17247,6 +17333,11 @@ let onboardingIndex = 0;
       staffGateCodeValue = entered;
       staffGateVerified = true;
       closeStaffGate();
+      if (staffGateResumeLogin) {
+        staffGateResumeLogin = false;
+        processStaffLogin();
+        return;
+      }
       if (staffVenueInput) staffVenueInput.focus();
     }
 
@@ -17403,10 +17494,12 @@ let onboardingIndex = 0;
       console.info("[staff] start");
       showToast("Staff login starting…", 1400);
       if (!staffGateVerified) {
+        staffGateResumeLogin = true;
         openStaffGate();
         staffLoginError.textContent = "Enter staff access code to continue.";
         return;
       }
+      staffGateResumeLogin = false;
       const venue = staffVenueInput.value.trim();
       const pass = staffPassInput.value.trim();
       if (!venue || !pass) {
@@ -19851,6 +19944,17 @@ let onboardingIndex = 0;
           selectedPerkId = selectedBtn.dataset.perk || selectedPerkId;
           selectedVenuePerkId = selectedBtn.dataset.venuePerk || selectedVenuePerkId;
           selectedPerkLabel = selectedBtn.dataset.label || selectedPerkLabel;
+        } else {
+          const available = redemptionOptionsGrid
+            ? Array.from(redemptionOptionsGrid.querySelectorAll(".perk-option:not(.disabled)"))
+            : [];
+          if (available.length === 1) {
+            const fallbackBtn = available[0];
+            fallbackBtn.classList.add("selected");
+            selectedPerkId = fallbackBtn.dataset.perk || selectedPerkId;
+            selectedVenuePerkId = fallbackBtn.dataset.venuePerk || selectedVenuePerkId;
+            selectedPerkLabel = fallbackBtn.dataset.label || selectedPerkLabel;
+          }
         }
       }
       if (!selectedPerkId || !selectedPerkLabel) {
