@@ -4641,6 +4641,27 @@
       line-height: 1.45;
     }
 
+    /* Landing login buttons */
+    #landingLoginLink,
+    #landingStaffLogin {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    #landingLoginLink:hover,
+    #landingStaffLogin:hover {
+      background: rgba(255,255,255,0.12);
+    }
+
     .pass-card {
       background: rgba(8, 10, 18, 0.88);
       border: 1px solid color-mix(in srgb, var(--accent-primary-live) 45%, var(--border));
@@ -4919,6 +4940,11 @@
       font-size: 14px;
       font-weight: 600;
     }
+    #manageBillingBtn {
+      background: linear-gradient(90deg, var(--accent-primary-live), var(--accent-secondary-live));
+      color: #0b1222;
+      border: none;
+    }
     .alerts-card,
     .vip-member-deal,
     .featured-venues {
@@ -4982,20 +5008,46 @@
     /* Member pass header cleanup */
     .pass-header {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
       align-items: center;
-      gap: 16px;
-      padding-bottom: 12px;
+      gap: 10px;
+      padding: 16px 16px 14px;
       border-bottom: 1px solid var(--border);
-      margin-bottom: 12px;
+      margin: -6px -6px 12px;
+      border-radius: 16px;
+      background: linear-gradient(120deg, rgba(6, 182, 212, 0.08), rgba(168, 85, 247, 0.08));
+      position: relative;
+      overflow: hidden;
+    }
+    .pass-header > div:last-child {
+      align-items: center;
+      text-align: center;
+    }
+    .pass-header::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      pointer-events: none;
     }
     .pass-brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      flex-direction: column;
     }
     .pass-brand .app-title {
       font-size: 18px !important;
+      text-align: center;
+    }
+    .pass-brand .tagline {
+      text-align: center;
+    }
+    .pass-card .brand-logo-img.small {
+      width: 120px;
     }
     .status-pill {
       border-radius: 999px;
@@ -5153,6 +5205,39 @@
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 10px;
       margin-top: 14px;
+    }
+    .logout-link {
+      border-radius: 999px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Redeem modal sizing for mobile */
+    #redeemModal .modal-card {
+      max-height: 86vh;
+      overflow: auto;
+    }
+    #redeemModal .perk-grid {
+      max-height: 36vh;
+      overflow: auto;
+    }
+
+    /* Mobile/iPhone layout tightening */
+    @media (max-width: 520px) {
+      body { padding: 18px 12px 48px; }
+      #app { max-width: 100%; }
+      .screen { padding: 20px 14px; border-radius: 16px; }
+      .landing-feature-grid { grid-template-columns: 1fr; }
+      .hero-highlight { text-align: left; }
+      .pass-header { margin: -6px -10px 12px; }
+      .top-right-logout { top: 12px; right: 12px; }
+      .secondary-actions .btn { width: 100%; }
+      #redeemModal .perk-grid { max-height: 32vh; }
     }
 
     /* Staff queue cards */
