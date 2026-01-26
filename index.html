@@ -5048,6 +5048,57 @@
     .profile-summary .user-tagline {
       font-size: 11px;
       color: var(--muted);
+      text-align: center;
+      align-self: stretch;
+    }
+    .tagline-edit-hint {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      opacity: 0.7;
+      text-align: center;
+      align-self: stretch;
+    }
+    .avatar-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .avatar-tools-label {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .avatar-palette {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .avatar-swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35);
+      cursor: pointer;
+      position: relative;
+    }
+    .avatar-swatch.active {
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.35), 0 0 12px color-mix(in srgb, var(--accent-primary-live) 55%, transparent);
+    }
+    .avatar-edit-btn {
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
     }
     .avatar {
       width: 54px;
@@ -5090,6 +5141,12 @@
       background: rgba(255,255,255,0.04);
       color: var(--text);
       box-shadow: none;
+    }
+    .edit-pencil {
+      color: var(--accent-primary-live);
+      font-size: 12px;
+      display: inline-block;
+      transform: translateY(-1px);
     }
     .meta-row.profile-meta {
       display: grid;
@@ -5541,10 +5598,16 @@
               <div class="username-row">
                 <span class="username-chip" id="userUsername">@member</span>
                 <button type="button" class="username-edit" id="editUsernameBtn" title="Edit username">
-                  ✏️
+                  <span class="edit-pencil" aria-hidden="true">✎</span>
                 </button>
               </div>
               <div class="user-tagline" id="userTagline" style="font-size:11px;color:#cbd5f5;cursor:pointer;">Tap to add your vibe.</div>
+              <div class="tagline-edit-hint">Tap to edit tagline</div>
+              <div class="avatar-tools">
+                <span class="avatar-tools-label">Pass badge</span>
+                <div class="avatar-palette" id="avatarPalette"></div>
+                <button type="button" class="avatar-edit-btn" id="avatarEditBtn" title="Edit initials or emoji">Edit badge</button>
+              </div>
               <div class="badge-row" id="profileBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
             </div>
           </div>
@@ -8115,6 +8178,8 @@
     const userUsername = document.getElementById("userUsername");
     const editUsernameBtn = document.getElementById("editUsernameBtn");
     const avatarInitials = document.getElementById("avatarInitials");
+    const avatarPalette = document.getElementById("avatarPalette");
+    const avatarEditBtn = document.getElementById("avatarEditBtn");
     const passTierText = document.getElementById("passTierText");
     const profileBadges = document.getElementById("profileBadges");
     const statusPill = document.getElementById("statusPill");
@@ -11310,7 +11375,10 @@ let onboardingIndex = 0;
       const email = user.email || "";
       const displayName = preferredMemberName(user);
       if (passUserName) passUserName.textContent = displayName;
-      if (avatarInitials) avatarInitials.textContent = initialsFromName(displayName);
+      if (avatarInitials) {
+        const customInitials = (memberProfile && memberProfile.avatarInitials) ? String(memberProfile.avatarInitials).trim() : "";
+        avatarInitials.textContent = customInitials ? customInitials.slice(0, 3).toUpperCase() : initialsFromName(displayName);
+      }
       if (!memberProfile) memberProfile = {};
       if (displayName && !memberProfile.legalName) {
         memberProfile.legalName = displayName;
@@ -14115,6 +14183,38 @@ let onboardingIndex = 0;
     let currentAvatarColor = AVATAR_COLORS[0];
     const AVATAR_FLAIRS = ["★", "⚡", "♫", "🔥", "♥", "👑"];
     let currentAvatarFlair = "";
+    function applyAvatarInitials(value = "", opts = {}) {
+      if (!avatarInitials) return;
+      const trimmed = String(value || "").trim().replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase();
+      if (!trimmed) return;
+      avatarInitials.textContent = trimmed;
+      if (memberProfile) memberProfile.avatarInitials = trimmed;
+      if (opts.persist !== false) {
+        persistMemberState({ avatarInitials: trimmed });
+      }
+      if (currentPassCode && allowLocalCache()) {
+        setMemberDirectoryEntry(currentPassCode, { avatarInitials: trimmed });
+      }
+    }
+    function syncAvatarPaletteActive(color) {
+      if (!avatarPalette) return;
+      avatarPalette.querySelectorAll(".avatar-swatch").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.color === color);
+      });
+    }
+    function buildAvatarPalette() {
+      if (!avatarPalette) return;
+      avatarPalette.innerHTML = AVATAR_COLORS.map((color) => {
+        return `<button type="button" class="avatar-swatch" data-color="${color}" style="background:${color}" aria-label="Select color"></button>`;
+      }).join("");
+      avatarPalette.querySelectorAll(".avatar-swatch").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const color = btn.dataset.color || AVATAR_COLORS[0];
+          applyAvatarColor(color);
+        });
+      });
+      syncAvatarPaletteActive(currentAvatarColor);
+    }
     function applyAvatarColor(color = AVATAR_COLORS[0], opts = {}) {
       if (!avatarInitials) return;
       const chosen = color || AVATAR_COLORS[0];
@@ -14123,6 +14223,7 @@ let onboardingIndex = 0;
       avatarInitials.style.background = `radial-gradient(circle at 30% 30%, ${chosen}, #0b172a)`;
       avatarInitials.style.boxShadow = `0 0 20px ${chosen}55`;
       avatarInitials.dataset.color = chosen;
+      syncAvatarPaletteActive(chosen);
       if (allowLocalCache()) {
         localStorage.setItem(AVATAR_COLOR_KEY, chosen);
         if (currentPassCode) {
@@ -14196,22 +14297,31 @@ let onboardingIndex = 0;
         setMemberDirectoryEntry(currentPassCode, entry);
       }
     }
+    function openAvatarEditor() {
+      if (!avatarInitials) return;
+      const currentInitials = (memberProfile?.avatarInitials || avatarInitials.textContent || "").toString().trim();
+      const initialsInput = prompt("Set your initials (up to 3 letters/numbers):", currentInitials);
+      if (initialsInput !== null && initialsInput.trim()) {
+        applyAvatarInitials(initialsInput);
+      }
+      const currentFlair = currentAvatarFlair || "";
+      const emojiInput = prompt("Pick an emoji for your badge (1 character):", currentFlair);
+      if (emojiInput !== null) {
+        const chosen = (emojiInput.trim() || "").slice(0, 2);
+        applyAvatarFlair(chosen);
+      }
+    }
     if (avatarInitials) {
       avatarInitials.style.cursor = "pointer";
-      avatarInitials.title = "Tap to change color and emoji";
-      avatarInitials.addEventListener("click", () => {
-        const idx = AVATAR_COLORS.findIndex(c => c === currentAvatarColor);
-        const nextColor = AVATAR_COLORS[(idx + 1) % AVATAR_COLORS.length];
-        applyAvatarColor(nextColor);
-        const current = currentAvatarFlair || "";
-        const input = prompt("Pick an emoji for your avatar (1 character):", current);
-        if (input === null) return;
-        const chosen = (input.trim() || "").slice(0, 2); // basic trim to first glyph
-        applyAvatarFlair(chosen);
-      });
+      avatarInitials.title = "Tap to edit badge";
+      avatarInitials.addEventListener("click", openAvatarEditor);
     } else {
       localStorage.removeItem(AVATAR_COLOR_KEY);
     }
+    if (avatarEditBtn) {
+      avatarEditBtn.addEventListener("click", openAvatarEditor);
+    }
+    buildAvatarPalette();
     if (userTaglineEl) {
       userTaglineEl.addEventListener("click", () => {
         const current = (memberProfile?.tagline || "").trim();
