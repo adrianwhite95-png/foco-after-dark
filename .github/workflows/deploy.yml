@@ -26,40 +26,15 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      - name: Write service account key
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: |
-          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            echo "FIREBASE_SERVICE_ACCOUNT secret is missing."
-            exit 1
-          fi
-          trimmed="$(printf '%s' "$FIREBASE_SERVICE_ACCOUNT" | sed -e 's/^[[:space:]]*//')"
-          if printf '%s' "$trimmed" | grep -q '^{'; then
-            printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
-          else
-            echo "$FIREBASE_SERVICE_ACCOUNT" | base64 --decode > "$RUNNER_TEMP/firebase-service-account.json"
-          fi
-          python - <<'PY'
-          import json, os, sys
-          path = os.path.join(os.environ["RUNNER_TEMP"], "firebase-service-account.json")
-          try:
-              data = json.load(open(path, "r"))
-          except Exception as exc:
-              print("Service account JSON invalid:", exc)
-              sys.exit(1)
-          for key in ("client_email", "project_id", "private_key"):
-              if not data.get(key):
-                  print("Service account JSON missing:", key)
-                  sys.exit(1)
-          print("Using service account:", data["client_email"])
-          print("Service account project:", data["project_id"])
-          PY
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy hosting, functions, rules, and indexes
         env:
           PROJECT_ID: foco-after-dark
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
         run: |
           firebase deploy --project "$PROJECT_ID" --only hosting,functions,firestore:rules,firestore:indexes
