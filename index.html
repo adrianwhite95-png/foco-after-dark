@@ -8656,6 +8656,17 @@
     function isFreeMember(profile = memberProfile) {
       return Boolean(profile?.freeMembership);
     }
+    function isStripeExcludedMember(profile = memberProfile) {
+      const override = (profile?.membershipOverride || "").toString().toUpperCase();
+      const email = (profile?.email || firebaseAuth?.currentUser?.email || "").toLowerCase();
+      return (
+        isCeoActive()
+        || profile?.ceo === true
+        || isFreeMember(profile)
+        || email === "ceo@gmail.com"
+        || override === "CEO_FREE"
+      );
+    }
     function hasVipAccess() {
       return currentMembershipTier === "vip" || isCeoActive() || isFreeMember();
     }
@@ -13243,6 +13254,11 @@ let onboardingIndex = 0;
         showScreen("auth");
         return;
       }
+      if (isStripeExcludedMember()) {
+        showToast("This account does not use Stripe billing.");
+        showScreen("pass");
+        return;
+      }
       stripeClientSecret = null;
       if (paymentElementContainer) paymentElementContainer.innerHTML = "";
       if (paymentSubmitBtn) {
@@ -13258,6 +13274,12 @@ let onboardingIndex = 0;
           pendingMembershipTier = tier;
           completeMembership(tier, { force: true });
           showToast("Membership activated");
+          showScreen("pass");
+          return;
+        }
+        if (data.alreadyActive) {
+          pendingMembershipTier = null;
+          showToast("Membership already active.");
           showScreen("pass");
           return;
         }
@@ -13280,7 +13302,10 @@ let onboardingIndex = 0;
         }
       } catch (err) {
         console.warn("prepareStripePayment failed", err);
-        const msg = err?.message || "Could not start payment. Please try again.";
+        const blocked = err?.code === "failed-precondition" && err?.details?.reason === "CEO_OR_CEO_FREE";
+        const msg = blocked
+          ? "Billing is disabled for this account."
+          : (err?.message || "Could not start payment. Please try again.");
         paymentError.textContent = msg;
         if (paymentSubmitBtn) {
           paymentSubmitBtn.disabled = false;
@@ -13319,6 +13344,10 @@ let onboardingIndex = 0;
       if (!firebaseAuth.currentUser) {
         if (voucherPaymentError) voucherPaymentError.textContent = "Please sign in first.";
         showScreen("auth");
+        return;
+      }
+      if (isStripeExcludedMember()) {
+        showToast("Voucher purchases are disabled for this account.");
         return;
       }
       resetVoucherPaymentState();
@@ -13538,11 +13567,21 @@ let onboardingIndex = 0;
         showScreen("auth");
         return false;
       }
+      if (isStripeExcludedMember()) {
+        showToast("This account does not use Stripe billing.");
+        pendingMembershipTier = null;
+        return true;
+      }
       try {
         const fn = httpsCallable(functionsClient, "chargeMembershipOnFile");
         const resp = await fn({ tier });
         const data = resp?.data || {};
         if (data.free) {
+          pendingMembershipTier = null;
+          completeMembership(tier, { force: true });
+          return true;
+        }
+        if (data.alreadyActive) {
           pendingMembershipTier = null;
           completeMembership(tier, { force: true });
           return true;
@@ -19648,6 +19687,10 @@ let onboardingIndex = 0;
       manageBillingBtn.addEventListener("click", async () => {
         if (!functionsClient) {
           showToast("Billing not available right now.");
+          return;
+        }
+        if (isStripeExcludedMember()) {
+          showToast("Billing portal disabled for this account.");
           return;
         }
         showToast("Opening billing portal…");

@@ -1311,20 +1311,6 @@ async function applyVoucherPack(uid, pack) {
   return { extraVouchers: data.extraVouchers || {} };
 }
 
-async function ensureStripeCustomer(uid, email) {
-  const ref = db.collection('members').doc(uid);
-  const snap = await ref.get();
-  const data = snap.exists ? snap.data() : {};
-  if (data.stripeCustomerId) return data.stripeCustomerId;
-  const stripe = getStripeClient();
-  const customer = await stripe.customers.create({
-    email: email || undefined,
-    metadata: { uid }
-  });
-  await ref.set({ stripeCustomerId: customer.id }, { merge: true });
-  return customer.id;
-}
-
 const stripeSecrets = { secrets: ["STRIPE_SECRET", "STRIPE_PUBLISHABLE"] };
 const stripeWebhookSecrets = { secrets: ["STRIPE_SECRET", "STRIPE_WEBHOOK_SECRET"] };
 
@@ -1339,53 +1325,253 @@ function isCeoContext(context, profileData) {
   );
 }
 
+function normalizeTierKey(tier = "standard") {
+  const key = String(tier || "standard").toLowerCase();
+  if (key === "vip") return "vip";
+  return "standard";
+}
+
+function membershipTierLabel(tier = "standard") {
+  return normalizeTierKey(tier).toUpperCase();
+}
+
+function isoFromUnix(seconds) {
+  const value = Number(seconds || 0);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return new Date(value * 1000).toISOString();
+}
+
+function stripeStatusToPaymentStatus(status = "") {
+  const key = String(status || "").toLowerCase();
+  if (key === "active" || key === "trialing") return "active";
+  if (key === "past_due" || key === "unpaid" || key === "incomplete") return "past_due";
+  if (key === "canceled" || key === "incomplete_expired") return "canceled";
+  return "active";
+}
+
+function stripeExcludedError() {
+  return new HttpsError(
+    "failed-precondition",
+    "Stripe disabled for this account type.",
+    { reason: "CEO_OR_CEO_FREE" }
+  );
+}
+
+function isStripeExcluded(token = {}, memberDocData = {}) {
+  const claimEmail = (token?.email || "").toLowerCase();
+  const memberEmail = (memberDocData?.email || "").toLowerCase();
+  const email = claimEmail || memberEmail;
+  const overrideRaw = memberDocData?.membershipOverride
+    || memberDocData?.membership_override
+    || memberDocData?.membershipTierOverride
+    || "";
+  const override = String(overrideRaw || "").toUpperCase();
+  return (
+    token?.ceo === true
+    || email === "ceo@gmail.com"
+    || memberDocData?.ceo === true
+    || memberDocData?.freeMembership === true
+    || override === "CEO_FREE"
+  );
+}
+
+async function getMemberContext(uid) {
+  const ref = db.collection("members").doc(uid);
+  const snap = await ref.get();
+  const data = snap.exists ? snap.data() : {};
+  return { ref, data };
+}
+
+function assertStripeAllowed(context, memberDocData) {
+  if (!context?.auth) {
+    throw new HttpsError("unauthenticated", "Auth required");
+  }
+  if (isStripeExcluded(context.auth.token, memberDocData)) {
+    throw stripeExcludedError();
+  }
+}
+
+async function ensureStripeCustomer({ stripe, memberRef, memberDocData, uid, email, token }) {
+  if (isStripeExcluded(token, memberDocData)) {
+    throw stripeExcludedError();
+  }
+  if (memberDocData?.stripeCustomerId) return memberDocData.stripeCustomerId;
+  const customer = await stripe.customers.create({
+    email: email || undefined,
+    metadata: { uid }
+  });
+  await memberRef.set({
+    stripeCustomerId: customer.id,
+    billingProvider: "stripe",
+  }, { merge: true });
+  return customer.id;
+}
+
+function subscriptionPriceDataForTier(tier) {
+  const key = normalizeTierKey(tier);
+  return {
+    currency: "usd",
+    unit_amount: priceForTier(key),
+    recurring: { interval: "month" },
+    product_data: {
+      name: `FoCo After Dark ${membershipTierLabel(key)}`,
+    },
+  };
+}
+
+async function retrieveStripeSubscription(stripe, subscriptionId) {
+  if (!subscriptionId) return null;
+  try {
+    return await stripe.subscriptions.retrieve(subscriptionId, {
+      expand: ["latest_invoice.payment_intent", "items.data.price"],
+    });
+  } catch (err) {
+    console.warn("Failed to retrieve Stripe subscription", subscriptionId, err?.message || err);
+    return null;
+  }
+}
+
+async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, uid, email, tier, token }) {
+  const normalizedTier = normalizeTierKey(tier);
+  const customerId = await ensureStripeCustomer({
+    stripe,
+    memberRef,
+    memberDocData,
+    uid,
+    email,
+    token,
+  });
+
+  let subscription = await retrieveStripeSubscription(stripe, memberDocData?.stripeSubscriptionId);
+  const hasActiveSubscription = subscription && !["canceled", "incomplete_expired"].includes(subscription.status);
+
+  if (hasActiveSubscription) {
+    const currentItem = subscription.items?.data?.[0];
+    const currentTier = normalizeTierKey(subscription.metadata?.tier || memberDocData?.tier || normalizedTier);
+    if (currentItem && currentTier !== normalizedTier) {
+      subscription = await stripe.subscriptions.update(subscription.id, {
+        cancel_at_period_end: false,
+        proration_behavior: "none",
+        billing_cycle_anchor: "unchanged",
+        metadata: { uid, tier: normalizedTier },
+        items: [{
+          id: currentItem.id,
+          price_data: subscriptionPriceDataForTier(normalizedTier),
+        }],
+        expand: ["latest_invoice.payment_intent", "items.data.price"],
+      });
+    } else if (subscription.metadata?.tier !== normalizedTier) {
+      subscription = await stripe.subscriptions.update(subscription.id, {
+        metadata: { uid, tier: normalizedTier },
+        expand: ["latest_invoice.payment_intent", "items.data.price"],
+      });
+    }
+  } else {
+    subscription = await stripe.subscriptions.create({
+      customer: customerId,
+      items: [{ price_data: subscriptionPriceDataForTier(normalizedTier) }],
+      payment_behavior: "default_incomplete",
+      payment_settings: { save_default_payment_method: "on_subscription" },
+      metadata: { uid, tier: normalizedTier },
+      expand: ["latest_invoice.payment_intent", "items.data.price"],
+    });
+  }
+
+  const paymentIntent = subscription?.latest_invoice?.payment_intent || null;
+  const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
+  const updatePayload = {
+    tier: normalizedTier,
+    membershipTier: membershipTierLabel(normalizedTier),
+    membershipStatus: subscription?.status || "active",
+    paymentStatus: stripeStatusToPaymentStatus(subscription?.status),
+    billingProvider: "stripe",
+    stripeCustomerId: subscription?.customer || customerId,
+    stripeSubscriptionId: subscription?.id || null,
+    currentPeriodEnd: currentPeriodEndIso,
+    nextRenewal: currentPeriodEndIso,
+    cancelAtPeriodEnd: subscription?.cancel_at_period_end === true,
+    lastStripeEvent: "subscription_upsert",
+    lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  await memberRef.set(updatePayload, { merge: true });
+
+  return { subscription, paymentIntent };
+}
+
 exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  const uid = context.auth.uid;
+  const email = (context.auth.token.email || '').toLowerCase();
+  const tier = normalizeTierKey((data?.tier || 'standard').toString());
+  const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
+  assertStripeAllowed(context, memberDocData);
   const stripe = getStripeClient();
   const { publishable } = getStripeConfig();
   if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
-  const uid = context.auth.uid;
-  const email = (context.auth.token.email || '').toLowerCase();
-  const tier = (data?.tier || 'standard').toString();
-  // CEO should not be charged
-  if ((email === 'ceo@gmail.com') || context.auth.token.ceo) {
-    return { clientSecret: null, publishableKey: publishable, free: true };
-  }
-  const amount = priceForTier(tier);
-  const customerId = await ensureStripeCustomer(uid, email);
-  const intent = await stripe.paymentIntents.create({
-    amount,
-    currency: 'usd',
-    customer: customerId,
-    payment_method_types: ['card'],
-    setup_future_usage: 'off_session',
-    metadata: { uid, tier }
+
+  const { subscription, paymentIntent } = await upsertMembershipSubscription({
+    stripe,
+    memberRef,
+    memberDocData,
+    uid,
+    email,
+    tier,
+    token: context.auth.token,
   });
-  return { clientSecret: intent.client_secret, publishableKey: publishable };
+
+  if (!paymentIntent?.client_secret) {
+    return {
+      publishableKey: publishable,
+      subscriptionId: subscription?.id || null,
+      tier,
+      alreadyActive: true,
+    };
+  }
+  return {
+    clientSecret: paymentIntent.client_secret,
+    publishableKey: publishable,
+    subscriptionId: subscription?.id || null,
+    tier,
+  };
 });
 
 exports.confirmMembershipActivation = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
-  const stripe = getStripeClient();
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
   const uid = context.auth.uid;
   const paymentIntentId = (data?.paymentIntentId || '').toString();
   if (!paymentIntentId) throw new HttpsError('invalid-argument', 'paymentIntentId required');
+  const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
+  assertStripeAllowed(context, memberDocData);
+  const stripe = getStripeClient();
   const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
   if (intent.status !== 'succeeded') throw new HttpsError('failed-precondition', 'Payment not successful');
-  const tier = intent.metadata?.tier || 'standard';
-  const customerId = intent.customer;
-  const defaultPm = intent.payment_method;
-  const nextRenewal = new Date();
-  nextRenewal.setMonth(nextRenewal.getMonth() + 1);
-  await db.collection('members').doc(uid).set({
+  const invoiceId = intent.invoice;
+  let subscription = intent.subscription ? await retrieveStripeSubscription(stripe, intent.subscription) : null;
+  if (!subscription && invoiceId) {
+    const invoice = await stripe.invoices.retrieve(invoiceId);
+    if (invoice?.subscription) {
+      subscription = await retrieveStripeSubscription(stripe, invoice.subscription);
+    }
+  }
+  const tier = normalizeTierKey(intent.metadata?.tier || memberDocData?.tier || 'standard');
+  const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
+  const updates = {
     tier,
-    stripeCustomerId: customerId,
-    defaultPaymentMethodId: defaultPm || null,
-    paymentStatus: 'active',
-    nextRenewal: nextRenewal.toISOString(),
-    lastCharge: new Date().toISOString()
-  }, { merge: true });
-  return { ok: true, tier };
+    membershipTier: membershipTierLabel(tier),
+    billingProvider: "stripe",
+    membershipStatus: subscription?.status || "active",
+    paymentStatus: stripeStatusToPaymentStatus(subscription?.status || "active"),
+    stripeCustomerId: intent.customer || subscription?.customer || memberDocData?.stripeCustomerId || null,
+    stripeSubscriptionId: subscription?.id || memberDocData?.stripeSubscriptionId || null,
+    defaultPaymentMethodId: intent.payment_method || memberDocData?.defaultPaymentMethodId || null,
+    lastCharge: new Date().toISOString(),
+    currentPeriodEnd: currentPeriodEndIso,
+    nextRenewal: currentPeriodEndIso,
+    lastStripeEvent: "membership_confirmed",
+    lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  await memberRef.set(updates, { merge: true });
+  return { ok: true, tier, subscriptionId: updates.stripeSubscriptionId };
 });
 
 function nextMonthlyRenewalISO(fromDate = new Date()) {
@@ -1394,19 +1580,133 @@ function nextMonthlyRenewalISO(fromDate = new Date()) {
   return next.toISOString();
 }
 
+async function findMemberByStripeCustomerId(customerId) {
+  if (!customerId) return null;
+  try {
+    const snap = await db.collection("members")
+      .where("stripeCustomerId", "==", customerId)
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+    const docSnap = snap.docs[0];
+    return { uid: docSnap.id, ref: docSnap.ref, data: docSnap.data() || {} };
+  } catch (err) {
+    console.warn("findMemberByStripeCustomerId failed", customerId, err?.message || err);
+    return null;
+  }
+}
+
+async function resolveMemberContextFromStripeObject(obj = {}) {
+  const uidFromMeta = (obj?.metadata?.uid || "").toString();
+  if (uidFromMeta) {
+    const ctx = await getMemberContext(uidFromMeta);
+    return { uid: uidFromMeta, ref: ctx.ref, data: ctx.data };
+  }
+  const customerId = (obj?.customer || "").toString();
+  return findMemberByStripeCustomerId(customerId);
+}
+
+async function retrieveSubscriptionFromIntent(stripe, intent) {
+  if (!intent) return null;
+  const subId = (intent.subscription || "").toString();
+  if (subId) {
+    return retrieveStripeSubscription(stripe, subId);
+  }
+  const invoiceId = (intent.invoice || "").toString();
+  if (!invoiceId) return null;
+  try {
+    const invoice = await stripe.invoices.retrieve(invoiceId);
+    const invoiceSubId = (invoice?.subscription || "").toString();
+    if (!invoiceSubId) return null;
+    return retrieveStripeSubscription(stripe, invoiceSubId);
+  } catch (err) {
+    console.warn("Failed to resolve subscription from invoice", invoiceId, err?.message || err);
+    return null;
+  }
+}
+
+async function applyStripeSubscriptionUpdate(subscription, memberCtx, eventType = "subscription_update") {
+  if (!subscription || !memberCtx?.uid || !memberCtx?.ref) return;
+  const { uid, ref: memberRef, data: memberDocData } = memberCtx;
+  if (isStripeExcluded({}, memberDocData)) {
+    await memberRef.set({
+      billingProvider: "none",
+      membershipStatus: "active",
+      paymentStatus: "active",
+      cancelAtPeriodEnd: false,
+      stripeCustomerId: admin.firestore.FieldValue.delete(),
+      stripeSubscriptionId: admin.firestore.FieldValue.delete(),
+      lastStripeEvent: `${eventType}:excluded`,
+      lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return;
+  }
+
+  const tier = normalizeTierKey(subscription?.metadata?.tier || memberDocData?.tier || "standard");
+  const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
+  const updates = {
+    tier,
+    membershipTier: membershipTierLabel(tier),
+    billingProvider: "stripe",
+    membershipStatus: subscription?.status || "active",
+    paymentStatus: stripeStatusToPaymentStatus(subscription?.status),
+    stripeCustomerId: subscription?.customer || memberDocData?.stripeCustomerId || null,
+    stripeSubscriptionId: subscription?.id || memberDocData?.stripeSubscriptionId || null,
+    currentPeriodEnd: currentPeriodEndIso,
+    nextRenewal: currentPeriodEndIso,
+    cancelAtPeriodEnd: subscription?.cancel_at_period_end === true,
+    canceledAt: isoFromUnix(subscription?.canceled_at) || null,
+    lastStripeEvent: eventType,
+    lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  await memberRef.set(updates, { merge: true });
+}
+
 async function applyStripePaymentIntentUpdate(intent, status) {
   const uid = (intent?.metadata?.uid || "").toString();
   if (!uid) return;
+  const memberCtx = await getMemberContext(uid);
+  if (isStripeExcluded({}, memberCtx.data)) {
+    await memberCtx.ref.set({
+      billingProvider: "none",
+      membershipStatus: "active",
+      paymentStatus: "active",
+      stripeCustomerId: admin.firestore.FieldValue.delete(),
+      stripeSubscriptionId: admin.firestore.FieldValue.delete(),
+      lastStripeEvent: `payment_intent.${status}:excluded`,
+      lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return;
+  }
   const updates = {
     lastStripeEvent: status,
     lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp()
   };
   if (status === "succeeded") {
-    const tier = (intent?.metadata?.tier || "").toString();
+    const tier = normalizeTierKey((intent?.metadata?.tier || memberCtx.data?.tier || "standard").toString());
     if (tier) updates.tier = tier;
+    updates.membershipTier = membershipTierLabel(tier);
+    updates.billingProvider = "stripe";
     updates.paymentStatus = "active";
     updates.lastCharge = new Date().toISOString();
-    updates.nextRenewal = nextMonthlyRenewalISO();
+    try {
+      const stripe = getStripeClient();
+      const subscription = await retrieveSubscriptionFromIntent(stripe, intent);
+      if (subscription) {
+        const periodEndIso = isoFromUnix(subscription.current_period_end);
+        updates.membershipStatus = subscription.status || "active";
+        updates.paymentStatus = stripeStatusToPaymentStatus(subscription.status);
+        updates.currentPeriodEnd = periodEndIso;
+        updates.nextRenewal = periodEndIso;
+        updates.stripeSubscriptionId = subscription.id;
+        updates.cancelAtPeriodEnd = subscription.cancel_at_period_end === true;
+      } else {
+        updates.nextRenewal = nextMonthlyRenewalISO();
+      }
+    } catch (err) {
+      console.warn("Failed to sync subscription from payment intent", err?.message || err);
+      updates.nextRenewal = nextMonthlyRenewalISO();
+    }
     if (intent?.payment_method) updates.defaultPaymentMethodId = intent.payment_method;
     if (intent?.customer) updates.stripeCustomerId = intent.customer;
   }
@@ -1453,6 +1753,53 @@ exports.stripeWebhook = functions.runWith(stripeWebhookSecrets).https.onRequest(
         if (intent?.customer) updates.stripeCustomerId = intent.customer;
         await db.collection("members").doc(uid).set(updates, { merge: true });
       }
+    } else if (event.type === "customer.subscription.created"
+      || event.type === "customer.subscription.updated"
+      || event.type === "customer.subscription.deleted") {
+      const memberCtx = await resolveMemberContextFromStripeObject(intent);
+      await applyStripeSubscriptionUpdate(intent, memberCtx, event.type);
+    } else if (event.type === "invoice.payment_succeeded"
+      || event.type === "invoice.payment_failed") {
+      const memberCtx = await resolveMemberContextFromStripeObject(intent);
+      if (memberCtx?.ref && !isStripeExcluded({}, memberCtx.data)) {
+        const paid = event.type === "invoice.payment_succeeded";
+        const periodEnd = intent?.lines?.data?.[0]?.period?.end;
+        const periodEndIso = isoFromUnix(periodEnd) || memberCtx.data?.nextRenewal || null;
+        const invoiceUpdates = {
+          billingProvider: "stripe",
+          lastInvoiceId: intent?.id || null,
+          lastInvoiceStatus: intent?.status || null,
+          lastInvoicePaid: paid,
+          lastStripeEvent: event.type,
+          lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        if (paid) {
+          invoiceUpdates.paymentStatus = "active";
+          invoiceUpdates.membershipStatus = "active";
+          invoiceUpdates.lastCharge = new Date().toISOString();
+          if (periodEndIso) {
+            invoiceUpdates.currentPeriodEnd = periodEndIso;
+            invoiceUpdates.nextRenewal = periodEndIso;
+          }
+        } else {
+          invoiceUpdates.paymentStatus = "past_due";
+          invoiceUpdates.membershipStatus = "past_due";
+        }
+        await memberCtx.ref.set(invoiceUpdates, { merge: true });
+      }
+    } else if (event.type === "checkout.session.completed") {
+      const memberCtx = await resolveMemberContextFromStripeObject(intent);
+      if (memberCtx?.ref && isStripeExcluded({}, memberCtx.data)) {
+        await memberCtx.ref.set({
+          billingProvider: "none",
+          membershipStatus: "active",
+          paymentStatus: "active",
+          stripeCustomerId: admin.firestore.FieldValue.delete(),
+          stripeSubscriptionId: admin.firestore.FieldValue.delete(),
+          lastStripeEvent: "checkout.session.completed:excluded",
+          lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      }
     }
   } catch (err) {
     console.warn("Stripe webhook handler failed", err?.message || err);
@@ -1463,13 +1810,22 @@ exports.stripeWebhook = functions.runWith(stripeWebhookSecrets).https.onRequest(
 });
 
 exports.createSetupIntent = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  const uid = context.auth.uid;
+  const email = (context.auth.token.email || '').toLowerCase();
+  const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
+  assertStripeAllowed(context, memberDocData);
   const stripe = getStripeClient();
   const { publishable } = getStripeConfig();
   if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
-  const uid = context.auth.uid;
-  const email = (context.auth.token.email || '').toLowerCase();
-  const customerId = await ensureStripeCustomer(uid, email);
+  const customerId = await ensureStripeCustomer({
+    stripe,
+    memberRef,
+    memberDocData,
+    uid,
+    email,
+    token: context.auth.token,
+  });
   const setupIntent = await stripe.setupIntents.create({
     customer: customerId,
     payment_method_types: ['card'],
@@ -1479,11 +1835,20 @@ exports.createSetupIntent = functions.runWith(stripeSecrets).https.onCall(async 
 });
 
 exports.createBillingPortalSession = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
-  const stripe = getStripeClient();
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
   const uid = context.auth.uid;
   const email = (context.auth.token.email || '').toLowerCase();
-  const customerId = await ensureStripeCustomer(uid, email);
+  const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
+  assertStripeAllowed(context, memberDocData);
+  const stripe = getStripeClient();
+  const customerId = await ensureStripeCustomer({
+    stripe,
+    memberRef,
+    memberDocData,
+    uid,
+    email,
+    token: context.auth.token,
+  });
   const returnUrl = (data?.returnUrl || 'https://foco-after-dark.web.app').toString();
   const session = await stripe.billingPortal.sessions.create({
     customer: customerId,
@@ -1493,24 +1858,25 @@ exports.createBillingPortalSession = functions.runWith(stripeSecrets).https.onCa
 });
 
 exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  const uid = context.auth.uid;
+  const email = (context.auth.token.email || '').toLowerCase();
+  const tier = normalizeTierKey((data?.tier || 'standard').toString());
+
+  const { ref: memberRef, data: profile } = await getMemberContext(uid);
+  assertStripeAllowed(context, profile);
   const stripe = getStripeClient();
   const { publishable } = getStripeConfig();
   if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
-  const uid = context.auth.uid;
-  const email = (context.auth.token.email || '').toLowerCase();
-  const tier = (data?.tier || 'standard').toString();
 
-  const memberRef = db.collection('members').doc(uid);
-  const memberSnap = await memberRef.get();
-  const profile = memberSnap.exists ? memberSnap.data() : {};
-
-  if (isCeoContext(context, profile) || profile.freeMembership) {
-    return { free: true, tier };
-  }
-
-  const amount = priceForTier(tier);
-  const customerId = await ensureStripeCustomer(uid, email);
+  const customerId = await ensureStripeCustomer({
+    stripe,
+    memberRef,
+    memberDocData: profile,
+    uid,
+    email,
+    token: context.auth.token,
+  });
   let defaultPm = profile.defaultPaymentMethodId || null;
   if (!defaultPm) {
     const customer = await stripe.customers.retrieve(customerId);
@@ -1523,62 +1889,111 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     throw new HttpsError('failed-precondition', 'No card on file');
   }
 
-  const intent = await stripe.paymentIntents.create({
-    amount,
-    currency: 'usd',
-    customer: customerId,
-    payment_method: defaultPm,
-    confirm: true,
-    off_session: false,
-    payment_method_types: ['card'],
-    setup_future_usage: 'off_session',
-    metadata: { uid, tier, source: 'membership_change' }
-  });
+  let subscription = await retrieveStripeSubscription(stripe, profile?.stripeSubscriptionId);
+  const hasActiveSubscription = subscription && !["canceled", "incomplete_expired"].includes(subscription.status);
+  if (hasActiveSubscription) {
+    const currentTier = normalizeTierKey(subscription.metadata?.tier || profile?.tier || tier);
+    const sameTierActive = currentTier === tier && subscription.status === "active" && subscription.cancel_at_period_end !== true;
+    if (sameTierActive) {
+      const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
+      await memberRef.set({
+        tier,
+        membershipTier: membershipTierLabel(tier),
+        billingProvider: "stripe",
+        membershipStatus: subscription.status || "active",
+        paymentStatus: stripeStatusToPaymentStatus(subscription.status || "active"),
+        stripeCustomerId: subscription.customer || customerId,
+        stripeSubscriptionId: subscription.id,
+        currentPeriodEnd: currentPeriodEndIso,
+        nextRenewal: currentPeriodEndIso,
+        cancelAtPeriodEnd: false,
+        lastStripeEvent: "chargeMembershipOnFile:already_active",
+        lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return { ok: true, tier, subscriptionId: subscription.id, alreadyActive: true };
+    }
+    const currentItem = subscription.items?.data?.[0];
+    if (currentItem) {
+      subscription = await stripe.subscriptions.update(subscription.id, {
+        cancel_at_period_end: false,
+        proration_behavior: "none",
+        billing_cycle_anchor: "unchanged",
+        default_payment_method: defaultPm,
+        metadata: { uid, tier },
+        items: [{
+          id: currentItem.id,
+          price_data: subscriptionPriceDataForTier(tier),
+        }],
+        expand: ["latest_invoice.payment_intent", "items.data.price"],
+      });
+    }
+  } else {
+    subscription = await stripe.subscriptions.create({
+      customer: customerId,
+      default_payment_method: defaultPm,
+      items: [{ price_data: subscriptionPriceDataForTier(tier) }],
+      payment_behavior: "default_incomplete",
+      payment_settings: { save_default_payment_method: "on_subscription" },
+      metadata: { uid, tier },
+      expand: ["latest_invoice.payment_intent", "items.data.price"],
+    });
+  }
 
-  if (intent.status === 'requires_action' && intent.client_secret) {
+  const paymentIntent = subscription?.latest_invoice?.payment_intent || null;
+  if (paymentIntent?.status === "requires_action" && paymentIntent.client_secret) {
     return {
       requiresAction: true,
-      clientSecret: intent.client_secret,
+      clientSecret: paymentIntent.client_secret,
       publishableKey: publishable,
-      paymentIntentId: intent.id,
-      tier
+      paymentIntentId: paymentIntent.id,
+      subscriptionId: subscription.id,
+      tier,
     };
   }
-  if (intent.status !== 'succeeded') {
-    throw new HttpsError('failed-precondition', 'Payment did not complete');
+  if (paymentIntent && paymentIntent.status !== "succeeded") {
+    throw new HttpsError("failed-precondition", "Payment did not complete");
   }
 
-  const nextRenewal = new Date();
-  nextRenewal.setMonth(nextRenewal.getMonth() + 1);
+  const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
   await memberRef.set({
     tier,
+    membershipTier: membershipTierLabel(tier),
+    billingProvider: "stripe",
+    membershipStatus: subscription?.status || "active",
+    paymentStatus: stripeStatusToPaymentStatus(subscription?.status || "active"),
     stripeCustomerId: customerId,
-    defaultPaymentMethodId: defaultPm || intent.payment_method || null,
-    paymentStatus: 'active',
-    nextRenewal: nextRenewal.toISOString(),
-    lastCharge: new Date().toISOString()
+    stripeSubscriptionId: subscription?.id || profile?.stripeSubscriptionId || null,
+    defaultPaymentMethodId: defaultPm || paymentIntent?.payment_method || null,
+    currentPeriodEnd: currentPeriodEndIso,
+    nextRenewal: currentPeriodEndIso,
+    lastCharge: paymentIntent ? new Date().toISOString() : (profile?.lastCharge || null),
+    lastStripeEvent: "chargeMembershipOnFile",
+    lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
-  return { ok: true, tier };
+  return { ok: true, tier, subscriptionId: subscription?.id || null };
 });
 
 exports.createVoucherPaymentIntent = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
-  const stripe = getStripeClient();
-  const { publishable } = getStripeConfig();
-  if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
   const uid = context.auth.uid;
   const email = (context.auth.token.email || '').toLowerCase();
   const packId = (data?.packId || '').toString().toLowerCase();
-  const memberRef = db.collection('members').doc(uid);
-  const memberSnap = await memberRef.get();
-  const profile = memberSnap.exists ? memberSnap.data() : {};
-  if (isCeoContext(context, profile) || profile.freeMembership) {
-    throw new HttpsError('failed-precondition', 'Free/CEO accounts do not need voucher purchases');
-  }
+  const { ref: memberRef, data: profile } = await getMemberContext(uid);
+  assertStripeAllowed(context, profile);
+  const stripe = getStripeClient();
+  const { publishable } = getStripeConfig();
+  if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
   const tier = (profile.tier || 'standard').toString();
   const pack = resolveVoucherPack(tier, packId);
   if (!pack) throw new HttpsError('invalid-argument', 'Unknown voucher pack');
-  const customerId = await ensureStripeCustomer(uid, email);
+  const customerId = await ensureStripeCustomer({
+    stripe,
+    memberRef,
+    memberDocData: profile,
+    uid,
+    email,
+    token: context.auth.token,
+  });
   const intent = await stripe.paymentIntents.create({
     amount: pack.priceCents,
     currency: 'usd',
@@ -1595,23 +2010,26 @@ exports.createVoucherPaymentIntent = functions.runWith(stripeSecrets).https.onCa
 });
 
 exports.chargeVoucherOnFile = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
-  const stripe = getStripeClient();
-  const { publishable } = getStripeConfig();
-  if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
   const uid = context.auth.uid;
   const email = (context.auth.token.email || '').toLowerCase();
   const packId = (data?.packId || '').toString().toLowerCase();
-  const memberRef = db.collection('members').doc(uid);
-  const memberSnap = await memberRef.get();
-  const profile = memberSnap.exists ? memberSnap.data() : {};
-  if (isCeoContext(context, profile) || profile.freeMembership) {
-    throw new HttpsError('failed-precondition', 'Free/CEO accounts do not need voucher purchases');
-  }
+  const { ref: memberRef, data: profile } = await getMemberContext(uid);
+  assertStripeAllowed(context, profile);
+  const stripe = getStripeClient();
+  const { publishable } = getStripeConfig();
+  if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
   const tier = (profile.tier || 'standard').toString();
   const pack = resolveVoucherPack(tier, packId);
   if (!pack) throw new HttpsError('invalid-argument', 'Unknown voucher pack');
-  const customerId = await ensureStripeCustomer(uid, email);
+  const customerId = await ensureStripeCustomer({
+    stripe,
+    memberRef,
+    memberDocData: profile,
+    uid,
+    email,
+    token: context.auth.token,
+  });
   let defaultPm = profile.defaultPaymentMethodId || null;
   if (!defaultPm) {
     const customer = await stripe.customers.retrieve(customerId);
@@ -1652,11 +2070,13 @@ exports.chargeVoucherOnFile = functions.runWith(stripeSecrets).https.onCall(asyn
 });
 
 exports.confirmVoucherPurchase = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
-  const stripe = getStripeClient();
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
   const uid = context.auth.uid;
   const paymentIntentId = (data?.paymentIntentId || '').toString();
   if (!paymentIntentId) throw new HttpsError('invalid-argument', 'paymentIntentId required');
+  const memberCtx = await getMemberContext(uid);
+  assertStripeAllowed(context, memberCtx.data);
+  const stripe = getStripeClient();
   const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
   if (intent.status !== 'succeeded') throw new HttpsError('failed-precondition', 'Payment not successful');
   const metaUid = (intent.metadata?.uid || '').toString();
@@ -2072,14 +2492,37 @@ exports.cancelMembership = functions.https.onCall(async (data, context) => {
   if (isCeo) throw new HttpsError('failed-precondition', 'CEO account cannot be canceled.');
 
   const wipe = data?.wipe === true;
+  const nowIso = new Date().toISOString();
+  let currentPeriodEndIso = docData.currentPeriodEnd || docData.nextRenewal || null;
+
+  // For paid members, cancel the Stripe subscription at period end (Netflix-style cadence).
+  if (!isStripeExcluded(context.auth.token, docData) && docData.stripeSubscriptionId) {
+    try {
+      const stripe = getStripeClient();
+      const sub = await stripe.subscriptions.update(docData.stripeSubscriptionId, {
+        cancel_at_period_end: true,
+      });
+      currentPeriodEndIso = isoFromUnix(sub.current_period_end) || currentPeriodEndIso;
+      await ref.set({
+        stripeCustomerId: sub.customer || docData.stripeCustomerId || null,
+        stripeSubscriptionId: sub.id,
+      }, { merge: true });
+    } catch (err) {
+      console.warn("Failed to set cancel_at_period_end on Stripe subscription", err?.message || err);
+    }
+  }
+
   const updates = {
-    tier: null,
-    paymentStatus: 'canceled',
-    nextRenewal: null,
-    lastCharge: null,
-    defaultPaymentMethodId: null,
-    canceledAt: new Date().toISOString()
+    cancelAtPeriodEnd: true,
+    cancelRequestedAt: nowIso,
+    membershipStatus: "canceling",
+    paymentStatus: docData.paymentStatus || 'active',
+    currentPeriodEnd: currentPeriodEndIso,
+    nextRenewal: currentPeriodEndIso,
   };
+  if (currentPeriodEndIso) {
+    updates.canceledAt = currentPeriodEndIso;
+  }
 
   // Apply updates
   await ref.set(updates, { merge: true });
@@ -2095,7 +2538,7 @@ exports.cancelMembership = functions.https.onCall(async (data, context) => {
       clearedAt: new Date().toISOString()
     }, { merge: true });
   }
-  return { ok: true, canceled: true, wiped: wipe };
+  return { ok: true, canceled: true, cancelAtPeriodEnd: true, currentPeriodEnd: currentPeriodEndIso, wiped: wipe };
 });
 
 // Launch mode toggle (CEO only) to switch between beta and live UI/flows
@@ -2176,51 +2619,21 @@ exports.processRenewals = functions.runWith({ secrets: ["STRIPE_SECRET"] }).pubs
     console.warn('Stripe not configured; skipping renewals');
     return null;
   }
-  const now = new Date();
-  const isoNow = now.toISOString();
   const snap = await db.collection('members')
-    .where('nextRenewal', '<=', isoNow)
+    .where('stripeSubscriptionId', '!=', null)
+    .orderBy('stripeSubscriptionId')
     .limit(200)
     .get();
   for (const docSnap of snap.docs) {
     const data = docSnap.data() || {};
     const uid = docSnap.id;
-    if (data.paymentStatus === 'canceled' || data.paused === true || !data.tier) {
-      continue;
-    }
-    const tier = data.tier || 'standard';
-    const customerId = data.stripeCustomerId;
-    const defaultPm = data.defaultPaymentMethodId;
-    const isCeo = data.ceo === true || (data.email || '').toLowerCase() === 'ceo@gmail.com' || (data.passCode || '').toUpperCase() === 'DREE4695';
-    if (isCeo) continue;
-    if (!customerId || !defaultPm) {
-      await docSnap.ref.set({ paymentStatus: 'past_due' }, { merge: true });
-      continue;
-    }
+    if (data.paused === true || !data.stripeSubscriptionId) continue;
+    if (isStripeExcluded({}, data)) continue;
     try {
-      const intent = await stripe.paymentIntents.create({
-        amount: priceForTier(tier),
-        currency: 'usd',
-        customer: customerId,
-        payment_method: defaultPm,
-        off_session: true,
-        confirm: true,
-        metadata: { uid, tier, renewal: 'true' }
-      });
-      if (intent.status === 'succeeded') {
-        const next = new Date(now);
-        next.setMonth(next.getMonth() + 1);
-        await docSnap.ref.set({
-          paymentStatus: 'active',
-          lastCharge: isoNow,
-          nextRenewal: next.toISOString()
-        }, { merge: true });
-      } else {
-        await docSnap.ref.set({ paymentStatus: 'past_due' }, { merge: true });
-      }
+      const subscription = await retrieveStripeSubscription(stripe, data.stripeSubscriptionId);
+      await applyStripeSubscriptionUpdate(subscription, { uid, ref: docSnap.ref, data }, "scheduled.sync");
     } catch (err) {
-      console.warn('Renewal charge failed for', uid, err?.message);
-      await docSnap.ref.set({ paymentStatus: 'past_due' }, { merge: true });
+      console.warn('Subscription sync failed for', uid, err?.message || err);
     }
   }
   return null;
