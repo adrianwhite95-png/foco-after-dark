@@ -1722,6 +1722,10 @@
         right: 12px;
       }
     }
+    /* Hide realtime pill for now without changing logic */
+    #realtimeStatusPill {
+      display: none !important;
+    }
 
     .profile-summary {
       display: grid;
@@ -5543,6 +5547,179 @@
       letter-spacing: 0.12em;
       color: var(--muted);
     }
+    /* CEO portal redesign (layout only, no logic changes) */
+    #ceoPortalScreen .ceo-card {
+      max-width: 1140px;
+      margin: 10px auto 18px;
+      padding: 22px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: rgba(8, 12, 24, 0.94);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: 0 22px 50px rgba(2, 8, 23, 0.65);
+    }
+    .ceo-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .ceo-title-block h3 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+    .ceo-title-block p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .ceo-header-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ceo-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      align-items: start;
+    }
+    .ceo-panel {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 14px 34px rgba(2, 8, 23, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+    .ceo-panel-header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .ceo-panel-header h4 {
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .ceo-panel-header p,
+    .ceo-panel-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .ceo-panel-header-row {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ceo-panel-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+    }
+    .ceo-panel-actions .btn {
+      width: 100%;
+      border-radius: 14px;
+      font-weight: 700;
+    }
+    .ceo-issued-scroll {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 180px;
+      overflow: auto;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(148,163,184,0.14);
+    }
+    .ceo-subpanel {
+      margin-top: 6px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(148,163,184,0.18);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+    }
+    .ceo-subpanel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ceo-subpanel-header strong {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .ceo-subpanel-header .btn {
+      width: auto;
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+    .ceo-scroll,
+    .ceo-log-scroll {
+      max-height: 260px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+    .ceo-log-panel {
+      min-height: 0;
+    }
+    .ceo-panel-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ceo-select {
+      flex: 1;
+      min-width: 180px;
+      background: rgba(11, 18, 35, 0.96);
+      color: var(--text);
+      border: 1px solid rgba(148,163,184,0.35);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+    .ceo-select-sm {
+      flex: 0 0 160px;
+      min-width: 160px;
+    }
+    .ceo-footer-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .ceo-footer-actions .btn {
+      flex: 1;
+      min-width: 160px;
+      border-radius: 14px;
+      font-weight: 700;
+    }
+    @media (max-width: 1080px) {
+      .ceo-grid {
+        grid-template-columns: 1fr;
+      }
+      .ceo-select-sm {
+        flex: 1;
+      }
+      .ceo-scroll,
+      .ceo-log-scroll {
+        max-height: 320px;
+      }
+    }
   </style>
 </head>
   <body>
@@ -6618,8 +6795,18 @@
     <div class="app-title"><span>Black</span> Card</div>
     <div class="tagline">Unlimited perks. Issue passes and control FoCo After Dark.</div>
     <div class="ceo-card card-hd smooth-enter">
-      <h3>FoCo Black Card</h3>
-      <p>Unlimited monthly venue perks · VIP-only offers · Instant guest access.</p>
+      <div class="ceo-header-row">
+        <div class="ceo-title-block">
+          <h3>FoCo Black Card</h3>
+          <p>Unlimited monthly venue perks · VIP-only offers · Instant guest access.</p>
+        </div>
+        <div class="ceo-header-actions">
+          <button type="button" class="btn btn-secondary back-btn" id="ceoPortalBack">
+            Back to member pass
+          </button>
+          <button class="btn btn-secondary" id="ceoPassButton">View CEO pass</button>
+        </div>
+      </div>
       <div class="ceo-metrics" id="ceoMetrics">
         <div class="ceo-metric-card">
           <strong id="metricTodayRedemptions">0</strong>
@@ -6634,48 +6821,52 @@
           <span>recent reviews avg</span>
         </div>
       </div>
-      <button type="button" class="btn btn-secondary back-btn" id="ceoPortalBack" style="margin-bottom:12px;width:auto;">
-        Back to member pass
-      </button>
-      <div class="ceo-actions">
-        <button class="btn btn-secondary" id="ceoPassButton">View CEO pass</button>
-        <div class="vip-deal-card card-hd">
-          <h4>Generate CEO vouchers</h4>
-          <p style="font-size:12px;color:#cbd5f5;">Tap to generate a one-time code and share with a guest. Codes will appear in venue redemptions as “CEO issued”.</p>
-          <div class="payment-actions" style="display:flex;flex-wrap:wrap;gap:8px;">
-            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="shot" style="flex:1;min-width:140px;">Shot perk voucher</button>
-            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="drink" style="flex:1;min-width:140px;">Drink perk voucher</button>
-            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="cover" style="flex:1;min-width:140px;">Line access voucher</button>
-            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="free_drink" style="flex:1;min-width:140px;">Free drink voucher</button>
+
+      <div class="ceo-grid">
+        <section class="ceo-panel">
+          <div class="ceo-panel-header">
+            <h4>Generate CEO vouchers</h4>
+            <p>One-tap codes for guests. Shows up as CEO-issued in venue redemptions.</p>
           </div>
-            <p class="support-success" id="ceoGenSuccess" style="display:none;margin-top:8px;">Code generated.</p>
-            <div id="ceoIssuedList" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;max-height:160px;overflow:auto;padding-top:6px;border-top:1px dashed rgba(148,163,184,0.08);"></div>
-        </div>
-        <div class="vip-deal-card card-hd">
-          <h4>Grant free membership</h4>
-          <p style="font-size:12px;color:#cbd5f5;">Turn an existing member into a free, unlimited account. Enter their Pass ID.</p>
+          <div class="ceo-panel-actions">
+            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="shot">Shot perk voucher</button>
+            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="drink">Drink perk voucher</button>
+            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="cover">Line access voucher</button>
+            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="free_drink">Free drink voucher</button>
+          </div>
+          <p class="support-success" id="ceoGenSuccess" style="display:none;margin-top:8px;">Code generated.</p>
+          <div id="ceoIssuedList" class="ceo-issued-scroll"></div>
+        </section>
+
+        <section class="ceo-panel">
+          <div class="ceo-panel-header">
+            <h4>Free memberships</h4>
+            <p>Grant or revoke a never-expiring membership by Pass ID.</p>
+          </div>
           <div class="field">
             <label for="freePassIdInput">Pass ID</label>
             <input id="freePassIdInput" type="text" placeholder="e.g. ABC123" />
           </div>
-          <div class="payment-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-            <button type="button" class="btn btn-secondary" id="grantFreeBtn" style="flex:1;min-width:140px;">Grant free</button>
-            <button type="button" class="btn btn-secondary" id="revokeFreeBtn" style="flex:1;min-width:140px;">Revoke free</button>
+          <div class="ceo-panel-actions">
+            <button type="button" class="btn btn-secondary" id="grantFreeBtn">Grant free</button>
+            <button type="button" class="btn btn-secondary" id="revokeFreeBtn">Revoke free</button>
           </div>
           <p class="support-success" id="freeMemberStatus" style="display:none;">Updated.</p>
-        </div>
-        <div class="vip-deal-card card-hd">
-          <h4>Free memberships issued</h4>
-          <p style="font-size:12px;color:#cbd5f5;">Tap revoke to remove a free, never-expiring account.</p>
-          <div id="freeMembersList" style="display:flex;flex-direction:column;gap:8px;max-height:200px;overflow:auto;"></div>
-          <button type="button" class="btn btn-secondary" id="refreshFreeMembers" style="margin-top:8px;">Refresh list</button>
-        </div>
-        <div class="vip-deal-card card-hd" id="ceoInboxCard">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div class="ceo-subpanel">
+            <div class="ceo-subpanel-header">
+              <strong>Free memberships issued</strong>
+              <button type="button" class="btn btn-secondary" id="refreshFreeMembers">Refresh list</button>
+            </div>
+            <div id="freeMembersList" class="ceo-scroll"></div>
+          </div>
+        </section>
+
+        <section class="ceo-panel" id="ceoInboxCard">
+          <div class="ceo-panel-header ceo-panel-header-row">
             <h4 style="margin:0;">Venue messages</h4>
             <span class="pill" id="ceoMsgBadge" style="display:none;">New</span>
           </div>
-          <p style="font-size:12px;color:#cbd5f5;">Live messaging between venue staff and CEO.</p>
+          <p class="ceo-panel-note">Live messaging between venue staff and CEO.</p>
           <form id="ceoReplyForm">
             <input type="hidden" id="ceoReplyTarget" />
             <div class="field">
@@ -6684,52 +6875,62 @@
             </div>
             <div class="error" id="ceoReplyError"></div>
             <p class="support-success" id="ceoReplySuccess" style="display:none;">Reply sent.</p>
-            <div class="payment-actions" style="margin-top:6px;gap:8px;flex-wrap:wrap;">
-              <button type="submit" class="btn btn-primary" style="flex:1;min-width:140px;">Send reply</button>
-              <button type="button" class="btn btn-secondary" id="ceoClearMessages" style="flex:1;min-width:140px;">Clear all</button>
+            <div class="ceo-panel-actions">
+              <button type="submit" class="btn btn-primary">Send reply</button>
+              <button type="button" class="btn btn-secondary" id="ceoClearMessages">Clear all</button>
             </div>
           </form>
-          <div class="vip-deal-preview" id="ceoMessagesList">No messages yet.</div>
-        </div>
+          <div class="vip-deal-preview ceo-scroll" id="ceoMessagesList">No messages yet.</div>
+        </section>
+
+        <section class="ceo-panel ceo-log-panel">
+          <div class="ceo-panel-header">
+            <h4>Venue redemptions (live)</h4>
+          </div>
+          <div class="ceo-panel-controls">
+            <select id="ceoVenueFilter" class="ceo-select">
+              <option value="all">All venues</option>
+            </select>
+            <select id="ceoVenueRange" class="ceo-select ceo-select-sm">
+              <option value="day">Today</option>
+              <option value="week">This week</option>
+              <option value="month" selected>This month</option>
+              <option value="year">This year</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+          <div id="ceoVenueLog" class="ceo-log-scroll"></div>
+        </section>
+
+        <section class="ceo-panel ceo-log-panel">
+          <div class="ceo-panel-header">
+            <h4>Close-out reports</h4>
+            <p>Reports from venues land here automatically.</p>
+          </div>
+          <div class="ceo-panel-controls">
+            <select id="ceoCloseOutVenue" class="ceo-select">
+              <option value="all">All venues</option>
+            </select>
+            <select id="ceoCloseOutRange" class="ceo-select ceo-select-sm">
+              <option value="day">Today</option>
+              <option value="week">This week</option>
+              <option value="month" selected>This month</option>
+              <option value="year">This year</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+          <div id="ceoCloseOutList" class="staff-log ceo-log-scroll"></div>
+        </section>
       </div>
-      <div class="ceo-logs" style="margin-top:14px;">
-        <h4 style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Venue redemptions (live)</h4>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-          <select id="ceoVenueFilter" style="flex:1;min-width:180px;background:#0b1223;color:#e2e8f0;border:1px solid rgba(148,163,184,0.35);border-radius:10px;padding:8px 10px;font-size:13px;">
-            <option value="all">All venues</option>
-          </select>
-          <select id="ceoVenueRange" style="width:150px;background:#0b1223;color:#e2e8f0;border:1px solid rgba(148,163,184,0.35);border-radius:10px;padding:8px 10px;font-size:13px;">
-            <option value="day">Today</option>
-            <option value="week">This week</option>
-            <option value="month" selected>This month</option>
-            <option value="year">This year</option>
-            <option value="all">All time</option>
-          </select>
-        </div>
-        <div id="ceoVenueLog"></div>
+
+      <div class="ceo-footer-actions">
+        <button type="button" class="btn btn-secondary ceo-log-btn" id="ceoPortalReviewsBtn">
+          View reviews
+        </button>
+        <button type="button" class="btn btn-secondary ceo-log-btn" id="ceoAnalyticsBtn">
+          Analytics
+        </button>
       </div>
-      <div class="ceo-logs" style="margin-top:14px;">
-        <h4 style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Close-out reports</h4>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-          <select id="ceoCloseOutVenue" style="flex:1;min-width:180px;background:#0b1223;color:#e2e8f0;border:1px solid rgba(148,163,184,0.35);border-radius:10px;padding:8px 10px;font-size:13px;">
-            <option value="all">All venues</option>
-          </select>
-          <select id="ceoCloseOutRange" style="width:150px;background:#0b1223;color:#e2e8f0;border:1px solid rgba(148,163,184,0.35);border-radius:10px;padding:8px 10px;font-size:13px;">
-            <option value="day">Today</option>
-            <option value="week">This week</option>
-            <option value="month" selected>This month</option>
-            <option value="year">This year</option>
-            <option value="all">All time</option>
-          </select>
-        </div>
-        <div id="ceoCloseOutList" class="staff-log"></div>
-      </div>
-      <button type="button" class="btn btn-secondary ceo-log-btn" id="ceoPortalReviewsBtn" style="margin-top:12px;">
-        View reviews
-      </button>
-      <button type="button" class="btn btn-secondary ceo-log-btn" id="ceoAnalyticsBtn">
-        Analytics
-      </button>
     </div>
   </div>
 
@@ -8991,17 +9192,36 @@
     const FRIENDS_DISABLED = true;
 
     async function updateStaffCloseoutStamp() {
-      if (!staffCloseoutStamp || !db) return;
-      staffCloseoutStamp.textContent = "Checking close-out status…";
+      if (!staffCloseoutStamp) return;
+      const venueId = staffSession?.venue || pendingStaffVenueId || null;
+      if (!db || !venueId) {
+        staffCloseoutStamp.textContent = "";
+        return;
+      }
+      staffCloseoutStamp.textContent = "Checking close-out reports…";
       try {
-        const ref = doc(db, "settings", "health");
-        const snap = await getDoc(ref);
-        const data = snap.exists() ? snap.data() : {};
-        if (data.lastCloseoutEmail) {
-          const ts = data.lastCloseoutEmail.toDate ? data.lastCloseoutEmail.toDate() : new Date(data.lastCloseoutEmail);
-          staffCloseoutStamp.textContent = `Last close-out email: ${ts.toLocaleString("en-US", { timeZone: "America/Denver" })}`;
+        const snap = await getDocs(query(
+          collection(db, "closeOutReports"),
+          where("venue", "==", venueId),
+          limit(50)
+        ));
+        if (snap.empty) {
+          staffCloseoutStamp.textContent = "No close-out reports yet.";
+          return;
+        }
+        let latest = null;
+        snap.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const ts = data.generatedAt?.toDate
+            ? data.generatedAt.toDate()
+            : (data.generatedAt ? new Date(data.generatedAt) : null);
+          if (!ts || Number.isNaN(ts.getTime())) return;
+          if (!latest || ts > latest) latest = ts;
+        });
+        if (latest) {
+          staffCloseoutStamp.textContent = `Last close-out report: ${latest.toLocaleString("en-US", { timeZone: "America/Denver" })}`;
         } else {
-          staffCloseoutStamp.textContent = "Last close-out email: unknown";
+          staffCloseoutStamp.textContent = "No close-out reports yet.";
         }
       } catch (err) {
         console.warn("staff closeout stamp failed", err);
@@ -18820,9 +19040,8 @@ let onboardingIndex = 0;
           showToast("New update available. Reloading…");
           setTimeout(() => location.reload(), 1200);
         }
-        if (data.lastCloseoutEmail && staffCloseoutStamp) {
-          const ts = data.lastCloseoutEmail.toDate ? data.lastCloseoutEmail.toDate() : new Date(data.lastCloseoutEmail);
-          staffCloseoutStamp.textContent = `Last close-out email: ${ts.toLocaleString("en-US", { timeZone: "America/Denver" })}`;
+        if (staffCloseoutStamp && staffSession?.venue) {
+          updateStaffCloseoutStamp();
         }
       });
       if (unsub) settingsUnsub = unsub;
