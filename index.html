@@ -5,7 +5,7 @@
   <title>FoCo After Dark – Nightlife Pass</title>
   <link rel="icon" type="image/png" href="foco-logo.png" />
   <link rel="preload" href="foco-logo.png?v=4" as="image" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -5324,23 +5324,52 @@
 
     /* Mobile/iPhone layout tightening */
     @media (max-width: 520px) {
+      html,
       body {
+        width: 100%;
+        overflow-x: hidden;
+      }
+      :root { --iphoneGutter: 12px; }
+      body {
+        align-items: stretch;
         padding-top: 16px;
         padding-bottom: calc(var(--space-7) + 6px);
-        padding-left: max(12px, env(safe-area-inset-left));
-        padding-right: max(12px, env(safe-area-inset-right));
+        padding-left: max(var(--iphoneGutter), env(safe-area-inset-left));
+        padding-right: max(var(--iphoneGutter), env(safe-area-inset-right));
       }
-      #app { max-width: none; width: 100%; }
+      #app {
+        max-width: none;
+        width: 100%;
+        margin-left: 0;
+        margin-right: 0;
+      }
       .screen {
         padding: 18px 12px;
         border-radius: 20px;
         width: 100%;
         max-width: none;
+        margin-left: 0;
+        margin-right: 0;
       }
       .pass-card {
         padding: 22px 14px;
         width: 100%;
         max-width: none;
+      }
+      .landing-wrapper {
+        width: 100%;
+        max-width: none;
+        margin-left: 0;
+        margin-right: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+      .brand-logo-landing,
+      .brand-logo-landing .brand-logo-img {
+        margin-left: auto;
+        margin-right: auto;
       }
       .pass-top {
         flex-direction: column;
@@ -5457,6 +5486,26 @@
       #landingScreen .brand-logo-img {
         margin-left: auto;
         margin-right: auto;
+      }
+      #venuesScreen,
+      .venues-card,
+      .support-card,
+      .confirm-card {
+        max-width: none;
+        width: 100%;
+        margin-left: 0;
+        margin-right: 0;
+      }
+      .vibe-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        width: 100%;
+      }
+      .vibe-btn {
+        width: 100%;
+        min-width: 0;
+        text-align: center;
       }
     }
 
@@ -7013,6 +7062,23 @@
     .redeem-btn:hover,
     .add-vouchers-btn:hover {
       box-shadow: 0 0 20px rgba(34, 211, 238, 0.35);
+    }
+    .redeem-row .btn,
+    #memberActionButtons .btn {
+      background: linear-gradient(
+        120deg,
+        color-mix(in srgb, var(--accent-primary-live) 70%, #0b1020),
+        color-mix(in srgb, var(--accent-secondary-live) 70%, #0b1020)
+      );
+      border: none;
+      color: #f8fafc;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38);
+    }
+    .redeem-row .btn:hover,
+    #memberActionButtons .btn:hover {
+      box-shadow:
+        0 0 22px color-mix(in srgb, var(--accent-primary-live) 32%, transparent),
+        0 12px 26px rgba(0, 0, 0, 0.4);
     }
     .profile-summary,
     .alerts-card,
