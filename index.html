@@ -10108,11 +10108,10 @@
     const sources = getRealtimeSourcesForStatus();
     const allSources = Object.values(realtimeState.sources);
     const ready = isRealtimeReady();
-    const hasPendingWrites = allSources.some(source => source.hasPendingWrites);
     let label = "Live";
     if (hasRealtimeNoAccess()) label = "No access";
     else if (!navigator.onLine) label = "Offline";
-    else if (!ready || hasPendingWrites) label = "Syncing";
+    else if (!ready) label = "Syncing";
     realtimeStatusPill.textContent = label;
     const token = label.toLowerCase().replace(/\s+/g, "");
     realtimeStatusPill.dataset.state = token;
@@ -15209,6 +15208,7 @@ let onboardingIndex = 0;
         staffRedemptionsMap = new Map();
         staffRedemptionsVenue = venueId;
       }
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
       const toIso = (ts) => {
         if (!ts) return new Date().toISOString();
         if (ts.toDate) return ts.toDate().toISOString();
@@ -15222,15 +15222,10 @@ let onboardingIndex = 0;
         );
         const unsub = subscribeSnapshot("staffRedemptions", qVenue, null, (snap) => {
           const changes = snap.docChanges ? snap.docChanges() : [];
-          if (!changes.length) return;
-          changes.forEach(change => {
-            if (change.type === "removed") {
-              staffRedemptionsMap.delete(change.doc.id);
-              return;
-            }
-            const data = change.doc.data() || {};
-            staffRedemptionsMap.set(change.doc.id, {
-              code: (data.redemptionId || data.code || change.doc.id || "").toUpperCase(),
+          const applyDoc = (docSnap) => {
+            const data = docSnap.data() || {};
+            staffRedemptionsMap.set(docSnap.id, {
+              code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
               perk: data.perkLabel || data.perk || data.perkKey || "Perk",
               perkKey: data.perkKey || null,
               venuePerkId: data.perkId || data.venuePerkId || null,
@@ -15244,11 +15239,29 @@ let onboardingIndex = 0;
               timestamp: toIso(data.createdAt || data.timestamp),
               verifiedAt: toIso(data.verifiedAt || data.timestamp),
             });
-          });
-          const entries = Array.from(staffRedemptionsMap.values()).filter(entry => entry.code);
+          };
+          if (!changes.length || staffRedemptionsMap.size === 0) {
+            staffRedemptionsMap = new Map();
+            snap.forEach(docSnap => applyDoc(docSnap));
+          } else {
+            changes.forEach(change => {
+              if (change.type === "removed") {
+                staffRedemptionsMap.delete(change.doc.id);
+                return;
+              }
+              applyDoc(change.doc);
+            });
+          }
+          const entries = Array.from(staffRedemptionsMap.values())
+            .filter(entry => entry.code)
+            .filter(entry => {
+              const ts = new Date(entry.timestamp || entry.verifiedAt || 0).getTime();
+              return ts >= cutoff;
+            });
           redemptionLog = entries.sort((a, b) => {
             return new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0);
           });
+          saveStaffRedemptionCache(venueId, redemptionLog);
           scheduleThrottledRender("staffRedemptions", () => {
             renderStaffVenueLog();
             updateStaffRadar();
@@ -15810,13 +15823,12 @@ let onboardingIndex = 0;
       if (!venueId) return 0;
       const key = `${STAFF_SHIFT_PREFIX}${venueId}`;
       const stored = localStorage.getItem(key);
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
       if (stored) {
         const ts = Date.parse(stored);
-        if (!Number.isNaN(ts)) return ts;
+        if (!Number.isNaN(ts)) return Math.max(ts, cutoff);
       }
-      const mstNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Denver" }));
-      mstNow.setHours(0, 0, 0, 0);
-      return mstNow.getTime();
+      return cutoff;
     }
     function setStaffShiftStart(venueId, stamp = new Date()) {
       if (!venueId) return;
@@ -15893,7 +15905,8 @@ let onboardingIndex = 0;
         return;
       }
       const venueId = staffSession.venue;
-      const shiftStart = getStaffShiftStart(venueId);
+      const rollingStart = Date.now() - 24 * 60 * 60 * 1000;
+      const shiftStart = Math.max(getStaffShiftStart(venueId), rollingStart);
       const entries = redemptionLog.filter(entry => {
         if (!entryMatchesVenue(entry, venueId)) return false;
         const status = (entry.status || "pending").toLowerCase();
@@ -17552,6 +17565,12 @@ let onboardingIndex = 0;
       staffVenueLabel.textContent = venueName;
       if (staffPortalTitle) staffPortalTitle.innerHTML = `<span>${venueName}</span> Dashboard`;
       if (staffPortalTagline) staffPortalTagline.textContent = `Live perks, redemptions, and alerts for ${venueName}.`;
+      const cached = loadStaffRedemptionCache(resolved);
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      redemptionLog = cached.filter(entry => {
+        const ts = new Date(entry.timestamp || entry.verifiedAt || 0).getTime();
+        return ts >= cutoff;
+      });
       renderStaffVenueLog();
       renderStaffPendingQueue();
       renderStaffVipDeal();
