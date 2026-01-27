@@ -10473,9 +10473,23 @@
   };
   const activeRealtimeUnsubs = new Map();
   const indexToastLabels = new Set();
+  const blockedRealtimeLabels = new Map();
   const pillHeartbeatLabels = new Set([
     "settingsApp"
   ]);
+
+  function isRealtimeLabelBlocked(label) {
+    const blockedUntil = blockedRealtimeLabels.get(label);
+    if (!blockedUntil) return false;
+    if (blockedUntil === Infinity) return true;
+    if (Date.now() < blockedUntil) return true;
+    blockedRealtimeLabels.delete(label);
+    return false;
+  }
+  function blockRealtimeLabel(label, ms = Infinity) {
+    const until = ms === Infinity ? Infinity : Date.now() + Math.max(0, ms);
+    blockedRealtimeLabels.set(label, until);
+  }
 
   function clearActiveRealtimeListener(label, reason = "") {
     const existing = activeRealtimeUnsubs.get(label);
@@ -10567,6 +10581,7 @@
   }
   function subscribeSnapshot(label, target, options, onNext, onError) {
     if (!authReady || !firebaseAuth.currentUser) return null;
+    if (isRealtimeLabelBlocked(label)) return null;
     const existing = activeRealtimeUnsubs.get(label);
     if (typeof existing === "function") {
       return existing;
@@ -10591,12 +10606,17 @@
           console.error(`[${label}] snapshot failed`, err);
           noteRealtimeError(label, err);
           if (isPermissionDeniedError(err)) {
-            // no detach on permission errors; avoid churn
+            blockRealtimeLabel(label, Infinity);
+            // Detach on next tick to avoid watch-stream churn in Safari.
+            setTimeout(() => detachRealtimeLabel(label, "permission-denied"), 0);
           } else if (isFailedPreconditionError(err)) {
+            blockRealtimeLabel(label, 90 * 1000);
             if (!indexToastLabels.has(label)) {
               indexToastLabels.add(label);
               showToast("Index building: redemptions createdAt. Try again in a minute.", 3600);
             }
+            // Detach on next tick; allow retry after cooldown.
+            setTimeout(() => detachRealtimeLabel(label, "failed-precondition"), 0);
           }
           try { if (typeof onError === "function") onError(err); } catch (_) {}
         }
@@ -15665,32 +15685,57 @@ let onboardingIndex = 0;
         if (ts.toDate) return ts.toDate().toISOString();
         return new Date(ts).toISOString();
       };
+      const applyDoc = (docSnap) => {
+        const data = docSnap.data() || {};
+        staffRedemptionsMap.set(docSnap.id, {
+          code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
+          perk: data.perkLabel || data.perk || data.perkKey || "Perk",
+          perkKey: data.perkKey || null,
+          venuePerkId: data.perkId || data.venuePerkId || null,
+          venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
+          member: data.memberName || data.member || "FoCo member",
+          passId: (data.passCode || data.passId || "").toUpperCase(),
+          venue: data.venueId || data.venue || null,
+          requestedVenue: data.requestedVenue || null,
+          ceo: !!data.ceo,
+          status: data.status || "pending",
+          timestamp: toIso(data.createdAt || data.timestamp),
+          verifiedAt: toIso(data.verifiedAt || data.timestamp),
+        });
+      };
+      const commitEntries = () => {
+        const entries = Array.from(staffRedemptionsMap.values())
+          .filter(entry => entry.code)
+          .filter(entry => {
+            const ts = new Date(entry.timestamp || entry.verifiedAt || 0).getTime();
+            return ts >= cutoff;
+          });
+        redemptionLog = entries.sort((a, b) => {
+          return new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0);
+        });
+        saveStaffRedemptionCache(venueId, redemptionLog);
+        scheduleThrottledRender("staffRedemptions", () => {
+          renderStaffVenueLog();
+          updateStaffRadar();
+          renderStaffPendingQueue();
+        });
+      };
       try {
         const qVenue = query(
           collection(db, "venues", venueId, "redemptions"),
           orderBy("createdAt", "desc"),
           limit(200)
         );
+        // One-time hydrate so staff sees the last 24h immediately on login/refresh.
+        getDocs(qVenue).then((snap) => {
+          staffRedemptionsMap = new Map();
+          snap.forEach(docSnap => applyDoc(docSnap));
+          commitEntries();
+        }).catch((err) => {
+          console.warn("Staff redemptions hydrate failed", err);
+        });
         const unsub = subscribeSnapshot("staffRedemptions", qVenue, null, (snap) => {
           const changes = snap.docChanges ? snap.docChanges() : [];
-          const applyDoc = (docSnap) => {
-            const data = docSnap.data() || {};
-            staffRedemptionsMap.set(docSnap.id, {
-              code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
-              perk: data.perkLabel || data.perk || data.perkKey || "Perk",
-              perkKey: data.perkKey || null,
-              venuePerkId: data.perkId || data.venuePerkId || null,
-              venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
-              member: data.memberName || data.member || "FoCo member",
-              passId: (data.passCode || data.passId || "").toUpperCase(),
-              venue: data.venueId || data.venue || null,
-              requestedVenue: data.requestedVenue || null,
-              ceo: !!data.ceo,
-              status: data.status || "pending",
-              timestamp: toIso(data.createdAt || data.timestamp),
-              verifiedAt: toIso(data.verifiedAt || data.timestamp),
-            });
-          };
           if (!changes.length || staffRedemptionsMap.size === 0) {
             staffRedemptionsMap = new Map();
             snap.forEach(docSnap => applyDoc(docSnap));
@@ -15703,21 +15748,7 @@ let onboardingIndex = 0;
               applyDoc(change.doc);
             });
           }
-          const entries = Array.from(staffRedemptionsMap.values())
-            .filter(entry => entry.code)
-            .filter(entry => {
-              const ts = new Date(entry.timestamp || entry.verifiedAt || 0).getTime();
-              return ts >= cutoff;
-            });
-          redemptionLog = entries.sort((a, b) => {
-            return new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0);
-          });
-          saveStaffRedemptionCache(venueId, redemptionLog);
-          scheduleThrottledRender("staffRedemptions", () => {
-            renderStaffVenueLog();
-            updateStaffRadar();
-            renderStaffPendingQueue();
-          });
+          commitEntries();
         });
         if (unsub) staffRedemptionUnsubs.push(unsub);
       } catch (err) {
