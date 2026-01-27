@@ -776,6 +776,11 @@
       #staffMore {
         grid-column: span 2;
       }
+      #verifyCard {
+        position: sticky;
+        top: 12px;
+        z-index: 5;
+      }
     }
     .audience-toggle {
       display: flex;
@@ -5399,6 +5404,126 @@
       font-size: 12px;
       letter-spacing: 0.02em;
     }
+    /* Staff fast-verify layout */
+    #verifyCard {
+      margin-top: 6px;
+      border-color: color-mix(in srgb, var(--accent-primary-live) 35%, var(--border));
+      box-shadow:
+        0 18px 36px rgba(2, 8, 23, 0.55),
+        0 0 0 1px rgba(255,255,255,0.03),
+        0 0 26px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
+    }
+    .staff-verify-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .staff-verify-title {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: var(--text);
+    }
+    .staff-verify-hint {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .staff-verify-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: 12px;
+      align-items: start;
+    }
+    #verifyForm .field label {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    #verifyCode {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 16px 18px;
+      border-radius: 16px;
+      border: 1.5px solid color-mix(in srgb, var(--accent-primary-live) 45%, var(--border));
+      background: rgba(6, 10, 22, 0.9);
+      color: var(--text);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02), 0 14px 28px rgba(2, 8, 23, 0.6);
+    }
+    #verifyCode::placeholder {
+      letter-spacing: 0.12em;
+      color: rgba(226, 232, 240, 0.45);
+    }
+    #verifyForm .payment-actions {
+      gap: 8px;
+    }
+    #verifyForm .payment-actions .btn {
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+    #staffPendingWrap {
+      margin-top: 0;
+      border-style: solid;
+      border-color: color-mix(in srgb, var(--accent-primary-live) 28%, var(--border));
+      background: rgba(5, 10, 24, 0.86);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+      min-height: 160px;
+    }
+    .staff-pending-header {
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .staff-pending-count {
+      font-size: 12px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 35%, var(--border));
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+    }
+    .staff-pending-list {
+      max-height: 220px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+    #memberIdForm {
+      margin-top: 14px !important;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    #memberIdInput {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 12px 14px;
+      border-radius: 14px;
+    }
+    @media (max-width: 960px) {
+      .staff-verify-grid {
+        grid-template-columns: 1fr;
+      }
+      .staff-verify-hint {
+        white-space: normal;
+      }
+      #verifyCode {
+        font-size: 22px;
+      }
+    }
 
     /* CEO metrics layout */
     .ceo-card {
@@ -6301,26 +6426,32 @@
       <!-- Card 1: Verify & lookup -->
       <div class="staff-form" id="verifyCard">
         <div class="staff-filter">Logged in as <strong id="staffVenueLabel">Venue</strong>.</div>
-        <form id="verifyForm">
-          <div class="field">
-            <label for="verifyCode">Enter voucher code</label>
-            <input id="verifyCode" type="text" placeholder="e.g. ABC123" />
+        <div class="staff-verify-head">
+          <div class="staff-verify-title">Fast verify</div>
+          <div class="staff-verify-hint">Type code. Press verify.</div>
+        </div>
+        <div class="staff-verify-grid">
+          <form id="verifyForm">
+            <div class="field">
+              <label for="verifyCode">Voucher code</label>
+              <input id="verifyCode" type="text" placeholder="e.g. ABC123" autocomplete="off" inputmode="text" />
+            </div>
+            <div class="error" id="verifyError"></div>
+            <p class="support-success" id="verifySuccess">Voucher confirmed.</p>
+            <p class="support-success" id="lastVerifiedLine" style="display:none;color:#cbd5f5;"></p>
+            <div class="payment-actions" style="margin-top:8px;">
+              <button type="submit" class="btn btn-primary">Verify code</button>
+              <button type="button" class="btn btn-secondary" id="undoLastVerification" style="flex:0 0 auto;">Undo last</button>
+            </div>
+          </form>
+          <div class="staff-pending" id="staffPendingWrap">
+            <div class="staff-pending-header">
+              <span>Pending</span>
+              <span class="staff-pending-count" id="staffPendingCount">0</span>
+            </div>
+            <div class="staff-pending-list" id="staffPendingList">No pending redemptions.</div>
+            <div class="small" style="margin-top:6px;">Tap a pending code to confirm.</div>
           </div>
-          <div class="error" id="verifyError"></div>
-          <p class="support-success" id="verifySuccess">Voucher confirmed.</p>
-          <p class="support-success" id="lastVerifiedLine" style="display:none;color:#cbd5f5;"></p>
-          <div class="payment-actions" style="margin-top:8px;">
-            <button type="submit" class="btn btn-primary">Verify code</button>
-            <button type="button" class="btn btn-secondary" id="undoLastVerification" style="flex:0 0 auto;">Undo last</button>
-          </div>
-        </form>
-        <div class="staff-pending" id="staffPendingWrap">
-          <div class="staff-pending-header">
-            <span>Pending redemptions</span>
-            <span class="staff-pending-count" id="staffPendingCount">0</span>
-          </div>
-          <div class="staff-pending-list" id="staffPendingList">No pending redemptions.</div>
-          <div class="small" style="margin-top:6px;">Tap a pending code to confirm.</div>
         </div>
         <form id="memberIdForm" style="margin-top:12px;">
           <div class="field">
