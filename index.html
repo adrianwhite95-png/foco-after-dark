@@ -70,7 +70,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: stretch;
       justify-content: flex-start;
       padding: 18px 12px 48px;
       overflow-y: auto;
@@ -191,9 +191,9 @@
       z-index: 0;
     }
     #app {
-      width: 100%;
-      max-width: 480px;
-      margin: 0 auto;
+      width: 100vw;
+      max-width: 100vw;
+      margin: 0;
       position: relative;
       z-index: 1;
     }
@@ -4618,8 +4618,19 @@
     body::before { opacity: 0.26; filter: blur(4px) brightness(0.68) saturate(1.06); }
     body::after { opacity: 0.03; }
     #app {
-      max-width: var(--container-max);
-      width: min(100%, var(--container-max));
+      width: 100vw;
+      max-width: 100vw;
+      margin-left: 0;
+      margin-right: 0;
+    }
+    @media (min-width: 768px) {
+      body { align-items: center; }
+      #app {
+        max-width: 480px;
+        width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+      }
     }
 
     .landing-wrapper {
@@ -5343,6 +5354,29 @@
         margin-left: 0;
         margin-right: 0;
       }
+      .screen,
+      .pass-card,
+      .staff-form,
+      .staff-radar,
+      .ceo-card,
+      .modal-card,
+      .black-card,
+      .alerts-card,
+      .vip-member-deal {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        box-shadow: 0 14px 28px rgba(2, 6, 18, 0.5);
+      }
+      body::before {
+        opacity: 0.22;
+        filter: blur(2px) brightness(0.8) saturate(1.05);
+      }
+      .landing-bg::before,
+      .landing-stars::before,
+      .landing-stars::after {
+        animation: none !important;
+        opacity: 0.35;
+      }
       .screen {
         padding: 18px 12px;
         border-radius: 20px;
@@ -5461,6 +5495,23 @@
       }
       .community-stat { padding: 12px 10px; border-radius: 16px; }
       .community-stat strong { font-size: 15px; }
+      .secondary-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .secondary-actions .btn {
+        width: 100%;
+        min-width: 0;
+      }
+      .redeem-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .redeem-row .btn {
+        width: 100%;
+      }
       .landing-feature-grid { grid-template-columns: 1fr; }
       .hero-highlight { text-align: left; }
       #landingRefreshBtn {
@@ -5515,6 +5566,47 @@
         width: 100%;
         min-width: 0;
         text-align: center;
+      }
+      .staff-meta-row,
+      .staff-perks-actions,
+      .sticky-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        width: 100%;
+      }
+      .staff-meta-row > *,
+      .staff-perks-actions > *,
+      .sticky-actions > * {
+        width: 100%;
+      }
+      .staff-verify-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      #memberIdForm {
+        padding: 10px 12px;
+      }
+      #memberIdInput {
+        font-size: 16px;
+        padding: 12px 14px;
+      }
+      #verifyCode {
+        font-size: 20px;
+        padding: 14px 16px;
+      }
+    }
+    @media (max-width: 380px) {
+      .staff-verify-grid {
+        grid-template-columns: 1fr;
+      }
+      .secondary-actions,
+      .redeem-row,
+      .staff-meta-row,
+      .staff-perks-actions,
+      .sticky-actions,
+      .vibe-buttons {
+        grid-template-columns: 1fr;
       }
     }
 
