@@ -7424,7 +7424,7 @@
         </div>
       </div>
 
-      <form id="authForm">
+      <form id="authForm" onsubmit="return false;">
         <div class="field signup-only" id="firstNameField">
           <label for="firstName">First name</label>
           <input id="firstName" type="text" autocomplete="given-name" />
@@ -7469,7 +7469,7 @@
           </select>
         </div>
         <div class="error" id="authError"></div>
-        <button type="submit" class="btn btn-primary" id="authSubmitBtn">
+        <button type="button" class="btn btn-primary" id="authSubmitBtn">
           Continue
         </button>
       </form>
@@ -9272,6 +9272,7 @@
       ceoPortal: document.getElementById("ceoPortalScreen"),
       scanConfirm: document.getElementById("scanConfirmScreen"),
     };
+    let currentScreenName = "landing";
     let memberProfile = null;
     let staffSession = null;
     try {
@@ -9378,6 +9379,7 @@
       if (name === "pass" && requiresMembershipSelection()) {
         name = "membership";
       }
+      currentScreenName = name;
       Object.values(screens).forEach(s => s.classList.remove("active", "screen-in"));
       screens[name].classList.add("active");
       if (screens[name]) {
@@ -9396,6 +9398,7 @@
       }
       if (name === "auth") {
         applyRememberedEmailToForm();
+        resetAuthSubmitState();
       }
       if (name === "staffLogin") {
         openStaffGate();
@@ -9971,45 +9974,144 @@
     }
     loadRememberedEmail();
 
-    authForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
+    function resetAuthSubmitState() {
+      authSubmitInFlight = false;
+      if (authSubmitBtn) authSubmitBtn.disabled = false;
+    }
+
+    async function handleAuthSubmit(e) {
+      if (e) e.preventDefault();
       authError.textContent = "";
+      console.info("LOGIN_CLICK", {
+        inFlight: authSubmitInFlight,
+        screen: currentScreenName,
+        hasUser: !!firebaseAuth.currentUser
+      });
       if (authSubmitInFlight) {
         console.info("[auth] submit ignored: already in flight");
         return;
       }
-      let email = authEmail.value.trim();
-      const password = authPassword.value.trim();
-      const firstName = firstNameInput.value.trim();
-      const lastName = lastNameInput.value.trim();
-      const username = usernameInput?.value.trim();
-      const birthDateValue = birthDateInput?.value;
-      const genderValue = genderSelect?.value;
-      let fullName = "";
-      let birthDateISO = "";
-      if (!email || !password) {
-        authError.textContent = "Please enter email and password.";
-        return;
-      }
-      const remember = !!(rememberMe && rememberMe.checked);
-      if (isCeoCredentials(email, password)) {
-        authSubmitInFlight = true;
-        const attemptId = logAuthAttempt(email, "ceo");
+      authSubmitInFlight = true;
+      if (authSubmitBtn) authSubmitBtn.disabled = true;
+      try {
+        let email = authEmail.value.trim();
+        const password = authPassword.value.trim();
+        const firstName = firstNameInput.value.trim();
+        const lastName = lastNameInput.value.trim();
+        const username = usernameInput?.value.trim();
+        const birthDateValue = birthDateInput?.value;
+        const genderValue = genderSelect?.value;
+        let fullName = "";
+        let birthDateISO = "";
+
+        if (!email || !password) {
+          const msg = "Please enter email and password.";
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2200);
+          return;
+        }
+        const remember = !!(rememberMe && rememberMe.checked);
+
+        if (isCeoCredentials(email, password)) {
+          const attemptId = logAuthAttempt(email, "ceo");
+          try {
+            await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
+            try {
+              console.info("[auth] signInWithEmailAndPassword (ceo)", { attempt: attemptId });
+              await signInWithEmailAndPassword(firebaseAuth, email, password);
+            } catch (err) {
+              if (err?.code === "auth/user-not-found") {
+                await createUserWithEmailAndPassword(firebaseAuth, email, password);
+                try {
+                  await updateProfile(firebaseAuth.currentUser, { displayName: "FoCo CEO" });
+                } catch (_) {}
+              } else {
+                throw err;
+              }
+            }
+            updateRememberedEmail(remember ? email : null);
+            forceShowLogin = false;
+            clearLoginHash();
+          } catch (err) {
+            console.warn("[auth] sign-in failed", {
+              code: err?.code,
+              message: err?.message,
+              emailEmpty: !email
+            });
+            const msg = formatAuthError(err);
+            authError.textContent = msg;
+            if (typeof showToast === "function") showToast(msg, 2600);
+          }
+          return;
+        }
+
+        if (authMode === "signup") {
+          if (!firstName || !lastName) {
+            const msg = "First and last name are required for verification.";
+            authError.textContent = msg;
+            if (typeof showToast === "function") showToast(msg, 2400);
+            return;
+          }
+          if (!birthDateValue) {
+            const msg = "Enter your birthdate to continue.";
+            authError.textContent = msg;
+            if (typeof showToast === "function") showToast(msg, 2200);
+            return;
+          }
+          const usernameCheck = validateUsername(username);
+          if (!usernameCheck.ok) {
+            const msg = usernameCheck.message;
+            authError.textContent = msg;
+            if (typeof showToast === "function") showToast(msg, 2400);
+            return;
+          }
+          if (!genderValue) {
+            const msg = "Please select your gender.";
+            authError.textContent = msg;
+            if (typeof showToast === "function") showToast(msg, 2200);
+            return;
+          }
+          const birthDate = new Date(`${birthDateValue}T00:00:00`);
+          if (!isTwentyOneOrOlder(birthDate)) {
+            const msg = "FoCo After Dark is 21+. Please enter a valid 21+ birthdate.";
+            authError.textContent = msg;
+            if (typeof showToast === "function") showToast(msg, 2600);
+            return;
+          }
+          birthDateISO = birthDate.toISOString();
+          fullName = `${firstName} ${lastName}`;
+          pendingSignupData = { email, password, fullName, birthDateISO, gender: genderValue, username: usernameCheck.value };
+          showSignupConfirmModal();
+          return;
+        }
+
+        // login: allow username or email
+        if (authMode === "login") {
+          const raw = email.trim();
+          if (!isLikelyEmail(raw)) {
+            await ensureFirebaseUser(); // ensure app + rules ready for lookups
+            let resolved = resolveUsernameToEmail(raw.replace(/^@/, ""));
+            if (!resolved) {
+              resolved = await resolveUsernameToEmailCloud(raw);
+            }
+            if (!resolved) {
+              const msg = "Enter your email or a valid username.";
+              authError.textContent = msg;
+              if (typeof showToast === "function") showToast(msg, 2400);
+              return;
+            }
+            email = resolved;
+          } else {
+            email = raw;
+          }
+        }
+
+        const attemptId = logAuthAttempt(email, authMode);
         try {
           await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
-          try {
-            console.info("[auth] signInWithEmailAndPassword (ceo)", { attempt: attemptId });
-            await signInWithEmailAndPassword(firebaseAuth, email, password);
-          } catch (err) {
-            if (err?.code === "auth/user-not-found") {
-              await createUserWithEmailAndPassword(firebaseAuth, email, password);
-              try {
-                await updateProfile(firebaseAuth.currentUser, { displayName: "FoCo CEO" });
-              } catch (_) {}
-            } else {
-              throw err;
-            }
-          }
+          console.info("[auth] signInWithEmailAndPassword", { attempt: attemptId });
+          suppressLandingRedirectOnce = true;
+          await signInWithEmailAndPassword(firebaseAuth, email, password);
           updateRememberedEmail(remember ? email : null);
           forceShowLogin = false;
           clearLoginHash();
@@ -10019,79 +10121,29 @@
             message: err?.message,
             emailEmpty: !email
           });
-          authError.textContent = formatAuthError(err);
-        } finally {
-          authSubmitInFlight = false;
+          const msg = formatAuthError(err);
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2600);
         }
-        return;
-      }
-      if (authMode === "signup") {
-        if (!firstName || !lastName) {
-          authError.textContent = "First and last name are required for verification.";
-          return;
-        }
-        if (!birthDateValue) {
-          authError.textContent = "Enter your birthdate to continue.";
-          return;
-        }
-        const usernameCheck = validateUsername(username);
-        if (!usernameCheck.ok) {
-          authError.textContent = usernameCheck.message;
-          return;
-        }
-        if (!genderValue) {
-          authError.textContent = "Please select your gender.";
-          return;
-        }
-        const birthDate = new Date(`${birthDateValue}T00:00:00`);
-        if (!isTwentyOneOrOlder(birthDate)) {
-          authError.textContent = "FoCo After Dark is 21+. Please enter a valid 21+ birthdate.";
-          return;
-        }
-        birthDateISO = birthDate.toISOString();
-        fullName = `${firstName} ${lastName}`;
-        pendingSignupData = { email, password, fullName, birthDateISO, gender: genderValue, username: usernameCheck.value };
-        showSignupConfirmModal();
-        return;
-      }
-      // login: allow username or email
-      if (authMode === "login") {
-        const raw = email.trim();
-        if (!isLikelyEmail(raw)) {
-          await ensureFirebaseUser(); // ensure app + rules ready for lookups
-          let resolved = resolveUsernameToEmail(raw.replace(/^@/, ""));
-          if (!resolved) {
-            resolved = await resolveUsernameToEmailCloud(raw);
-          }
-          if (!resolved) {
-            authError.textContent = "Enter your email or a valid username.";
-            return;
-          }
-          email = resolved;
-        } else {
-          email = raw;
-        }
-      }
-      authSubmitInFlight = true;
-      const attemptId = logAuthAttempt(email, authMode);
-      try {
-        await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
-        console.info("[auth] signInWithEmailAndPassword", { attempt: attemptId });
-        suppressLandingRedirectOnce = true;
-        await signInWithEmailAndPassword(firebaseAuth, email, password);
-        updateRememberedEmail(remember ? email : null);
-        forceShowLogin = false;
-        clearLoginHash();
-      } catch (err) {
-        console.warn("[auth] sign-in failed", {
-          code: err?.code,
-          message: err?.message,
-          emailEmpty: !email
-        });
-        authError.textContent = formatAuthError(err);
       } finally {
-        authSubmitInFlight = false;
+        resetAuthSubmitState();
       }
+    }
+
+    if (authForm) {
+      authForm.addEventListener("submit", handleAuthSubmit);
+    }
+    if (authSubmitBtn) {
+      authSubmitBtn.addEventListener("click", handleAuthSubmit);
+    }
+    [authEmail, authPassword].forEach(input => {
+      if (!input) return;
+      input.addEventListener("keydown", (evt) => {
+        if (evt.key === "Enter") {
+          evt.preventDefault();
+          handleAuthSubmit(evt);
+        }
+      });
     });
 
     async function completeSignup(data) {
