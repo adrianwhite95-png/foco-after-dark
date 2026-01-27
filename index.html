@@ -6603,6 +6603,124 @@
         gap: 8px;
       }
     }
+
+    /* ---------- Premium polish overrides (visual only) ---------- */
+    :root {
+      --shadow-neon: 0 0 18px rgba(34, 211, 238, 0.18);
+      --accent-glow-live: rgba(34, 211, 238, 0.22);
+      --accent-shadow-live: 0 18px 40px rgba(1, 4, 12, 0.55);
+      --border-soft: rgba(148, 163, 184, 0.18);
+    }
+    body {
+      background:
+        radial-gradient(circle at 20% -10%, rgba(34, 211, 238, 0.16), transparent 58%),
+        radial-gradient(circle at 85% 0%, rgba(244, 114, 182, 0.18), transparent 62%),
+        linear-gradient(180deg, #01040f, #010818 55%, #000000);
+    }
+    body::after {
+      opacity: 0.02;
+    }
+    #app {
+      max-width: 1100px;
+    }
+    .screen {
+      background: rgba(10, 12, 22, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+    .card-hd,
+    .pass-card,
+    .staff-form,
+    .staff-radar,
+    .ceo-card,
+    .membership-card,
+    .modal-card,
+    .black-card,
+    .alerts-card,
+    .vip-member-deal {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+    }
+    h1, h2, h3, .app-title, .portal-title {
+      letter-spacing: -0.3px;
+    }
+    p, span, label, .small, .meta-note {
+      line-height: 1.5;
+      opacity: 0.82;
+    }
+    .tagline {
+      text-shadow: none;
+    }
+    .btn,
+    button {
+      background: rgba(12, 16, 30, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+    }
+    .btn-primary,
+    .redeem-btn,
+    .add-vouchers-btn {
+      background: linear-gradient(
+        120deg,
+        color-mix(in srgb, var(--accent-primary-live) 60%, #0b1020),
+        color-mix(in srgb, var(--accent-secondary-live) 55%, #0b1020)
+      );
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+    }
+    .btn-primary:hover,
+    .redeem-btn:hover,
+    .add-vouchers-btn:hover {
+      box-shadow: 0 0 20px rgba(34, 211, 238, 0.35);
+    }
+    .profile-summary,
+    .alerts-card,
+    .staff-pending-row,
+    .staff-ticker,
+    .ceo-panel,
+    .ceo-log-panel,
+    .ceo-issued-item {
+      padding: 16px;
+      border-radius: 18px;
+    }
+    .meta-row,
+    .profile-top-grid,
+    .community-stats,
+    .staff-pending-list,
+    .ceo-metrics {
+      gap: 12px;
+    }
+    .status-pill,
+    .status-pill-sm {
+      gap: 6px;
+    }
+    .status-pill::before,
+    .status-pill-sm::before {
+      content: "●";
+      font-size: 9px;
+      color: var(--accent-primary-live);
+    }
+    .status-pill-sm.pending::before { color: #fbbf24; }
+    .status-pill-sm.verified::before { content: "✓"; color: #22c55e; }
+    .status-pill-sm.denied::before,
+    .status-pill-sm.expired::before { content: "✕"; color: #f87171; }
+    .perk-option {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 12px;
+    }
+    .perk-option.selected {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 45%, rgba(255,255,255,0.12));
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.18);
+    }
+    .staff-pending-actions button {
+      min-height: 44px;
+      border-radius: 14px;
+    }
+    .modal-card {
+      border-radius: 20px;
+      transition: transform 220ms ease, opacity 220ms ease;
+    }
   </style>
 </head>
   <body>
