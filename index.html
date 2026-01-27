@@ -5287,12 +5287,23 @@
 
     /* Mobile/iPhone layout tightening */
     @media (max-width: 520px) {
-      body { padding: var(--space-5) var(--space-3) calc(var(--space-7) + 8px); }
+      body { padding: 22px 10px calc(var(--space-7) + 4px); }
       #app { max-width: 100%; }
-      .screen { padding: var(--space-5) var(--space-4); border-radius: var(--radius-md); }
+      .screen { padding: 22px 14px; border-radius: var(--radius-md); }
+      .pass-card { padding: 22px 14px; }
+      .pass-header { margin: -8px -6px 14px; padding: 18px 14px 16px; }
+      .profile-top-grid { gap: 12px; }
+      .profile-summary { padding: 16px; }
+      .meta-row.profile-meta {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .community-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
       .landing-feature-grid { grid-template-columns: 1fr; }
       .hero-highlight { text-align: left; }
-      .pass-header { margin: -6px -10px 12px; }
       .top-right-logout { top: 12px; right: 12px; }
       .secondary-actions .btn { width: 100%; }
       #redeemModal .perk-grid { max-height: 32vh; }
