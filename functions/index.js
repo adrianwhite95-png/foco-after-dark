@@ -355,7 +355,12 @@ async function resolveMemberByPassCode(passCode, tx, fallbackUid = null) {
     if (!memberSnap.exists) return null;
     memberData = memberSnap.data() || {};
     const existingPass = (memberData.passCode || "").toString().toUpperCase();
-    if (existingPass && existingPass !== passCode) {
+    const isBetaMember =
+      (memberData.tier || "").toString().toLowerCase() === "beta" ||
+      (memberData.membershipTier || "").toString().toLowerCase() === "beta" ||
+      (memberData.email || "").toString().toLowerCase() === BETA_EMAIL ||
+      fallbackUid === BETA_UID;
+    if (existingPass && existingPass !== passCode && !isBetaMember) {
       throw new HttpsError("permission-denied", "Pass ID does not match signed-in user.");
     }
     const finalPass = existingPass || passCode;
@@ -460,7 +465,13 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
           const memberData = resolved.memberData || {};
           const claims = context.auth?.token || {};
           const isPrivileged = claims.admin === true || claims.ceo === true;
-          if (resolved.uid !== context.auth.uid && !isPrivileged) {
+          const isBetaMember =
+            claims.beta === true ||
+            (memberData.tier || "").toString().toLowerCase() === "beta" ||
+            (memberData.membershipTier || "").toString().toLowerCase() === "beta" ||
+            (memberData.email || "").toString().toLowerCase() === BETA_EMAIL ||
+            resolved.uid === BETA_UID;
+          if (resolved.uid !== context.auth.uid && !isPrivileged && !isBetaMember) {
             throw new HttpsError("permission-denied", "Pass ID does not match signed-in user.");
           }
           const resolvedPassCode = (memberData.passCode || passCode || "").toUpperCase();
