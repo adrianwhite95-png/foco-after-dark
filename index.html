@@ -9252,10 +9252,31 @@
       return null;
     }
 
-    function useCloudProfile() {
-      const user = firebaseAuth?.currentUser;
-      return !!(db && user && !betaPassMode && !user.isAnonymous);
-    }
+  function useCloudProfile() {
+    const user = firebaseAuth?.currentUser;
+    return !!(db && user && !betaPassMode && !user.isAnonymous);
+  }
+
+  function waitForAuthReady(timeoutMs = 8000) {
+    if (firebaseAuth.currentUser) return Promise.resolve(firebaseAuth.currentUser);
+    return new Promise((resolve, reject) => {
+      let done = false;
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        try { unsub(); } catch (_) {}
+        reject(new Error("auth-timeout"));
+      }, timeoutMs);
+      const unsub = onAuthStateChanged(firebaseAuth, (user) => {
+        if (done) return;
+        if (!user) return;
+        done = true;
+        clearTimeout(timer);
+        try { unsub(); } catch (_) {}
+        resolve(user);
+      });
+    });
+  }
 
     function allowLocalCache() {
       return !useCloudProfile();
@@ -22536,6 +22557,10 @@ let onboardingIndex = 0;
           if (token) {
             suppressLandingRedirectOnce = true;
             await signInWithCustomToken(firebaseAuth, token);
+            try {
+              await waitForAuthReady();
+              await firebaseAuth.currentUser?.getIdToken(true);
+            } catch (_) {}
             return;
           }
         }
@@ -22553,16 +22578,28 @@ let onboardingIndex = 0;
           try {
             suppressLandingRedirectOnce = true;
             await signInWithEmailAndPassword(firebaseAuth, BETA_FALLBACK_EMAIL, fallbackPassword);
+            try {
+              await waitForAuthReady();
+              await firebaseAuth.currentUser?.getIdToken(true);
+            } catch (_) {}
             return;
           } catch (primaryErr) {
             if (primaryErr?.code === "auth/wrong-password" || primaryErr?.code === "auth/invalid-credential") {
               suppressLandingRedirectOnce = true;
               await signInWithEmailAndPassword(firebaseAuth, BETA_FALLBACK_EMAIL, normalized);
+              try {
+                await waitForAuthReady();
+                await firebaseAuth.currentUser?.getIdToken(true);
+              } catch (_) {}
               return;
             }
             if (primaryErr?.code === "auth/user-not-found") {
               suppressLandingRedirectOnce = true;
               await createUserWithEmailAndPassword(firebaseAuth, BETA_FALLBACK_EMAIL, fallbackPassword);
+              try {
+                await waitForAuthReady();
+                await firebaseAuth.currentUser?.getIdToken(true);
+              } catch (_) {}
               return;
             }
             throw primaryErr;
@@ -22862,6 +22899,22 @@ let onboardingIndex = 0;
         incrementPendingForCurrent(selectedPerkId);
       }
       renderRedemptionOptions();
+      let authUser = firebaseAuth.currentUser;
+      if (!authUser) {
+        try {
+          authUser = await waitForAuthReady();
+        } catch (err) {
+          console.warn("[createRedemption] auth not ready", err);
+          creditInfo.textContent = "Sign in required to redeem.";
+          showToast("Sign in required to redeem.", 2400);
+          return;
+        }
+      }
+      try {
+        await authUser.getIdToken(true);
+      } catch (err) {
+        console.warn("[createRedemption] token refresh failed", err);
+      }
       if (!functionsClient) {
         creditInfo.textContent = "Redemption unavailable. Try again.";
         return;
@@ -22877,7 +22930,8 @@ let onboardingIndex = 0;
           passCode: activePassId ? "set" : "",
           venueId: requestedVenue,
           perkId,
-          perkLabel: rewardLabel
+          perkLabel: rewardLabel,
+          uid: authUser?.uid || null
         });
       }
       let payload = null;
