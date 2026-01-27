@@ -11068,7 +11068,7 @@ let onboardingIndex = 0;
               showScreen("venues");
               break;
             case "membership":
-              if (manageBillingBtn) manageBillingBtn.click();
+              openMembershipChooser();
               break;
             case "cancelMembership":
               showCancelModal();
@@ -11836,7 +11836,7 @@ let onboardingIndex = 0;
     const membershipBackBtn = document.getElementById("membershipBackBtn");
     if (membershipBackBtn) {
       membershipBackBtn.addEventListener("click", () => {
-        showScreen("landing");
+        showScreen(firebaseAuth.currentUser ? "pass" : "landing");
       });
     }
     if (supportTrigger) {
@@ -20344,8 +20344,44 @@ let onboardingIndex = 0;
       });
     }
 
+    const membershipPlanButtons = Array.from(document.querySelectorAll(".select-membership"));
+
+    function refreshMembershipChoices() {
+      if (!membershipPlanButtons.length) return;
+      const currentTier = normalizeTierKey(currentMembershipTier || memberProfile?.tier) || "standard";
+      membershipPlanButtons.forEach(btn => {
+        const tier = normalizeTierKey(btn.dataset.tier) || btn.dataset.tier;
+        btn.disabled = false;
+        btn.classList.remove("is-current");
+        if (tier === currentTier) {
+          btn.textContent = `Current: ${tier.toUpperCase()}`;
+          btn.disabled = true;
+          btn.classList.add("is-current");
+          return;
+        }
+        const isUpgrade = currentTier === "standard" && tier === "vip";
+        const isDowngrade = currentTier === "vip" && tier === "standard";
+        if (isUpgrade) {
+          btn.textContent = "Upgrade to VIP";
+        } else if (isDowngrade) {
+          btn.textContent = "Downgrade to Standard";
+        } else {
+          btn.textContent = tier === "vip" ? "Choose VIP" : "Choose Standard";
+        }
+      });
+    }
+
+    function openMembershipChooser() {
+      if (!firebaseAuth.currentUser && !betaPassMode) {
+        showScreen("auth");
+        return;
+      }
+      refreshMembershipChoices();
+      showScreen("membership");
+    }
+
     // Membership selection buttons
-    document.querySelectorAll(".select-membership").forEach(btn => {
+    membershipPlanButtons.forEach(btn => {
       btn.addEventListener("click", () => {
         const tier = btn.dataset.tier;
         const user = firebaseAuth.currentUser;
@@ -20363,7 +20399,7 @@ let onboardingIndex = 0;
     if (statusPill) {
       statusPill.addEventListener("click", () => {
         if (!currentMembershipTier || isCeoActive() || isFreeMember()) return;
-        openTierModal();
+        openMembershipChooser();
       });
     }
     tierModalAction.addEventListener("click", async () => {
@@ -20461,6 +20497,7 @@ let onboardingIndex = 0;
       renderVipDealForMember();
       refreshMemberStats();
       refreshAlertsTicker();
+      refreshMembershipChoices();
       if (tier === "vip" && previousTier && previousTier !== "vip" && !isCeoActive()) {
         addPoints(POINT_RULES.upgradeVip, "Upgraded to VIP");
       }
