@@ -8999,9 +8999,30 @@
     const params = new URLSearchParams(window.location.search);
     const SAFE_MODE = params.get("safe") === "1";
     const DEBUG_MODE = params.get("debug") === "1";
+    // Strip cache-busting params from visible URL without reloading.
+    (() => {
+      try {
+        const url = new URL(window.location.href);
+        let dirty = false;
+        ["v", "r"].forEach((key) => {
+          if (url.searchParams.has(key)) {
+            url.searchParams.delete(key);
+            dirty = true;
+          }
+        });
+        if (dirty) {
+          const clean =
+            url.pathname +
+            (url.searchParams.toString() ? "?" + url.searchParams.toString() : "") +
+            url.hash;
+          history.replaceState({}, "", clean);
+        }
+      } catch (_) {}
+    })();
 
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     const firebaseAuth = getAuth(app);
+    setPersistence(firebaseAuth, browserLocalPersistence).catch(() => {});
     const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|crios|android/i.test(navigator.userAgent);
     const firestoreSettings = isSafari
       ? {
@@ -9176,8 +9197,14 @@
     const BUILD_VERSION = "2025.12.15.1";
     try {
       const url = new URL(window.location.href);
-      if (url.searchParams.has("v")) {
-        url.searchParams.delete("v");
+      let dirty = false;
+      ["v", "r"].forEach((key) => {
+        if (url.searchParams.has(key)) {
+          url.searchParams.delete(key);
+          dirty = true;
+        }
+      });
+      if (dirty) {
         const next = url.search ? `${url.pathname}${url.search}` : url.pathname;
         history.replaceState({}, "", next);
       }
@@ -9314,6 +9341,22 @@
       passCard.classList.add("intro");
     }
 
+    function clearLoginHash() {
+      if (location.hash === "#login") {
+        history.replaceState({}, "", location.pathname + location.search);
+      }
+    }
+    function renderLoginScreen() {
+      authMode = "login";
+      updateAuthModeText();
+      showScreen("auth");
+    }
+    function forceLoginScreen() {
+      forceShowLogin = true;
+      if (location.hash !== "#login") location.hash = "#login";
+      renderLoginScreen();
+    }
+
     // Landing buttons (guarded to avoid null errors)
     const landingGetPassBtn = document.getElementById("landingGetPassBtn");
     const landingLoginLink = document.getElementById("landingLoginLink");
@@ -9327,13 +9370,7 @@
     }
     if (landingLoginLink) {
       landingLoginLink.addEventListener("click", () => {
-        if (firebaseAuth.currentUser) {
-          showScreen("pass");
-          return;
-        }
-        authMode = "login";
-        updateAuthModeText();
-        showScreen("auth");
+        forceLoginScreen();
       });
     }
     // Sticky staff shortcuts
@@ -9408,6 +9445,8 @@
     if (authBackBtn) {
       authBackBtn.addEventListener("click", () => {
         authError.textContent = "";
+        forceShowLogin = false;
+        clearLoginHash();
         showScreen("landing");
       });
     }
@@ -9859,6 +9898,8 @@
             }
           }
           updateRememberedEmail(remember ? email : null);
+          forceShowLogin = false;
+          clearLoginHash();
         } catch (err) {
           console.warn("[auth] sign-in failed", {
             code: err?.code,
@@ -9926,6 +9967,8 @@
         suppressLandingRedirectOnce = true;
         await signInWithEmailAndPassword(firebaseAuth, email, password);
         updateRememberedEmail(remember ? email : null);
+        forceShowLogin = false;
+        clearLoginHash();
       } catch (err) {
         console.warn("[auth] sign-in failed", {
           code: err?.code,
@@ -9989,6 +10032,8 @@
         localStorage.setItem(PENDING_MEMBERSHIP_STORAGE_KEY, cred.user.uid);
       }
       await handleAuthenticatedUser(cred.user);
+      forceShowLogin = false;
+      clearLoginHash();
       if (onboardingMembershipFlow) {
         showScreen("membership");
       }
@@ -12179,6 +12224,7 @@
     if (reason) logRealtime("attachContext", reason);
   }
   let authReady = false;
+  let forceShowLogin = false;
   let lastAuthUid = null;
   let heartbeatServerLogged = false;
   let pillUpdateTimer = null;
@@ -13242,6 +13288,8 @@ let onboardingIndex = 0;
 
     logoutLink.addEventListener("click", async () => {
       const currentUid = firebaseAuth.currentUser?.uid;
+      forceShowLogin = true;
+      if (location.hash !== "#login") location.hash = "#login";
       try {
         await signOut(firebaseAuth);
       } catch (err) {
@@ -13249,7 +13297,7 @@ let onboardingIndex = 0;
       }
       detachAllRealtimeListeners("logout");
       resetInMemoryCaches();
-      ["betaSkipActive", "staffSession", "ceoSession", "pendingScanVerify"].forEach(key => localStorage.removeItem(key));
+      ["betaSkipActive", "staffSession", "ceoSession", "pendingScanVerify", "lastUid", "lastRole", "lastRoute", "activeProfile", "betaLogin", "anonLogin"].forEach(key => localStorage.removeItem(key));
       if (currentUid) {
         localStorage.removeItem(`passcode_${currentUid}`);
         localStorage.removeItem(`membership_${currentUid}`);
@@ -13280,7 +13328,7 @@ let onboardingIndex = 0;
       document.body.classList.remove("ceo-active");
       clearPendingMembershipFlagForUser(currentUid);
       applyRememberedEmailToForm();
-      showScreen("landing");
+      renderLoginScreen();
       stopIdleTimer();
     });
 
@@ -20941,9 +20989,7 @@ let onboardingIndex = 0;
             showToast("New update available. Reloading…");
           }
           setTimeout(() => {
-            const url = new URL(window.location.href);
-            url.searchParams.set("v", serverVersion);
-            window.location.replace(url.toString());
+            window.location.reload();
           }, 600);
           return;
         }
@@ -20952,9 +20998,7 @@ let onboardingIndex = 0;
             showToast("Refreshing to check for updates…", 1200);
           }
           setTimeout(() => {
-            const url = new URL(window.location.href);
-            url.searchParams.set("r", Date.now().toString());
-            window.location.replace(url.toString());
+            window.location.reload();
           }, 500);
         }
       } catch (err) {
@@ -23193,6 +23237,15 @@ let onboardingIndex = 0;
       suppressLandingRedirectOnce = false;
       initialAuthResolved = true;
     };
+    const loginForced = forceShowLogin || window.location.hash === "#login";
+    if (loginForced) {
+      authClaimsReady = false;
+      authClaims = null;
+      suppressLandingRedirectOnce = true;
+      renderLoginScreen();
+      finalizeAuthState();
+      return;
+    }
     if (!user) {
       authClaimsReady = false;
       authClaims = null;
