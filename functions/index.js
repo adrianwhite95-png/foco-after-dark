@@ -479,16 +479,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
             throw new HttpsError("resource-exhausted", "Slow down and try again.");
           }
 
-          const pendingSnap = await tx.get(
-            db.collection("members")
-              .doc(resolved.uid)
-              .collection("redemptions")
-              .where("status", "==", "pending")
-              .limit(1)
-          );
-          if (!pendingSnap.empty) {
-            throw new HttpsError("failed-precondition", "You already have a pending redemption.");
-          }
+          // Allow multiple pending redemptions as long as balance permits.
 
           const perkSnap = await tx.get(perkRef);
           let perkData = perkSnap.data() || {};
