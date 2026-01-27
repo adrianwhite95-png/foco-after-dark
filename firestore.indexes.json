@@ -1,12 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "redemptions",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }
