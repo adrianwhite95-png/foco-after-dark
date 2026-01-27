@@ -4531,6 +4531,23 @@
       --muted: rgba(197,207,223,0.62);
       --accent: #2df5ff;
       --accent2: #ff4fd8;
+      /* Design system */
+      --space-1: 6px;
+      --space-2: 10px;
+      --space-3: 14px;
+      --space-4: 18px;
+      --space-5: 24px;
+      --space-6: 32px;
+      --space-7: 40px;
+      --radius-sm: 12px;
+      --radius-md: 16px;
+      --radius-lg: 22px;
+      --container-max: 1040px;
+      --type-xs: 12px;
+      --type-sm: 13px;
+      --type-md: 15px;
+      --type-lg: 18px;
+      --type-xl: 24px;
       --bg-deep: var(--bg);
       --bg-card: var(--card);
       --bg-card-alt: var(--card);
@@ -4559,22 +4576,25 @@
         radial-gradient(circle at 85% 5%, rgba(255,79,216,0.14), transparent 55%),
         linear-gradient(180deg, #05060b 0%, #070a12 45%, #05060b 100%);
       color: var(--text);
-      padding: 28px 18px 64px;
+      padding: var(--space-6) var(--space-4) calc(var(--space-7) + 20px);
     }
     body::before { opacity: 0.38; filter: blur(3px) brightness(0.7) saturate(1.15); }
     body::after { opacity: 0.04; }
-    #app { max-width: 1040px; }
+    #app {
+      max-width: var(--container-max);
+      width: min(100%, var(--container-max));
+    }
 
     .landing-wrapper {
-      padding: 26px 22px 22px;
-      gap: 18px;
+      padding: var(--space-6) var(--space-5) var(--space-5);
+      gap: var(--space-4);
       display: flex;
       flex-direction: column;
       align-items: center;
       text-align: center;
     }
     #landingTagline {
-      font-size: 15px;
+      font-size: var(--type-md);
       line-height: 1.5;
       max-width: 520px;
       text-align: center;
@@ -4721,20 +4741,29 @@
 
     h1, h2, h3, .app-title, .portal-title {
       font-weight: 700;
-      letter-spacing: -0.5px;
+      letter-spacing: -0.02em;
       color: var(--text);
+    }
+    h1 { font-size: clamp(28px, 4vw, 36px); }
+    h2 { font-size: clamp(22px, 3.2vw, 30px); }
+    h3 { font-size: clamp(18px, 2.6vw, 24px); }
+    .app-title, .portal-title {
+      font-size: clamp(24px, 3.4vw, 32px);
+      margin-bottom: var(--space-2);
     }
     p, span, label, .small, .meta-note {
       color: var(--muted);
-      font-size: 14px;
+      font-size: var(--type-sm);
     }
 
     .screen {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 28px 18px;
-      box-shadow: var(--shadow-card);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6) var(--space-5);
+      box-shadow:
+        var(--shadow-card),
+        inset 0 1px 0 rgba(255,255,255,0.04);
       backdrop-filter: blur(14px) saturate(1.08);
       -webkit-backdrop-filter: blur(14px) saturate(1.08);
     }
@@ -4749,26 +4778,37 @@
     .black-card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 18px;
-      box-shadow: var(--shadow-card);
+      border-radius: var(--radius-lg);
+      box-shadow:
+        var(--shadow-card),
+        inset 0 1px 0 rgba(255,255,255,0.03);
     }
-    .pass-card { padding: 22px 18px; }
+    .pass-card { padding: var(--space-6) var(--space-5); }
     .pass-card::after { opacity: 0.12; }
 
     .btn,
     button {
-      border-radius: 14px;
-      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      padding: 12px 18px;
       font-weight: 600;
       text-transform: none;
       letter-spacing: 0.02em;
       background: linear-gradient(120deg, var(--accent-primary-live), var(--accent-secondary-live));
       border: none;
       color: #050608;
-      box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+      box-shadow:
+        0 10px 26px rgba(0,0,0,0.38),
+        0 0 0 1px rgba(255,255,255,0.04) inset;
     }
     .btn:hover,
     button:hover { transform: translateY(-1px); }
+    .btn:focus-visible,
+    button:focus-visible {
+      outline: none;
+      box-shadow:
+        0 0 0 2px rgba(5, 6, 11, 0.9),
+        0 0 0 4px color-mix(in srgb, var(--accent-primary-live) 70%, transparent);
+    }
     .btn-primary { animation: none; box-shadow: 0 8px 22px rgba(0,0,0,0.35); }
     .btn-secondary {
       background: rgba(255,255,255,0.06);
@@ -5247,9 +5287,9 @@
 
     /* Mobile/iPhone layout tightening */
     @media (max-width: 520px) {
-      body { padding: 18px 12px 48px; }
+      body { padding: var(--space-5) var(--space-3) calc(var(--space-7) + 8px); }
       #app { max-width: 100%; }
-      .screen { padding: 20px 14px; border-radius: 16px; }
+      .screen { padding: var(--space-5) var(--space-4); border-radius: var(--radius-md); }
       .landing-feature-grid { grid-template-columns: 1fr; }
       .hero-highlight { text-align: left; }
       .pass-header { margin: -6px -10px 12px; }
