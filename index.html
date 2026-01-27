@@ -4931,6 +4931,24 @@
       gap: 12px;
       margin-top: 12px;
     }
+    .profile-top-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+    .profile-side-col {
+      display: flex;
+      flex-direction: column;
+    }
+    .profile-side-col .alerts-card {
+      height: 100%;
+    }
+    @media (max-width: 900px) {
+      .profile-top-grid {
+        grid-template-columns: 1fr;
+      }
+    }
     .pass-card .meta-row.quick-strip { display: none; }
     .pass-card .meta-group {
       background: rgba(255,255,255,0.03);
@@ -5630,11 +5648,11 @@
                 </div>
               </div>
             </div>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
               <button class="status-pill" id="statusPill" type="button" title="Tap to manage membership tier">
                 Active Pass
               </button>
-              <div id="membershipStatusDetail" style="font-size:11px;color:#94a3b8;max-width:160px;text-align:right;"></div>
+              <div id="membershipStatusDetail" style="font-size:11px;color:#94a3b8;max-width:240px;text-align:center;"></div>
             </div>
           </div>
 
@@ -5654,64 +5672,69 @@
             </div>
           </div>
 
-          <!-- Profile summary -->
-          <div class="profile-summary">
-            <div class="user-row">
-            <div class="avatar" id="avatarInitials" title="Tap to edit badge">
-              <span class="avatar-text" id="avatarText">AW</span>
-            </div>
-            <div class="user-details">
-              <div class="user-name" id="passUserName">FoCo Member</div>
-              <div class="user-tier" id="passTierText">Nightlife Pass • Member</div>
-              <div class="pass-id-row">
-                <span class="pass-id-chip copyable" id="passIdTop" title="Tap to copy your Pass ID">Pass ID:</span>
+          <div class="profile-top-grid">
+            <div class="profile-main-col">
+              <!-- Profile summary -->
+              <div class="profile-summary">
+                <div class="user-row">
+                <div class="avatar" id="avatarInitials" title="Tap to edit badge">
+                  <span class="avatar-text" id="avatarText">AW</span>
+                </div>
+                <div class="user-details">
+                  <div class="user-name" id="passUserName">FoCo Member</div>
+                  <div class="user-tier" id="passTierText">Nightlife Pass • Member</div>
+                  <div class="pass-id-row">
+                    <span class="pass-id-chip copyable" id="passIdTop" title="Tap to copy your Pass ID">Pass ID:</span>
+                  </div>
+
+                  <div class="username-row">
+                    <span class="username-chip" id="userUsername">@member</span>
+                    <button type="button" class="username-edit" id="editUsernameBtn" title="Edit username">
+                      <span class="edit-pencil" aria-hidden="true">✎</span>
+                    </button>
+                  </div>
+                  <div class="user-tagline" id="userTagline" style="font-size:11px;color:#cbd5f5;cursor:pointer;">Tap to add your vibe.</div>
+                  <div class="tagline-edit-hint">Tap to edit tagline</div>
+                  <div class="avatar-tools" id="avatarTools">
+                    <button type="button" class="avatar-edit-btn" id="avatarEditBtn" title="Edit initials or emoji">Edit badge</button>
+                  </div>
+                  <div class="badge-row" id="profileBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
+                </div>
+              </div>
               </div>
 
-              <div class="username-row">
-                <span class="username-chip" id="userUsername">@member</span>
-                <button type="button" class="username-edit" id="editUsernameBtn" title="Edit username">
-                  <span class="edit-pencil" aria-hidden="true">✎</span>
-                </button>
+              <div class="meta-row profile-meta">
+                <div class="meta-group">
+                  <div class="meta-label">Member Since</div>
+                  <div class="meta-value" id="memberSinceText">Jan 1, 2024</div>
+                </div>
+                <div class="meta-group">
+                  <div class="meta-label">Valid Until</div>
+                  <div class="meta-value" id="expiryText">Dec 31, 2025</div>
+                </div>
+                <div class="meta-group">
+                  <div class="meta-label">Last check-in</div>
+                  <div class="meta-value" id="lastCheckinText">—</div>
+                </div>
               </div>
-              <div class="user-tagline" id="userTagline" style="font-size:11px;color:#cbd5f5;cursor:pointer;">Tap to add your vibe.</div>
-              <div class="tagline-edit-hint">Tap to edit tagline</div>
-              <div class="avatar-tools" id="avatarTools">
-                <button type="button" class="avatar-edit-btn" id="avatarEditBtn" title="Edit initials or emoji">Edit badge</button>
+            </div>
+            <div class="profile-side-col">
+              <div class="alerts-card">
+                <h4>Tonight’s alerts</h4>
+                <ul id="alertsList">
+                  <li>
+                    <strong>Social Underground</strong>
+                    <span>Glow shot hour 11pm – 12am</span>
+                    <span class="alerts-meta">VIP venues · Old Town</span>
+                  </li>
+                  <li>
+                    <strong>Pour Brothers Tavern</strong>
+                    <span>$3 cocktail upgrade for pass holders</span>
+                    <span class="alerts-meta">Craft pours · Linden St</span>
+                  </li>
+                </ul>
               </div>
-              <div class="badge-row" id="profileBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
             </div>
-          </div>
-
-          <div class="meta-row profile-meta">
-            <div class="meta-group">
-              <div class="meta-label">Member Since</div>
-              <div class="meta-value" id="memberSinceText">Jan 1, 2024</div>
-            </div>
-            <div class="meta-group">
-              <div class="meta-label">Valid Until</div>
-              <div class="meta-value" id="expiryText">Dec 31, 2025</div>
-            </div>
-            <div class="meta-group">
-              <div class="meta-label">Last check-in</div>
-              <div class="meta-value" id="lastCheckinText">—</div>
-            </div>
-          </div>
-          </div>
-
-          <div class="alerts-card">
-            <h4>Tonight’s alerts</h4>
-            <ul id="alertsList">
-              <li>
-                <strong>Social Underground</strong>
-                <span>Glow shot hour 11pm – 12am</span>
-                <span class="alerts-meta">VIP venues · Old Town</span>
-              </li>
-              <li>
-                <strong>Pour Brothers Tavern</strong>
-                <span>$3 cocktail upgrade for pass holders</span>
-                <span class="alerts-meta">Craft pours · Linden St</span>
-              </li>
-            </ul>
           </div>
           <div class="vip-member-deal" id="vipMemberDeal"></div>
 
