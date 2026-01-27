@@ -1792,14 +1792,14 @@
       width: 48px;
       height: 48px;
       border-radius: 16px;
-      background: radial-gradient(circle at 30% 10%, #a855f7, #0ea5e9);
+      background: radial-gradient(circle at 30% 10%, var(--accent-primary-live), #0b172a);
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
       font-size: 18px;
       color: #020617;
-      box-shadow: 0 10px 22px rgba(2, 6, 23, 0.45), 0 0 18px rgba(59, 130, 246, 0.6);
+      box-shadow: 0 10px 22px rgba(2, 6, 23, 0.45), 0 0 18px color-mix(in srgb, var(--accent-primary-live) 55%, transparent);
       position: relative;
       }
     .avatar::before {
@@ -4693,27 +4693,6 @@
       position: relative;
       z-index: 1;
     }
-    .avatar-toggle {
-      position: absolute;
-      left: 50%;
-      bottom: -10px;
-      transform: translateX(-50%);
-      height: 20px;
-      padding: 0 8px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.2);
-      background: rgba(8, 10, 18, 0.92);
-      color: var(--accent-primary-live);
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      z-index: 2;
-      box-shadow: 0 6px 14px rgba(0,0,0,0.35);
-    }
     .meta-row {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -5142,37 +5121,11 @@
       align-self: stretch;
     }
     .avatar-tools {
-      display: none;
+      display: flex;
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
       margin-top: 6px;
-    }
-    .avatar-tools.open {
-      display: flex;
-    }
-    .avatar-tools-label {
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .avatar-palette {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-    .avatar-swatch {
-      width: 18px;
-      height: 18px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.15);
-      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35);
-      cursor: pointer;
-      position: relative;
-    }
-    .avatar-swatch.active {
-      box-shadow: 0 0 0 2px rgba(255,255,255,0.35), 0 0 12px color-mix(in srgb, var(--accent-primary-live) 55%, transparent);
     }
     .avatar-edit-btn {
       border-radius: 999px;
@@ -5190,7 +5143,7 @@
       border-radius: 16px;
       box-shadow: 0 10px 24px rgba(0,0,0,0.45), 0 0 18px color-mix(in srgb, var(--accent-primary-live) 40%, transparent);
       border: 1px solid color-mix(in srgb, var(--accent-primary-live) 45%, var(--border));
-      background: rgba(9, 12, 22, 0.8);
+      background: radial-gradient(circle at 30% 30%, var(--accent-primary-live), #0b172a);
     }
     .user-details {
       display: flex;
@@ -5706,7 +5659,6 @@
             <div class="user-row">
             <div class="avatar" id="avatarInitials" title="Tap to edit badge">
               <span class="avatar-text" id="avatarText">AW</span>
-              <button type="button" class="avatar-toggle" id="avatarPaletteToggle" title="Choose color">Color ▾</button>
             </div>
             <div class="user-details">
               <div class="user-name" id="passUserName">FoCo Member</div>
@@ -5724,8 +5676,6 @@
               <div class="user-tagline" id="userTagline" style="font-size:11px;color:#cbd5f5;cursor:pointer;">Tap to add your vibe.</div>
               <div class="tagline-edit-hint">Tap to edit tagline</div>
               <div class="avatar-tools" id="avatarTools">
-                <span class="avatar-tools-label">Pass badge</span>
-                <div class="avatar-palette" id="avatarPalette"></div>
                 <button type="button" class="avatar-edit-btn" id="avatarEditBtn" title="Edit initials or emoji">Edit badge</button>
               </div>
               <div class="badge-row" id="profileBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
@@ -7037,7 +6987,6 @@
       resetSupportForm();
       applyAccentTheme("cyan");
       localStorage.removeItem(ACCENT_KEY);
-      localStorage.removeItem(AVATAR_COLOR_KEY);
       localStorage.removeItem(BG_KEY);
       localStorage.removeItem(BG_KEY);
       applyBackgroundTheme("default");
@@ -7114,11 +7063,9 @@
     const REWARDS_KEY = "rewardsProgress";
     const BADGES_KEY = "foco_badges_v1";
     const DEAL_CODES_KEY = "dealCodesCache";
-    const AVATAR_COLOR_KEY = "avatarColorLast";
     const BG_KEY = "bgTheme";
     const ACHIEVEMENTS_KEY = "achievementsMap";
     const REMEMBER_EMAIL_KEY = "rememberedEmail";
-    const AVATAR_COLORS = ["#22d3ee", "#f472b6", "#fbbf24", "#a855f7", "#22c55e", "#0ea5e9", "#ef4444", "#8b5cf6"];
     const BUILD_VERSION = "2025.12.15.1";
     let ceoHealthUnsub = null;
     let settingsUnsub = null;
@@ -8299,8 +8246,6 @@
     const editUsernameBtn = document.getElementById("editUsernameBtn");
     const avatarInitials = document.getElementById("avatarInitials");
     const avatarText = document.getElementById("avatarText");
-    const avatarPaletteToggle = document.getElementById("avatarPaletteToggle");
-    const avatarPalette = document.getElementById("avatarPalette");
     const avatarEditBtn = document.getElementById("avatarEditBtn");
     const avatarTools = document.getElementById("avatarTools");
     const passTierText = document.getElementById("passTierText");
@@ -11064,7 +11009,6 @@ let onboardingIndex = 0;
       resetSupportForm();
       applyAccentTheme("cyan");
       localStorage.removeItem(ACCENT_KEY);
-      localStorage.removeItem(AVATAR_COLOR_KEY);
       applyBackgroundTheme("default");
       localStorage.removeItem(BG_KEY);
       memberProfile = null;
@@ -11552,7 +11496,6 @@ let onboardingIndex = 0;
           expiryText.textContent = "Dec 31, 2025";
         }
       }
-      loadAvatarColor();
       loadAvatarFlair();
       loadBackgroundTheme();
       const directoryEntry = allowLocalCache()
@@ -14305,7 +14248,6 @@ let onboardingIndex = 0;
     renderVenueButtons();
     // Background selection removed; no UI controls remain for choosing background themes.
 
-    let currentAvatarColor = AVATAR_COLORS[0];
     const AVATAR_FLAIRS = ["★", "⚡", "♫", "🔥", "♥", "👑"];
     let currentAvatarFlair = "";
     function applyAvatarInitials(value = "", opts = {}) {
@@ -14320,45 +14262,6 @@ let onboardingIndex = 0;
       }
       if (currentPassCode && allowLocalCache()) {
         setMemberDirectoryEntry(currentPassCode, { avatarInitials: trimmed });
-      }
-    }
-    function syncAvatarPaletteActive(color) {
-      if (!avatarPalette) return;
-      avatarPalette.querySelectorAll(".avatar-swatch").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.color === color);
-      });
-    }
-    function buildAvatarPalette() {
-      if (!avatarPalette) return;
-      avatarPalette.innerHTML = AVATAR_COLORS.map((color) => {
-        return `<button type="button" class="avatar-swatch" data-color="${color}" style="background:${color}" aria-label="Select color"></button>`;
-      }).join("");
-      avatarPalette.querySelectorAll(".avatar-swatch").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const color = btn.dataset.color || AVATAR_COLORS[0];
-          applyAvatarColor(color);
-        });
-      });
-      syncAvatarPaletteActive(currentAvatarColor);
-    }
-    function applyAvatarColor(color = AVATAR_COLORS[0], opts = {}) {
-      if (!avatarInitials) return;
-      const chosen = color || AVATAR_COLORS[0];
-      const prev = currentAvatarColor;
-      currentAvatarColor = chosen;
-      avatarInitials.style.background = `radial-gradient(circle at 30% 30%, ${chosen}, #0b172a)`;
-      avatarInitials.style.boxShadow = `0 0 20px ${chosen}55`;
-      avatarInitials.dataset.color = chosen;
-      syncAvatarPaletteActive(chosen);
-      if (allowLocalCache()) {
-        localStorage.setItem(AVATAR_COLOR_KEY, chosen);
-        if (currentPassCode) {
-          setMemberDirectoryEntry(currentPassCode, { avatarColor: chosen });
-        }
-      }
-      if (memberProfile) memberProfile.avatarColor = chosen;
-      if (opts.persist !== false && chosen !== prev) {
-        persistMemberState({ avatarColor: chosen });
       }
     }
     function applyAvatarFlair(flair = "", opts = {}) {
@@ -14384,26 +14287,6 @@ let onboardingIndex = 0;
           saveMemberDirectory(directory);
         }
       }
-    }
-    function loadAvatarColor() {
-      let chosen = memberProfile?.avatarColor || AVATAR_COLORS[0];
-      if (!allowLocalCache()) {
-        applyAvatarColor(chosen, { persist: false });
-        return;
-      }
-      if (currentPassCode) {
-        const entry = loadMemberDirectory()[(currentPassCode || "").toUpperCase()];
-        if (entry?.avatarColor) chosen = entry.avatarColor;
-      } else {
-        localStorage.removeItem(AVATAR_COLOR_KEY);
-      }
-      const cachedLocal = localStorage.getItem(AVATAR_COLOR_KEY);
-      if (cachedLocal && currentPassCode) chosen = cachedLocal;
-      const directory = loadMemberDirectory();
-      if (currentPassCode && directory[(currentPassCode || "").toUpperCase()]?.avatarColor) {
-        chosen = directory[(currentPassCode || "").toUpperCase()].avatarColor;
-      }
-      applyAvatarColor(chosen, { persist: false });
     }
     function loadAvatarFlair() {
       let flair = memberProfile?.avatarFlair || "";
@@ -14441,20 +14324,10 @@ let onboardingIndex = 0;
       avatarInitials.style.cursor = "pointer";
       avatarInitials.title = "Tap to edit badge";
       avatarInitials.addEventListener("click", openAvatarEditor);
-    } else {
-      localStorage.removeItem(AVATAR_COLOR_KEY);
     }
     if (avatarEditBtn) {
       avatarEditBtn.addEventListener("click", openAvatarEditor);
     }
-    if (avatarPaletteToggle) {
-      avatarPaletteToggle.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (!avatarTools) return;
-        avatarTools.classList.toggle("open");
-      });
-    }
-    buildAvatarPalette();
     if (userTaglineEl) {
       userTaglineEl.addEventListener("click", () => {
         const current = (memberProfile?.tagline || "").trim();
