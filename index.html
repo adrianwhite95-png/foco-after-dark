@@ -4684,6 +4684,32 @@
       height: 56px;
       border-radius: 18px;
       box-shadow: 0 12px 26px rgba(0,0,0,0.45), 0 0 20px rgba(45,245,255,0.22);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .avatar-text {
+      position: relative;
+      z-index: 1;
+    }
+    .avatar-toggle {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(8, 10, 18, 0.8);
+      color: var(--accent-primary-live);
+      font-size: 11px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 2;
     }
     .meta-row {
       display: grid;
@@ -5113,11 +5139,14 @@
       align-self: stretch;
     }
     .avatar-tools {
-      display: flex;
+      display: none;
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
       margin-top: 6px;
+    }
+    .avatar-tools.open {
+      display: flex;
     }
     .avatar-tools-label {
       font-size: 10px;
@@ -5672,7 +5701,10 @@
           <!-- Profile summary -->
           <div class="profile-summary">
             <div class="user-row">
-            <div class="avatar" id="avatarInitials" title="Tap to change color and emoji"></div>
+            <div class="avatar" id="avatarInitials" title="Tap to edit badge">
+              <span class="avatar-text" id="avatarText">AW</span>
+              <button type="button" class="avatar-toggle" id="avatarPaletteToggle" title="Choose color">▾</button>
+            </div>
             <div class="user-details">
               <div class="user-name" id="passUserName">FoCo Member</div>
               <div class="user-tier" id="passTierText">Nightlife Pass • Member</div>
@@ -5688,7 +5720,7 @@
               </div>
               <div class="user-tagline" id="userTagline" style="font-size:11px;color:#cbd5f5;cursor:pointer;">Tap to add your vibe.</div>
               <div class="tagline-edit-hint">Tap to edit tagline</div>
-              <div class="avatar-tools">
+              <div class="avatar-tools" id="avatarTools">
                 <span class="avatar-tools-label">Pass badge</span>
                 <div class="avatar-palette" id="avatarPalette"></div>
                 <button type="button" class="avatar-edit-btn" id="avatarEditBtn" title="Edit initials or emoji">Edit badge</button>
@@ -8263,8 +8295,11 @@
     const userUsername = document.getElementById("userUsername");
     const editUsernameBtn = document.getElementById("editUsernameBtn");
     const avatarInitials = document.getElementById("avatarInitials");
+    const avatarText = document.getElementById("avatarText");
+    const avatarPaletteToggle = document.getElementById("avatarPaletteToggle");
     const avatarPalette = document.getElementById("avatarPalette");
     const avatarEditBtn = document.getElementById("avatarEditBtn");
+    const avatarTools = document.getElementById("avatarTools");
     const passTierText = document.getElementById("passTierText");
     const profileBadges = document.getElementById("profileBadges");
     const statusPill = document.getElementById("statusPill");
@@ -11462,7 +11497,9 @@ let onboardingIndex = 0;
       if (passUserName) passUserName.textContent = displayName;
       if (avatarInitials) {
         const customInitials = (memberProfile && memberProfile.avatarInitials) ? String(memberProfile.avatarInitials).trim() : "";
-        avatarInitials.textContent = customInitials ? customInitials.slice(0, 3).toUpperCase() : initialsFromName(displayName);
+        const targetText = customInitials ? customInitials.slice(0, 3).toUpperCase() : initialsFromName(displayName);
+        if (avatarText) avatarText.textContent = targetText;
+        else avatarInitials.textContent = targetText;
       }
       if (!memberProfile) memberProfile = {};
       if (displayName && !memberProfile.legalName) {
@@ -14272,7 +14309,8 @@ let onboardingIndex = 0;
       if (!avatarInitials) return;
       const trimmed = String(value || "").trim().replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase();
       if (!trimmed) return;
-      avatarInitials.textContent = trimmed;
+      if (avatarText) avatarText.textContent = trimmed;
+      else avatarInitials.textContent = trimmed;
       if (memberProfile) memberProfile.avatarInitials = trimmed;
       if (opts.persist !== false) {
         persistMemberState({ avatarInitials: trimmed });
@@ -14384,7 +14422,7 @@ let onboardingIndex = 0;
     }
     function openAvatarEditor() {
       if (!avatarInitials) return;
-      const currentInitials = (memberProfile?.avatarInitials || avatarInitials.textContent || "").toString().trim();
+      const currentInitials = (memberProfile?.avatarInitials || avatarText?.textContent || avatarInitials.textContent || "").toString().trim();
       const initialsInput = prompt("Set your initials (up to 3 letters/numbers):", currentInitials);
       if (initialsInput !== null && initialsInput.trim()) {
         applyAvatarInitials(initialsInput);
@@ -14405,6 +14443,13 @@ let onboardingIndex = 0;
     }
     if (avatarEditBtn) {
       avatarEditBtn.addEventListener("click", openAvatarEditor);
+    }
+    if (avatarPaletteToggle) {
+      avatarPaletteToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!avatarTools) return;
+        avatarTools.classList.toggle("open");
+      });
     }
     buildAvatarPalette();
     if (userTaglineEl) {
@@ -18162,7 +18207,8 @@ let onboardingIndex = 0;
       updateCeoPassUI();
       if (userMiniDisplay) userMiniDisplay.textContent = "@FoCoCEO";
       passUserName.textContent = "FoCo CEO";
-      avatarInitials.textContent = "CEO";
+      if (avatarText) avatarText.textContent = "CEO";
+      else avatarInitials.textContent = "CEO";
       passTierText.textContent = "VIP CEO Black Card";
       renderCeoIssued();
       renderCeoReviews();
