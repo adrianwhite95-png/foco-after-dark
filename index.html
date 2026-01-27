@@ -4960,20 +4960,8 @@
       .profile-summary {
         padding-right: 18px;
       }
-      .profile-spotlight {
-        position: static;
-        width: 100%;
-        margin-top: 10px;
-        align-self: stretch;
-      }
     }
     @media (max-width: 560px) {
-      .profile-spotlight {
-        padding: 10px;
-      }
-      .spotlight-bars {
-        height: 42px;
-      }
     }
     .pass-card .meta-row.quick-strip { display: none; }
     .pass-card .meta-group {
@@ -5144,101 +5132,6 @@
       border-radius: 16px;
       border: 1px solid rgba(148, 163, 184, 0.12);
       pointer-events: none;
-    }
-    .profile-spotlight {
-      position: absolute;
-      right: 14px;
-      top: 12px;
-      width: 164px;
-      padding: 10px 10px 8px;
-      border-radius: 16px;
-      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 40%, var(--border));
-      background:
-        radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--accent-primary-live) 24%, transparent), transparent 60%),
-        rgba(8, 12, 28, 0.86);
-      box-shadow:
-        0 16px 34px rgba(2, 8, 23, 0.66),
-        inset 0 1px 0 rgba(255,255,255,0.05);
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      z-index: 2;
-      overflow: hidden;
-    }
-    .spotlight-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-    }
-    .spotlight-title {
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-    .spotlight-tag {
-      font-size: 9px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      padding: 3px 6px;
-      border-radius: 999px;
-      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 45%, var(--border));
-      background: color-mix(in srgb, var(--accent-primary-live) 18%, rgba(15, 23, 42, 0.75));
-      color: color-mix(in srgb, var(--accent-primary-live) 70%, #e6faff);
-      white-space: nowrap;
-    }
-    .spotlight-bars {
-      display: grid;
-      grid-template-columns: repeat(8, minmax(0, 1fr));
-      gap: 4px;
-      align-items: end;
-      height: 48px;
-      padding: 4px 2px 2px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.06);
-      background: linear-gradient(180deg, rgba(15, 23, 42, 0.18), rgba(15, 23, 42, 0.65));
-    }
-    .spotlight-bars .bar {
-      display: block;
-      width: 100%;
-      border-radius: 8px 8px 4px 4px;
-      background: linear-gradient(180deg, color-mix(in srgb, var(--accent-primary-live) 90%, #fff), color-mix(in srgb, var(--accent-primary-live) 70%, #0ea5e9));
-      box-shadow:
-        0 6px 14px color-mix(in srgb, var(--accent-primary-live) 30%, transparent),
-        inset 0 -6px 10px rgba(2, 8, 23, 0.35);
-      transform-origin: bottom center;
-      animation: spotlightPulse 1400ms ease-in-out infinite;
-      opacity: 0.92;
-    }
-    .spotlight-bars .bar:nth-child(1) { height: 42%; animation-delay: -0.1s; }
-    .spotlight-bars .bar:nth-child(2) { height: 68%; animation-delay: -0.35s; }
-    .spotlight-bars .bar:nth-child(3) { height: 54%; animation-delay: -0.6s; }
-    .spotlight-bars .bar:nth-child(4) { height: 82%; animation-delay: -0.8s; }
-    .spotlight-bars .bar:nth-child(5) { height: 48%; animation-delay: -0.5s; }
-    .spotlight-bars .bar:nth-child(6) { height: 74%; animation-delay: -0.2s; }
-    .spotlight-bars .bar:nth-child(7) { height: 58%; animation-delay: -0.7s; }
-    .spotlight-bars .bar:nth-child(8) { height: 66%; animation-delay: -0.45s; }
-    .spotlight-foot {
-      font-size: 10px;
-      color: var(--text);
-      opacity: 0.82;
-      text-align: center;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    @keyframes spotlightPulse {
-      0%, 100% {
-        transform: scaleY(0.65);
-        opacity: 0.72;
-        filter: saturate(0.9);
-      }
-      50% {
-        transform: scaleY(1);
-        opacity: 1;
-        filter: saturate(1.15);
-      }
     }
     .profile-summary .user-details {
       gap: 4px;
@@ -6117,23 +6010,6 @@
                   </div>
                   <div class="badge-row" id="profileBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
                 </div>
-              </div>
-              <div class="profile-spotlight" id="profileSpotlight">
-                <div class="spotlight-head">
-                  <div class="spotlight-title">FoCo live</div>
-                  <div class="spotlight-tag">After dark</div>
-                </div>
-                <div class="spotlight-bars" aria-hidden="true">
-                  <span class="bar"></span>
-                  <span class="bar"></span>
-                  <span class="bar"></span>
-                  <span class="bar"></span>
-                  <span class="bar"></span>
-                  <span class="bar"></span>
-                  <span class="bar"></span>
-                  <span class="bar"></span>
-                </div>
-                <div class="spotlight-foot">Tap redeem to light it up</div>
               </div>
               </div>
 
