@@ -4948,6 +4948,33 @@
       .profile-top-grid {
         grid-template-columns: 1fr;
       }
+      .profile-summary {
+        padding-right: 18px;
+      }
+      .profile-wheel {
+        position: static;
+        width: 100%;
+        height: auto;
+        margin-top: 10px;
+        pointer-events: auto;
+      }
+      .profile-wheel-disc {
+        width: 118px;
+        height: 118px;
+      }
+      .profile-wheel-spin {
+        margin-top: -36px;
+      }
+    }
+    @media (max-width: 560px) {
+      .profile-wheel-disc {
+        width: 104px;
+        height: 104px;
+      }
+      .profile-wheel-spin {
+        margin-top: -32px;
+        padding: 6px 11px;
+      }
     }
     .pass-card .meta-row.quick-strip { display: none; }
     .pass-card .meta-group {
@@ -5090,6 +5117,7 @@
     }
     .profile-summary {
       padding: 16px 18px;
+      padding-right: 176px;
       border-radius: 20px;
       background:
         linear-gradient(135deg, rgba(11, 14, 24, 0.95), rgba(7, 9, 18, 0.8)),
@@ -5117,6 +5145,104 @@
       border-radius: 16px;
       border: 1px solid rgba(148, 163, 184, 0.12);
       pointer-events: none;
+    }
+    .profile-wheel {
+      position: absolute;
+      right: 14px;
+      top: 10px;
+      width: 132px;
+      height: 132px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 4px;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .profile-wheel-disc {
+      width: 104px;
+      height: 104px;
+      border-radius: 50%;
+      border: 2px solid color-mix(in srgb, var(--accent-primary-live) 55%, rgba(255,255,255,0.3));
+      box-shadow:
+        0 12px 30px rgba(2, 8, 23, 0.75),
+        0 0 26px color-mix(in srgb, var(--accent-primary-live) 45%, transparent),
+        inset 0 0 20px rgba(15, 23, 42, 0.8);
+      background:
+        conic-gradient(
+          from 0deg,
+          rgba(34, 211, 238, 0.92) 0deg 60deg,
+          rgba(168, 85, 247, 0.92) 60deg 120deg,
+          rgba(251, 191, 36, 0.92) 120deg 180deg,
+          rgba(56, 189, 248, 0.92) 180deg 240deg,
+          rgba(244, 114, 182, 0.92) 240deg 300deg,
+          rgba(16, 185, 129, 0.92) 300deg 360deg
+        );
+      transform: rotate(0deg);
+      transition: transform 1200ms cubic-bezier(0.12, 0.8, 0.22, 1);
+      will-change: transform;
+      pointer-events: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .profile-wheel-disc::after {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.3), rgba(15,23,42,0.9));
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: inset 0 0 18px rgba(2, 8, 23, 0.7);
+    }
+    .profile-wheel-pointer {
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 14px solid color-mix(in srgb, var(--accent-primary-live) 70%, #fff);
+      filter: drop-shadow(0 4px 6px rgba(2, 8, 23, 0.7));
+      margin-bottom: -6px;
+      z-index: 3;
+      pointer-events: none;
+    }
+    .profile-wheel-spin {
+      pointer-events: auto;
+      margin-top: -30px;
+      z-index: 4;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 45%, var(--border));
+      background: linear-gradient(120deg, color-mix(in srgb, var(--accent-primary-live) 75%, #0ea5e9), #0b1120 70%);
+      color: #e6faff;
+      box-shadow: 0 10px 20px rgba(2, 8, 23, 0.6);
+    }
+    .profile-wheel-spin:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .profile-wheel-caption {
+      pointer-events: none;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .profile-wheel-result {
+      pointer-events: none;
+      margin-top: 2px;
+      font-size: 10px;
+      color: var(--text);
+      opacity: 0.9;
+      max-width: 120px;
+      text-align: center;
+      line-height: 1.25;
+      text-shadow: 0 2px 8px rgba(2, 8, 23, 0.8);
     }
     .profile-summary .user-details {
       gap: 4px;
@@ -5702,6 +5828,13 @@
                   </div>
                   <div class="badge-row" id="profileBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
                 </div>
+              </div>
+              <div class="profile-wheel" id="profileWheel">
+                <div class="profile-wheel-pointer" aria-hidden="true"></div>
+                <div class="profile-wheel-disc" id="profileWheelDisc" aria-hidden="true"></div>
+                <button type="button" class="profile-wheel-spin" id="profileWheelSpinBtn">Spin</button>
+                <div class="profile-wheel-caption" id="profileWheelCaption">Night Wheel</div>
+                <div class="profile-wheel-result" id="profileWheelResultMini">Tap spin</div>
               </div>
               </div>
 
@@ -7081,6 +7214,9 @@
     let appLockOverride = false;
     let appLockSignoutPending = false;
     const PENDING_MEMBERSHIP_STORAGE_KEY = "pendingMembershipUser";
+    let profileWheelRotation = 0;
+    let profileWheelSpinInFlight = false;
+    let nightWheelLastSummary = "";
 
     // Temporarily bypass membership gating to avoid forced redirects
     function requiresMembershipSelection() {
@@ -8281,6 +8417,10 @@
     const nightWheelSpinBtn = document.getElementById("nightWheelSpin");
     const nightWheelResult = document.getElementById("nightWheelResult");
     const nightWheelRemaining = document.getElementById("nightWheelRemaining");
+    const profileWheelSpinBtn = document.getElementById("profileWheelSpinBtn");
+    const profileWheelDisc = document.getElementById("profileWheelDisc");
+    const profileWheelCaption = document.getElementById("profileWheelCaption");
+    const profileWheelResultMini = document.getElementById("profileWheelResultMini");
     const landingTagline = document.getElementById("landingTagline");
     const addToHomeBtn = document.getElementById("addToHomeBtn");
     const currentUsersCount = document.getElementById("currentUsersCount");
@@ -13493,17 +13633,46 @@ let onboardingIndex = 0;
       } else {
         nightWheelRemaining.textContent = `${remaining} spin${remaining === 1 ? "" : "s"} left ${periodLabel}`;
       }
+      if (profileWheelCaption) {
+        profileWheelCaption.textContent = remaining === Infinity
+          ? "Unlimited spins"
+          : `${remaining} spin${remaining === 1 ? "" : "s"} left`;
+      }
+      if (profileWheelResultMini) {
+        if (nightWheelLastSummary) {
+          profileWheelResultMini.textContent = nightWheelLastSummary;
+        } else if (remaining === 0) {
+          profileWheelResultMini.textContent = "No spins left";
+        } else {
+          profileWheelResultMini.textContent = "Tap spin";
+        }
+      }
       if (!nightWheelResult.dataset.hasResult) {
         nightWheelResult.textContent = "Ready when you are.";
       }
       if (nightWheelSpinBtn) {
         nightWheelSpinBtn.disabled = remaining === 0;
       }
+      if (profileWheelSpinBtn) {
+        profileWheelSpinBtn.disabled = remaining === 0 || profileWheelSpinInFlight;
+      }
       updateQuickStrip();
     }
     function randomFrom(list = []) {
       if (!list.length) return "";
       return list[Math.floor(Math.random() * list.length)];
+    }
+    function triggerProfileWheelSpin() {
+      if (!profileWheelDisc) return;
+      profileWheelSpinInFlight = true;
+      const extraRotation = 720 + Math.floor(Math.random() * 360);
+      profileWheelRotation = (profileWheelRotation + extraRotation) % 3600;
+      profileWheelDisc.style.transform = `rotate(${profileWheelRotation}deg)`;
+      updateNightWheelUI();
+      window.setTimeout(() => {
+        profileWheelSpinInFlight = false;
+        updateNightWheelUI();
+      }, 1250);
     }
     function spinNightWheel() {
       const remaining = getNightWheelRemaining();
@@ -13516,9 +13685,12 @@ let onboardingIndex = 0;
         showToast("No venue specials posted yet.");
         return;
       }
+      triggerProfileWheelSpin();
       const bar = selection.venueName;
       const special = selection.perkLabel;
       const challenge = randomFrom(NIGHT_WHEEL_CHALLENGES);
+      const summary = `${bar} · ${special}`;
+      nightWheelLastSummary = summary.length > 52 ? `${summary.slice(0, 49)}…` : summary;
       const code = (currentPassCode || "").toUpperCase();
       const entry = getNightWheelEntry(code) || {};
       const period = (currentMembershipTier === "vip" || currentMembershipTier === "standard")
@@ -14218,6 +14390,9 @@ let onboardingIndex = 0;
     }
     if (nightWheelSpinBtn) {
       nightWheelSpinBtn.addEventListener("click", spinNightWheel);
+    }
+    if (profileWheelSpinBtn) {
+      profileWheelSpinBtn.addEventListener("click", spinNightWheel);
     }
     if (editUsernameBtn) {
       editUsernameBtn.addEventListener("click", () => {
