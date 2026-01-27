@@ -7040,6 +7040,91 @@
       border-radius: 20px;
       transition: transform 220ms ease, opacity 220ms ease;
     }
+
+    /* === RAVE PASS CARD LIGHTS (CSS ONLY) === */
+    .pass-card {
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+    .pass-card > * {
+      position: relative;
+      z-index: 2;
+    }
+    .pass-card::before {
+      content: "";
+      position: absolute;
+      inset: -60%;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(120deg,
+          transparent 38%,
+          rgba(0, 255, 209, 0.18) 46%,
+          rgba(140, 84, 255, 0.22) 52%,
+          rgba(0, 212, 255, 0.16) 58%,
+          transparent 68%),
+        linear-gradient(300deg,
+          transparent 35%,
+          rgba(255, 0, 200, 0.10) 47%,
+          rgba(140, 84, 255, 0.14) 55%,
+          transparent 68%);
+      filter: blur(7px) saturate(1.35);
+      opacity: 0.45;
+      transform: translate3d(-12%, -6%, 0) rotate(10deg);
+      animation: raveBeams 2.8s ease-in-out infinite;
+    }
+    .pass-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(
+          180deg,
+          rgba(255,255,255,0.06) 0px,
+          rgba(255,255,255,0.06) 1px,
+          transparent 2px,
+          transparent 6px
+        ),
+        radial-gradient(circle at 20% 35%, rgba(0,255,209,0.10), transparent 45%),
+        radial-gradient(circle at 80% 70%, rgba(140,84,255,0.12), transparent 48%);
+      mix-blend-mode: overlay;
+      opacity: 0.22;
+      transform: translate3d(0,0,0);
+      animation: raveScan 3.6s linear infinite;
+    }
+    .pass-card {
+      box-shadow:
+        0 0 0 1px rgba(140, 84, 255, 0.22),
+        0 0 18px rgba(0, 255, 209, 0.10),
+        0 0 44px rgba(255, 0, 200, 0.06);
+    }
+    .pass-card:hover {
+      box-shadow:
+        0 0 0 1px rgba(0, 255, 209, 0.25),
+        0 0 24px rgba(140, 84, 255, 0.12),
+        0 0 58px rgba(255, 0, 200, 0.08);
+    }
+    @keyframes raveBeams {
+      0%   { transform: translate3d(-16%, -10%, 0) rotate(8deg);  opacity: 0.32; }
+      35%  { transform: translate3d(12%,  -6%, 0) rotate(12deg); opacity: 0.55; }
+      70%  { transform: translate3d(20%,   8%, 0) rotate(9deg);  opacity: 0.42; }
+      100% { transform: translate3d(-16%, -10%, 0) rotate(8deg); opacity: 0.32; }
+    }
+    @keyframes raveScan {
+      0%   { background-position: 0 0, 0 0, 0 0; opacity: 0.18; }
+      50%  { background-position: 0 22px, 0 0, 0 0; opacity: 0.28; }
+      100% { background-position: 0 44px, 0 0, 0 0; opacity: 0.18; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pass-card::before,
+      .pass-card::after {
+        animation: none !important;
+        opacity: 0.18 !important;
+      }
+    }
   </style>
 </head>
   <body>
