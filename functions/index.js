@@ -1325,6 +1325,36 @@ function isCeoContext(context, profileData) {
   );
 }
 
+function isCeoMemberDoc(data = {}, uid = "") {
+  const pass = (data.passCode || "").toUpperCase();
+  const email = (data.email || "").toLowerCase();
+  const override = (data.membershipOverride || data.override || "").toString().toUpperCase();
+  return (
+    data.ceo === true ||
+    uid === CEO_UID ||
+    pass === CEO_PASS_ID ||
+    email === CEO_EMAIL ||
+    override.includes("CEO")
+  );
+}
+
+async function deleteQueryInBatches(query, dryRun = false, batchSize = 400) {
+  let total = 0;
+  let snapshot = await query.limit(batchSize).get();
+  while (!snapshot.empty) {
+    total += snapshot.size;
+    if (!dryRun) {
+      const batch = db.batch();
+      snapshot.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    }
+    if (snapshot.size < batchSize) break;
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    snapshot = await query.startAfter(lastDoc).limit(batchSize).get();
+  }
+  return total;
+}
+
 function normalizeTierKey(tier = "standard") {
   const key = String(tier || "standard").toLowerCase();
   if (key === "vip") return "vip";
@@ -1347,6 +1377,38 @@ function stripeStatusToPaymentStatus(status = "") {
   if (key === "past_due" || key === "unpaid" || key === "incomplete") return "past_due";
   if (key === "canceled" || key === "incomplete_expired") return "canceled";
   return "active";
+}
+
+async function purgeAnonymousUsersInternal({ dryRun = false, limit = 1000 } = {}) {
+  const page = await admin.auth().listUsers(Math.min(limit, 1000));
+  let matchedUsers = 0;
+  let deletedUsers = 0;
+  let deletedMemberDocs = 0;
+  let deletedUsernames = 0;
+
+  for (const user of page.users) {
+    const isAnon = (user.providerData || []).length === 0 && !user.email && !user.phoneNumber;
+    if (!isAnon) continue;
+    matchedUsers += 1;
+    if (dryRun) continue;
+    const uid = user.uid;
+    const memberRef = db.collection('members').doc(uid);
+    const memberSnap = await memberRef.get();
+    const memberData = memberSnap.exists ? memberSnap.data() : {};
+    if (isCeoMemberDoc(memberData, uid)) continue;
+    if (memberSnap.exists) {
+      await memberRef.delete();
+      deletedMemberDocs += 1;
+    }
+    const username = (memberData.username || "").toString().trim().toLowerCase();
+    if (username) {
+      await db.collection('usernames').doc(username).delete();
+      deletedUsernames += 1;
+    }
+    await admin.auth().deleteUser(uid);
+    deletedUsers += 1;
+  }
+  return { matchedUsers, deletedUsers, deletedMemberDocs, deletedUsernames };
 }
 
 function stripeExcludedError() {
@@ -2427,56 +2489,138 @@ exports.purgeAnonymousUsers = functions.https.onCall(async (data, context) => {
   if (!isCeoContext(context, requesterData)) throw new HttpsError('permission-denied', 'CEO only');
 
   const limit = Math.min(parseInt(data?.limit || "1000", 10) || 1000, 1000);
-  const pageToken = data?.pageToken || undefined;
   const dryRun = data?.dryRun === true;
-  const result = await admin.auth().listUsers(limit, pageToken);
+  const summary = await purgeAnonymousUsersInternal({ dryRun, limit });
+  return { ok: true, ...summary, dryRun };
+});
 
-  let matchedUsers = 0;
-  let deletedUsers = 0;
-  let deletedMemberDocs = 0;
-  let deletedUsernames = 0;
-  const errors = [];
+// Reset beta/demo data safely (CEO/admin only). Stripe is never touched.
+exports.resetBetaData = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
+  const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
+  const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
+  if (!isCeoContext(context, requesterData)) throw new HttpsError('permission-denied', 'CEO only');
 
-  for (const user of result.users) {
-    const isAnon = (user.providerData || []).length === 0 && !user.email && !user.phoneNumber;
-    if (!isAnon) continue;
-    matchedUsers += 1;
-    if (dryRun) continue;
-    const uid = user.uid;
-    try {
-      const memberRef = db.collection('members').doc(uid);
-      const memberSnap = await memberRef.get();
-      const memberData = memberSnap.exists ? memberSnap.data() : {};
-      const isCeo = memberData.ceo === true ||
-        (memberData.passCode || "").toUpperCase() === CEO_PASS_ID ||
-        (memberData.email || "").toLowerCase() === "ceo@gmail.com";
-      if (isCeo) continue;
-      if (memberSnap.exists) {
-        await memberRef.delete();
-        deletedMemberDocs += 1;
+  const selections = data?.selections || {};
+  const dryRun = data?.dryRun === true;
+  const counts = {};
+  const started = Date.now();
+  const docIdField = admin.firestore.FieldPath.documentId();
+
+  async function resetMembersStats() {
+    const q = db.collection('members').orderBy(docIdField);
+    let total = 0;
+    let snap = await q.limit(400).get();
+    while (!snap.empty) {
+      let hasWrites = false;
+      const batch = db.batch();
+      snap.docs.forEach(docSnap => {
+        const data = docSnap.data() || {};
+        if (isCeoMemberDoc(data, docSnap.id)) return;
+        total += 1;
+        if (dryRun) return;
+        hasWrites = true;
+        batch.set(docSnap.ref, {
+          points: 0,
+          rewards: {},
+          badges: {},
+          streak: 0,
+          totalSavings: 0,
+          venuesVisited: 0,
+          redemptions: 0,
+          extraVouchers: {},
+          extraRedemptionTokens: 0,
+          nightWheel: { spinsLeft: 1, lastSpin: null },
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      });
+      if (!dryRun && hasWrites) {
+        await batch.commit();
       }
-      const username = (memberData.username || "").toString().trim().toLowerCase();
-      if (username) {
-        await db.collection('usernames').doc(username).delete();
-        deletedUsernames += 1;
-      }
-      await admin.auth().deleteUser(uid);
-      deletedUsers += 1;
-    } catch (err) {
-      errors.push({ uid: user.uid, error: err?.message || String(err) });
+      if (snap.size < 400) break;
+      const lastDoc = snap.docs[snap.docs.length - 1];
+      snap = await q.startAfter(lastDoc).limit(400).get();
     }
+    return total;
+  }
+
+  async function deleteCollectionByName(name) {
+    const q = db.collection(name).orderBy(docIdField);
+    return deleteQueryInBatches(q, dryRun);
+  }
+
+  if (selections.redemptions) {
+    let total = 0;
+    const q = db.collectionGroup('redemptions').orderBy(docIdField);
+    let snap = await q.limit(400).get();
+    while (!snap.empty) {
+      let hasWrites = false;
+      const batch = db.batch();
+      snap.docs.forEach(docSnap => {
+        const data = docSnap.data() || {};
+        const pass = (data.passCode || data.passId || "").toUpperCase();
+        if (data.ceo === true || pass === CEO_PASS_ID) return;
+        total += 1;
+        if (dryRun) return;
+        hasWrites = true;
+        batch.delete(docSnap.ref);
+      });
+      if (!dryRun && hasWrites) {
+        await batch.commit();
+      }
+      if (snap.size < 400) break;
+      const lastDoc = snap.docs[snap.docs.length - 1];
+      snap = await q.startAfter(lastDoc).limit(400).get();
+    }
+    counts.redemptions = total;
+  }
+  if (selections.alerts) {
+    counts.alerts = await deleteCollectionByName('alerts');
+  }
+  if (selections.vipDeals) {
+    counts.vipDeals = await deleteCollectionByName('deals');
+  }
+  if (selections.closeouts) {
+    counts.closeouts = await deleteCollectionByName('closeOutReports');
+  }
+  if (selections.freeMemberships) {
+    let total = 0;
+    const q = db.collection('freeMemberships').orderBy(docIdField);
+    let snap = await q.limit(400).get();
+    while (!snap.empty) {
+      let hasWrites = false;
+      const batch = db.batch();
+      snap.docs.forEach(docSnap => {
+        const id = (docSnap.id || "").toUpperCase();
+        if (id === CEO_PASS_ID) return;
+        total += 1;
+        if (dryRun) return;
+        hasWrites = true;
+        batch.delete(docSnap.ref);
+      });
+      if (!dryRun && hasWrites) {
+        await batch.commit();
+      }
+      if (snap.size < 400) break;
+      const lastDoc = snap.docs[snap.docs.length - 1];
+      snap = await q.startAfter(lastDoc).limit(400).get();
+    }
+    counts.freeMemberships = total;
+  }
+  if (selections.members) {
+    counts.members = await resetMembersStats();
+  }
+  if (selections.anonUsers) {
+    const summary = await purgeAnonymousUsersInternal({ dryRun, limit: 1000 });
+    counts.anonUsers = dryRun ? summary.matchedUsers : summary.deletedUsers;
+    counts.anonMemberDocs = summary.deletedMemberDocs || 0;
   }
 
   return {
     ok: true,
-    matchedUsers,
-    deletedUsers,
-    deletedMemberDocs,
-    deletedUsernames,
-    processed: result.users.length,
-    nextPageToken: result.pageToken || null,
     dryRun,
-    errors: errors.slice(0, 5)
+    deletedCountsByCollection: counts,
+    durationMs: Date.now() - started
   };
 });
 

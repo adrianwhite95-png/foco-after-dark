@@ -3157,6 +3157,26 @@
       padding: 18px;
       box-shadow: 0 0 30px rgba(0, 207, 255, 0.3);
     }
+    .confirm-card .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .confirm-card .modal-body-text {
+      color: rgba(226, 232, 240, 0.78);
+      font-size: 13px;
+      margin: 6px 0 12px;
+      line-height: 1.45;
+    }
+    .confirm-card .field input {
+      height: 46px;
+      border-radius: 12px;
+    }
+    .confirm-card .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
     .toggle-pill {
       display: grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
@@ -5304,10 +5324,24 @@
 
     /* Mobile/iPhone layout tightening */
     @media (max-width: 520px) {
-      body { padding: 18px 6px calc(var(--space-7) + 2px); }
-      #app { max-width: 100%; }
-      .screen { padding: 18px 10px; border-radius: var(--radius-md); }
-      .pass-card { padding: 22px 14px; }
+      body {
+        padding-top: 16px;
+        padding-bottom: calc(var(--space-7) + 6px);
+        padding-left: max(12px, env(safe-area-inset-left));
+        padding-right: max(12px, env(safe-area-inset-right));
+      }
+      #app { max-width: none; width: 100%; }
+      .screen {
+        padding: 18px 12px;
+        border-radius: 20px;
+        width: 100%;
+        max-width: none;
+      }
+      .pass-card {
+        padding: 22px 14px;
+        width: 100%;
+        max-width: none;
+      }
       .pass-top {
         flex-direction: column;
         align-items: center;
@@ -5410,6 +5444,20 @@
       }
       .secondary-actions .btn { width: 100%; }
       #redeemModal .perk-grid { max-height: 32vh; }
+      #landingScreen .landing-wrapper {
+        width: 100%;
+        max-width: none;
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+      #landingScreen .app-title,
+      #landingScreen .tagline {
+        text-align: center;
+      }
+      #landingScreen .brand-logo-img {
+        margin-left: auto;
+        margin-right: auto;
+      }
     }
 
     /* Staff queue cards */
@@ -5664,6 +5712,267 @@
       width: 100%;
       border-radius: 14px;
       font-weight: 700;
+    }
+    /* CEO HQ dashboard layout */
+    .ceo-hq-shell {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 16px;
+      max-width: 1240px;
+      margin: 10px auto 26px;
+      padding: 0 6px;
+    }
+    .ceo-hq-nav {
+      position: sticky;
+      top: 18px;
+      align-self: flex-start;
+      background: rgba(10, 12, 22, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 18px 40px rgba(2, 8, 23, 0.45);
+    }
+    .ceo-hq-brand {
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 4px 8px 8px;
+    }
+    .ceo-nav-item {
+      border: 1px solid transparent;
+      border-radius: 14px;
+      padding: 10px 12px;
+      text-align: left;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 12px;
+      transition: all 0.2s ease;
+    }
+    .ceo-nav-item:hover {
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+    }
+    .ceo-nav-item.active {
+      color: var(--text);
+      border-color: rgba(34, 211, 238, 0.35);
+      background: rgba(34,211,238,0.08);
+      box-shadow: 0 0 18px rgba(34,211,238,0.12);
+    }
+    .ceo-hq-main {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .ceo-hq-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      background: rgba(8, 12, 24, 0.94);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 18px 20px;
+      box-shadow: 0 18px 40px rgba(2, 8, 23, 0.55);
+    }
+    .ceo-hq-header .app-title {
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+    .ceo-hq-header-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ceo-hq-panel {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      background: rgba(8, 12, 24, 0.94);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 18px 40px rgba(2, 8, 23, 0.55);
+    }
+    .ceo-hq-panel.active {
+      display: flex;
+    }
+    .ceo-panel-header h3 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.01em;
+    }
+    .ceo-panel-header .small {
+      margin: 4px 0 0;
+      color: var(--muted);
+    }
+    .ceo-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .ceo-kpi-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      text-align: left;
+    }
+    .ceo-kpi-card strong {
+      font-size: 20px;
+      color: var(--text);
+    }
+    .ceo-kpi-card span {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+    .ceo-hq-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .ceo-status-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .status-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .status-badge {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+    }
+    .status-badge.live {
+      color: #22d3ee;
+      border-color: rgba(34,211,238,0.45);
+      background: rgba(34,211,238,0.08);
+    }
+    .status-badge.muted {
+      opacity: 0.6;
+    }
+    .ceo-hq-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+    .ceo-panel-tools {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    #ceoMemberSearch {
+      flex: 1 1 220px;
+      height: 40px;
+      border-radius: 12px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--text);
+    }
+    .ceo-filter-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .ceo-table-wrap {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: auto;
+      background: rgba(5, 10, 20, 0.6);
+    }
+    .ceo-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .ceo-table th,
+    .ceo-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .ceo-table th {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      background: rgba(255,255,255,0.02);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .ceo-table tr:nth-child(even) td {
+      background: rgba(255,255,255,0.01);
+    }
+    .ceo-reset-footer {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .ceo-reset-footer .btn {
+      width: 100%;
+    }
+    .ceo-reset-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 14px 34px rgba(2, 8, 23, 0.45);
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .ceo-reset-card .field textarea,
+    .ceo-reset-card .field input {
+      background: rgba(8, 12, 24, 0.8);
+    }
+    .ceo-log-btn {
+      width: auto;
+    }
+    .ceo-hq-panel .ceo-log-btn {
+      margin-top: 10px;
+    }
+    @media (max-width: 980px) {
+      .ceo-hq-shell {
+        grid-template-columns: 1fr;
+      }
+      .ceo-hq-nav {
+        position: static;
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 10px;
+      }
+      .ceo-nav-item {
+        white-space: nowrap;
+        flex: 0 0 auto;
+      }
     }
     .ceo-issued-scroll {
       margin-top: 6px;
@@ -6190,6 +6499,16 @@
       border-color: rgba(34, 197, 94, 0.35);
       background: rgba(34, 197, 94, 0.16);
       color: #bbf7d0;
+    }
+    .status-pill-sm.denied {
+      border-color: rgba(248, 113, 113, 0.35);
+      background: rgba(248, 113, 113, 0.14);
+      color: #fecaca;
+    }
+    .status-pill-sm.canceled {
+      border-color: rgba(148, 163, 184, 0.35);
+      background: rgba(148, 163, 184, 0.14);
+      color: #cbd5f5;
     }
 
     /* Modal polish */
@@ -7241,105 +7560,6 @@
               Manage
             </button>
           </div>
-          <div class="beta-switcher" id="ceoBetaSwitcher">
-            <div class="beta-switcher-header">
-              <span class="beta-pill">Beta test controls</span>
-              <span class="beta-note" id="ceoPreviewLabel">Live CEO view</span>
-            </div>
-            <div class="beta-switcher-buttons">
-              <button type="button" class="btn btn-secondary" id="ceoPreviewStandard">Preview Standard (beta)</button>
-              <button type="button" class="btn btn-secondary" id="ceoPreviewVip">Preview VIP (beta)</button>
-              <button type="button" class="btn btn-secondary" id="ceoPreviewReturn">Return to CEO (beta)</button>
-            </div>
-          </div>
-          <div class="ceo-reset-card" id="ceoResetCard">
-            <div style="flex:1;">
-              <strong>Reset beta data</strong>
-              <div class="meta-note">Choose what to wipe. CEO remains untouched. “AI smart select” applies a safe preset.</div>
-              <div class="ceo-reset-grid" id="betaResetGrid">
-                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="members" checked /> Stats & perks</label>
-                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="redemptions" checked /> Redemptions log</label>
-                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="alerts" checked /> Member alerts</label>
-                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="vipDeals" checked /> VIP deals</label>
-                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="closeouts" checked /> Close-out reports</label>
-                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="freeMemberships" checked /> Free memberships</label>
-                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="anonUsers" /> Beta logins (anonymous accounts)</label>
-              </div>
-              <div class="ceo-reset-actions">
-                <span class="pill-ghost" id="betaResetSelectAll">Select all</span>
-                <span class="pill-ghost" id="betaResetSmart">AI smart select</span>
-              </div>
-            </div>
-            <button type="button" class="btn btn-danger" id="betaResetBtn">Reset</button>
-          </div>
-          <div class="ceo-reset-card" id="ceoChatCard" style="margin-top:10px;">
-            <div class="ceo-chat-body" style="flex:1;">
-              <strong>Ask HQ (AI)</strong>
-              <div class="meta-note">CEO-only assistant. Ask product, ops, or rollout questions.</div>
-              <div class="field" style="margin-top:2px;">
-                <label for="ceoChatInput" style="font-size:12px;color:#cbd5f5;">Prompt</label>
-                <textarea id="ceoChatInput" rows="4"></textarea>
-              </div>
-              <div class="ceo-reset-actions" style="margin-top:2px;">
-                <span class="pill-ghost" id="ceoChatPresetRollout">Rollout steps</span>
-                <span class="pill-ghost" id="ceoChatPresetIssues">Triage issues</span>
-              </div>
-              <div id="ceoChatHistory" style="max-height:200px;overflow:auto;font-size:12px;display:flex;flex-direction:column;gap:6px;"></div>
-            </div>
-            <button type="button" class="btn btn-primary" id="ceoChatSend">Send</button>
-          </div>
-          <div class="ceo-reset-card" id="ceoSystemHealthCard" style="margin-top:10px;display:none;">
-            <div style="flex:1;">
-              <strong>System status</strong>
-              <div class="meta-note">Last nightly email and version health.</div>
-              <div id="ceoSystemHealth" class="meta-note" style="margin-top:6px;font-size:12px;color:#cbd5f5;">Loading…</div>
-            </div>
-          </div>
-          <div class="ceo-reset-card" id="ceoLaunchCard" style="margin-top:10px;display:none;">
-            <div style="flex:1;">
-              <strong>Launch mode</strong>
-              <div class="meta-note">Toggle beta vs. live experience for all users.</div>
-              <div id="ceoLaunchStatus" class="meta-note" style="margin-top:6px;font-size:12px;color:#cbd5f5;">Loading…</div>
-            </div>
-            <button type="button" class="btn btn-secondary" id="ceoLaunchToggle">Toggle</button>
-          </div>
-          <div class="ceo-reset-card" id="ceoAppLockCard" style="margin-top:10px;display:none;">
-            <div style="flex:1;">
-              <strong>App lock</strong>
-              <div class="meta-note">Lock the app for everyone except the CEO.</div>
-              <div id="ceoAppLockStatus" class="meta-note" style="margin-top:6px;font-size:12px;color:#cbd5f5;">Loading…</div>
-            </div>
-            <button type="button" class="btn btn-danger" id="ceoAppLockToggle">Lock app</button>
-          </div>
-          <div class="ceo-reset-card" id="ceoMembersCard" style="margin-top:10px;display:none;">
-            <div style="flex:1;">
-              <strong>Member analytics</strong>
-              <div class="meta-note">Active accounts by tier & gender. Pause access instantly.</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0;">
-                <span class="pill-ghost" data-ceo-filter="all">All</span>
-                <span class="pill-ghost" data-ceo-filter="vip">VIP</span>
-                <span class="pill-ghost" data-ceo-filter="paused">Paused</span>
-                <span class="pill-ghost" data-ceo-filter="past_due">Past due</span>
-              </div>
-              <div id="ceoMembersTotals" class="meta-note" style="margin-top:6px;font-size:12px;color:#cbd5f5;"></div>
-              <div id="ceoMembersList" style="margin-top:8px;display:flex;flex-direction:column;gap:8px;max-height:210px;overflow:auto;"></div>
-            </div>
-            <button type="button" class="btn btn-secondary" id="ceoMembersRefresh">Refresh</button>
-          </div>
-          <button type="button" class="btn btn-secondary ceo-log-btn" id="ceoRedemptionBtn">
-            View live venue redemptions
-          </button>
-          <button type="button" class="btn btn-secondary ceo-log-btn" id="ceoReviewBtn">
-            View reviews
-          </button>
-          <div class="pitch-toggle" id="ceoPitchToggle">
-            <div>
-              <strong>Pitch mode</strong>
-              <div style="font-size:11px;color:#94a3b8;">Instant deck for venue walk-throughs.</div>
-            </div>
-            <button type="button" id="pitchModeBtn">Open deck</button>
-          </div>
-
           <div class="night-wheel card-hd no-tilt">
             <h4>Night Wheel</h4>
             <p>Spin for a bar, drink special, and a little challenge. Standard: 2 spins/month · VIP: 4 spins/month.</p>
@@ -7785,144 +8005,371 @@
   </div>
 
   <div id="ceoPortalScreen" class="screen">
-    <div class="app-title"><span>Black</span> Card</div>
-    <div class="tagline">Unlimited perks. Issue passes and control FoCo After Dark.</div>
-    <div class="ceo-card card-hd smooth-enter">
-      <div class="ceo-header-row">
-        <div class="ceo-title-block">
-          <h3>FoCo Black Card</h3>
-          <p>Unlimited monthly venue perks · VIP-only offers · Instant guest access.</p>
-        </div>
-        <div class="ceo-header-actions">
-          <button type="button" class="btn btn-secondary back-btn" id="ceoPortalBack">
-            Back to member pass
-          </button>
-          <button class="btn btn-secondary" id="ceoPassButton">View CEO pass</button>
-        </div>
-      </div>
-      <div class="ceo-metrics" id="ceoMetrics">
-        <div class="ceo-metric-card">
-          <strong id="metricTodayRedemptions">0</strong>
-          <span>today’s scans</span>
-        </div>
-        <div class="ceo-metric-card">
-          <strong id="metricActiveVenues">0</strong>
-          <span>active venues</span>
-        </div>
-        <div class="ceo-metric-card">
-          <strong id="metricLatestRating">–</strong>
-          <span>recent reviews avg</span>
-        </div>
-      </div>
+    <div class="ceo-hq-shell">
+      <aside class="ceo-hq-nav">
+        <div class="ceo-hq-brand">FoCo HQ</div>
+        <button type="button" class="ceo-nav-item active" data-ceo-tab="overview">HQ Overview</button>
+        <button type="button" class="ceo-nav-item" data-ceo-tab="members">Members</button>
+        <button type="button" class="ceo-nav-item" data-ceo-tab="ops">Ops Controls</button>
+        <button type="button" class="ceo-nav-item" data-ceo-tab="content">Content</button>
+        <button type="button" class="ceo-nav-item" data-ceo-tab="redemptions">Redemptions</button>
+        <button type="button" class="ceo-nav-item" data-ceo-tab="datareset">Data Reset</button>
+        <button type="button" class="ceo-nav-item" data-ceo-tab="assistant">HQ AI Assistant</button>
+      </aside>
+      <div class="ceo-hq-main">
+        <header class="ceo-hq-header">
+          <div>
+            <div class="app-title"><span>FoCo</span> HQ</div>
+            <p class="tagline">Operations control for FoCo After Dark.</p>
+          </div>
+          <div class="ceo-hq-header-actions">
+            <button type="button" class="btn btn-secondary back-btn" id="ceoPortalBack">Back to member pass</button>
+            <button class="btn btn-secondary" id="ceoPassButton">View CEO pass</button>
+          </div>
+        </header>
 
-      <div class="ceo-grid">
-        <section class="ceo-panel">
+        <section class="ceo-hq-panel active" data-ceo-panel="overview">
           <div class="ceo-panel-header">
-            <h4>Generate CEO vouchers</h4>
-            <p>One-tap codes for guests. Shows up as CEO-issued in venue redemptions.</p>
+            <h3>HQ Overview</h3>
+            <p class="small">System health, realtime status, and today’s activity.</p>
           </div>
-          <div class="ceo-panel-actions">
-            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="shot">Shot perk voucher</button>
-            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="drink">Drink perk voucher</button>
-            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="cover">Line access voucher</button>
-            <button type="button" class="btn btn-secondary" data-ceo-gen-perk="free_drink">Free drink voucher</button>
-          </div>
-          <p class="support-success" id="ceoGenSuccess" style="display:none;margin-top:8px;">Code generated.</p>
-          <div id="ceoIssuedList" class="ceo-issued-scroll"></div>
-        </section>
-
-        <section class="ceo-panel">
-          <div class="ceo-panel-header">
-            <h4>Free memberships</h4>
-            <p>Grant or revoke a never-expiring membership by Pass ID.</p>
-          </div>
-          <div class="field">
-            <label for="freePassIdInput">Pass ID</label>
-            <input id="freePassIdInput" type="text" placeholder="e.g. ABC123" />
-          </div>
-          <div class="ceo-panel-actions">
-            <button type="button" class="btn btn-secondary" id="grantFreeBtn">Grant free</button>
-            <button type="button" class="btn btn-secondary" id="revokeFreeBtn">Revoke free</button>
-          </div>
-          <p class="support-success" id="freeMemberStatus" style="display:none;">Updated.</p>
-          <div class="ceo-subpanel">
-            <div class="ceo-subpanel-header">
-              <strong>Free memberships issued</strong>
-              <button type="button" class="btn btn-secondary" id="refreshFreeMembers">Refresh list</button>
+          <div class="ceo-kpi-grid" id="ceoMetrics">
+            <div class="ceo-kpi-card">
+              <strong id="metricMemberTotal">0</strong>
+              <span>members total</span>
             </div>
-            <div id="freeMembersList" class="ceo-scroll"></div>
-          </div>
-        </section>
-
-        <section class="ceo-panel" id="ceoInboxCard">
-          <div class="ceo-panel-header ceo-panel-header-row">
-            <h4 style="margin:0;">Venue messages</h4>
-            <span class="pill" id="ceoMsgBadge" style="display:none;">New</span>
-          </div>
-          <p class="ceo-panel-note">Live messaging between venue staff and CEO.</p>
-          <form id="ceoReplyForm">
-            <input type="hidden" id="ceoReplyTarget" />
-            <div class="field">
-              <label for="ceoReplyInput">Reply</label>
-              <textarea id="ceoReplyInput" rows="3" placeholder="Select a message to reply"></textarea>
+            <div class="ceo-kpi-card">
+              <strong id="metricMemberVip">0</strong>
+              <span>vip members</span>
             </div>
-            <div class="error" id="ceoReplyError"></div>
-            <p class="support-success" id="ceoReplySuccess" style="display:none;">Reply sent.</p>
-            <div class="ceo-panel-actions">
-              <button type="submit" class="btn btn-primary">Send reply</button>
-              <button type="button" class="btn btn-secondary" id="ceoClearMessages">Clear all</button>
+            <div class="ceo-kpi-card">
+              <strong id="metricMemberStandard">0</strong>
+              <span>standard members</span>
             </div>
-          </form>
-          <div class="vip-deal-preview ceo-scroll" id="ceoMessagesList">No messages yet.</div>
+            <div class="ceo-kpi-card">
+              <strong id="metricMemberFree">0</strong>
+              <span>free/comped</span>
+            </div>
+            <div class="ceo-kpi-card">
+              <strong id="metricMemberPaused">0</strong>
+              <span>paused</span>
+            </div>
+            <div class="ceo-kpi-card">
+              <strong id="metricMemberPastDue">0</strong>
+              <span>past due</span>
+            </div>
+            <div class="ceo-kpi-card">
+              <strong id="metricTodayRedemptions">0</strong>
+              <span>redemptions 24h</span>
+            </div>
+            <div class="ceo-kpi-card">
+              <strong id="metricActiveVenues">0</strong>
+              <span>active venues</span>
+            </div>
+            <div class="ceo-kpi-card">
+              <strong id="metricAlertsToday">0</strong>
+              <span>alerts today</span>
+            </div>
+            <div class="ceo-kpi-card">
+              <strong id="metricLatestRating">–</strong>
+              <span>recent reviews avg</span>
+            </div>
+          </div>
+          <div class="ceo-hq-cards">
+            <div class="ceo-reset-card" id="ceoSystemHealthCard" style="display:none;">
+              <div style="flex:1;">
+                <strong>System status</strong>
+                <div class="meta-note">Last nightly email and version health.</div>
+                <div id="ceoSystemHealth" class="meta-note" style="margin-top:6px;font-size:12px;color:#cbd5f5;">Loading…</div>
+              </div>
+            </div>
+            <div class="ceo-status-card">
+              <strong>Realtime</strong>
+              <div class="meta-note">Live feeds for venues, redemptions, and alerts.</div>
+              <div class="status-badges">
+                <span class="status-badge live">Live</span>
+                <span class="status-badge muted">Degraded</span>
+                <span class="status-badge muted">Offline</span>
+              </div>
+            </div>
+          </div>
         </section>
 
-        <section class="ceo-panel ceo-log-panel">
+        <section class="ceo-hq-panel" data-ceo-panel="members">
           <div class="ceo-panel-header">
-            <h4>Venue redemptions (live)</h4>
+            <h3>Members</h3>
+            <p class="small">Realtime member analytics with quick actions.</p>
           </div>
-          <div class="ceo-panel-controls">
-            <select id="ceoVenueFilter" class="ceo-select">
-              <option value="all">All venues</option>
-            </select>
-            <select id="ceoVenueRange" class="ceo-select ceo-select-sm">
-              <option value="day">Today</option>
-              <option value="week">This week</option>
-              <option value="month" selected>This month</option>
-              <option value="year">This year</option>
-              <option value="all">All time</option>
-            </select>
+          <div class="ceo-reset-card" id="ceoMembersCard" style="display:none;">
+            <div style="flex:1;">
+              <div class="ceo-panel-tools">
+                <input id="ceoMemberSearch" type="text" placeholder="Search username, UID, tier…" />
+                <button type="button" class="btn btn-secondary" id="ceoMembersExport">Export CSV</button>
+              </div>
+              <div class="ceo-filter-chips" id="ceoMemberFilters">
+                <span class="pill-ghost active" data-ceo-filter="all">All</span>
+                <span class="pill-ghost" data-ceo-filter="vip">VIP</span>
+                <span class="pill-ghost" data-ceo-filter="standard">Standard</span>
+                <span class="pill-ghost" data-ceo-filter="free">Free</span>
+                <span class="pill-ghost" data-ceo-filter="paused">Paused</span>
+                <span class="pill-ghost" data-ceo-filter="past_due">Past Due</span>
+              </div>
+              <div id="ceoMembersTotals" class="meta-note" style="margin-top:6px;font-size:12px;color:#cbd5f5;"></div>
+              <div class="ceo-table-wrap">
+                <table class="ceo-table" id="ceoMembersTable">
+                  <thead>
+                    <tr>
+                      <th>Member</th>
+                      <th>UID</th>
+                      <th>Tier</th>
+                      <th>Status</th>
+                      <th>Gender</th>
+                      <th>Joined</th>
+                      <th>Last active</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ceoMembersList"></tbody>
+                </table>
+              </div>
+            </div>
+            <button type="button" class="btn btn-secondary" id="ceoMembersRefresh">Refresh</button>
           </div>
-          <div id="ceoVenueLog" class="ceo-log-scroll"></div>
         </section>
 
-        <section class="ceo-panel ceo-log-panel">
+        <section class="ceo-hq-panel" data-ceo-panel="ops">
           <div class="ceo-panel-header">
-            <h4>Close-out reports</h4>
-            <p>Reports from venues land here automatically.</p>
+            <h3>Operations Controls</h3>
+            <p class="small">Safe toggles with confirmations. Changes affect non-CEO users.</p>
           </div>
-          <div class="ceo-panel-controls">
-            <select id="ceoCloseOutVenue" class="ceo-select">
-              <option value="all">All venues</option>
-            </select>
-            <select id="ceoCloseOutRange" class="ceo-select ceo-select-sm">
-              <option value="day">Today</option>
-              <option value="week">This week</option>
-              <option value="month" selected>This month</option>
-              <option value="year">This year</option>
-              <option value="all">All time</option>
-            </select>
+          <div class="ceo-hq-cards">
+            <div class="ceo-reset-card" id="ceoLaunchCard" style="display:none;">
+              <div style="flex:1;">
+                <strong>Launch mode</strong>
+                <div class="meta-note">Toggle beta vs. live experience for all users.</div>
+                <div class="meta-note">Preview impact: affects non-CEO members only.</div>
+                <div id="ceoLaunchStatus" class="meta-note" style="margin-top:6px;font-size:12px;color:#cbd5f5;">Loading…</div>
+              </div>
+              <button type="button" class="btn btn-secondary" id="ceoLaunchToggle">Toggle</button>
+            </div>
+            <div class="ceo-reset-card" id="ceoAppLockCard" style="display:none;">
+              <div style="flex:1;">
+                <strong>App lock</strong>
+                <div class="meta-note">Lock the app for everyone except the CEO.</div>
+                <div id="ceoAppLockStatus" class="meta-note" style="margin-top:6px;font-size:12px;color:#cbd5f5;">Loading…</div>
+                <a id="ceoEmergencyUnlock" class="linkish" style="display:none;">Emergency Unlock</a>
+              </div>
+              <button type="button" class="btn btn-danger" id="ceoAppLockToggle">Lock app</button>
+            </div>
           </div>
-          <div id="ceoCloseOutList" class="staff-log ceo-log-scroll"></div>
+          <div class="beta-switcher" id="ceoBetaSwitcher">
+            <div class="beta-switcher-header">
+              <span class="beta-pill">Beta test controls</span>
+              <span class="beta-note" id="ceoPreviewLabel">Live CEO view</span>
+            </div>
+            <div class="beta-switcher-buttons">
+              <button type="button" class="btn btn-secondary" id="ceoPreviewStandard">Preview Standard (beta)</button>
+              <button type="button" class="btn btn-secondary" id="ceoPreviewVip">Preview VIP (beta)</button>
+              <button type="button" class="btn btn-secondary" id="ceoPreviewReturn">Return to CEO (beta)</button>
+            </div>
+          </div>
         </section>
-      </div>
 
-      <div class="ceo-footer-actions">
-        <button type="button" class="btn btn-secondary ceo-log-btn" id="ceoPortalReviewsBtn">
-          View reviews
-        </button>
-        <button type="button" class="btn btn-secondary ceo-log-btn" id="ceoAnalyticsBtn">
-          Analytics
-        </button>
+        <section class="ceo-hq-panel" data-ceo-panel="content">
+          <div class="ceo-panel-header">
+            <h3>Content & Access Tools</h3>
+            <p class="small">Issue passes, manage perks, and respond to venues.</p>
+          </div>
+          <div class="ceo-hq-grid">
+            <section class="ceo-panel">
+              <div class="ceo-panel-header">
+                <h4>Generate CEO vouchers</h4>
+                <p>One-tap codes for guests. Shows up as CEO-issued in venue redemptions.</p>
+              </div>
+              <div class="ceo-panel-actions">
+                <button type="button" class="btn btn-secondary" data-ceo-gen-perk="shot">Shot perk voucher</button>
+                <button type="button" class="btn btn-secondary" data-ceo-gen-perk="drink">Drink perk voucher</button>
+                <button type="button" class="btn btn-secondary" data-ceo-gen-perk="cover">Line access voucher</button>
+                <button type="button" class="btn btn-secondary" data-ceo-gen-perk="free_drink">Free drink voucher</button>
+              </div>
+              <p class="support-success" id="ceoGenSuccess" style="display:none;margin-top:8px;">Code generated.</p>
+              <div id="ceoIssuedList" class="ceo-issued-scroll"></div>
+            </section>
+
+            <section class="ceo-panel">
+              <div class="ceo-panel-header">
+                <h4>Free memberships</h4>
+                <p>Grant or revoke a never-expiring membership by Pass ID.</p>
+              </div>
+              <div class="field">
+                <label for="freePassIdInput">Pass ID</label>
+                <input id="freePassIdInput" type="text" placeholder="e.g. ABC123" />
+              </div>
+              <div class="ceo-panel-actions">
+                <button type="button" class="btn btn-secondary" id="grantFreeBtn">Grant free</button>
+                <button type="button" class="btn btn-secondary" id="revokeFreeBtn">Revoke free</button>
+              </div>
+              <p class="support-success" id="freeMemberStatus" style="display:none;">Updated.</p>
+              <div class="ceo-subpanel">
+                <div class="ceo-subpanel-header">
+                  <strong>Free memberships issued</strong>
+                  <button type="button" class="btn btn-secondary" id="refreshFreeMembers">Refresh list</button>
+                </div>
+                <div id="freeMembersList" class="ceo-scroll"></div>
+              </div>
+            </section>
+
+            <section class="ceo-panel" id="ceoInboxCard">
+              <div class="ceo-panel-header ceo-panel-header-row">
+                <h4 style="margin:0;">Venue messages</h4>
+                <span class="pill" id="ceoMsgBadge" style="display:none;">New</span>
+              </div>
+              <p class="ceo-panel-note">Live messaging between venue staff and CEO.</p>
+              <form id="ceoReplyForm">
+                <input type="hidden" id="ceoReplyTarget" />
+                <div class="field">
+                  <label for="ceoReplyInput">Reply</label>
+                  <textarea id="ceoReplyInput" rows="3" placeholder="Select a message to reply"></textarea>
+                </div>
+                <div class="error" id="ceoReplyError"></div>
+                <p class="support-success" id="ceoReplySuccess" style="display:none;">Reply sent.</p>
+                <div class="ceo-panel-actions">
+                  <button type="submit" class="btn btn-primary">Send reply</button>
+                  <button type="button" class="btn btn-secondary" id="ceoClearMessages">Clear all</button>
+                </div>
+              </form>
+              <div class="vip-deal-preview ceo-scroll" id="ceoMessagesList">No messages yet.</div>
+            </section>
+            <div class="pitch-toggle" id="ceoPitchToggle">
+              <div>
+                <strong>Pitch mode</strong>
+                <div style="font-size:11px;color:#94a3b8;">Instant deck for venue walk-throughs.</div>
+              </div>
+              <button type="button" id="pitchModeBtn">Open deck</button>
+            </div>
+          </div>
+          <div class="ceo-footer-actions">
+            <button type="button" class="btn btn-secondary ceo-log-btn" id="ceoPortalReviewsBtn">View reviews</button>
+            <button type="button" class="btn btn-secondary ceo-log-btn" id="ceoAnalyticsBtn">Analytics</button>
+          </div>
+        </section>
+
+        <section class="ceo-hq-panel" data-ceo-panel="redemptions">
+          <div class="ceo-panel-header">
+            <h3>Redemptions Command</h3>
+            <p class="small">Last 24h activity across venues. Filters update live.</p>
+          </div>
+          <div class="ceo-hq-grid">
+            <section class="ceo-panel ceo-log-panel">
+              <div class="ceo-panel-header">
+                <h4>Venue redemptions (live)</h4>
+              </div>
+              <div class="ceo-panel-controls">
+                <select id="ceoVenueFilter" class="ceo-select">
+                  <option value="all">All venues</option>
+                </select>
+                <select id="ceoVenueRange" class="ceo-select ceo-select-sm">
+                  <option value="day" selected>Today</option>
+                  <option value="week">This week</option>
+                  <option value="month">This month</option>
+                  <option value="year">This year</option>
+                  <option value="all">All time</option>
+                </select>
+                <select id="ceoRedemptionStatus" class="ceo-select ceo-select-sm">
+                  <option value="all" selected>All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="verified">Verified</option>
+                  <option value="denied">Denied</option>
+                  <option value="canceled">Canceled</option>
+                </select>
+                <select id="ceoRedemptionSource" class="ceo-select ceo-select-sm">
+                  <option value="all" selected>All sources</option>
+                  <option value="ceo">CEO-issued</option>
+                  <option value="member">Member</option>
+                </select>
+                <input id="ceoRedemptionMember" class="ceo-select ceo-input" placeholder="Search member/pass" />
+              </div>
+              <div id="ceoVenueLog" class="ceo-log-scroll"></div>
+              <button type="button" class="btn btn-secondary ceo-log-btn" id="ceoRedemptionBtn">Open full redemption log</button>
+            </section>
+
+            <section class="ceo-panel ceo-log-panel">
+              <div class="ceo-panel-header">
+                <h4>Close-out reports</h4>
+                <p>Reports from venues land here automatically.</p>
+              </div>
+              <div class="ceo-panel-controls">
+                <select id="ceoCloseOutVenue" class="ceo-select">
+                  <option value="all">All venues</option>
+                </select>
+                <select id="ceoCloseOutRange" class="ceo-select ceo-select-sm">
+                  <option value="day">Today</option>
+                  <option value="week">This week</option>
+                  <option value="month" selected>This month</option>
+                  <option value="year">This year</option>
+                  <option value="all">All time</option>
+                </select>
+              </div>
+              <div id="ceoCloseOutList" class="staff-log ceo-log-scroll"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="ceo-hq-panel" data-ceo-panel="datareset">
+          <div class="ceo-panel-header">
+            <h3>Data Reset (Danger Zone)</h3>
+            <p class="small">Use safe presets. CEO data is always preserved.</p>
+          </div>
+          <div class="ceo-reset-card" id="ceoResetCard">
+            <div style="flex:1;">
+              <strong>Reset beta data</strong>
+              <div class="meta-note">Choose what to wipe. CEO remains untouched. “AI smart select” applies a safe preset.</div>
+              <div class="ceo-reset-grid" id="betaResetGrid">
+                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="members" checked /> Stats & perks</label>
+                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="redemptions" checked /> Redemptions log</label>
+                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="alerts" checked /> Member alerts</label>
+                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="vipDeals" checked /> VIP deals</label>
+                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="closeouts" checked /> Close-out reports</label>
+                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="freeMemberships" checked /> Free memberships</label>
+                <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="anonUsers" /> Beta logins (anonymous accounts)</label>
+              </div>
+              <div class="ceo-reset-actions">
+                <span class="pill-ghost" id="betaResetSelectAll">Select all</span>
+                <span class="pill-ghost" id="betaResetSmart">AI smart select</span>
+                <span class="pill-ghost" id="betaResetSafe">Safe reset</span>
+                <span class="pill-ghost" id="betaResetFull">Full wipe</span>
+              </div>
+              <div class="meta-note" id="betaResetSummary" style="margin-top:8px;"></div>
+            </div>
+            <div class="ceo-reset-footer">
+              <button type="button" class="btn btn-secondary" id="betaResetPreview">Preview wipe</button>
+              <button type="button" class="btn btn-danger" id="betaResetBtn">Reset</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="ceo-hq-panel" data-ceo-panel="assistant">
+          <div class="ceo-panel-header">
+            <h3>HQ AI Assistant</h3>
+            <p class="small">Ask product, ops, or rollout questions.</p>
+          </div>
+          <div class="ceo-reset-card" id="ceoChatCard">
+            <div class="ceo-chat-body" style="flex:1;">
+              <strong>Ask HQ (AI)</strong>
+              <div class="meta-note">CEO-only assistant. Ask product, ops, or rollout questions.</div>
+              <div class="field" style="margin-top:2px;">
+                <label for="ceoChatInput" style="font-size:12px;color:#cbd5f5;">Prompt</label>
+                <textarea id="ceoChatInput" rows="4"></textarea>
+              </div>
+              <div class="ceo-reset-actions" style="margin-top:2px;">
+                <span class="pill-ghost" id="ceoChatPresetRollout">Rollout steps</span>
+                <span class="pill-ghost" id="ceoChatPresetIssues">Triage issues</span>
+              </div>
+              <div id="ceoChatHistory" style="max-height:200px;overflow:auto;font-size:12px;display:flex;flex-direction:column;gap:6px;"></div>
+            </div>
+            <button type="button" class="btn btn-primary" id="ceoChatSend">Send</button>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -7971,6 +8418,25 @@
           <div class="code" id="ceoCardCode">000000</div>
           <div style="font-size:12px;letter-spacing:0.12em;color:#9ca3af;text-transform:uppercase;">Never Expires · Priority Entry</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="confirmModal">
+    <div class="modal-card confirm-card">
+      <div class="modal-header">
+        <div class="modal-title" id="confirmTitle">Confirm action</div>
+        <button class="modal-close" id="confirmClose" type="button">Close</button>
+      </div>
+      <p class="modal-body-text" id="confirmBody">This action affects live users.</p>
+      <div class="field">
+        <label id="confirmLabel" for="confirmInput">Type CONFIRM to continue</label>
+        <input id="confirmInput" type="text" autocomplete="off" />
+      </div>
+      <div class="error" id="confirmError"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="confirmCancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmAction">Confirm</button>
       </div>
     </div>
   </div>
@@ -8525,9 +8991,21 @@
     const ACHIEVEMENTS_KEY = "achievementsMap";
     const REMEMBER_EMAIL_KEY = "rememberedEmail";
     const BUILD_VERSION = "2025.12.15.1";
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("v")) {
+        url.searchParams.delete("v");
+        const next = url.search ? `${url.pathname}${url.search}` : url.pathname;
+        history.replaceState({}, "", next);
+      }
+    } catch (_) {}
     let ceoHealthUnsub = null;
     let settingsUnsub = null;
     let settingsPollTimer = null;
+    let ceoMembersUnsub = null;
+    let ceoMembersCache = [];
+    let ceoMembersFilterKey = "all";
+    let ceoMembersSearchTerm = "";
     let rewardsProgress = { count: 0, threshold: 5, available: false, rewardType: null, cycleKey: null, claimed: 0 };
     let memberDocRef = null;
     let currentPassCode = null;
@@ -8561,21 +9039,7 @@
     async function ensureFirebaseUser() {
       if (!firebaseAuth) return null;
       if (firebaseAuth.currentUser) return firebaseAuth.currentUser;
-      if (betaPassMode || localStorage.getItem("betaSkipActive") === "true") {
-        return null;
-      }
-      if (anonPromise) return anonPromise;
-      suppressLandingRedirectOnce = true;
-      anonPromise = signInAnonymously(firebaseAuth)
-        .then(() => firebaseAuth.currentUser)
-        .catch((err) => {
-          console.warn("Anonymous sign-in failed (offline or rules)", err);
-          return null;
-        })
-        .finally(() => {
-          anonPromise = null;
-        });
-      return anonPromise;
+      return null;
     }
 
     function useCloudProfile() {
@@ -9744,6 +10208,9 @@
     const realtimeStatusPill = document.getElementById("realtimeStatusPill");
     const ceoVenueFilter = document.getElementById("ceoVenueFilter");
     const ceoVenueRange = document.getElementById("ceoVenueRange");
+    const ceoRedemptionStatus = document.getElementById("ceoRedemptionStatus");
+    const ceoRedemptionSource = document.getElementById("ceoRedemptionSource");
+    const ceoRedemptionMember = document.getElementById("ceoRedemptionMember");
     const ceoCloseOutVenue = document.getElementById("ceoCloseOutVenue");
     const ceoCloseOutRange = document.getElementById("ceoCloseOutRange");
     const ceoCloseOutList = document.getElementById("ceoCloseOutList");
@@ -10079,6 +10546,8 @@
     const staffLoginBack = document.getElementById("staffLoginBack");
     const ceoPortalBack = document.getElementById("ceoPortalBack");
     const ceoPassButton = document.getElementById("ceoPassButton");
+    const ceoNavItems = document.querySelectorAll(".ceo-nav-item");
+    const ceoPanels = document.querySelectorAll(".ceo-hq-panel");
     const ceoGenButtons = document.querySelectorAll("[data-ceo-gen-perk]");
     const ceoGenSuccess = document.getElementById("ceoGenSuccess");
     const ceoIssuedList = document.getElementById("ceoIssuedList");
@@ -10097,9 +10566,23 @@
     const ceoClearMessages = document.getElementById("ceoClearMessages");
     const ceoMsgBadge = document.getElementById("ceoMsgBadge");
     const ceoVerifiedVenueLog = null;
+    const metricMemberTotal = document.getElementById("metricMemberTotal");
+    const metricMemberVip = document.getElementById("metricMemberVip");
+    const metricMemberStandard = document.getElementById("metricMemberStandard");
+    const metricMemberFree = document.getElementById("metricMemberFree");
+    const metricMemberPaused = document.getElementById("metricMemberPaused");
+    const metricMemberPastDue = document.getElementById("metricMemberPastDue");
     const metricTodayRedemptions = document.getElementById("metricTodayRedemptions");
     const metricActiveVenues = document.getElementById("metricActiveVenues");
+    const metricAlertsToday = document.getElementById("metricAlertsToday");
     const metricLatestRating = document.getElementById("metricLatestRating");
+    const ceoMemberSearch = document.getElementById("ceoMemberSearch");
+    const ceoMembersExport = document.getElementById("ceoMembersExport");
+    const betaResetPreview = document.getElementById("betaResetPreview");
+    const betaResetSummary = document.getElementById("betaResetSummary");
+    const betaResetSafe = document.getElementById("betaResetSafe");
+    const betaResetFull = document.getElementById("betaResetFull");
+    const ceoEmergencyUnlock = document.getElementById("ceoEmergencyUnlock");
     const tierModal = document.getElementById("tierModal");
     const tierModalTitle = document.getElementById("tierModalTitle");
     const tierModalCopy = document.getElementById("tierModalCopy");
@@ -10167,6 +10650,15 @@
     const ceoAppLockToggle = document.getElementById("ceoAppLockToggle");
     const ceoSystemHealthCard = document.getElementById("ceoSystemHealthCard");
     const ceoSystemHealth = document.getElementById("ceoSystemHealth");
+    const confirmModal = document.getElementById("confirmModal");
+    const confirmTitle = document.getElementById("confirmTitle");
+    const confirmBody = document.getElementById("confirmBody");
+    const confirmLabel = document.getElementById("confirmLabel");
+    const confirmInput = document.getElementById("confirmInput");
+    const confirmError = document.getElementById("confirmError");
+    const confirmCancel = document.getElementById("confirmCancel");
+    const confirmClose = document.getElementById("confirmClose");
+    const confirmAction = document.getElementById("confirmAction");
     let staffCloseoutStamp = document.getElementById("staffCloseoutStamp");
     const appLockOverlay = document.getElementById("appLockOverlay");
     const appLockCeoAccess = document.getElementById("appLockCeoAccess");
@@ -12445,6 +12937,64 @@ let onboardingIndex = 0;
       closeNavMenu();
     }
 
+    let confirmModalCleanup = null;
+    function closeConfirmModal() {
+      if (confirmModal) confirmModal.classList.remove("active");
+      if (confirmModalCleanup) {
+        confirmModalCleanup();
+        confirmModalCleanup = null;
+      }
+    }
+    function openConfirmModal({ title, body, confirmText, confirmLabelText, confirmButtonText, confirmButtonClass = "btn-danger" }) {
+      return new Promise((resolve) => {
+        if (!confirmModal || !confirmTitle || !confirmBody || !confirmLabel || !confirmInput || !confirmAction) {
+          resolve(false);
+          return;
+        }
+        confirmTitle.textContent = title || "Confirm action";
+        confirmBody.textContent = body || "";
+        const upperText = (confirmText || "CONFIRM").toUpperCase();
+        confirmLabel.textContent = confirmLabelText || `Type ${upperText} to continue`;
+        confirmInput.value = "";
+        confirmError.textContent = "";
+        confirmAction.textContent = confirmButtonText || "Confirm";
+        confirmAction.className = `btn ${confirmButtonClass}`;
+        confirmModal.classList.add("active");
+        const onConfirm = () => {
+          const typed = (confirmInput.value || "").trim().toUpperCase();
+          if (typed !== upperText) {
+            confirmError.textContent = `Please type ${upperText} to confirm.`;
+            return;
+          }
+          closeConfirmModal();
+          resolve(true);
+        };
+        const onCancel = () => {
+          closeConfirmModal();
+          resolve(false);
+        };
+        const onBackdrop = (e) => {
+          if (e.target === confirmModal) onCancel();
+        };
+        const onInput = () => {
+          if (confirmError) confirmError.textContent = "";
+        };
+        confirmAction.addEventListener("click", onConfirm);
+        confirmCancel?.addEventListener("click", onCancel);
+        confirmClose?.addEventListener("click", onCancel);
+        confirmModal.addEventListener("click", onBackdrop);
+        confirmInput.addEventListener("input", onInput);
+        confirmModalCleanup = () => {
+          confirmAction.removeEventListener("click", onConfirm);
+          confirmCancel?.removeEventListener("click", onCancel);
+          confirmClose?.removeEventListener("click", onCancel);
+          confirmModal.removeEventListener("click", onBackdrop);
+          confirmInput.removeEventListener("input", onInput);
+        };
+        setTimeout(() => confirmInput.focus(), 50);
+      });
+    }
+
     async function cancelMembershipAndSignOut() {
       const user = firebaseAuth.currentUser;
       const uid = user?.uid;
@@ -12514,8 +13064,17 @@ let onboardingIndex = 0;
       } catch (err) {
         console.warn("Sign-out skipped (probably no auth user):", err);
       }
+      detachAllRealtimeListeners("logout");
       resetInMemoryCaches();
-      ["betaSkipActive", "staffSession", "ceoSession"].forEach(key => localStorage.removeItem(key));
+      ["betaSkipActive", "staffSession", "ceoSession", "pendingScanVerify"].forEach(key => localStorage.removeItem(key));
+      if (currentUid) {
+        localStorage.removeItem(`passcode_${currentUid}`);
+        localStorage.removeItem(`membership_${currentUid}`);
+        localStorage.removeItem(`memberSince_${currentUid}`);
+        localStorage.removeItem(`pendingTier_${currentUid}`);
+        localStorage.removeItem(`memberMeta_${currentUid}`);
+        localStorage.removeItem(getBillingKey(currentUid));
+      }
       exitBetaPassMode();
       onboardingMembershipFlow = false;
       forceMembershipScreen = false;
@@ -12536,14 +13095,10 @@ let onboardingIndex = 0;
       memberDocRef = null;
       currentPassCode = null;
       document.body.classList.remove("ceo-active");
-      if (currentUid) localStorage.removeItem(`passcode_${currentUid}`);
       clearPendingMembershipFlagForUser(currentUid);
       applyRememberedEmailToForm();
       showScreen("landing");
       stopIdleTimer();
-      setTimeout(() => {
-        window.location.reload();
-      }, 150);
     });
 
     if (navMenuToggle) {
@@ -16877,144 +17432,16 @@ let onboardingIndex = 0;
     }
 
     async function performBetaReset(options = {}) {
-      if (!db) throw new Error("No database");
+      if (!functionsClient) throw new Error("Functions unavailable");
       if (!guardWriteAction("betaReset")) throw new Error("App is locked.");
-      if (!hasCeoClaim()) throw new Error("CEO claims required");
       await ensureFirebaseUser();
-      const user = firebaseAuth.currentUser;
-      const email = (user?.email || "").toLowerCase();
-      const isCeoUser = isCeoActive() || email === "ceo@gmail.com" || (currentPassCode || "").toUpperCase() === CEO_PASS_ID;
-      if (!isCeoUser) throw new Error("CEO only");
-
-      const opts = {
-        members: options.members !== false,
-        redemptions: options.redemptions !== false,
-        alerts: options.alerts !== false,
-        vipDeals: options.vipDeals !== false,
-        closeouts: options.closeouts !== false,
-        freeMemberships: options.freeMemberships !== false,
-        anonUsers: options.anonUsers === true
-      };
-
-      // Helper: archive redemptions instead of delete (client delete not allowed by rules)
-      async function archiveRedemptions() {
-        if (!opts.redemptions) return;
-        try {
-          const snap = await getDocs(collectionGroup(db, "redemptions"));
-          for (const docSnap of snap.docs) {
-            try {
-              await updateDoc(docSnap.ref, { betaArchived: true });
-            } catch (err) {
-              console.warn("Archive redemption failed", docSnap.id, err);
-            }
-          }
-        } catch (err) {
-          console.warn("Archive redemptions snapshot failed", err);
-        }
-      }
-
-      async function deleteAllInCollection(name) {
-        if ((name === "deals" && !opts.vipDeals) ||
-            (name === "alerts" && !opts.alerts) ||
-            (name === "closeOutReports" && !opts.closeouts)) {
-          return;
-        }
-        try {
-          const snap = await getDocs(collection(db, name));
-          for (const docSnap of snap.docs) {
-            try {
-              await deleteDoc(docSnap.ref);
-            } catch (err) {
-              console.warn(`Delete ${name}/${docSnap.id} failed`, err);
-            }
-          }
-        } catch (err) {
-          console.warn(`Delete collection ${name} failed`, err);
-        }
-      }
-
-      async function resetMembers() {
-        if (!opts.members) return;
-        try {
-          const snap = await getDocs(collection(db, "members"));
-          for (const docSnap of snap.docs) {
-            const data = docSnap.data() || {};
-            const isCeo = data.ceo === true ||
-              (data.passCode || "").toUpperCase() === CEO_PASS_ID ||
-              (data.email || "").toLowerCase() === "ceo@gmail.com" ||
-              docSnap.id === user?.uid;
-            if (isCeo) continue;
-            const resetPayload = {
-              points: 0,
-              tier: "standard",
-              freeMembership: false,
-              extraVouchers: {},
-              rewards: {},
-              badges: {},
-              streak: 0,
-              totalSavings: 0,
-              venuesVisited: 0,
-              redemptions: 0,
-              nightWheel: { spinsLeft: 1, lastSpin: null },
-              vibe: null,
-              accent: null,
-              memberSince: new Date().toISOString()
-            };
-            try {
-              await updateDoc(docSnap.ref, resetPayload);
-            } catch (err) {
-              console.warn("Reset member failed", docSnap.id, err);
-            }
-          }
-        } catch (err) {
-          console.warn("Reset members snapshot failed", err);
-        }
-      }
-
-      async function resetFreeMemberships() {
-        if (!opts.freeMemberships) return;
-        try {
-          const snap = await getDocs(collection(db, "freeMemberships"));
-          for (const docSnap of snap.docs) {
-            const id = docSnap.id.toUpperCase();
-            if (id === CEO_PASS_ID) continue;
-            try {
-              await deleteDoc(docSnap.ref);
-            } catch (err) {
-              console.warn("Delete freeMembership failed", docSnap.id, err);
-            }
-          }
-        } catch (err) {
-          console.warn("Reset free memberships failed", err);
-        }
-      }
-
-      async function purgeAnonymousAccounts() {
-        if (!opts.anonUsers) return;
-        if (!functionsClient) {
-          throw new Error("Functions client unavailable");
-        }
-        const callable = httpsCallable(functionsClient, "purgeAnonymousUsers");
-        await callable({ limit: 1000 });
-      }
-
-      // Execute in sequence to reduce load on Firestore
-      await archiveRedemptions();
-      await deleteAllInCollection("deals");
-      await deleteAllInCollection("alerts");
-      await deleteAllInCollection("closeOutReports");
-      await resetFreeMemberships();
-      await purgeAnonymousAccounts();
-      await resetMembers();
-
-      // Local/cache cleanup
-      redemptionLog = [];
-      saveRedemptionLog();
-      clearGlobalRealtime();
-      clearPassRealtime();
-      localStorage.clear();
-      sessionStorage.clear();
-      applyStatsToUi({ total: 0, venuesVisited: 0, avg: 0 });
+      const { dryRun, ...selections } = options || {};
+      const fn = httpsCallable(functionsClient, "resetBetaData");
+      const resp = await fn({
+        selections,
+        dryRun: dryRun === true
+      });
+      return resp?.data || {};
     }
 
     function sanitizeExtraVouchers(source, options = {}) {
@@ -17751,10 +18178,34 @@ let onboardingIndex = 0;
       });
     }
     if (ceoVenueFilter) {
-      ceoVenueFilter.addEventListener("change", () => renderCeoVenueLog());
+      ceoVenueFilter.addEventListener("change", () => {
+        renderCeoVenueLog();
+        renderCeoRedemptionLog();
+      });
     }
     if (ceoVenueRange) {
-      ceoVenueRange.addEventListener("change", () => renderCeoVenueLog());
+      ceoVenueRange.addEventListener("change", () => {
+        renderCeoVenueLog();
+        renderCeoRedemptionLog();
+      });
+    }
+    if (ceoRedemptionStatus) {
+      ceoRedemptionStatus.addEventListener("change", () => {
+        renderCeoVenueLog();
+        renderCeoRedemptionLog();
+      });
+    }
+    if (ceoRedemptionSource) {
+      ceoRedemptionSource.addEventListener("change", () => {
+        renderCeoVenueLog();
+        renderCeoRedemptionLog();
+      });
+    }
+    if (ceoRedemptionMember) {
+      ceoRedemptionMember.addEventListener("input", () => {
+        renderCeoVenueLog();
+        renderCeoRedemptionLog();
+      });
     }
     function renderCeoIssued() {
       if (!ceoIssuedList) return;
@@ -17832,10 +18283,26 @@ let onboardingIndex = 0;
       // Section removed
     }
 
-    function renderCeoVenueLog() {
-      if (!ceoVenueLog) return;
-      const venueId = ceoVenueFilter?.value || "all";
-      const range = ceoVenueRange?.value || "month";
+    function getCeoRedemptionFilters() {
+      return {
+        venueId: (ceoVenueFilter?.value || "all").toLowerCase(),
+        range: ceoVenueRange?.value || "month",
+        status: (ceoRedemptionStatus?.value || "all").toLowerCase(),
+        source: (ceoRedemptionSource?.value || "all").toLowerCase(),
+        member: (ceoRedemptionMember?.value || "").trim().toLowerCase()
+      };
+    }
+    function isCeoIssuedRedemption(entry) {
+      if (!entry) return false;
+      if (entry.ceo) return true;
+      const perkKey = (entry.perkKey || "").toLowerCase();
+      if (perkKey.startsWith("ceo_")) return true;
+      const passId = (entry.passId || "").toUpperCase();
+      if (passId && passId === CEO_PASS_ID) return true;
+      return false;
+    }
+    function filterCeoRedemptions(entries) {
+      const { venueId, range, status, source, member } = getCeoRedemptionFilters();
       const now = Date.now();
       const windowMap = {
         day: 24 * 60 * 60 * 1000,
@@ -17843,19 +18310,47 @@ let onboardingIndex = 0;
         month: 31 * 24 * 60 * 60 * 1000,
         year: 365 * 24 * 60 * 60 * 1000
       };
-      let entries = getCeoRedemptions().filter(e => e.status === "verified");
+      let list = entries.slice();
       if (venueId !== "all") {
-        entries = entries.filter(e => (e.venue || "").toLowerCase() === venueId.toLowerCase());
+        list = list.filter(e => ((e.venue || "").toLowerCase() === venueId));
+      }
+      if (status !== "all") {
+        const desired = status === "cancelled" ? "canceled" : status;
+        list = list.filter(e => {
+          const raw = (e.status || "pending").toLowerCase();
+          const normalized = raw === "cancelled" ? "canceled" : raw;
+          return normalized === desired;
+        });
+      }
+      if (source !== "all") {
+        list = list.filter(e => {
+          const isCeo = isCeoIssuedRedemption(e);
+          return source === "ceo" ? isCeo : !isCeo;
+        });
+      }
+      if (member) {
+        list = list.filter(e => {
+          const haystack = `${e.member || ""} ${e.passId || ""} ${e.code || ""}`.toLowerCase();
+          return haystack.includes(member);
+        });
       }
       if (range !== "all") {
         const win = windowMap[range];
         if (win) {
-          entries = entries.filter(e => {
-            const ts = new Date(e.timestamp).getTime();
+          list = list.filter(e => {
+            const ts = new Date(e.timestamp || e.verifiedAt || 0).getTime();
+            if (!Number.isFinite(ts)) return false;
             return (now - ts) <= win;
           });
         }
       }
+      return list;
+    }
+
+    function renderCeoVenueLog() {
+      if (!ceoVenueLog) return;
+      const { range } = getCeoRedemptionFilters();
+      let entries = filterCeoRedemptions(getCeoRedemptions());
       if (!entries.length) {
         ceoVenueLog.innerHTML = '<p style="color:#94a3b8;">No redemptions for this filter.</p>';
         return;
@@ -17883,13 +18378,16 @@ let onboardingIndex = 0;
           const label = entry.perk || entry.perkKey || "Perk";
           const member = entry.member || entry.passId || "FoCo member";
           const date = formatMST(entry.timestamp);
+          const rawStatus = (entry.status || "pending").toLowerCase();
+          const statusKey = rawStatus === "cancelled" ? "canceled" : rawStatus;
+          const statusLabel = statusKey.replace("_", " ");
           return `
             <div class="log-row">
               <strong>${entry.code} · ${label}</strong>
               <div>${member}</div>
               <div class="log-meta">
                 <span>${date}</span>
-                <span class="status-pill-sm verified">verified</span>
+                <span class="status-pill-sm ${statusKey}">${statusLabel}</span>
               </div>
             </div>
           `;
@@ -18406,10 +18904,12 @@ let onboardingIndex = 0;
     function updateDemoUI() {}
 
     function updateCeoMetrics(reviewsOverride) {
-      if (!metricTodayRedemptions || !metricActiveVenues || !metricLatestRating) return;
       const ceoEntries = getCeoRedemptions();
-      const today = new Date().toDateString();
-      const todayCount = ceoEntries.filter(entry => new Date(entry.timestamp).toDateString() === today).length;
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      const recentCount = ceoEntries.filter(entry => {
+        const ts = new Date(entry.timestamp || entry.verifiedAt || 0).getTime();
+        return Number.isFinite(ts) && ts >= cutoff;
+      }).length;
       const uniqueVenues = new Set(ceoEntries.filter(entry => entry.venue).map(entry => entry.venue));
       const reviews = Array.isArray(reviewsOverride)
         ? reviewsOverride
@@ -18417,9 +18917,34 @@ let onboardingIndex = 0;
       const avgRating = reviews.length
         ? (reviews.reduce((sum, r) => sum + (Number(r.stars) || 0), 0) / reviews.length)
         : null;
-      metricTodayRedemptions.textContent = todayCount;
-      metricActiveVenues.textContent = uniqueVenues.size;
-      metricLatestRating.textContent = avgRating ? `${avgRating.toFixed(1)}★` : "–";
+      if (metricTodayRedemptions) metricTodayRedemptions.textContent = recentCount;
+      if (metricActiveVenues) metricActiveVenues.textContent = uniqueVenues.size;
+      if (metricLatestRating) metricLatestRating.textContent = avgRating ? `${avgRating.toFixed(1)}★` : "–";
+
+      const membersList = ceoMembersCache.length
+        ? ceoMembersCache
+        : Object.entries(loadMemberDirectory()).map(([, data]) => normalizeCeoMemberData(data || {}, data?.uid || ""));
+      const memberCounts = membersList.reduce((acc, m) => {
+        acc.total += 1;
+        if (m.tierKey === "vip") acc.vip += 1;
+        if (m.tierKey === "standard") acc.standard += 1;
+        if (m.tierKey === "free" || m.tierKey === "ceo_free" || m.tierKey === "ceo") acc.free += 1;
+        if (m.statusKey === "paused") acc.paused += 1;
+        if (m.statusKey === "past_due") acc.pastDue += 1;
+        return acc;
+      }, { total: 0, vip: 0, standard: 0, free: 0, paused: 0, pastDue: 0 });
+      if (metricMemberTotal) metricMemberTotal.textContent = memberCounts.total;
+      if (metricMemberVip) metricMemberVip.textContent = memberCounts.vip;
+      if (metricMemberStandard) metricMemberStandard.textContent = memberCounts.standard;
+      if (metricMemberFree) metricMemberFree.textContent = memberCounts.free;
+      if (metricMemberPaused) metricMemberPaused.textContent = memberCounts.paused;
+      if (metricMemberPastDue) metricMemberPastDue.textContent = memberCounts.pastDue;
+
+      const alertsToday = (tonightAlerts || []).filter(alert => {
+        const ts = Number(alert.createdAt || alert.createdAtMs || alert.timestamp || 0);
+        return Number.isFinite(ts) && ts >= cutoff;
+      }).length;
+      if (metricAlertsToday) metricAlertsToday.textContent = alertsToday;
     }
 
     // CEO sessions should rely on Firebase auth, not local storage shortcuts.
@@ -18952,7 +19477,7 @@ let onboardingIndex = 0;
     }
     function renderCeoRedemptionLog() {
       if (!ceoRedemptionList) return;
-      const entries = getCeoRedemptions();
+      const entries = filterCeoRedemptions(getCeoRedemptions());
       if (!entries.length) {
         ceoRedemptionList.innerHTML = '<p style="color:#94a3b8;">No redemptions yet.</p>';
         return;
@@ -18965,7 +19490,9 @@ let onboardingIndex = 0;
           : entry.perkKey === "reward_shot"
             ? "Reward: shot perk"
             : (entry.perkKey || "Perk");
-        const statusLabel = entry.status === "verified" ? "verified" : "pending";
+        const rawStatus = (entry.status || "pending").toLowerCase();
+        const statusKey = rawStatus === "cancelled" ? "canceled" : rawStatus;
+        const statusLabel = statusKey.replace("_", " ");
         return `
           <div class="log-row">
             <strong>${entry.code} · ${tierText}</strong>
@@ -18973,7 +19500,7 @@ let onboardingIndex = 0;
             ${venueText}
             <div class="log-meta">
               <span>${date}</span>
-              <span class="status-pill-sm ${statusLabel}">${statusLabel}</span>
+              <span class="status-pill-sm ${statusKey}">${statusLabel}</span>
             </div>
           </div>
         `;
@@ -19726,6 +20253,23 @@ let onboardingIndex = 0;
     ceoCardModal.addEventListener("click", (e) => {
       if (e.target === ceoCardModal) ceoCardModal.classList.remove("active");
     });
+    function showCeoPanel(tab) {
+      if (!ceoPanels || !ceoPanels.length) return;
+      ceoPanels.forEach(panel => {
+        panel.classList.toggle("active", panel.dataset.ceoPanel === tab);
+      });
+      ceoNavItems.forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.ceoTab === tab);
+      });
+    }
+    if (ceoNavItems && ceoNavItems.length) {
+      ceoNavItems.forEach(btn => {
+        btn.addEventListener("click", () => {
+          const tab = btn.dataset.ceoTab;
+          if (tab) showCeoPanel(tab);
+        });
+      });
+    }
     ceoPortalBack.addEventListener("click", () => {
       showScreen("pass");
     });
@@ -19733,6 +20277,7 @@ let onboardingIndex = 0;
       ceoPortalShortcut.addEventListener("click", () => {
         renderCeoIssued();
         showScreen("ceoPortal");
+        showCeoPanel("overview");
       });
     }
     if (ceoGenButtons && ceoGenButtons.length) {
@@ -19907,23 +20452,52 @@ let onboardingIndex = 0;
     if (ceoPreviewReturnBtn) {
       ceoPreviewReturnBtn.addEventListener("click", endCeoPreview);
     }
+    function collectBetaResetSelections() {
+      const toggles = Array.from(document.querySelectorAll(".beta-reset-toggle"));
+      const selected = {};
+      toggles.forEach(t => {
+        const key = t.dataset.key;
+        if (key) selected[key] = t.checked;
+      });
+      return selected;
+    }
+    function renderBetaResetSummary(summary) {
+      if (!betaResetSummary || !summary) return;
+      const counts = summary.deletedCountsByCollection || summary.counts || summary.preview || {};
+      const parts = Object.keys(counts).map(key => `${key}: ${counts[key]}`);
+      const label = summary.dryRun ? "Preview" : "Summary";
+      betaResetSummary.textContent = parts.length ? `${label}: ${parts.join(" · ")}` : "No matching documents found.";
+    }
+    if (betaResetPreview) {
+      betaResetPreview.addEventListener("click", async () => {
+        showToast("Previewing wipe…");
+        try {
+          const selected = collectBetaResetSelections();
+          const resp = await performBetaReset({ ...selected, dryRun: true });
+          renderBetaResetSummary(resp);
+          showToast("Preview ready.");
+        } catch (err) {
+          console.warn("Beta reset preview failed", err);
+          showToast("Preview failed. Check console/logs.");
+        }
+      });
+    }
     if (betaResetBtn && ceoResetCard) {
       betaResetBtn.addEventListener("click", async () => {
-        const confirmText = prompt("Type RESET to wipe all beta data (non-CEO stats, deals, alerts, redemptions history). CEO is preserved.");
-        if ((confirmText || "").trim().toUpperCase() !== "RESET") {
-          return;
-        }
+        const confirmed = await openConfirmModal({
+          title: "Reset beta data",
+          body: "This wipes the selected beta data sets. CEO data is preserved. Stripe is never touched.",
+          confirmText: "WIPE",
+          confirmButtonText: "Run wipe",
+          confirmButtonClass: "btn-danger"
+        });
+        if (!confirmed) return;
         showToast("Wiping beta data…");
         try {
-          const toggles = Array.from(document.querySelectorAll(".beta-reset-toggle"));
-          const selected = {};
-          toggles.forEach(t => {
-            const key = t.dataset.key;
-            if (key) selected[key] = t.checked;
-          });
-          await performBetaReset(selected);
-          showToast("Beta data cleared. Reloading…");
-          setTimeout(() => window.location.reload(), 900);
+          const selected = collectBetaResetSelections();
+          const resp = await performBetaReset(selected);
+          renderBetaResetSummary(resp);
+          showToast("Beta data reset complete.");
         } catch (err) {
           console.warn("Beta reset failed", err);
           showToast("Beta reset failed. Check console/logs.");
@@ -19932,6 +20506,19 @@ let onboardingIndex = 0;
     }
     const betaResetSelectAll = document.getElementById("betaResetSelectAll");
     const betaResetSmart = document.getElementById("betaResetSmart");
+    if (betaResetSafe) {
+      betaResetSafe.addEventListener("click", () => {
+        document.querySelectorAll(".beta-reset-toggle").forEach(cb => {
+          const key = cb.dataset.key;
+          cb.checked = ["redemptions","alerts","vipDeals","closeouts","anonUsers"].includes(key);
+        });
+      });
+    }
+    if (betaResetFull) {
+      betaResetFull.addEventListener("click", () => {
+        document.querySelectorAll(".beta-reset-toggle").forEach(cb => cb.checked = true);
+      });
+    }
     if (betaResetSelectAll) {
       betaResetSelectAll.addEventListener("click", () => {
         document.querySelectorAll(".beta-reset-toggle").forEach(cb => cb.checked = true);
@@ -19969,14 +20556,19 @@ let onboardingIndex = 0;
         ceoChatSend.textContent = "Thinking…";
         try {
           const fn = httpsCallable(functionsClient, "ceoChat");
+          console.info("[ceoChat] request", { promptLen: prompt.length });
           const resp = await fn({ prompt });
-          const reply = resp?.data?.reply || "No reply.";
+          console.info("[ceoChat] response", {
+            status: resp?.data?.status,
+            keys: Object.keys(resp?.data || {})
+          });
+          const reply = resp?.data?.reply || resp?.data?.text || resp?.data?.answer || "No reply.";
           appendCeoChat("assistant", reply);
           if (ceoChatHistory) ceoChatHistory.scrollTop = ceoChatHistory.scrollHeight;
         } catch (err) {
           console.warn("ceoChat failed", err);
-          const msg = err?.message || "AI is unavailable right now.";
-          appendCeoChat("assistant", msg);
+          const msg = err?.message || err?.code || "HQ AI is temporarily unavailable.";
+          appendCeoChat("assistant", `HQ AI is temporarily unavailable (${msg}).`);
         } finally {
           ceoChatSend.disabled = false;
           ceoChatSend.textContent = "Send";
@@ -19992,6 +20584,11 @@ let onboardingIndex = 0;
       ceoChatPresetIssues.addEventListener("click", () => {
         ceoChatInput.value = "Help me triage live production issues: what logs, Firestore collections, and user states should I check first?";
       });
+    }
+    if (ceoChatSend && !functionsClient) {
+      ceoChatSend.disabled = true;
+      ceoChatSend.textContent = "Offline";
+      appendCeoChat("assistant", "HQ AI is temporarily unavailable.");
     }
 
     function applyLaunchModeUI() {
@@ -20040,7 +20637,10 @@ let onboardingIndex = 0;
         const stampText = stamp
           ? `Locked ${stamp.toLocaleString("en-US", { timeZone: "America/Denver" })}`
           : "No lock activity yet.";
-        ceoAppLockStatus.textContent = locked ? `App is locked. ${stampText}` : "App is unlocked.";
+        ceoAppLockStatus.textContent = locked ? `LOCKED: only CEO/admin allowed. ${stampText}` : "LIVE: unlocked for all users.";
+      }
+      if (ceoEmergencyUnlock) {
+        ceoEmergencyUnlock.style.display = locked && isCeo ? "inline-flex" : "none";
       }
       if (ceoAppLockToggle) {
         ceoAppLockToggle.textContent = locked ? "Unlock app" : "Lock app";
@@ -20201,7 +20801,7 @@ let onboardingIndex = 0;
         const data = resp?.data || {};
         isLaunched = !!data.launched;
         if (ceoLaunchStatus) {
-          ceoLaunchStatus.textContent = isLaunched ? "Live mode (beta features hidden)" : "Beta mode (testing enabled)";
+          ceoLaunchStatus.textContent = isLaunched ? "Live mode (affects non-CEO users)" : "Beta mode (affects non-CEO users)";
         }
         applyLaunchModeUI();
       } catch (err) {
@@ -20213,15 +20813,26 @@ let onboardingIndex = 0;
     if (ceoLaunchToggle) {
       ceoLaunchToggle.addEventListener("click", async () => {
         if (!functionsClient) return;
+        const nextLaunch = !isLaunched;
+        const confirmed = await openConfirmModal({
+          title: nextLaunch ? "Go Live (Launch Mode)" : "Return to Beta Mode",
+          body: nextLaunch
+            ? "This will hide beta-only flows for non-CEO users. Use for live launch."
+            : "This will re-enable beta flows for testing. Non-CEO users will see beta UI.",
+          confirmText: nextLaunch ? "LAUNCH" : "BETA",
+          confirmButtonText: nextLaunch ? "Go Live" : "Return to Beta",
+          confirmButtonClass: nextLaunch ? "btn-danger" : "btn-secondary"
+        });
+        if (!confirmed) return;
         ceoLaunchToggle.disabled = true;
         ceoLaunchToggle.textContent = "Updating…";
         try {
           const fn = httpsCallable(functionsClient, "setLaunchMode");
-          const resp = await fn({ launched: !isLaunched });
+          const resp = await fn({ launched: nextLaunch });
           const data = resp?.data || {};
           isLaunched = !!data.launched;
           if (ceoLaunchStatus) {
-            ceoLaunchStatus.textContent = isLaunched ? "Live mode (beta features hidden)" : "Beta mode (testing enabled)";
+            ceoLaunchStatus.textContent = isLaunched ? "Live mode (affects non-CEO users)" : "Beta mode (affects non-CEO users)";
           }
           applyLaunchModeUI();
           // Force refresh and logout so the new mode applies immediately
@@ -20247,6 +20858,16 @@ let onboardingIndex = 0;
           return;
         }
         const nextLocked = !appLocked;
+        const confirmed = await openConfirmModal({
+          title: nextLocked ? "Lock the app" : "Unlock the app",
+          body: nextLocked
+            ? "This will lock the app for everyone except CEO/admin. You can emergency unlock from this dashboard."
+            : "This will unlock the app for all users immediately.",
+          confirmText: nextLocked ? "LOCK" : "UNLOCK",
+          confirmButtonText: nextLocked ? "Lock app" : "Unlock app",
+          confirmButtonClass: nextLocked ? "btn-danger" : "btn-secondary"
+        });
+        if (!confirmed) return;
         const promptText = nextLocked ? "Enter CEO app lock code to lock the app" : "Enter CEO app lock code to unlock the app";
         const code = window.prompt(promptText, "");
         if (!code) return;
@@ -20274,6 +20895,33 @@ let onboardingIndex = 0;
         } finally {
           ceoAppLockToggle.disabled = false;
           applyAppLockState();
+        }
+      });
+    }
+    if (ceoEmergencyUnlock) {
+      ceoEmergencyUnlock.addEventListener("click", async () => {
+        if (!functionsClient || !firebaseAuth?.currentUser) return;
+        if (!appLocked) return;
+        const confirmed = await openConfirmModal({
+          title: "Emergency Unlock",
+          body: "Unlock the app immediately for all users.",
+          confirmText: "UNLOCK",
+          confirmButtonText: "Emergency unlock",
+          confirmButtonClass: "btn-danger"
+        });
+        if (!confirmed) return;
+        const code = window.prompt("Enter CEO app lock code to unlock the app", "");
+        if (!code) return;
+        try {
+          await firebaseAuth.currentUser.getIdToken(true);
+          const fn = httpsCallable(functionsClient, "setAppLock");
+          const resp = await fn({ locked: false, code });
+          appLocked = !!resp?.data?.appLocked;
+          appLockOverride = false;
+          applyAppLockState();
+        } catch (err) {
+          console.warn("Emergency unlock failed", err);
+          showToast("Could not unlock app.");
         }
       });
     }
@@ -20317,7 +20965,172 @@ let onboardingIndex = 0;
       });
     }
 
-    async function loadCeoMembersSummary() {
+    function stopCeoMembersRealtime() {
+      if (ceoMembersUnsub) {
+        try { ceoMembersUnsub(); } catch (_) {}
+        ceoMembersUnsub = null;
+      }
+    }
+    function formatCeoDate(value) {
+      if (!value) return "—";
+      const date = value.toDate ? value.toDate() : new Date(value);
+      if (Number.isNaN(date.getTime())) return "—";
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+    function formatCeoDateTime(value) {
+      if (!value) return "—";
+      const date = value.toDate ? value.toDate() : new Date(value);
+      if (Number.isNaN(date.getTime())) return "—";
+      return date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+    function normalizeCeoMemberData(data = {}, uid = "") {
+      const rawTier = (data.tier || data.membershipTier || data.membership || data.plan || "").toString();
+      const tierKey = normalizeTierKey(rawTier);
+      const override = (data.membershipOverride || data.override || "").toString().toUpperCase();
+      let tierLabel = tierKey ? tierKey.toUpperCase() : (data.ceo ? "CEO" : "STANDARD");
+      if (rawTier.toLowerCase() === "beta") {
+        tierLabel = "BETA";
+      }
+      if (override === "CEO_FREE") tierLabel = "CEO_FREE";
+      if (override === "CEO") tierLabel = "CEO";
+      if (data.freeMembership === true) tierLabel = "FREE";
+      const paused = data.paused === true;
+      const statusKey = paused ? "paused" : ((data.paymentStatus || data.membershipStatus || "active").toString().toLowerCase());
+      const statusLabel = paused ? "Paused" : statusKey.replace("_", " ");
+      const lastActiveRaw = data.lastLoginAt || data.lastLoginDate || data.lastActiveAt || data.lastActive || null;
+      return {
+        uid,
+        uidShort: uid ? uid.slice(0, 6) : "—",
+        username: data.username || data.displayName || data.name || data.legalName || data.passCode || "Member",
+        passCode: data.passCode || "",
+        tier: tierLabel,
+        tierKey: tierKey || tierLabel.toLowerCase(),
+        statusKey,
+        statusLabel,
+        paused,
+        gender: data.gender || "Unspecified",
+        createdAt: data.createdAt || data.memberSince || data.joinedAt || null,
+        createdAtLabel: formatCeoDate(data.createdAt || data.memberSince || data.joinedAt || null),
+        lastActiveLabel: formatCeoDateTime(lastActiveRaw)
+      };
+    }
+    function getFilteredCeoMembers() {
+      const term = ceoMembersSearchTerm.trim().toLowerCase();
+      let list = ceoMembersCache.slice();
+      if (ceoMembersFilterKey && ceoMembersFilterKey !== "all") {
+        list = list.filter(m => {
+          if (ceoMembersFilterKey === "vip") return m.tierKey === "vip";
+          if (ceoMembersFilterKey === "standard") return m.tierKey === "standard";
+          if (ceoMembersFilterKey === "free") return m.tierKey === "free" || m.tierKey === "ceo_free";
+          if (ceoMembersFilterKey === "paused") return m.statusKey === "paused";
+          if (ceoMembersFilterKey === "past_due") return m.statusKey === "past_due";
+          return true;
+        });
+      }
+      if (term) {
+        list = list.filter(m => {
+          const haystack = `${m.username} ${m.uid} ${m.passCode} ${m.tier} ${m.gender}`.toLowerCase();
+          return haystack.includes(term);
+        });
+      }
+      return list;
+    }
+    function renderCeoMembersTable() {
+      if (!ceoMembersList || !ceoMembersTotals) return;
+      const list = getFilteredCeoMembers();
+      const totals = ceoMembersCache.reduce((acc, m) => {
+        acc.total += 1;
+        if (m.tierKey === "vip") acc.vip += 1;
+        if (m.tierKey === "standard") acc.standard += 1;
+        if (m.tierKey === "free" || m.tierKey === "ceo_free") acc.free += 1;
+        if (m.statusKey === "paused") acc.paused += 1;
+        if (m.statusKey === "past_due") acc.pastDue += 1;
+        return acc;
+      }, { total: 0, vip: 0, standard: 0, free: 0, paused: 0, pastDue: 0 });
+      ceoMembersTotals.textContent = `Members: ${totals.total} · VIP: ${totals.vip} · Standard: ${totals.standard} · Free: ${totals.free} · Paused: ${totals.paused} · Past due: ${totals.pastDue}`;
+      const rows = list.map(m => {
+        const statusClass = (m.statusKey === "paused" || m.statusKey === "past_due") ? "pill danger" : "pill ghost";
+        return `
+          <tr>
+            <td>
+              <div style="font-weight:600;">${m.username}</div>
+              <div style="font-size:11px;color:#94a3b8;">${m.passCode ? `Pass ${m.passCode}` : "—"}</div>
+            </td>
+            <td>${m.uidShort}</td>
+            <td>${m.tier}</td>
+            <td><span class="${statusClass}">${m.statusLabel}</span></td>
+            <td>${m.gender}</td>
+            <td>${m.createdAtLabel}</td>
+            <td>${m.lastActiveLabel}</td>
+            <td>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:11px;border-radius:10px;" data-member-uid="${m.uid}" data-member-paused="${m.paused ? "1" : "0"}">
+                  ${m.paused ? "Unpause" : "Pause"}
+                </button>
+                <button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:11px;border-radius:10px;" disabled title="Coming soon">
+                  View
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+      ceoMembersList.innerHTML = rows.join("") || `<tr><td colspan="8" style="color:#94a3b8;font-size:12px;">No members found.</td></tr>`;
+    }
+    function startCeoMembersRealtime(force = false) {
+      if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim() || !ceoMembersCard) return;
+      if (ceoMembersUnsub && !force) {
+        renderCeoMembersTable();
+        return;
+      }
+      stopCeoMembersRealtime();
+      try {
+        const q = query(collection(db, "members"), orderBy("createdAt", "desc"), limit(1500));
+        ceoMembersUnsub = subscribeSnapshot("ceoMembers", q, null, (snap) => {
+          ceoMembersCache = snap.docs.map(docSnap => normalizeCeoMemberData(docSnap.data() || {}, docSnap.id));
+          renderCeoMembersTable();
+        }, (err) => {
+          console.warn("ceo members realtime failed", err);
+          loadCeoMembersSummaryLegacy();
+        });
+      } catch (err) {
+        console.warn("ceo members realtime failed", err);
+      }
+    }
+    function exportCeoMembersCsv() {
+      if (!ceoMembersCache.length) return;
+      const list = getFilteredCeoMembers();
+      const headers = ["Username","UID","Tier","Status","Gender","Joined","Last Active","PassCode"];
+      const rows = list.map(m => [
+        m.username,
+        m.uid,
+        m.tier,
+        m.statusLabel,
+        m.gender,
+        m.createdAtLabel,
+        m.lastActiveLabel,
+        m.passCode || ""
+      ]);
+      const escape = (value) => {
+        const str = String(value ?? "");
+        if (str.includes(",") || str.includes("\"") || str.includes("\n")) {
+          return `"${str.replace(/\"/g, '\"\"')}"`;
+        }
+        return str;
+      };
+      const csv = [headers.map(escape).join(","), ...rows.map(r => r.map(escape).join(","))].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `foco-members-${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    async function loadCeoMembersSummaryLegacy() {
       if (!functionsClient || !isCeoAccount || !authClaimsReady || !hasCeoClaim() || !ceoMembersCard) return;
       if (ceoMembersTotals) ceoMembersTotals.textContent = "Loading…";
       if (ceoMembersList) ceoMembersList.innerHTML = "";
@@ -20349,33 +21162,8 @@ let onboardingIndex = 0;
         const genderCounts = counts.gender || {};
         const statusCounts = counts.status || {};
         const total = counts.total || 0;
-        if (ceoMembersTotals) {
-          ceoMembersTotals.textContent = `Members: ${total} · VIP: ${tierCounts.vip || 0} · Standard: ${tierCounts.standard || 0} · Free: ${tierCounts.free || 0} · Paused: ${counts.paused || 0}`;
-        }
-        if (ceoMembersList) {
-          const rows = users.slice(0, 30).map(u => {
-            const since = u.createdAt ? new Date(u.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
-            const status = u.paused ? "Paused" : (u.paymentStatus || "—");
-            const cls = u.paused ? "pill danger" : "pill ghost";
-            const displayName = u.username || u.passCode || u.uid || "Member";
-            const idLine = u.uid ? `UID: ${u.uid}` : "";
-            return `
-              <div class="ceo-member-row">
-                <div class="ceo-member-meta">
-                  <div class="ceo-member-name">${displayName}</div>
-                  <div class="ceo-member-sub">${idLine} ${idLine ? "·" : ""} ${u.tier || "—"} · ${u.gender || "—"} · ${since}</div>
-                </div>
-                <div class="ceo-member-actions">
-                  <span class="${cls}">${status}</span>
-                  <button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:11px;border-radius:10px;" data-member-uid="${u.uid}" data-member-paused="${u.paused ? "1" : "0"}">
-                    ${u.paused ? "Unpause" : "Pause"}
-                  </button>
-                </div>
-              </div>
-            `;
-          });
-          ceoMembersList.innerHTML = rows.join("") || `<div class="meta-note">No members found.</div>`;
-        }
+        ceoMembersCache = users.map(u => normalizeCeoMemberData(u || {}, u.uid || ""));
+        renderCeoMembersTable();
       } catch (err) {
         console.warn("ceo members summary failed", err);
         const msg = err?.message || "Could not load members.";
@@ -20384,15 +21172,29 @@ let onboardingIndex = 0;
     }
 
     if (ceoMembersRefresh) {
-      ceoMembersRefresh.addEventListener("click", loadCeoMembersSummary);
+      ceoMembersRefresh.addEventListener("click", () => startCeoMembersRealtime(true));
     }
     document.querySelectorAll('[data-ceo-filter]').forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll('[data-ceo-filter]').forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
-        loadCeoMembersSummary();
+        ceoMembersFilterKey = btn.getAttribute("data-ceo-filter") || "all";
+        renderCeoMembersTable();
       });
     });
+    const activeFilterChip = document.querySelector('[data-ceo-filter].active');
+    if (activeFilterChip) {
+      ceoMembersFilterKey = activeFilterChip.getAttribute("data-ceo-filter") || "all";
+    }
+    if (ceoMemberSearch) {
+      ceoMemberSearch.addEventListener("input", (e) => {
+        ceoMembersSearchTerm = e.target.value || "";
+        renderCeoMembersTable();
+      });
+    }
+    if (ceoMembersExport) {
+      ceoMembersExport.addEventListener("click", exportCeoMembersCsv);
+    }
 
     function startHealthWatch() {
       if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim() || !ceoSystemHealth) return;
@@ -20450,7 +21252,8 @@ let onboardingIndex = 0;
         try {
           const fn = httpsCallable(functionsClient, "setMemberPaused");
           await fn({ uid, paused: !paused });
-          await loadCeoMembersSummary();
+          try { await firebaseAuth.currentUser?.getIdToken(true); } catch (_) {}
+          await startCeoMembersRealtime(true);
         } catch (err) {
           console.warn("setMemberPaused failed", err);
           showToast("Could not update member.");
@@ -21689,7 +22492,7 @@ let onboardingIndex = 0;
       }
       if (ceoMembersCard) {
         ceoMembersCard.style.display = isCeoAccount ? "" : "none";
-        if (isCeoAccount && canCeoRealtime) loadCeoMembersSummary();
+        if (isCeoAccount && canCeoRealtime) startCeoMembersRealtime();
       }
       if (ceoLaunchCard) {
         ceoLaunchCard.style.display = isCeoAccount ? "" : "none";
@@ -22210,12 +23013,23 @@ let onboardingIndex = 0;
     if (!user) {
       authClaimsReady = false;
       authClaims = null;
+      memberProfile = null;
+      memberDocRef = null;
+      currentPassCode = null;
+      stopCeoMembersRealtime();
+      clearCeoRedemptionsRealtime();
+      clearCeoReviewsRealtime();
+      stopCeoMessagesListener();
+      stopCloseOutReportsListener();
+      updateCeoPassUI();
+      showScreen("landing");
       finalizeAuthState();
       return;
     }
     await refreshAuthClaims(user);
     const allowAnonStaff = user.isAnonymous && (pendingStaffVenueId || staffSession);
     if (user.isAnonymous && !allowAnonStaff) {
+      try { await signOut(firebaseAuth); } catch (_) {}
       finalizeAuthState();
       return;
     }
