@@ -5287,21 +5287,48 @@
 
     /* Mobile/iPhone layout tightening */
     @media (max-width: 520px) {
-      body { padding: 22px 10px calc(var(--space-7) + 4px); }
+      body { padding: 18px 6px calc(var(--space-7) + 2px); }
       #app { max-width: 100%; }
-      .screen { padding: 22px 14px; border-radius: var(--radius-md); }
-      .pass-card { padding: 22px 14px; }
-      .pass-header { margin: -8px -6px 14px; padding: 18px 14px 16px; }
-      .profile-top-grid { gap: 12px; }
-      .profile-summary { padding: 16px; }
+      .screen { padding: 18px 10px; border-radius: var(--radius-md); }
+      .pass-card { padding: 20px 12px; }
+      .pass-header {
+        margin: -10px -8px 16px;
+        padding: 20px 16px 18px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .pass-brand {
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        text-align: left;
+        gap: 12px;
+      }
+      .pass-card .brand-logo-img.small { width: 86px; }
+      .pass-brand .app-title,
+      .pass-brand .tagline { text-align: left; }
+      .pass-header > div:last-child {
+        align-items: flex-end;
+        text-align: right;
+      }
+      #membershipStatusDetail { max-width: 180px; }
+      .profile-top-grid { gap: 14px; }
+      .profile-summary { padding: 18px; }
       .meta-row.profile-meta {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
       }
+      .meta-row.profile-meta .meta-label { font-size: 10px; }
+      .meta-row.profile-meta .meta-value { font-size: 13px; }
       .community-stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
       }
+      .community-stat { padding: 12px 10px; border-radius: 16px; }
+      .community-stat strong { font-size: 15px; }
       .landing-feature-grid { grid-template-columns: 1fr; }
       .hero-highlight { text-align: left; }
       .top-right-logout { top: 12px; right: 12px; }
