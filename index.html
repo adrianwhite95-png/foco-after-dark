@@ -10063,7 +10063,6 @@
             updateRememberedEmail(remember ? email : null);
             forceShowLogin = false;
             clearLoginHash();
-            showScreen("pass");
           } catch (err) {
             console.warn("[auth] sign-in failed", {
               code: err?.code,
@@ -10158,7 +10157,6 @@
         updateRememberedEmail(remember ? email : null);
         forceShowLogin = false;
         clearLoginHash();
-        showScreen("pass");
       } catch (err) {
         console.warn("[auth] sign-in failed", {
           code: err?.code,
@@ -14079,17 +14077,40 @@ let onboardingIndex = 0;
         const snap = await getDoc(memberDocRef);
         if (snap.exists()) {
           memberProfile = snap.data();
+          const identityPatch = {};
+          const displayName = user?.displayName?.trim() || "";
+          const email = user?.email || "";
+          if (!memberProfile.legalName && displayName) identityPatch.legalName = displayName;
+          if (!memberProfile.email && email) identityPatch.email = email;
+          if (!memberProfile.username && email) identityPatch.username = email.split("@")[0];
+          if (!memberProfile.memberSince) identityPatch.memberSince = new Date().toISOString();
+          if (Object.keys(identityPatch).length) {
+            try {
+              await setDoc(memberDocRef, identityPatch, { merge: true });
+              memberProfile = { ...(memberProfile || {}), ...identityPatch };
+            } catch (err) {
+              console.warn("Profile identity patch failed:", err);
+            }
+          }
         } else {
-        memberProfile = {
-          tier: null,
-          passCode: generateRedemptionCode(),
-          extraVouchers: { ...EXTRA_DEFAULTS },
-          perks: { tier: "standard", remaining: getDefaultPerkState("standard") },
-          memberSince: new Date().toISOString(),
-        };
-        if (guardWriteAction("createMemberProfile", "App is locked (read-only).", { silent: true })) {
-          await setDoc(memberDocRef, memberProfile);
-        }
+          const displayName = user?.displayName?.trim() || "";
+          const email = user?.email || "";
+          const username = email ? email.split("@")[0] : "";
+          memberProfile = {
+            tier: null,
+            passCode: generateRedemptionCode(),
+            extraVouchers: { ...EXTRA_DEFAULTS },
+            perks: { tier: "standard", remaining: getDefaultPerkState("standard") },
+            memberSince: new Date().toISOString(),
+            legalName: displayName || nameFromEmail(email),
+            email,
+            username
+          };
+          try {
+            await setDoc(memberDocRef, memberProfile, { merge: true });
+          } catch (err) {
+            console.warn("Failed to create member profile:", err);
+          }
         }
       } catch (err) {
         console.warn("Failed to load member profile:", err);
