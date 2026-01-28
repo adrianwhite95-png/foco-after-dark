@@ -21207,7 +21207,7 @@ let onboardingIndex = 0;
     async function checkVersionOnLaunch() {
       try {
         if (isAuthBusy()) return;
-        const resp = await fetch(`/version.json?v=${Date.now()}`, { cache: "no-store" });
+        const resp = await fetch(`/version.json`, { cache: "no-store" });
         if (!resp.ok) return;
         const data = await resp.json();
         const serverVersion = (data?.version || "").toString();
@@ -21276,11 +21276,7 @@ let onboardingIndex = 0;
             ceoLaunchStatus.textContent = isLaunched ? "Live mode (affects non-CEO users)" : "Beta mode (affects non-CEO users)";
           }
           applyLaunchModeUI();
-          // Force refresh and logout so the new mode applies immediately
-          if (firebaseAuth?.currentUser) {
-            try { await signOut(firebaseAuth); } catch (err) { console.warn("Signout after toggle failed", err); }
-          }
-          setTimeout(() => location.reload(), 400);
+          markUpdateAvailable("Mode updated — tap Reload.");
         } catch (err) {
           console.warn("setLaunchMode failed", err);
           showToast("Could not update launch mode");
