@@ -10037,37 +10037,38 @@
       if (isCeoCredentials(email, password)) {
         beginAuthSubmit();
         const attemptId = logAuthAttempt(email, "ceo");
-        try {
-          await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
           try {
-            console.info("[auth] pre-signin", {
-              mode: "ceo",
+            await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
+            try {
+              console.info("[auth] pre-signin", {
+                mode: "ceo",
               email,
               isAnonymous: !!firebaseAuth.currentUser?.isAnonymous,
               authTransition,
               authSubmitInFlight,
               screen: currentScreenName
             });
-            console.info("[auth] signInWithEmailAndPassword (ceo)", { attempt: attemptId });
-            await signInWithEmailAndPassword(firebaseAuth, email, password);
-          } catch (err) {
-            if (err?.code === "auth/user-not-found") {
-              await createUserWithEmailAndPassword(firebaseAuth, email, password);
-              try {
-                await updateProfile(firebaseAuth.currentUser, { displayName: "FoCo CEO" });
-              } catch (_) {}
-            } else {
-              throw err;
+              console.info("[auth] signInWithEmailAndPassword (ceo)", { attempt: attemptId });
+              await signInWithEmailAndPassword(firebaseAuth, email, password);
+            } catch (err) {
+              if (err?.code === "auth/user-not-found") {
+                await createUserWithEmailAndPassword(firebaseAuth, email, password);
+                try {
+                  await updateProfile(firebaseAuth.currentUser, { displayName: "FoCo CEO" });
+                } catch (_) {}
+              } else {
+                throw err;
+              }
             }
-          }
-          updateRememberedEmail(remember ? email : null);
-          forceShowLogin = false;
-          clearLoginHash();
-        } catch (err) {
-          console.warn("[auth] sign-in failed", {
-            code: err?.code,
-            message: err?.message,
-            emailEmpty: !email
+            updateRememberedEmail(remember ? email : null);
+            forceShowLogin = false;
+            clearLoginHash();
+            showScreen("pass");
+          } catch (err) {
+            console.warn("[auth] sign-in failed", {
+              code: err?.code,
+              message: err?.message,
+              emailEmpty: !email
           });
           const msg = formatAuthError(err);
           authError.textContent = msg;
@@ -10157,6 +10158,7 @@
         updateRememberedEmail(remember ? email : null);
         forceShowLogin = false;
         clearLoginHash();
+        showScreen("pass");
       } catch (err) {
         console.warn("[auth] sign-in failed", {
           code: err?.code,
@@ -23472,28 +23474,17 @@ let onboardingIndex = 0;
     detachAllRealtimeListeners("auth-change");
     blockedWriteLabels.clear();
     lastAuthUid = user?.uid || null;
-    const isInitialAuth = !initialAuthResolved;
-    const finalizeAuthState = () => {
-      if (isInitialAuth && !suppressLandingRedirectOnce) {
-        showScreen("landing");
-      }
-      suppressLandingRedirectOnce = false;
-      initialAuthResolved = true;
-    };
+    if (authTransition) return;
     const loginForced = forceShowLogin || window.location.hash === "#login";
     if (loginForced) {
       authClaimsReady = false;
       authClaims = null;
       suppressLandingRedirectOnce = true;
       renderLoginScreen();
-      finalizeAuthState();
+      initialAuthResolved = true;
       return;
     }
     if (!user) {
-      if (authTransition || authSubmitInFlight) {
-        finalizeAuthState();
-        return;
-      }
       authClaimsReady = false;
       authClaims = null;
       memberProfile = null;
@@ -23513,14 +23504,15 @@ let onboardingIndex = 0;
       stopCloseOutReportsListener();
       updateCeoPassUI();
       showScreen("landing");
-      finalizeAuthState();
+      suppressLandingRedirectOnce = false;
+      initialAuthResolved = true;
       return;
     }
     await refreshAuthClaims(user);
     const allowAnonStaff = user.isAnonymous && (pendingStaffVenueId || staffSession);
     if (user.isAnonymous && !allowAnonStaff) {
       // Keep anon session alive; do not sign out here to avoid auth thrash.
-      finalizeAuthState();
+      initialAuthResolved = true;
       return;
     }
     if (pendingStaffVenueId && isStaffAccount(user)) {
@@ -23529,12 +23521,12 @@ let onboardingIndex = 0;
     }
     if (restoreStaffSessionIfPossible(user)) {
       attachRealtimeForCurrentContext("staff-restore");
-      finalizeAuthState();
+      initialAuthResolved = true;
       return;
     }
     await handleAuthenticatedUser(user);
     attachRealtimeForCurrentContext("auth-change");
-    finalizeAuthState();
+    initialAuthResolved = true;
   });
 
   window.addEventListener("online", () => {
