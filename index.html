@@ -9155,7 +9155,7 @@
     let authSubmitInFlight = false;
     let authTransition = false;
     function isAuthBusy() {
-      return authSubmitInFlight || forceShowLogin || window.location.hash === "#login" || screens.auth?.classList.contains("active");
+      return authSubmitInFlight || authTransition || forceShowLogin || window.location.hash === "#login" || screens.auth?.classList.contains("active");
     }
     let authAttemptCounter = 0;
     let authClaims = null;
@@ -9981,10 +9981,23 @@
     }
     loadRememberedEmail();
 
+    function beginAuthSubmit() {
+      authSubmitInFlight = true;
+      authTransition = true;
+      if (authSubmitBtn) authSubmitBtn.disabled = true;
+      if (authError) authError.textContent = "";
+    }
     function resetAuthSubmitState() {
       authSubmitInFlight = false;
+      authTransition = false;
       if (authSubmitBtn) authSubmitBtn.disabled = false;
       if (authError) authError.textContent = "";
+      console.info("LOGIN_FINALLY", {
+        authSubmitInFlight,
+        authTransition,
+        screen: currentScreenName,
+        hash: window.location.hash
+      });
     }
 
     async function handleAuthSubmit(e) {
@@ -10003,144 +10016,50 @@
         console.info("[auth] submit ignored: already in flight");
         return;
       }
-      authSubmitInFlight = true;
-      authTransition = true;
-      if (authSubmitBtn) authSubmitBtn.disabled = true;
-      try {
-        let email = authEmail.value.trim();
-        const password = authPassword.value.trim();
-        const firstName = firstNameInput.value.trim();
-        const lastName = lastNameInput.value.trim();
-        const username = usernameInput?.value.trim();
-        const birthDateValue = birthDateInput?.value;
-        const genderValue = genderSelect?.value;
-        let fullName = "";
-        let birthDateISO = "";
+      let email = authEmail.value.trim();
+      const password = authPassword.value.trim();
+      const firstName = firstNameInput.value.trim();
+      const lastName = lastNameInput.value.trim();
+      const username = usernameInput?.value.trim();
+      const birthDateValue = birthDateInput?.value;
+      const genderValue = genderSelect?.value;
+      let fullName = "";
+      let birthDateISO = "";
 
-        if (!email || !password) {
-          const msg = "Please enter email and password.";
-          authError.textContent = msg;
-          if (typeof showToast === "function") showToast(msg, 2200);
-          return;
-        }
-        const remember = !!(rememberMe && rememberMe.checked);
+      if (!email || !password) {
+        const msg = "Please enter email and password.";
+        authError.textContent = msg;
+        if (typeof showToast === "function") showToast(msg, 2200);
+        return;
+      }
+      const remember = !!(rememberMe && rememberMe.checked);
 
-        if (isCeoCredentials(email, password)) {
-          const attemptId = logAuthAttempt(email, "ceo");
-          try {
-            await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
-            try {
-              console.info("[auth] pre-signin", {
-                mode: "ceo",
-                email,
-                isAnonymous: !!firebaseAuth.currentUser?.isAnonymous,
-                authTransition,
-                authSubmitInFlight,
-                screen: currentScreenName
-              });
-              console.info("[auth] signInWithEmailAndPassword (ceo)", { attempt: attemptId });
-              await signInWithEmailAndPassword(firebaseAuth, email, password);
-            } catch (err) {
-              if (err?.code === "auth/user-not-found") {
-                await createUserWithEmailAndPassword(firebaseAuth, email, password);
-                try {
-                  await updateProfile(firebaseAuth.currentUser, { displayName: "FoCo CEO" });
-                } catch (_) {}
-              } else {
-                throw err;
-              }
-            }
-            updateRememberedEmail(remember ? email : null);
-            forceShowLogin = false;
-            clearLoginHash();
-          } catch (err) {
-            console.warn("[auth] sign-in failed", {
-              code: err?.code,
-              message: err?.message,
-              emailEmpty: !email
-            });
-            const msg = formatAuthError(err);
-            authError.textContent = msg;
-            if (typeof showToast === "function") showToast(msg, 2600);
-          }
-          return;
-        }
-
-        if (authMode === "signup") {
-          if (!firstName || !lastName) {
-            const msg = "First and last name are required for verification.";
-            authError.textContent = msg;
-            if (typeof showToast === "function") showToast(msg, 2400);
-            return;
-          }
-          if (!birthDateValue) {
-            const msg = "Enter your birthdate to continue.";
-            authError.textContent = msg;
-            if (typeof showToast === "function") showToast(msg, 2200);
-            return;
-          }
-          const usernameCheck = validateUsername(username);
-          if (!usernameCheck.ok) {
-            const msg = usernameCheck.message;
-            authError.textContent = msg;
-            if (typeof showToast === "function") showToast(msg, 2400);
-            return;
-          }
-          if (!genderValue) {
-            const msg = "Please select your gender.";
-            authError.textContent = msg;
-            if (typeof showToast === "function") showToast(msg, 2200);
-            return;
-          }
-          const birthDate = new Date(`${birthDateValue}T00:00:00`);
-          if (!isTwentyOneOrOlder(birthDate)) {
-            const msg = "FoCo After Dark is 21+. Please enter a valid 21+ birthdate.";
-            authError.textContent = msg;
-            if (typeof showToast === "function") showToast(msg, 2600);
-            return;
-          }
-          birthDateISO = birthDate.toISOString();
-          fullName = `${firstName} ${lastName}`;
-          pendingSignupData = { email, password, fullName, birthDateISO, gender: genderValue, username: usernameCheck.value };
-          showSignupConfirmModal();
-          return;
-        }
-
-        // login: allow username or email
-        if (authMode === "login") {
-          const raw = email.trim();
-          if (!isLikelyEmail(raw)) {
-            await ensureFirebaseUser(); // ensure app + rules ready for lookups
-            let resolved = resolveUsernameToEmail(raw.replace(/^@/, ""));
-            if (!resolved) {
-              resolved = await resolveUsernameToEmailCloud(raw);
-            }
-            if (!resolved) {
-              const msg = "Enter your email or a valid username.";
-              authError.textContent = msg;
-              if (typeof showToast === "function") showToast(msg, 2400);
-              return;
-            }
-            email = resolved;
-          } else {
-            email = raw;
-          }
-        }
-
-        const attemptId = logAuthAttempt(email, authMode);
+      if (isCeoCredentials(email, password)) {
+        beginAuthSubmit();
+        const attemptId = logAuthAttempt(email, "ceo");
         try {
           await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
-          console.info("[auth] pre-signin", {
-            mode: authMode,
-            email,
-            isAnonymous: !!firebaseAuth.currentUser?.isAnonymous,
-            authTransition,
-            authSubmitInFlight,
-            screen: currentScreenName
-          });
-          console.info("[auth] signInWithEmailAndPassword", { attempt: attemptId });
-          suppressLandingRedirectOnce = true;
-          await signInWithEmailAndPassword(firebaseAuth, email, password);
+          try {
+            console.info("[auth] pre-signin", {
+              mode: "ceo",
+              email,
+              isAnonymous: !!firebaseAuth.currentUser?.isAnonymous,
+              authTransition,
+              authSubmitInFlight,
+              screen: currentScreenName
+            });
+            console.info("[auth] signInWithEmailAndPassword (ceo)", { attempt: attemptId });
+            await signInWithEmailAndPassword(firebaseAuth, email, password);
+          } catch (err) {
+            if (err?.code === "auth/user-not-found") {
+              await createUserWithEmailAndPassword(firebaseAuth, email, password);
+              try {
+                await updateProfile(firebaseAuth.currentUser, { displayName: "FoCo CEO" });
+              } catch (_) {}
+            } else {
+              throw err;
+            }
+          }
           updateRememberedEmail(remember ? email : null);
           forceShowLogin = false;
           clearLoginHash();
@@ -10153,9 +10072,101 @@
           const msg = formatAuthError(err);
           authError.textContent = msg;
           if (typeof showToast === "function") showToast(msg, 2600);
+        } finally {
+          resetAuthSubmitState();
         }
+        return;
+      }
+
+      if (authMode === "signup") {
+        if (!firstName || !lastName) {
+          const msg = "First and last name are required for verification.";
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2400);
+          return;
+        }
+        if (!birthDateValue) {
+          const msg = "Enter your birthdate to continue.";
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2200);
+          return;
+        }
+        const usernameCheck = validateUsername(username);
+        if (!usernameCheck.ok) {
+          const msg = usernameCheck.message;
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2400);
+          return;
+        }
+        if (!genderValue) {
+          const msg = "Please select your gender.";
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2200);
+          return;
+        }
+        const birthDate = new Date(`${birthDateValue}T00:00:00`);
+        if (!isTwentyOneOrOlder(birthDate)) {
+          const msg = "FoCo After Dark is 21+. Please enter a valid 21+ birthdate.";
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2600);
+          return;
+        }
+        birthDateISO = birthDate.toISOString();
+        fullName = `${firstName} ${lastName}`;
+        pendingSignupData = { email, password, fullName, birthDateISO, gender: genderValue, username: usernameCheck.value };
+        showSignupConfirmModal();
+        return;
+      }
+
+      // login: allow username or email
+      if (authMode === "login") {
+        const raw = email.trim();
+        if (!isLikelyEmail(raw)) {
+          await ensureFirebaseUser(); // ensure app + rules ready for lookups
+          let resolved = resolveUsernameToEmail(raw.replace(/^@/, ""));
+          if (!resolved) {
+            resolved = await resolveUsernameToEmailCloud(raw);
+          }
+          if (!resolved) {
+            const msg = "Enter your email or a valid username.";
+            authError.textContent = msg;
+            if (typeof showToast === "function") showToast(msg, 2400);
+            return;
+          }
+          email = resolved;
+        } else {
+          email = raw;
+        }
+      }
+
+      beginAuthSubmit();
+      const attemptId = logAuthAttempt(email, authMode);
+      try {
+        await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
+        console.info("[auth] pre-signin", {
+          mode: authMode,
+          email,
+          isAnonymous: !!firebaseAuth.currentUser?.isAnonymous,
+          authTransition,
+          authSubmitInFlight,
+          screen: currentScreenName
+        });
+        console.info("[auth] signInWithEmailAndPassword", { attempt: attemptId });
+        suppressLandingRedirectOnce = true;
+        await signInWithEmailAndPassword(firebaseAuth, email, password);
+        updateRememberedEmail(remember ? email : null);
+        forceShowLogin = false;
+        clearLoginHash();
+      } catch (err) {
+        console.warn("[auth] sign-in failed", {
+          code: err?.code,
+          message: err?.message,
+          emailEmpty: !email
+        });
+        const msg = formatAuthError(err);
+        authError.textContent = msg;
+        if (typeof showToast === "function") showToast(msg, 2600);
       } finally {
-        authTransition = false;
         resetAuthSubmitState();
       }
     }
