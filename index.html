@@ -10196,6 +10196,15 @@
         }
       });
     });
+    // Hard-stop any native submit on the auth form (capture phase).
+    document.addEventListener("submit", (evt) => {
+      const form = evt.target;
+      if (form && form.id === "authForm") {
+        evt.preventDefault();
+        evt.stopPropagation();
+        handleAuthSubmit(evt);
+      }
+    }, true);
 
     async function completeSignup(data) {
       const { email, password, fullName, birthDateISO, gender, username } = data || {};
@@ -23508,14 +23517,6 @@ let onboardingIndex = 0;
       email: user?.email || null
     });
     const loginForced = forceShowLogin || window.location.hash === "#login";
-    if (loginForced) {
-      authClaimsReady = false;
-      authClaims = null;
-      suppressLandingRedirectOnce = true;
-      renderLoginScreen();
-      initialAuthResolved = true;
-      return;
-    }
     if (!user) {
       if (authTransition || authSubmitInFlight) {
         return;
@@ -23538,10 +23539,19 @@ let onboardingIndex = 0;
       stopCeoMessagesListener();
       stopCloseOutReportsListener();
       updateCeoPassUI();
-      showScreen("landing");
-      suppressLandingRedirectOnce = false;
+      if (loginForced) {
+        suppressLandingRedirectOnce = true;
+        renderLoginScreen();
+      } else {
+        showScreen("landing");
+        suppressLandingRedirectOnce = false;
+      }
       initialAuthResolved = true;
       return;
+    }
+    if (loginForced) {
+      forceShowLogin = false;
+      clearLoginHash();
     }
     await refreshAuthClaims(user);
     const allowAnonSession = user.isAnonymous && (pendingStaffVenueId || staffSession || betaPassMode);
