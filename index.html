@@ -10014,6 +10014,9 @@
           return;
         }
         const remember = !!(rememberMe && rememberMe.checked);
+        if (firebaseAuth.currentUser?.isAnonymous) {
+          try { await signOut(firebaseAuth); } catch (_) {}
+        }
 
         if (isCeoCredentials(email, password)) {
           const attemptId = logAuthAttempt(email, "ceo");
@@ -21148,6 +21151,11 @@ let onboardingIndex = 0;
     async function checkVersionOnLaunch(options = {}) {
       const { forceReload = false } = options;
       try {
+        if (forceReload) {
+          if (forceShowLogin || window.location.hash === "#login" || screens.auth?.classList.contains("active") || authSubmitInFlight) {
+            return;
+          }
+        }
         const resp = await fetch(`/version.json?v=${Date.now()}`, { cache: "no-store" });
         if (!resp.ok) return;
         const data = await resp.json();
@@ -21180,6 +21188,9 @@ let onboardingIndex = 0;
         if (sessionStorage.getItem(key)) return;
         sessionStorage.setItem(key, "1");
       } catch (_) {}
+      if (forceShowLogin || window.location.hash === "#login" || screens.auth?.classList.contains("active") || authSubmitInFlight) {
+        return;
+      }
       if (navigator.serviceWorker?.getRegistration) {
         navigator.serviceWorker.getRegistration()
           .then(reg => reg?.update())
@@ -23466,7 +23477,7 @@ let onboardingIndex = 0;
     await refreshAuthClaims(user);
     const allowAnonStaff = user.isAnonymous && (pendingStaffVenueId || staffSession);
     if (user.isAnonymous && !allowAnonStaff) {
-      try { await signOut(firebaseAuth); } catch (_) {}
+      // Keep anon session alive; do not sign out here to avoid auth thrash.
       finalizeAuthState();
       return;
     }
