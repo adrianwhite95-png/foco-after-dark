@@ -10049,7 +10049,12 @@
               screen: currentScreenName
             });
               console.info("[auth] signInWithEmailAndPassword (ceo)", { attempt: attemptId });
-              await signInWithEmailAndPassword(firebaseAuth, email, password);
+          const cred = await signInWithEmailAndPassword(firebaseAuth, email, password);
+          console.info("[auth] signed in", {
+            uid: cred?.user?.uid || null,
+            isAnonymous: !!cred?.user?.isAnonymous,
+            email: cred?.user?.email || null
+          });
             } catch (err) {
               if (err?.code === "auth/user-not-found") {
                 await createUserWithEmailAndPassword(firebaseAuth, email, password);
@@ -10153,7 +10158,12 @@
         });
         console.info("[auth] signInWithEmailAndPassword", { attempt: attemptId });
         suppressLandingRedirectOnce = true;
-        await signInWithEmailAndPassword(firebaseAuth, email, password);
+        const cred = await signInWithEmailAndPassword(firebaseAuth, email, password);
+        console.info("[auth] signed in", {
+          uid: cred?.user?.uid || null,
+          isAnonymous: !!cred?.user?.isAnonymous,
+          email: cred?.user?.email || null
+        });
         updateRememberedEmail(remember ? email : null);
         forceShowLogin = false;
         clearLoginHash();
@@ -14115,11 +14125,8 @@ let onboardingIndex = 0;
       } catch (err) {
         console.warn("Failed to load member profile:", err);
         memberDocRef = null;
-        if (allowLocalCache()) {
-          memberProfile = buildLocalProfile(user);
-          return memberProfile;
-        }
         memberProfile = null;
+        showToast("Unable to load your profile. Please try again.");
         return null;
       }
       // If local cache marks this pass free, apply immediately
@@ -23495,6 +23502,11 @@ let onboardingIndex = 0;
     detachAllRealtimeListeners("auth-change");
     blockedWriteLabels.clear();
     lastAuthUid = user?.uid || null;
+    console.info("[auth] state", {
+      uid: user?.uid || null,
+      isAnonymous: !!user?.isAnonymous,
+      email: user?.email || null
+    });
     if (authTransition) return;
     const loginForced = forceShowLogin || window.location.hash === "#login";
     if (loginForced) {
@@ -23530,9 +23542,19 @@ let onboardingIndex = 0;
       return;
     }
     await refreshAuthClaims(user);
-    const allowAnonStaff = user.isAnonymous && (pendingStaffVenueId || staffSession);
-    if (user.isAnonymous && !allowAnonStaff) {
-      // Keep anon session alive; do not sign out here to avoid auth thrash.
+    const allowAnonSession = user.isAnonymous && (pendingStaffVenueId || staffSession || betaPassMode);
+    if (user.isAnonymous && !allowAnonSession) {
+      console.info("[auth] anonymous blocked → landing");
+      authClaimsReady = false;
+      authClaims = null;
+      memberProfile = null;
+      memberDocRef = null;
+      currentPassCode = null;
+      localStorage.removeItem(ACCENT_KEY);
+      localStorage.removeItem(BG_KEY);
+      applyAccentTheme("cyan");
+      applyBackgroundTheme("default");
+      showScreen("landing");
       initialAuthResolved = true;
       return;
     }
