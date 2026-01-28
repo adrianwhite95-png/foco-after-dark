@@ -9977,6 +9977,7 @@
     function resetAuthSubmitState() {
       authSubmitInFlight = false;
       if (authSubmitBtn) authSubmitBtn.disabled = false;
+      if (authError) authError.textContent = "";
     }
 
     async function handleAuthSubmit(e) {
@@ -9985,6 +9986,8 @@
       console.info("LOGIN_CLICK", {
         inFlight: authSubmitInFlight,
         screen: currentScreenName,
+        authMode,
+        emailRaw: (authEmail?.value || "").trim(),
         hasUser: !!firebaseAuth.currentUser
       });
       if (authSubmitInFlight) {
@@ -13453,8 +13456,8 @@ let onboardingIndex = 0;
 
     logoutLink.addEventListener("click", async () => {
       const currentUid = firebaseAuth.currentUser?.uid;
-      forceShowLogin = true;
-      if (location.hash !== "#login") location.hash = "#login";
+      forceShowLogin = false;
+      clearLoginHash();
       try {
         await signOut(firebaseAuth);
       } catch (err) {
@@ -13493,7 +13496,7 @@ let onboardingIndex = 0;
       document.body.classList.remove("ceo-active");
       clearPendingMembershipFlagForUser(currentUid);
       applyRememberedEmailToForm();
-      renderLoginScreen();
+      showScreen("landing");
       stopIdleTimer();
     });
 
