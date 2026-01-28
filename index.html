@@ -9153,6 +9153,9 @@
     let ceoMessagesCache = [];
     let venuePerksCache = {};
     let authSubmitInFlight = false;
+    function isAuthBusy() {
+      return authSubmitInFlight || forceShowLogin || window.location.hash === "#login" || screens.auth?.classList.contains("active");
+    }
     let authAttemptCounter = 0;
     let authClaims = null;
     let authClaimsReady = false;
@@ -9404,6 +9407,9 @@
         openStaffGate();
       } else {
         closeStaffGate();
+      }
+      if (name === "landing") {
+        maybeApplyPendingRefresh();
       }
       if (name === "pass") {
         triggerPassIntro();
@@ -9984,9 +9990,11 @@
       if (e) e.preventDefault();
       authError.textContent = "";
       console.info("LOGIN_CLICK", {
+        isAuthBusy: isAuthBusy(),
         inFlight: authSubmitInFlight,
         screen: currentScreenName,
         authMode,
+        hash: window.location.hash,
         emailRaw: (authEmail?.value || "").trim(),
         hasUser: !!firebaseAuth.currentUser
       });
@@ -21085,6 +21093,26 @@ let onboardingIndex = 0;
         ceoHealthUnsub = null;
       }
     }
+    let pendingAppRefresh = false;
+    function scheduleAppRefresh(reason = "") {
+      pendingAppRefresh = true;
+      if (isAuthBusy()) {
+        logRealtime("deferRefresh", reason || "auth-busy");
+        return;
+      }
+      if (currentScreenName !== "landing") {
+        return;
+      }
+      pendingAppRefresh = false;
+      setTimeout(() => window.location.reload(), 200);
+    }
+    function maybeApplyPendingRefresh() {
+      if (!pendingAppRefresh) return;
+      if (isAuthBusy()) return;
+      if (currentScreenName !== "landing") return;
+      pendingAppRefresh = false;
+      setTimeout(() => window.location.reload(), 200);
+    }
     function watchSettingsDoc() {
       if (!db || !authReady || !firebaseAuth.currentUser) return;
       if (settingsPollTimer) {
@@ -21106,8 +21134,13 @@ let onboardingIndex = 0;
         applyAppLockState();
         const serverVersion = data.version || null;
         if (serverVersion && serverVersion !== BUILD_VERSION) {
-          showToast("New update available. Reloading…");
-          setTimeout(() => location.reload(), 1200);
+          if (isAuthBusy()) {
+            showToast("New update ready. Will refresh after login.", 2200);
+            scheduleAppRefresh("settings-version");
+          } else {
+            showToast("New update available. Reloading…");
+            setTimeout(() => location.reload(), 1200);
+          }
         }
         if (staffCloseoutStamp && staffSession?.venue) {
           updateStaffCloseoutStamp();
@@ -21151,10 +21184,9 @@ let onboardingIndex = 0;
     async function checkVersionOnLaunch(options = {}) {
       const { forceReload = false } = options;
       try {
-        if (forceReload) {
-          if (forceShowLogin || window.location.hash === "#login" || screens.auth?.classList.contains("active") || authSubmitInFlight) {
-            return;
-          }
+        if (isAuthBusy()) {
+          if (forceReload) scheduleAppRefresh("launch-refresh");
+          return;
         }
         const resp = await fetch(`/version.json?v=${Date.now()}`, { cache: "no-store" });
         if (!resp.ok) return;
@@ -21164,18 +21196,26 @@ let onboardingIndex = 0;
           if (typeof showToast === "function") {
             showToast("New update available. Reloading…");
           }
-          setTimeout(() => {
-            window.location.reload();
-          }, 600);
+          if (isAuthBusy()) {
+            scheduleAppRefresh("version-mismatch");
+          } else {
+            setTimeout(() => {
+              window.location.reload();
+            }, 600);
+          }
           return;
         }
         if (forceReload) {
           if (typeof showToast === "function") {
             showToast("Refreshing to check for updates…", 1200);
           }
-          setTimeout(() => {
-            window.location.reload();
-          }, 500);
+          if (isAuthBusy()) {
+            scheduleAppRefresh("force-reload");
+          } else {
+            setTimeout(() => {
+              window.location.reload();
+            }, 500);
+          }
         }
       } catch (err) {
         console.warn("Version check failed", err);
@@ -21188,9 +21228,7 @@ let onboardingIndex = 0;
         if (sessionStorage.getItem(key)) return;
         sessionStorage.setItem(key, "1");
       } catch (_) {}
-      if (forceShowLogin || window.location.hash === "#login" || screens.auth?.classList.contains("active") || authSubmitInFlight) {
-        return;
-      }
+      if (isAuthBusy()) return;
       if (navigator.serviceWorker?.getRegistration) {
         navigator.serviceWorker.getRegistration()
           .then(reg => reg?.update())
@@ -23509,6 +23547,10 @@ let onboardingIndex = 0;
         navigator.serviceWorker.addEventListener("controllerchange", () => {
           if (typeof showToast === "function") {
             showToast("Updated version ready. Reloading…", 1800);
+          }
+          if (isAuthBusy()) {
+            scheduleAppRefresh("sw-controllerchange");
+            return;
           }
           setTimeout(() => window.location.reload(), 1800);
         });
