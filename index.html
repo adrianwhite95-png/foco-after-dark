@@ -23507,7 +23507,6 @@ let onboardingIndex = 0;
       isAnonymous: !!user?.isAnonymous,
       email: user?.email || null
     });
-    if (authTransition) return;
     const loginForced = forceShowLogin || window.location.hash === "#login";
     if (loginForced) {
       authClaimsReady = false;
@@ -23518,6 +23517,9 @@ let onboardingIndex = 0;
       return;
     }
     if (!user) {
+      if (authTransition || authSubmitInFlight) {
+        return;
+      }
       authClaimsReady = false;
       authClaims = null;
       memberProfile = null;
