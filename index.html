@@ -166,6 +166,12 @@
         radial-gradient(circle at 78% 0%, rgba(20, 184, 166, 0.22), transparent 60%),
         linear-gradient(180deg, #0b0f17, #0c121e 45%, #0b0f17);
     }
+    body.theme-glass {
+      background:
+        radial-gradient(circle at 18% -10%, rgba(125, 211, 252, 0.25), transparent 55%),
+        radial-gradient(circle at 82% 0%, rgba(167, 139, 250, 0.22), transparent 60%),
+        linear-gradient(180deg, #0b0f18, #0b1220 48%, #0a0f1a);
+    }
     /* Global background image behind all screens */
     body::before {
       content: "";
@@ -2366,6 +2372,11 @@
     .accent-chip[data-accent="ember"] {
       background: linear-gradient(120deg, rgba(249, 115, 22, 0.25), rgba(244, 63, 94, 0.18));
       border-color: rgba(249, 115, 22, 0.45);
+    }
+    .accent-chip[data-accent="glass"] {
+      background: linear-gradient(120deg, rgba(125, 211, 252, 0.22), rgba(167, 139, 250, 0.16));
+      border-color: rgba(148, 163, 184, 0.45);
+      color: #e2e8f0;
     }
     .accent-chip[data-accent="ceo"] {
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(148, 212, 255, 0.32));
@@ -7688,6 +7699,7 @@
                   <button type="button" class="accent-chip" data-accent="jade">Jade pulse</button>
                   <button type="button" class="accent-chip" data-accent="electric">Electric iris</button>
                   <button type="button" class="accent-chip" data-accent="ember">Ember bloom</button>
+                  <button type="button" class="accent-chip" data-accent="glass">Glass</button>
                   <button type="button" class="accent-chip ceo-only" data-accent="ceo">CEO</button>
                 </div>
               </div>
@@ -8128,6 +8140,7 @@
         <option value="jade">Jade pulse</option>
         <option value="electric">Electric iris</option>
         <option value="ember">Ember bloom</option>
+        <option value="glass">Glass</option>
       </select>
     </div>
     <div class="kpi-row">
@@ -15856,6 +15869,14 @@ let onboardingIndex = 0;
           surface: "rgba(249, 115, 22, 0.14)",
           shadow: "0 25px 60px rgba(20, 8, 0, 0.78), 0 0 38px rgba(249, 115, 22, 0.32)"
         },
+        glass: {
+          primary: "#7dd3fc",
+          secondary: "#a78bfa",
+          glow: "rgba(125, 211, 252, 0.4)",
+          border: "rgba(148, 163, 184, 0.38)",
+          surface: "rgba(125, 211, 252, 0.12)",
+          shadow: "0 25px 60px rgba(2, 8, 23, 0.75), 0 0 34px rgba(125, 211, 252, 0.26)"
+        },
         ceo: {
           primary: "#ffd700",
           secondary: "#00f7ff",
@@ -15883,7 +15904,7 @@ let onboardingIndex = 0;
       root.style.setProperty("--accent-glow-live", palette.glow);
       root.style.setProperty("--accent-surface-live", palette.surface);
       root.style.setProperty("--accent-shadow-live", palette.shadow);
-      document.body.classList.remove("theme-cyan", "theme-magenta", "theme-gold", "theme-jade", "theme-electric", "theme-ember", "theme-ceo");
+      document.body.classList.remove("theme-cyan", "theme-magenta", "theme-gold", "theme-jade", "theme-electric", "theme-ember", "theme-glass", "theme-ceo");
       document.body.classList.add(`theme-${theme}`);
       currentAccentTheme = theme;
       if (currentPassCode) {
