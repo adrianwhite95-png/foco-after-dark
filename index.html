@@ -2255,13 +2255,13 @@
       top: 46px;
       left: 0;
       min-width: 230px;
-      border-radius: 14px;
-      background: rgba(7, 11, 24, 0.96);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+      border-radius: 16px;
+      background: rgba(10, 12, 22, 0.94);
+      border: 1px solid var(--border);
+      box-shadow: 0 18px 40px rgba(2, 8, 23, 0.45);
       overflow: hidden;
       display: none;
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(10px);
     }
     .nav-menu.active {
       display: block;
@@ -2269,13 +2269,19 @@
     .nav-item {
       width: 100%;
       text-align: left;
-      padding: 12px 14px;
+      padding: 10px 12px;
       background: transparent;
-      border: none;
-      color: #e2e8f0;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      color: var(--muted);
       font-weight: 600;
-      letter-spacing: 0.06em;
+      font-size: 12px;
+      letter-spacing: 0.08em;
       cursor: pointer;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
     }
     .nav-item.pending {
       background: linear-gradient(90deg, rgba(34, 211, 238, 0.16), rgba(59, 130, 246, 0.08));
@@ -6122,6 +6128,46 @@
       .ceo-nav-item {
         white-space: nowrap;
         flex: 0 0 auto;
+      }
+    }
+    @media (max-width: 520px) {
+      .ceo-hq-shell {
+        max-width: 100%;
+        margin: 6px 0 16px;
+        padding: 0 8px;
+      }
+      .ceo-hq-nav {
+        width: 100%;
+        gap: 6px;
+        padding: 8px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .ceo-hq-main {
+        min-width: 0;
+      }
+      .ceo-hq-panel {
+        max-width: 100%;
+        padding: 14px;
+      }
+      .ceo-kpi-grid,
+      .ceo-hq-cards,
+      .ceo-hq-grid {
+        grid-template-columns: 1fr;
+      }
+      .ceo-table-wrap {
+        width: 100%;
+      }
+      .ceo-table th,
+      .ceo-table td {
+        padding: 8px 10px;
+        white-space: nowrap;
+      }
+      .nav-menu {
+        left: 0;
+        right: 0;
+        width: min(360px, 92vw);
+        max-width: 92vw;
       }
     }
     .ceo-issued-scroll {
