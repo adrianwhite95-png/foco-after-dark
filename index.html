@@ -2958,6 +2958,154 @@
       animation-duration: 70s, 9s;
       animation-delay: -6s, -3s;
     }
+
+    /* === Landing Weather FX (CSS only overlays, factual via Open-Meteo) === */
+    .weather-fx{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:4;
+      overflow:hidden;
+      opacity:0;
+      transition:opacity 220ms ease;
+    }
+    .weather-fx.on{ opacity: 1; }
+    .weather-fx .fx-layer{
+      position:absolute;
+      inset:0;
+      opacity:0;
+    }
+    .weather-fx[data-tn="day"]{
+      filter: saturate(1.05) brightness(1.03);
+    }
+    .weather-fx[data-tn="night"]{
+      filter: saturate(0.92) brightness(0.92) contrast(1.05);
+    }
+    .weather-fx[data-mode="clear"] .fx-sunbeam,
+    .weather-fx[data-mode="clear"] .fx-moonbeam{
+      opacity:1;
+    }
+    .weather-fx[data-tn="day"] .fx-sunbeam::before{
+      content:"";
+      position:absolute;
+      inset:-35%;
+      background: linear-gradient(120deg, transparent 38%, rgba(255,255,255,0.22) 50%, transparent 64%);
+      transform: translateX(-42%) rotate(10deg);
+      filter: blur(10px);
+      animation: sunSweep 6.2s ease-in-out infinite;
+    }
+    @keyframes sunSweep{
+      0%   { transform: translateX(-45%) rotate(10deg); opacity:0.35; }
+      35%  { opacity:0.85; }
+      65%  { opacity:0.75; }
+      100% { transform: translateX(55%) rotate(10deg); opacity:0.30; }
+    }
+    .weather-fx[data-tn="night"] .fx-moonbeam::before{
+      content:"";
+      position:absolute;
+      inset:-40%;
+      background: radial-gradient(circle at 70% 20%, rgba(255,255,255,0.10), transparent 50%);
+      filter: blur(8px);
+      animation: moonPulse 6.5s ease-in-out infinite;
+    }
+    @keyframes moonPulse{
+      0%,100% { opacity:0.55; transform: scale(1.02); }
+      50%     { opacity:0.85; transform: scale(1.06); }
+    }
+    .weather-fx[data-mode="cloudy"] .fx-clouds{ opacity:1; animation: cloudDrift 45s linear infinite; }
+    .weather-fx[data-mode="cloudy"][data-tn="night"] .fx-clouds{ opacity:0.75; }
+    .weather-fx .fx-clouds{
+      background:
+        radial-gradient(circle at 18% 28%, rgba(255,255,255,.10), transparent 48%),
+        radial-gradient(circle at 55% 35%, rgba(255,255,255,.08), transparent 52%),
+        radial-gradient(circle at 80% 25%, rgba(255,255,255,.07), transparent 50%);
+      filter: blur(10px);
+      transform: translateX(-10%);
+    }
+    @keyframes cloudDrift{
+      0%   { transform: translateX(-10%); }
+      100% { transform: translateX(10%); }
+    }
+    .weather-fx[data-mode="fog"] .fx-fog{ opacity:1; animation: fogDrift 55s linear infinite; }
+    .weather-fx .fx-fog{
+      background:
+        radial-gradient(circle at 25% 50%, rgba(255,255,255,0.10), transparent 60%),
+        radial-gradient(circle at 70% 55%, rgba(255,255,255,0.08), transparent 62%),
+        linear-gradient(0deg, rgba(255,255,255,0.05), transparent 35%, rgba(255,255,255,0.05));
+      filter: blur(14px);
+      transform: translateX(-8%);
+    }
+    @keyframes fogDrift{
+      0%   { transform: translateX(-8%); }
+      100% { transform: translateX(8%); }
+    }
+    .weather-fx[data-mode="wind"] .fx-wind{ opacity:1; animation: windSweep 2.4s linear infinite; }
+    .weather-fx .fx-wind::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(120deg,
+          transparent 0%,
+          rgba(255,255,255,0.0) 35%,
+          rgba(255,255,255,0.10) 45%,
+          rgba(255,255,255,0.0) 55%,
+          transparent 100%);
+      filter: blur(10px);
+      transform: translateX(-30%);
+    }
+    @keyframes windSweep{
+      0%   { transform: translateX(-35%); opacity:0.25; }
+      50%  { opacity:0.55; }
+      100% { transform: translateX(35%); opacity:0.25; }
+    }
+    .weather-fx[data-mode="rain"] .fx-precip,
+    .weather-fx[data-mode="snow"] .fx-precip{
+      opacity:1;
+    }
+    .weather-fx .fx-precip .drop{
+      position:absolute;
+      top:-15%;
+      width:2px;
+      height:18px;
+      border-radius:999px;
+      background: rgba(148,163,184,0.35);
+      animation: rainFall 1.2s linear infinite;
+    }
+    @keyframes rainFall{
+      to { transform: translateY(130vh); opacity:0.15; }
+    }
+    .weather-fx .fx-precip .flake{
+      position:absolute;
+      top:-10%;
+      width:6px;
+      height:6px;
+      border-radius:999px;
+      background: rgba(255,255,255,0.35);
+      filter: blur(0.2px);
+      animation: snowFall 6.0s linear infinite;
+    }
+    @keyframes snowFall{
+      0%   { transform: translate(0,0); opacity:0.85; }
+      100% { transform: translate(70px, 130vh); opacity:0.12; }
+    }
+    .weather-fx[data-mode="thunder"] .fx-thunder{ opacity:1; animation: thunderFlash 6.5s infinite; }
+    .weather-fx .fx-thunder{
+      background: radial-gradient(circle at 65% 20%, rgba(255,255,255,0.18), transparent 45%);
+      mix-blend-mode: screen;
+      filter: blur(10px);
+    }
+    @keyframes thunderFlash{
+      0%, 84%, 100% { opacity:0; }
+      86% { opacity:0.9; }
+      88% { opacity:0.15; }
+      90% { opacity:0.65; }
+      92% { opacity:0.05; }
+    }
+    @media (prefers-reduced-motion: reduce){
+      .weather-fx .fx-layer{ animation:none !important; }
+      .weather-fx .fx-precip{ display:none !important; }
+    }
     .landing-asterism {
       position: absolute;
       width: 150px;
@@ -8190,6 +8338,16 @@
               <span></span>
               <span></span>
               <span></span>
+            </div>
+            <div id="weatherFx" class="weather-fx" aria-hidden="true">
+              <div class="fx-layer fx-stars"></div>
+              <div class="fx-layer fx-clouds"></div>
+              <div class="fx-layer fx-sunbeam"></div>
+              <div class="fx-layer fx-moonbeam"></div>
+              <div class="fx-layer fx-fog"></div>
+              <div class="fx-layer fx-wind"></div>
+              <div class="fx-layer fx-precip"></div>
+              <div class="fx-layer fx-thunder"></div>
             </div>
           </div>
           <div class="landing-wrapper">
@@ -24888,6 +25046,171 @@ let onboardingIndex = 0;
       el.textContent = cheersQuotes[idx];
     }, 5000);
   }
+
+  // Landing Weather FX (Open-Meteo, no API key)
+  (() => {
+    const FX_ID = "weatherFx";
+    const CACHE_KEY = "foco_weather_fx_cache_v2";
+    const CACHE_MINUTES = 20;
+    const FORT_COLLINS = { lat: 40.5853, lon: -105.0844 };
+
+    const fxEl = () => document.getElementById(FX_ID);
+    const precipLayer = () => fxEl()?.querySelector(".fx-precip");
+
+    function nowMs(){ return Date.now(); }
+
+    function readCache(){
+      try{
+        const raw = localStorage.getItem(CACHE_KEY);
+        if(!raw) return null;
+        const obj = JSON.parse(raw);
+        if(!obj || !obj.ts || !obj.payload) return null;
+        if(nowMs() - obj.ts > CACHE_MINUTES*60*1000) return null;
+        return obj.payload;
+      }catch{ return null; }
+    }
+    function writeCache(payload){
+      try{
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: nowMs(), payload }));
+      }catch{}
+    }
+
+    function getGeo(){
+      return new Promise((resolve) => {
+        if(!navigator.geolocation) return resolve(null);
+        navigator.geolocation.getCurrentPosition(
+          pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+          () => resolve(null),
+          { timeout: 4500, maximumAge: 60*60*1000, enableHighAccuracy: false }
+        );
+      });
+    }
+
+    function openMeteoUrl(lat, lon){
+      const params = new URLSearchParams({
+        latitude: String(lat),
+        longitude: String(lon),
+        current: "weather_code,is_day,wind_speed_10m",
+        timezone: "auto"
+      });
+      return `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
+    }
+
+    function deriveMode(code, windSpeed){
+      if([95,96,99].includes(code)) return "thunder";
+      if([71,73,75,77,85,86].includes(code)) return "snow";
+      if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return "rain";
+      if([45,48].includes(code)) return "fog";
+      if(windSpeed != null && windSpeed >= 35) return "wind";
+      if([2,3].includes(code)) return "cloudy";
+      if([0,1].includes(code)) return "clear";
+      return "cloudy";
+    }
+
+    function clearParticles(){
+      const p = precipLayer();
+      if(!p) return;
+      p.innerHTML = "";
+    }
+
+    function buildRain(){
+      const p = precipLayer();
+      if(!p) return;
+      clearParticles();
+      const n = 52;
+      for(let i=0;i<n;i++){
+        const d = document.createElement("span");
+        d.className = "drop";
+        d.style.left = (Math.random()*100) + "%";
+        d.style.animationDelay = (Math.random()*1.1) + "s";
+        d.style.animationDuration = (0.75 + Math.random()*0.9) + "s";
+        d.style.opacity = (0.16 + Math.random()*0.30).toFixed(2);
+        p.appendChild(d);
+      }
+    }
+
+    function buildSnow(){
+      const p = precipLayer();
+      if(!p) return;
+      clearParticles();
+      const n = 30;
+      for(let i=0;i<n;i++){
+        const f = document.createElement("span");
+        f.className = "flake";
+        f.style.left = (Math.random()*100) + "%";
+        f.style.animationDelay = (Math.random()*3.0) + "s";
+        f.style.animationDuration = (4.2 + Math.random()*5.0) + "s";
+        const s = 2.5 + Math.random()*5.5;
+        f.style.width = s + "px";
+        f.style.height = s + "px";
+        f.style.opacity = (0.14 + Math.random()*0.42).toFixed(2);
+        p.appendChild(f);
+      }
+    }
+
+    function applyFx({ mode, tn }){
+      const el = fxEl();
+      if(!el) return;
+      el.classList.add("on");
+      el.setAttribute("data-mode", mode);
+      el.setAttribute("data-tn", tn);
+      if(mode === "rain" || mode === "thunder") buildRain();
+      else if(mode === "snow") buildSnow();
+      else clearParticles();
+    }
+
+    async function fetchWeather(){
+      const cached = readCache();
+      if(cached) return cached;
+
+      const geo = await getGeo();
+      const lat = geo?.lat ?? FORT_COLLINS.lat;
+      const lon = geo?.lon ?? FORT_COLLINS.lon;
+
+      const res = await fetch(openMeteoUrl(lat, lon), { cache: "no-store" });
+      if(!res.ok) throw new Error("weather_fetch_failed");
+
+      const json = await res.json();
+      const cur = json?.current || {};
+
+      const code = cur.weather_code;
+      const isDay = !!cur.is_day;
+      const wind = cur.wind_speed_10m;
+
+      const payload = { code, isDay, wind };
+      writeCache(payload);
+      return payload;
+    }
+
+    async function initWeatherFx(){
+      const el = fxEl();
+      if(!el) return;
+      try{
+        const w = await fetchWeather();
+        const tn = w.isDay ? "day" : "night";
+        const mode = deriveMode(w.code, w.wind);
+        applyFx({ mode, tn });
+      }catch{
+        applyFx({ mode: "cloudy", tn: "day" });
+      }
+
+      setInterval(async () => {
+        try{
+          localStorage.removeItem(CACHE_KEY);
+          const w = await fetchWeather();
+          const tn = w.isDay ? "day" : "night";
+          const mode = deriveMode(w.code, w.wind);
+          applyFx({ mode, tn });
+        }catch{}
+      }, 30 * 60 * 1000);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initWeatherFx);
+    } else {
+      initWeatherFx();
+    }
+  })();
 
   // One-time hooks
   attachCopyHandlers();
