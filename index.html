@@ -2976,7 +2976,7 @@
       transition:opacity 220ms ease;
       mix-blend-mode: screen;
     }
-    .weather-fx.on{ opacity: 1; }
+    .weather-fx.on{ opacity: 0.9; }
     .weather-fx .fx-layer{
       position:absolute;
       inset:0;
@@ -2990,7 +2990,7 @@
     }
     .weather-fx[data-mode="clear"] .fx-sunbeam,
     .weather-fx[data-mode="clear"] .fx-moonbeam{
-      opacity:1;
+      opacity:0.85;
     }
     .weather-fx[data-tn="day"] .fx-sunbeam::before{
       content:"";
@@ -3019,7 +3019,7 @@
       0%,100% { opacity:0.55; transform: scale(1.02); }
       50%     { opacity:0.85; transform: scale(1.06); }
     }
-    .weather-fx[data-mode="cloudy"] .fx-clouds{ opacity:1; animation: cloudDrift 45s linear infinite; }
+    .weather-fx[data-mode="cloudy"] .fx-clouds{ opacity:0.9; animation: cloudDrift 45s linear infinite; }
     .weather-fx[data-mode="cloudy"][data-tn="night"] .fx-clouds{ opacity:0.75; }
     .weather-fx .fx-clouds{
       background:
@@ -3033,7 +3033,7 @@
       0%   { transform: translateX(-10%); }
       100% { transform: translateX(10%); }
     }
-    .weather-fx[data-mode="fog"] .fx-fog{ opacity:1; animation: fogDrift 55s linear infinite; }
+    .weather-fx[data-mode="fog"] .fx-fog{ opacity:0.85; animation: fogDrift 55s linear infinite; }
     .weather-fx .fx-fog{
       background:
         radial-gradient(circle at 25% 50%, rgba(255,255,255,0.10), transparent 60%),
@@ -3046,7 +3046,7 @@
       0%   { transform: translateX(-8%); }
       100% { transform: translateX(8%); }
     }
-    .weather-fx[data-mode="wind"] .fx-wind{ opacity:1; animation: windSweep 2.4s linear infinite; }
+    .weather-fx[data-mode="wind"] .fx-wind{ opacity:0.85; animation: windSweep 2.4s linear infinite; }
     .weather-fx .fx-wind::before{
       content:"";
       position:absolute;
@@ -3068,7 +3068,7 @@
     }
     .weather-fx[data-mode="rain"] .fx-precip,
     .weather-fx[data-mode="snow"] .fx-precip{
-      opacity:1;
+      opacity:0.85;
     }
     .weather-fx .fx-precip .drop{
       position:absolute;
@@ -3096,7 +3096,7 @@
       0%   { transform: translate(0,0); opacity:0.85; }
       100% { transform: translate(70px, 130vh); opacity:0.12; }
     }
-    .weather-fx[data-mode="thunder"] .fx-thunder{ opacity:1; animation: thunderFlash 6.5s infinite; }
+    .weather-fx[data-mode="thunder"] .fx-thunder{ opacity:0.9; animation: thunderFlash 6.5s infinite; }
     .weather-fx .fx-thunder{
       background: radial-gradient(circle at 65% 20%, rgba(255,255,255,0.18), transparent 45%);
       mix-blend-mode: screen;
