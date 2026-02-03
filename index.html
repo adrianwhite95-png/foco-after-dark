@@ -8008,7 +8008,7 @@
       animation: staffRadarSweep 12s ease-in-out infinite;
       min-height: 220px;
       opacity: 1 !important;
-      filter: none !important;
+      filter: saturate(calc(1 + var(--radar-intensity, 0) * 0.55)) brightness(calc(1 + var(--radar-intensity, 0) * 0.18)) !important;
       box-shadow: 0 16px 28px rgba(0,0,0,0.45), inset 0 0 24px rgba(34,211,238,0.18) !important;
       outline: 1px solid rgba(34,211,238,0.28);
     }
@@ -8053,6 +8053,24 @@
     .staff-radar .radar-pings {
       opacity: 1 !important;
       mix-blend-mode: screen;
+    }
+    .staff-radar .radar-swirl {
+      animation: radarSwirl var(--radar-swirl-speed, 16s) linear infinite !important;
+    }
+    .staff-radar .radar-sweep {
+      animation: radarSweep var(--radar-sweep-speed, 6s) linear infinite !important;
+    }
+    .staff-radar .radar-streaks span {
+      animation: radarStreak var(--streak-speed, 4.2s) linear infinite !important;
+    }
+    .staff-radar .radar-bursts span {
+      animation: radarBurst var(--burst-speed, 5s) ease-out infinite !important;
+    }
+    .staff-radar .radar-particles span {
+      animation: radarParticle var(--particle-speed, 6s) ease-in-out infinite !important;
+    }
+    .staff-radar .radar-pings span {
+      animation: ping var(--radar-ping-speed, 2.6s) ease-out infinite !important;
     }
     @keyframes staffRadarGlow {
       0% { transform: rotate(0deg); opacity: 0.2; }
