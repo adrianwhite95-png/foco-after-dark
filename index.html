@@ -9574,11 +9574,35 @@
               <div class="ceo-panel-actions">
                 <button type="button" class="btn btn-secondary" data-ceo-gen-perk="shot">Shot perk voucher</button>
                 <button type="button" class="btn btn-secondary" data-ceo-gen-perk="drink">Drink perk voucher</button>
-                <button type="button" class="btn btn-secondary" data-ceo-gen-perk="cover">Line access voucher</button>
                 <button type="button" class="btn btn-secondary" data-ceo-gen-perk="free_drink">Free drink voucher</button>
               </div>
               <p class="support-success" id="ceoGenSuccess" style="display:none;margin-top:8px;">Code generated.</p>
               <div id="ceoIssuedList" class="ceo-issued-scroll"></div>
+            </section>
+
+            <section class="ceo-panel">
+              <div class="ceo-panel-header">
+                <h4>Grant monthly tokens</h4>
+                <p>Add redemption tokens to a member for the current month only.</p>
+              </div>
+              <div class="field">
+                <label for="ceoTokenGrantPassId">Pass ID</label>
+                <input id="ceoTokenGrantPassId" type="text" placeholder="e.g. QXD3KD" />
+              </div>
+              <div class="field">
+                <label for="ceoTokenGrantAmount">Token amount</label>
+                <select id="ceoTokenGrantAmount">
+                  <option value="1">1 token</option>
+                  <option value="2">2 tokens</option>
+                  <option value="3">3 tokens</option>
+                  <option value="5">5 tokens</option>
+                  <option value="10">10 tokens</option>
+                </select>
+              </div>
+              <div class="ceo-panel-actions">
+                <button type="button" class="btn btn-secondary" id="ceoTokenGrantBtn">Grant monthly tokens</button>
+              </div>
+              <p class="support-success" id="ceoTokenGrantStatus" style="display:none;margin-top:8px;">Updated.</p>
             </section>
 
             <section class="ceo-panel">
@@ -12158,6 +12182,10 @@
     const ceoGenButtons = document.querySelectorAll("[data-ceo-gen-perk]");
     const ceoGenSuccess = document.getElementById("ceoGenSuccess");
     const ceoIssuedList = document.getElementById("ceoIssuedList");
+    const ceoTokenGrantPassId = document.getElementById("ceoTokenGrantPassId");
+    const ceoTokenGrantAmount = document.getElementById("ceoTokenGrantAmount");
+    const ceoTokenGrantBtn = document.getElementById("ceoTokenGrantBtn");
+    const ceoTokenGrantStatus = document.getElementById("ceoTokenGrantStatus");
     const freePassIdInput = document.getElementById("freePassIdInput");
     const grantFreeBtn = document.getElementById("grantFreeBtn");
     const revokeFreeBtn = document.getElementById("revokeFreeBtn");
@@ -12528,17 +12556,92 @@
     const testimonials = [
       { quote: "\"Best nightlife pass.\"", source: "– Ava S., VIP member" },
       { quote: "\"Every weekend sorted in one tap.\"", source: "– Liam P., FoCo resident" },
-      { quote: "\"Cheaper drinks and faster lines—I'm in.\"", source: "– Maya R., Standard member" },
-      { quote: "\"Gets me into every bar I care about.\"", source: "– Noah K., VIP member" },
+      { quote: "\"Redeem is fast and staff confirms in seconds.\"", source: "– Maya R., Standard member" },
+      { quote: "\"I always know what perks are live before I go out.\"", source: "– Noah K., VIP member" },
       { quote: "\"Finally a pass Fort Collins needed.\"", source: "– Emma L., FoCo local" }
     ];
+    const AUTO_TESTIMONIALS = (() => {
+      const openers = [
+        "Tonight felt effortless",
+        "This app keeps the night simple",
+        "Perks were ready right away",
+        "My pass worked instantly",
+        "FoCo nights hit different now",
+        "I knew exactly where to go",
+        "No guesswork, just good perks",
+        "Everything synced in real time",
+        "The venue flow is smooth",
+        "Best way to track my nights",
+        "The perk list stayed accurate",
+        "Staff verified me in seconds",
+        "This made planning way easier",
+        "I got value all night",
+        "Perks actually feel premium"
+      ];
+      const middles = [
+        "redeem flow was clean",
+        "perk options stayed fresh",
+        "balance updated right away",
+        "alerts made venue picks easy",
+        "VIP perks were worth it",
+        "standard pass still delivers",
+        "nightly vibes stayed accurate",
+        "token add-ons were seamless",
+        "everything felt polished",
+        "staff confirmations were instant",
+        "my profile stayed up to date",
+        "the app felt fast all night",
+        "redemptions stayed organized",
+        "perks matched each venue",
+        "it all just worked"
+      ];
+      const closers = [
+        "perfect for Fort Collins nights.",
+        "exactly what a nightlife pass should do.",
+        "way better than random paper deals.",
+        "makes going out feel easy.",
+        "great for quick bar-to-bar plans.",
+        "felt premium without being complicated.",
+        "keeps the night moving.",
+        "worth it every weekend.",
+        "my go-to before heading out.",
+        "the best local nightlife tool.",
+        "smart, fast, and actually useful.",
+        "clean UX and real value.",
+        "ideal for busy nights.",
+        "a must-have for local perks.",
+        "the easiest yes this month."
+      ];
+      const sources = [
+        "FoCo member",
+        "VIP member",
+        "Standard member",
+        "Local regular",
+        "Weekend crew",
+        "Old Town local",
+        "Night shift friend",
+        "FoCo resident"
+      ];
+      const pool = [];
+      for (let i = 0; i < openers.length && pool.length < 220; i += 1) {
+        for (let j = 0; j < middles.length && pool.length < 220; j += 1) {
+          const closer = closers[(i + j) % closers.length];
+          const source = sources[(i * 3 + j) % sources.length];
+          pool.push({
+            quote: `"${openers[i]}, ${middles[j]}, ${closer}"`,
+            source: `– ${source}`
+          });
+        }
+      }
+      return pool;
+    })();
     function buildTestimonialPool() {
       const userReviews = getStoredReviews ? getStoredReviews() : [];
       const mappedUser = (userReviews || []).map(r => ({
         quote: `"${r.notes || "Great night!"}"`,
         source: `– ${r.member || "FoCo member"}, ${r.stars || "5"}★`
       }));
-      return [...testimonials, ...mappedUser];
+      return [...testimonials, ...AUTO_TESTIMONIALS, ...mappedUser];
     }
     let featuredVenuesData = [];
     let tonightAlerts = loadAlertsFromStorage();
@@ -12564,7 +12667,7 @@
     const simulatedScans = [
       { perk: "Drink perk voucher", member: "Demo Member", passId: "BETA321" },
       { perk: "Shot perk voucher", member: "FoCo Tester", passId: "TEST713" },
-      { perk: "Line access perk", member: "VIP Preview", passId: "PREV999" }
+      { perk: "Guest entry perk", member: "VIP Preview", passId: "PREV999" }
     ];
     const PERK_PRICING = {
       drink: { regular: 12, voucher: 3 },
@@ -13002,6 +13105,14 @@
       return Number.isFinite(value) ? value : 0;
     }
 
+    function getCeoMonthlyTokenGrantTotal(profile = memberProfile) {
+      const grants = profile?.ceoMonthlyTokenGrants;
+      if (!grants || typeof grants !== "object") return 0;
+      const key = getMonthTokenFromDate(new Date());
+      const value = Number(grants[key] || 0);
+      return Number.isFinite(value) ? Math.max(0, value) : 0;
+    }
+
     function setPurchasedTokenTotal(tokens) {
       const next = Math.max(0, Number(tokens) || 0);
       if (!memberProfile) memberProfile = {};
@@ -13030,6 +13141,7 @@
       }
       const cycles = countBillingCycles(startDate.toISOString(), new Date());
       const purchasedTotal = getPurchasedTokenTotal();
+      const monthlyGrant = getCeoMonthlyTokenGrantTotal();
       let purchasedRemaining = Math.max(0, purchasedTotal);
       let carryover = 0;
       let result = { unlimited: false, remaining: 0, limit, carryover: 0, usedCurrent: 0, total: 0, extraTokens: 0 };
@@ -13039,12 +13151,13 @@
         const isCurrent = i === cycles - 1;
         const cycleUsed = countRedemptionsInWindow(entries, { start: cycleStart, end: cycleEnd }, { includePending: isCurrent });
         const regularAllowance = limit + carryover;
-        const consumedTokens = Math.max(0, cycleUsed - regularAllowance);
+        const regularAllowanceWithGrant = regularAllowance + (isCurrent ? monthlyGrant : 0);
+        const consumedTokens = Math.max(0, cycleUsed - regularAllowanceWithGrant);
         const purchasedAfter = Math.max(0, purchasedRemaining - consumedTokens);
         const regularUnused = Math.max(0, regularAllowance - cycleUsed);
         const nextCarryover = purchasedAfter > 0 ? 0 : Math.min(MAX_VOUCHER_CARRYOVER, regularUnused);
         if (isCurrent) {
-          const remainingRegular = Math.max(0, regularAllowance - cycleUsed);
+          const remainingRegular = Math.max(0, regularAllowanceWithGrant - cycleUsed);
           const remaining = remainingRegular + purchasedAfter;
           result = {
             unlimited: false,
@@ -13052,7 +13165,7 @@
             limit,
             carryover,
             usedCurrent: cycleUsed,
-            total: regularAllowance + purchasedRemaining,
+            total: regularAllowanceWithGrant + purchasedRemaining,
             extraTokens: purchasedAfter
           };
         }
@@ -16590,7 +16703,7 @@ let onboardingIndex = 0;
     const PERK_TYPES = {
       drink: { label: "Drink perk" },
       shot: { label: "Shot perk" },
-      cover: { label: "Line access perk" },
+      cover: { label: "Guest entry perk" },
     };
 
     function buildDefaultVenuePerks() {
@@ -17838,6 +17951,79 @@ let onboardingIndex = 0;
       }
       freeMembersCache = list;
       renderFreeMembersList(list);
+    }
+
+    function showCeoTokenGrantFeedback(message, success = true) {
+      if (!ceoTokenGrantStatus) return;
+      ceoTokenGrantStatus.textContent = message;
+      ceoTokenGrantStatus.style.color = success ? "#a7f3d0" : "#f97373";
+      ceoTokenGrantStatus.style.display = "block";
+      window.setTimeout(() => {
+        if (ceoTokenGrantStatus) ceoTokenGrantStatus.style.display = "none";
+      }, 3600);
+    }
+
+    async function grantCeoMonthlyTokens() {
+      if (!isCeoAccount || !db) {
+        showCeoTokenGrantFeedback("CEO access required.", false);
+        return;
+      }
+      const code = (ceoTokenGrantPassId?.value || "").trim().toUpperCase();
+      const amount = Math.max(1, Math.min(50, Number(ceoTokenGrantAmount?.value || 0) || 0));
+      if (!code) {
+        showCeoTokenGrantFeedback("Enter a Pass ID first.", false);
+        return;
+      }
+      if (!amount) {
+        showCeoTokenGrantFeedback("Choose a token amount.", false);
+        return;
+      }
+      if (ceoTokenGrantBtn) ceoTokenGrantBtn.disabled = true;
+      try {
+        await ensureFirebaseUser();
+        const profile = await lookupMemberProfile(code, { requireDoc: true });
+        if (!profile?._docId) {
+          showCeoTokenGrantFeedback("Pass ID not found.", false);
+          return;
+        }
+        const cycleKey = getMonthTokenFromDate(new Date());
+        const current = Number(profile.ceoMonthlyTokenGrants?.[cycleKey] || 0);
+        const next = Math.max(0, current + amount);
+        const updates = {
+          [`ceoMonthlyTokenGrants.${cycleKey}`]: next,
+          updatedAt: serverTimestamp()
+        };
+        if (!guardWriteAction("ceoGrantMonthlyTokens", "App is locked (read-only).", { silent: true })) {
+          showCeoTokenGrantFeedback("App is locked (read-only).", false);
+          return;
+        }
+        await setDoc(doc(db, "members", profile._docId), updates, { merge: true });
+        cachePassProfile(code, {
+          ...profile,
+          ceoMonthlyTokenGrants: {
+            ...(profile.ceoMonthlyTokenGrants || {}),
+            [cycleKey]: next
+          }
+        }, profile._docId);
+        if (currentPassCode && code === currentPassCode.toUpperCase()) {
+          memberProfile = {
+            ...(memberProfile || {}),
+            ceoMonthlyTokenGrants: {
+              ...(memberProfile?.ceoMonthlyTokenGrants || {}),
+              [cycleKey]: next
+            }
+          };
+          persistMemberState({ ceoMonthlyTokenGrants: memberProfile.ceoMonthlyTokenGrants });
+          updateVoucherBalanceUI();
+        }
+        showCeoTokenGrantFeedback(`Granted +${amount} monthly token${amount === 1 ? "" : "s"} to ${code}.`);
+        showToast(`+${amount} monthly tokens granted to ${code}.`);
+      } catch (err) {
+        console.warn("Failed to grant monthly tokens", err);
+        showCeoTokenGrantFeedback("Could not grant tokens. Try again.", false);
+      } finally {
+        if (ceoTokenGrantBtn) ceoTokenGrantBtn.disabled = false;
+      }
     }
 
     function loadLocalFreeMembers() {
@@ -20403,7 +20589,7 @@ let onboardingIndex = 0;
       const perkLabels = {
         drink: PERK_TYPES?.drink?.label || "Drink perk",
         shot: PERK_TYPES?.shot?.label || "Shot perk",
-        cover: PERK_TYPES?.cover?.label || "Line access perk"
+        cover: PERK_TYPES?.cover?.label || "Guest entry perk"
       };
       const hourBuckets = {};
       const nightlyBuckets = {};
@@ -20544,7 +20730,7 @@ let onboardingIndex = 0;
       return [
         { code: "QK1234", perk: "Drink perk voucher", perkKey: "drink", member: "Avery W.", status: "verified", timestamp: new Date(now - 1000 * 60 * 30).toISOString(), venue: "bar_district" },
         { code: "LM4321", perk: "Shot perk voucher", perkKey: "shot", member: "Noah L.", status: "verified", timestamp: new Date(now - 1000 * 60 * 50).toISOString(), venue: "social" },
-        { code: "YX9988", perk: "Line access voucher", perkKey: "cover", member: "Priya S.", status: "verified", timestamp: new Date(now - 1000 * 60 * 80).toISOString(), venue: "rec_room" },
+        { code: "YX9988", perk: "Guest entry voucher", perkKey: "cover", member: "Priya S.", status: "verified", timestamp: new Date(now - 1000 * 60 * 80).toISOString(), venue: "rec_room" },
         { code: "DJ3412", perk: "Drink perk voucher", perkKey: "drink", member: "Mateo R.", status: "pending", timestamp: new Date(now - 1000 * 60 * 15).toISOString(), venue: "social" },
         { code: "TR5522", perk: "Shot perk voucher", perkKey: "shot", member: "Charlotte H.", status: "verified", timestamp: new Date(now - 1000 * 60 * 120).toISOString(), venue: "odell" }
       ];
@@ -21949,7 +22135,6 @@ let onboardingIndex = 0;
           const labelMap = {
             shot: "Shot perk voucher",
             drink: "Drink perk voucher",
-            cover: "Line access voucher",
             free_drink: "Free drink voucher"
           };
           // Try server-side generation first (callable function). If it fails, fallback to local generation.
@@ -22065,8 +22250,19 @@ let onboardingIndex = 0;
       });
     }
     if (refreshFreeMembers) {
-      refreshFreeMembers.addEventListener("click", refreshFreeMembersList);
+      refreshFreeMembers.addEventListener("click", async () => {
+        refreshFreeMembers.disabled = true;
+        try {
+          await refreshFreeMembersList();
+          showToast("Free memberships refreshed.");
+        } finally {
+          refreshFreeMembers.disabled = false;
+        }
+      });
       refreshFreeMembersList();
+    }
+    if (ceoTokenGrantBtn) {
+      ceoTokenGrantBtn.addEventListener("click", grantCeoMonthlyTokens);
     }
     if (grantFreeBtn) {
       grantFreeBtn.addEventListener("click", () => {
@@ -22980,7 +23176,15 @@ let onboardingIndex = 0;
     }
 
     if (ceoMembersRefresh) {
-      ceoMembersRefresh.addEventListener("click", () => startCeoMembersRealtime(true));
+      ceoMembersRefresh.addEventListener("click", async () => {
+        ceoMembersRefresh.disabled = true;
+        try {
+          await startCeoMembersRealtime(true);
+          showToast("Members refreshed.");
+        } finally {
+          ceoMembersRefresh.disabled = false;
+        }
+      });
     }
     document.querySelectorAll('[data-ceo-filter]').forEach(btn => {
       btn.addEventListener("click", () => {
