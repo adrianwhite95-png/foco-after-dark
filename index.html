@@ -2976,7 +2976,7 @@
       transition:opacity 220ms ease;
       mix-blend-mode: screen;
     }
-    .weather-fx.on{ opacity: 0.9; }
+    .weather-fx.on{ opacity: 1; }
     .weather-fx .fx-layer{
       position:absolute;
       inset:0;
@@ -2990,7 +2990,7 @@
     }
     .weather-fx[data-mode="clear"] .fx-sunbeam,
     .weather-fx[data-mode="clear"] .fx-moonbeam{
-      opacity:0.85;
+      opacity:0.95;
     }
     .weather-fx[data-tn="day"] .fx-sunbeam::before{
       content:"";
@@ -3019,7 +3019,7 @@
       0%,100% { opacity:0.55; transform: scale(1.02); }
       50%     { opacity:0.85; transform: scale(1.06); }
     }
-    .weather-fx[data-mode="cloudy"] .fx-clouds{ opacity:0.9; animation: cloudDrift 45s linear infinite; }
+    .weather-fx[data-mode="cloudy"] .fx-clouds{ opacity:0.95; animation: cloudDrift 45s linear infinite; }
     .weather-fx[data-mode="cloudy"][data-tn="night"] .fx-clouds{ opacity:0.75; }
     .weather-fx .fx-clouds{
       background:
@@ -3033,7 +3033,7 @@
       0%   { transform: translateX(-10%); }
       100% { transform: translateX(10%); }
     }
-    .weather-fx[data-mode="fog"] .fx-fog{ opacity:0.85; animation: fogDrift 55s linear infinite; }
+    .weather-fx[data-mode="fog"] .fx-fog{ opacity:0.9; animation: fogDrift 55s linear infinite; }
     .weather-fx .fx-fog{
       background:
         radial-gradient(circle at 25% 50%, rgba(255,255,255,0.10), transparent 60%),
@@ -3046,7 +3046,7 @@
       0%   { transform: translateX(-8%); }
       100% { transform: translateX(8%); }
     }
-    .weather-fx[data-mode="wind"] .fx-wind{ opacity:0.85; animation: windSweep 2.4s linear infinite; }
+    .weather-fx[data-mode="wind"] .fx-wind{ opacity:1; animation: windSweep 2.4s linear infinite; }
     .weather-fx .fx-wind::before{
       content:"";
       position:absolute;
@@ -3055,10 +3055,10 @@
         linear-gradient(120deg,
           transparent 0%,
           rgba(255,255,255,0.0) 35%,
-          rgba(255,255,255,0.10) 45%,
+          rgba(255,255,255,0.18) 45%,
           rgba(255,255,255,0.0) 55%,
           transparent 100%);
-      filter: blur(10px);
+      filter: blur(8px);
       transform: translateX(-30%);
     }
     @keyframes windSweep{
@@ -3068,15 +3068,17 @@
     }
     .weather-fx[data-mode="rain"] .fx-precip,
     .weather-fx[data-mode="snow"] .fx-precip{
-      opacity:0.85;
+      opacity:0.95;
+      mix-blend-mode: screen;
+      filter: blur(0.3px);
     }
     .weather-fx .fx-precip .drop{
       position:absolute;
       top:-15%;
       width:2px;
-      height:18px;
+      height:20px;
       border-radius:999px;
-      background: rgba(148,163,184,0.35);
+      background: rgba(186,230,253,0.55);
       animation: rainFall 1.2s linear infinite;
     }
     @keyframes rainFall{
@@ -25124,7 +25126,7 @@ let onboardingIndex = 0;
       const p = precipLayer();
       if(!p) return;
       clearParticles();
-      const n = 52;
+      const n = 110;
       for(let i=0;i<n;i++){
         const d = document.createElement("span");
         d.className = "drop";
@@ -25132,6 +25134,8 @@ let onboardingIndex = 0;
         d.style.animationDelay = (Math.random()*1.1) + "s";
         d.style.animationDuration = (0.75 + Math.random()*0.9) + "s";
         d.style.opacity = (0.16 + Math.random()*0.30).toFixed(2);
+        const w = 1.6 + Math.random()*1.6;
+        d.style.width = w + "px";
         p.appendChild(d);
       }
     }
@@ -25140,14 +25144,14 @@ let onboardingIndex = 0;
       const p = precipLayer();
       if(!p) return;
       clearParticles();
-      const n = 30;
+      const n = 60;
       for(let i=0;i<n;i++){
         const f = document.createElement("span");
         f.className = "flake";
         f.style.left = (Math.random()*100) + "%";
         f.style.animationDelay = (Math.random()*3.0) + "s";
         f.style.animationDuration = (4.2 + Math.random()*5.0) + "s";
-        const s = 2.5 + Math.random()*5.5;
+        const s = 3.0 + Math.random()*6.0;
         f.style.width = s + "px";
         f.style.height = s + "px";
         f.style.opacity = (0.14 + Math.random()*0.42).toFixed(2);
