@@ -2900,12 +2900,17 @@
       z-index: -2;
       overflow: hidden;
     }
+    .landing-bg > * {
+      position: relative;
+      z-index: 2;
+    }
     .landing-bg::after {
       content: "";
       position: absolute;
       inset: 0;
       background: linear-gradient(180deg, rgba(5, 12, 28, 0.55), rgba(5, 12, 28, 0.85));
       pointer-events: none;
+      z-index: 1;
     }
     .landing-bg::before {
       content: "";
@@ -2919,6 +2924,7 @@
       opacity: 0.8;
       animation: landingAurora 18s ease-in-out infinite;
       pointer-events: none;
+      z-index: 0;
     }
     .landing-bg img {
       position: absolute;
@@ -2968,6 +2974,7 @@
       overflow:hidden;
       opacity:0;
       transition:opacity 220ms ease;
+      mix-blend-mode: screen;
     }
     .weather-fx.on{ opacity: 1; }
     .weather-fx .fx-layer{
@@ -25101,7 +25108,7 @@ let onboardingIndex = 0;
       if([71,73,75,77,85,86].includes(code)) return "snow";
       if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return "rain";
       if([45,48].includes(code)) return "fog";
-      if(windSpeed != null && windSpeed >= 35) return "wind";
+      if(windSpeed != null && windSpeed >= 20) return "wind";
       if([2,3].includes(code)) return "cloudy";
       if([0,1].includes(code)) return "clear";
       return "cloudy";
