@@ -25061,7 +25061,7 @@ let onboardingIndex = 0;
   (() => {
     const FX_ID = "weatherFx";
     const CACHE_KEY = "foco_weather_fx_cache_v2";
-    const CACHE_MINUTES = 20;
+    const CACHE_MINUTES = 12;
     const FORT_COLLINS = { lat: 40.5853, lon: -105.0844 };
 
     const fxEl = () => document.getElementById(FX_ID);
@@ -25216,7 +25216,7 @@ let onboardingIndex = 0;
           localStorage.removeItem(CACHE_KEY);
           await refreshWeatherFx();
         }catch{}
-      }, 30 * 60 * 1000);
+      }, 12 * 60 * 1000);
     }
 
     if (document.readyState === "loading") {
