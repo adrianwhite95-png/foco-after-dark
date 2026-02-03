@@ -7995,6 +7995,16 @@
       from { opacity: 0.92; transform: translateY(2px); }
       to { opacity: 1; transform: translateY(0); }
     }
+
+    /* Staff radar visibility fix */
+    .staff-radar .radar-display {
+      background:
+        radial-gradient(circle at 50% 50%, rgba(103, 232, 249, 0.18), rgba(5, 10, 22, 0.95)),
+        linear-gradient(160deg, rgba(8, 16, 32, 0.65), rgba(6, 10, 22, 0.9));
+    }
+    .radar-grid { opacity: max(0.12, var(--radar-grid-opacity, 0.22)); }
+    .radar-swirl { opacity: max(0.08, var(--radar-swirl-opacity, 0.15)); }
+    .radar-sweep { opacity: max(0.22, var(--radar-sweep-opacity, 0.55)); }
   </style>
 </head>
   <body>
