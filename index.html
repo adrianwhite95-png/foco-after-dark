@@ -10127,10 +10127,13 @@
     let currentScreenName = "landing";
     let memberProfile = null;
     let staffSession = null;
+    let forceStaffLogoutOnLoad = false;
     try {
       const storedStaffSession = JSON.parse(localStorage.getItem("staffSession") || "null");
       if (storedStaffSession?.venue) {
-        staffSession = storedStaffSession;
+        // Force staff to re-auth on hard refresh/reload.
+        forceStaffLogoutOnLoad = true;
+        localStorage.removeItem("staffSession");
       }
     } catch (_) {}
     const REWARDS_KEY = "rewardsProgress";
@@ -24696,6 +24699,15 @@ let onboardingIndex = 0;
     if (loginForced) {
       forceShowLogin = false;
       clearLoginHash();
+    }
+    if (user && forceStaffLogoutOnLoad) {
+      forceStaffLogoutOnLoad = false;
+      staffSession = null;
+      localStorage.removeItem("staffSession");
+      showScreen("landing");
+      try { await firebaseAuth.signOut(); } catch (_) {}
+      initialAuthResolved = true;
+      return;
     }
     await refreshAuthClaims(user);
     const allowAnonSession = user.isAnonymous && (pendingStaffVenueId || staffSession || betaPassMode);
