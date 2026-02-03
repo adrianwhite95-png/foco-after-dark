@@ -7999,12 +7999,15 @@
     /* Staff radar visibility fix */
     .staff-radar .radar-display {
       background:
-        radial-gradient(circle at 50% 50%, rgba(103, 232, 249, 0.18), rgba(5, 10, 22, 0.95)),
-        linear-gradient(160deg, rgba(8, 16, 32, 0.65), rgba(6, 10, 22, 0.9));
+        radial-gradient(circle at 50% 45%, rgba(103, 232, 249, 0.24), rgba(6, 10, 22, 0.96)),
+        linear-gradient(160deg, rgba(9, 18, 36, 0.75), rgba(6, 10, 22, 0.92)) !important;
+      box-shadow: 0 16px 28px rgba(0,0,0,0.45), inset 0 0 24px rgba(34,211,238,0.18) !important;
     }
-    .radar-grid { opacity: max(0.12, var(--radar-grid-opacity, 0.22)); }
-    .radar-swirl { opacity: max(0.08, var(--radar-swirl-opacity, 0.15)); }
-    .radar-sweep { opacity: max(0.22, var(--radar-sweep-opacity, 0.55)); }
+    .staff-radar .radar-grid { opacity: max(0.18, var(--radar-grid-opacity, 0.28)); }
+    .staff-radar .radar-swirl { opacity: max(0.14, var(--radar-swirl-opacity, 0.22)); }
+    .staff-radar .radar-sweep { opacity: max(0.28, var(--radar-sweep-opacity, 0.62)); }
+    .staff-radar .radar-streaks span { opacity: max(0.2, var(--radar-particle-opacity, 0.4)); }
+    .staff-radar .radar-bursts span { opacity: max(0.25, var(--radar-ping-glow, 0.45)); }
   </style>
 </head>
   <body>
