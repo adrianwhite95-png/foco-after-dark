@@ -7997,13 +7997,20 @@
     }
 
     /* Staff radar visibility fix */
+    .staff-radar { opacity: 1 !important; }
     .staff-radar .radar-display {
       background:
         radial-gradient(circle at 35% 30%, rgba(56, 189, 248, 0.28), transparent 60%),
         radial-gradient(circle at 70% 70%, rgba(124, 58, 237, 0.22), transparent 55%),
         linear-gradient(160deg, rgba(9, 18, 36, 0.86), rgba(6, 10, 22, 0.96)) !important;
       background-color: #0b1322 !important;
+      background-size: 140% 140%;
+      animation: staffRadarSweep 12s ease-in-out infinite;
+      min-height: 220px;
+      opacity: 1 !important;
+      filter: none !important;
       box-shadow: 0 16px 28px rgba(0,0,0,0.45), inset 0 0 24px rgba(34,211,238,0.18) !important;
+      outline: 1px solid rgba(34,211,238,0.28);
     }
     .staff-radar .radar-display::before {
       content: "";
@@ -8013,8 +8020,8 @@
       background:
         repeating-linear-gradient(180deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 1px, transparent 2px, transparent 6px),
         radial-gradient(circle at 50% 50%, rgba(34,211,238,0.18), transparent 60%);
-      opacity: 0.18;
-      mix-blend-mode: screen;
+      opacity: 0.35;
+      mix-blend-mode: normal;
       z-index: 1;
     }
     .staff-radar .radar-display::after {
@@ -8024,8 +8031,8 @@
       pointer-events: none;
       background: conic-gradient(from 120deg, rgba(34,211,238,0.18), rgba(124,58,237,0.16), rgba(14,165,233,0.18), rgba(34,211,238,0.18));
       filter: blur(16px);
-      opacity: 0.22;
-      animation: staffRadarGlow 10s linear infinite;
+      opacity: 0.36;
+      animation: staffRadarGlow 9s linear infinite;
       z-index: 0;
     }
     .staff-radar .radar-display > * {
@@ -8037,10 +8044,25 @@
     .staff-radar .radar-sweep { opacity: max(0.28, var(--radar-sweep-opacity, 0.62)); }
     .staff-radar .radar-streaks span { opacity: max(0.2, var(--radar-particle-opacity, 0.4)); }
     .staff-radar .radar-bursts span { opacity: max(0.25, var(--radar-ping-glow, 0.45)); }
+    .staff-radar .radar-grid,
+    .staff-radar .radar-swirl,
+    .staff-radar .radar-sweep,
+    .staff-radar .radar-streaks,
+    .staff-radar .radar-bursts,
+    .staff-radar .radar-particles,
+    .staff-radar .radar-pings {
+      opacity: 1 !important;
+      mix-blend-mode: screen;
+    }
     @keyframes staffRadarGlow {
       0% { transform: rotate(0deg); opacity: 0.2; }
       50% { transform: rotate(180deg); opacity: 0.32; }
       100% { transform: rotate(360deg); opacity: 0.2; }
+    }
+    @keyframes staffRadarSweep {
+      0% { background-position: 0% 40%; }
+      50% { background-position: 100% 60%; }
+      100% { background-position: 0% 40%; }
     }
   </style>
 </head>
