@@ -1181,7 +1181,7 @@
       pointer-events: none;
       z-index: 0;
     }
-    .landing-wrapper > :not(.landing-strobe) {
+    .landing-wrapper > :not(.landing-strobe):not(.weather-fx) {
       position: relative;
       z-index: 1;
     }
@@ -2970,11 +2970,12 @@
       position:absolute;
       inset:0;
       pointer-events:none;
-      z-index:4;
+      z-index:0;
       overflow:hidden;
       opacity:0;
       transition:opacity 220ms ease;
       mix-blend-mode: screen;
+      border-radius: inherit;
     }
     .weather-fx.on{ opacity: 1; }
     .weather-fx .fx-layer{
@@ -8348,6 +8349,9 @@
               <span></span>
               <span></span>
             </div>
+          </div>
+          <div class="landing-wrapper">
+            <div class="landing-strobe" aria-hidden="true"></div>
             <div id="weatherFx" class="weather-fx" aria-hidden="true">
               <div class="fx-layer fx-stars"></div>
               <div class="fx-layer fx-clouds"></div>
@@ -8358,9 +8362,6 @@
               <div class="fx-layer fx-precip"></div>
               <div class="fx-layer fx-thunder"></div>
             </div>
-          </div>
-          <div class="landing-wrapper">
-            <div class="landing-strobe" aria-hidden="true"></div>
             <button id="landingRefreshBtn" class="refresh-btn" title="Reload">Reload</button>
             <div class="brand-logo brand-logo-landing">
               <img src="foco-logo.png" alt="FoCo After Dark neon logo" class="brand-logo-img" />
