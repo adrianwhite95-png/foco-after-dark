@@ -5,6 +5,17 @@
   <title>FoCo After Dark – Nightlife Pass</title>
   <link rel="icon" type="image/png" href="foco-logo.png" />
   <link rel="preload" href="foco-logo.png?v=4" as="image" />
+  <meta name="description" content="FoCo After Dark — the nightlife pass for Fort Collins. Redeem perks at local bars, track your nights, and keep your pass ready on your phone." />
+  <meta property="og:title" content="FoCo After Dark — Nightlife Pass" />
+  <meta property="og:description" content="Redeem perks at local bars, track your nights out, and keep your FoCo After Dark pass ready on your phone." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://foco-after-dark.web.app/" />
+  <meta property="og:image" content="https://foco-after-dark.web.app/foco-logo.png" />
+  <meta property="og:image:alt" content="FoCo After Dark logo" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="FoCo After Dark — Nightlife Pass" />
+  <meta name="twitter:description" content="Redeem perks at local bars, track your nights out, and keep your FoCo After Dark pass ready on your phone." />
+  <meta name="twitter:image" content="https://foco-after-dark.web.app/foco-logo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,7 +32,7 @@
       --accent-cyan-2: #00f0ff;
       --accent-magenta-2: #ff2fb8;
       --glass-opa: 0.34;
-      --glass-blur: 10px;
+      --glass-blur: 8px;
       --card-border: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
       --hd-shadow: 0 30px 70px rgba(2,6,23,0.75), 0 0 60px rgba(34,211,238,0.06);
       --text-bright: #f8fbff;
@@ -1826,26 +1837,37 @@
       box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.08);
       pointer-events: none;
     }
-    .avatar::after {
-      content: attr(data-flair);
+    .avatar-flair {
       position: absolute;
       top: -6px;
       right: -6px;
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
       border-radius: 999px;
       background: rgba(0, 0, 0, 0.85);
       color: #fef08a;
       font-size: 11px;
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.35);
+      transition: opacity 0.2s ease, transform 0.2s ease;
       opacity: 0;
       transform: scale(0.9);
-      transition: opacity 0.2s ease, transform 0.2s ease;
     }
-    .avatar[data-flair]:after {
+    .avatar-flair::before {
+      content: "";
+      position: absolute;
+      inset: -4px;
+      border-radius: 999px;
+      background: linear-gradient(120deg, rgba(34,211,238,0.55), rgba(244,114,182,0.45));
+      -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>') no-repeat center / contain;
+      mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>') no-repeat center / contain;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .avatar[data-flair] .avatar-flair {
+      display: inline-flex;
       opacity: 1;
       transform: scale(1);
     }
@@ -2033,6 +2055,17 @@
     .community-stat strong {
       font-size: 14px;
       color: #f8fafc;
+    }
+    .community-stat.desktop-only {
+      display: none;
+    }
+    @media (min-width: 768px) {
+      .member-hero .community-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .community-stat.desktop-only {
+        display: block;
+      }
     }
     @keyframes statGlow {
       0% { transform: rotate(0deg); }
@@ -4738,22 +4771,27 @@
     /* Landing login buttons */
     #landingLoginLink,
     #landingStaffLogin {
-      display: inline-flex;
+      display: block;
+      width: min(560px, 100%);
+      margin: 0 auto;
+      text-align: center;
       align-items: center;
       justify-content: center;
-      padding: 8px 14px;
+      padding: 12px 16px;
       border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(120deg, rgba(10,16,30,0.85), rgba(12,20,36,0.78));
       color: var(--text);
       text-decoration: none;
       font-size: 12px;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+      box-shadow: 0 10px 24px rgba(2,8,23,0.35);
     }
     #landingLoginLink:hover,
     #landingStaffLogin:hover {
-      background: rgba(255,255,255,0.12);
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.28);
+      transform: translateY(-1px);
     }
 
     .pass-card {
@@ -5362,14 +5400,16 @@
         align-items: stretch;
         padding-top: 16px;
         padding-bottom: calc(var(--space-7) + 6px);
-        padding-left: max(var(--iphoneGutter), env(safe-area-inset-left));
-        padding-right: max(var(--iphoneGutter), env(safe-area-inset-right));
+        padding-left: 0;
+        padding-right: 0;
       }
       #app {
         max-width: none;
         width: 100%;
         margin-left: 0;
         margin-right: 0;
+        padding-left: max(var(--iphoneGutter), env(safe-area-inset-left));
+        padding-right: max(var(--iphoneGutter), env(safe-area-inset-right));
       }
       .screen,
       .pass-card,
@@ -5624,6 +5664,39 @@
       .sticky-actions,
       .vibe-buttons {
         grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 520px) {
+      #staffPortalScreen .staff-board { gap: 14px; }
+      #staffPortalScreen .staff-form { padding: 14px; }
+      #staffPortalScreen .staff-verify-grid { grid-template-columns: 1fr; }
+      #staffPortalScreen .staff-pending { margin-top: 10px; }
+      #staffPortalScreen .staff-pending-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      #staffPortalScreen .staff-pending-count { margin-left: auto; }
+      #staffPortalScreen .staff-verify-title { font-size: 18px; }
+      #staffPortalScreen .staff-verify-hint { font-size: 11px; }
+      #staffPortalScreen #verifyCode,
+      #staffPortalScreen #memberIdInput,
+      #staffPortalScreen #staffPassInput,
+      #staffPortalScreen #staffVenueInput {
+        font-size: 18px;
+        letter-spacing: 0.08em;
+      }
+      #staffPortalScreen .staff-accent-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      #staffPortalScreen .staff-accent-label {
+        font-size: 11px;
+      }
+      #staffPortalScreen .staff-accent-select {
+        width: 100%;
       }
     }
 
@@ -5982,6 +6055,21 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 12px;
+      padding: 12px;
+      border-radius: 18px;
+      background: linear-gradient(120deg, rgba(12,18,30,0.9), rgba(10,14,24,0.78));
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 16px 36px rgba(2,8,23,0.55), inset 0 0 0 1px rgba(56,189,248,0.08);
+      position: relative;
+      overflow: hidden;
+    }
+    .ceo-kpi-grid::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 20% 20%, rgba(56,189,248,0.12), transparent 45%);
+      opacity: 0.7;
+      pointer-events: none;
     }
     .ceo-kpi-card {
       background: rgba(255,255,255,0.04);
@@ -5994,11 +6082,11 @@
       text-align: left;
     }
     .ceo-kpi-card strong {
-      font-size: 20px;
+      font-size: 24px;
       color: var(--text);
     }
     .ceo-kpi-card span {
-      font-size: 11px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.14em;
       color: var(--muted);
@@ -6823,11 +6911,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: min(100%, 540px);
+      width: min(100%, 540px) !important;
       margin-left: auto;
       margin-right: auto;
-      min-height: 48px;
-      padding: 0 18px;
+      min-height: 48px !important;
+      padding: 0 18px !important;
       border-radius: 16px;
       border: 1px solid color-mix(in srgb, var(--accent-primary-live) 55%, rgba(255,255,255,0.18)) !important;
       background: linear-gradient(120deg, var(--accent-primary-live), var(--accent-secondary-live)) !important;
@@ -6849,18 +6937,35 @@
     }
     #landingScreen .linkish,
     #landingScreen .linkish-btn {
-      border-radius: 999px;
-      padding: 6px 12px;
-      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 26%, var(--border));
-      background: rgba(255,255,255,0.04);
-      color: var(--text);
-      font-weight: 600;
-      text-decoration: none;
+      border-radius: 16px !important;
+      padding: 0 18px !important;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 55%, rgba(255,255,255,0.18)) !important;
+      background: linear-gradient(120deg, var(--accent-primary-live), var(--accent-secondary-live)) !important;
+      color: #050608 !important;
+      font-weight: 800 !important;
+      text-decoration: none !important;
     }
     #landingScreen .linkish:hover,
     #landingScreen .linkish-btn:hover {
       border-color: color-mix(in srgb, var(--accent-primary-live) 46%, var(--border));
       box-shadow: 0 14px 28px rgba(2, 6, 18, 0.5);
+    }
+    .landing-login-row {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      width: 100%;
+    }
+    .landing-login-row #landingLoginLink,
+    .landing-login-row #landingStaffLogin {
+      width: min(100%, 540px) !important;
+    }
+    .landing-login-label {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
     }
 
     .meta-row.quick-strip {
@@ -7173,7 +7278,7 @@
       max-width: 1100px;
     }
     .screen {
-      background: rgba(10, 12, 22, 0.9);
+      background: rgba(8, 10, 18, 0.94);
       border: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
     }
@@ -7188,15 +7293,19 @@
     .alerts-card,
     .vip-member-deal {
       border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.38);
     }
     h1, h2, h3, .app-title, .portal-title {
       letter-spacing: -0.3px;
     }
+    h1, .hero-title { font-size: 28px; line-height: 1.25; }
+    h2, .section-title { font-size: 18px; line-height: 1.3; }
+    h3, .sub-title { font-size: 16px; line-height: 1.35; }
     p, span, label, .small, .meta-note {
       line-height: 1.5;
       opacity: 0.82;
     }
+    body, p, span, label, .small, .meta-note { font-size: 14.5px; }
     .tagline {
       text-shadow: none;
     }
@@ -7205,6 +7314,7 @@
       background: rgba(12, 16, 30, 0.9);
       border: 1px solid rgba(255, 255, 255, 0.12);
       box-shadow: none;
+      transition: transform 140ms ease, box-shadow 160ms ease, background 160ms ease;
     }
     .btn-primary,
     .redeem-btn,
@@ -7220,6 +7330,23 @@
     .redeem-btn:hover,
     .add-vouchers-btn:hover {
       box-shadow: 0 0 20px rgba(34, 211, 238, 0.35);
+      transform: translateY(-1px);
+    }
+    .btn-secondary,
+    .btn.btn-secondary {
+      background: rgba(10, 14, 26, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: rgba(241, 245, 249, 0.92);
+      box-shadow: none;
+    }
+    .btn-secondary:hover,
+    .btn.btn-secondary:hover {
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.18);
+      transform: none;
+    }
+    .btn:active,
+    button:active {
+      transform: scale(0.98);
     }
     .redeem-row .btn,
     #memberActionButtons .btn {
@@ -7258,17 +7385,44 @@
     .status-pill,
     .status-pill-sm {
       gap: 6px;
+      align-items: center;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
     .status-pill::before,
     .status-pill-sm::before {
-      content: "●";
-      font-size: 9px;
-      color: var(--accent-primary-live);
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: currentColor;
+      display: inline-block;
+      opacity: 0.9;
     }
-    .status-pill-sm.pending::before { color: #fbbf24; }
-    .status-pill-sm.verified::before { content: "✓"; color: #22c55e; }
+    .status-pill { color: var(--accent-primary-live); }
+    .status-pill-sm.pending { color: #fbbf24; }
+    .status-pill-sm.verified { color: #22c55e; }
+    .status-pill-sm.active { color: #22c55e; }
+    .status-pill-sm.expired { color: #f59e0b; }
+    .status-pill-sm.used { color: #38bdf8; }
+    .status-pill-sm.denied,
+    .status-pill-sm.canceled { color: #f87171; }
+    .status-pill-sm.verified::before {
+      border-radius: 0;
+      -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>') no-repeat center / contain;
+      mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>') no-repeat center / contain;
+    }
+    .status-pill-sm.pending::before {
+      border-radius: 0;
+      -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>') no-repeat center / contain;
+      mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>') no-repeat center / contain;
+    }
     .status-pill-sm.denied::before,
-    .status-pill-sm.expired::before { content: "✕"; color: #f87171; }
+    .status-pill-sm.canceled::before {
+      border-radius: 0;
+      -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6 18 18"/></svg>') no-repeat center / contain;
+      mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6 18 18"/></svg>') no-repeat center / contain;
+    }
     .perk-option {
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.08);
@@ -7286,6 +7440,346 @@
     .modal-card {
       border-radius: 20px;
       transition: transform 220ms ease, opacity 220ms ease;
+    }
+    .micro-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+    }
+    .card-footer-note {
+      margin-top: 10px;
+      font-size: 11px;
+      color: rgba(148,163,184,0.75);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .pill,
+    .status-pill,
+    .status-pill-sm,
+    .venue-chip,
+    .pulse-chip,
+    .pill-ghost {
+      min-height: 28px;
+      border-radius: 999px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .secondary-actions {
+      background: rgba(8, 12, 22, 0.45);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      padding: 12px;
+    }
+    .secondary-actions .btn {
+      width: 100%;
+    }
+    .staff-pending-list .staff-pending-row {
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .staff-pending-list .staff-pending-row:last-child {
+      border-bottom: none;
+    }
+    .ceo-member-row:nth-child(even),
+    .ceo-member-table tbody tr:nth-child(even) {
+      background: rgba(255,255,255,0.02);
+    }
+    .ceo-member-table tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .profile-top-grid,
+    .community-stats,
+    .redeem-row,
+    .secondary-actions,
+    .staff-board,
+    .ceo-hq-cards,
+    .ceo-hq-grid,
+    .staff-verify-grid {
+      gap: 12px;
+    }
+    .divider {
+      background: linear-gradient(90deg,
+        transparent,
+        color-mix(in srgb, var(--accent-primary-live) 35%, rgba(255,255,255,0.3)),
+        color-mix(in srgb, var(--accent-secondary-live) 35%, rgba(255,255,255,0.2)),
+        transparent);
+    }
+    .meta-label,
+    .meta-note,
+    .perks-title,
+    .landing-feature-card strong {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+    .secondary-actions .btn,
+    #memberActionButtons .btn {
+      background: rgba(10, 14, 26, 0.85) !important;
+      border: 1px solid rgba(255,255,255,0.16) !important;
+      color: rgba(241,245,249,0.92) !important;
+      box-shadow: none !important;
+    }
+    .secondary-actions .btn:hover,
+    #memberActionButtons .btn:hover {
+      box-shadow: 0 0 14px rgba(34,211,238,0.18) !important;
+      transform: translateY(-1px);
+    }
+    .pass-security-stripe {
+      background:
+        linear-gradient(135deg,
+          rgba(34,211,238,0.0),
+          rgba(56,189,248,0.22),
+          rgba(99,102,241,0.25),
+          rgba(244,114,182,0.18)),
+        repeating-linear-gradient(
+          135deg,
+          rgba(255,255,255,0.08) 0px,
+          rgba(255,255,255,0.08) 2px,
+          transparent 3px,
+          transparent 7px
+        );
+    }
+    .pass-top,
+    .ceo-hq-header,
+    #staffPortalScreen .staff-meta-row {
+      align-items: center;
+      gap: 10px;
+    }
+    .pass-top,
+    .ceo-hq-header,
+    #staffPortalScreen .staff-meta-row {
+      position: relative;
+    }
+    .pass-top::after,
+    .ceo-hq-header::after,
+    #staffPortalScreen .staff-meta-row::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -10px;
+      height: 1px;
+      background: linear-gradient(90deg,
+        transparent,
+        rgba(148,163,184,0.25),
+        transparent);
+      opacity: 0.8;
+    }
+    #staffPortalScreen .staff-meta-row {
+      background: rgba(10,14,26,0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 8px 10px;
+    }
+    .staff-verify-grid {
+      background: rgba(8,12,22,0.55);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 10px;
+    }
+
+    .member-hero {
+      padding: 16px;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: linear-gradient(135deg, rgba(10,16,30,0.95), rgba(8,12,24,0.85));
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 14px 30px rgba(2,8,23,0.55), inset 0 0 0 1px rgba(34,211,238,0.08), inset 0 0 24px rgba(34,211,238,0.08);
+    }
+    .member-hero-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .member-hero-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      position: relative;
+    }
+    .member-hero-title::after {
+      content: "";
+      display: block;
+      width: 100px;
+      height: 2px;
+      margin-top: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent-primary-live), transparent);
+      opacity: 0.7;
+    }
+    .member-hero-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .member-hero .community-stats {
+      gap: 10px;
+    }
+    .member-hero .community-stat {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 10px 12px;
+    }
+    .member-hero .community-stat span {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .member-hero .community-stat strong {
+      font-size: 22px;
+      color: var(--text);
+    }
+    #statVouchersLeft {
+      color: var(--accent-primary-live);
+      text-shadow: 0 0 14px rgba(34,211,238,0.25);
+    }
+    .cheers-card {
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(10, 14, 24, 0.6);
+      box-shadow: inset 0 0 0 1px rgba(0,255,209,0.08);
+    }
+    .cheers-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: rgba(180, 216, 255, 0.7);
+      margin-bottom: 6px;
+    }
+    .cheers-quote {
+      font-size: 14px;
+      color: rgba(240, 248, 255, 0.92);
+      line-height: 1.4;
+    }
+    @media (max-width: 520px) {
+      .cheers-card {
+        padding: 12px;
+        border-radius: 14px;
+      }
+      .cheers-quote {
+        font-size: 13px;
+      }
+    }
+
+    .staff-board {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+      gap: 12px;
+    }
+    .staff-form.staff-hero {
+      background: linear-gradient(140deg, rgba(8,16,30,0.96), rgba(10,18,30,0.88));
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 16px 36px rgba(2,8,23,0.55), inset 0 0 0 1px rgba(34,211,238,0.08);
+    }
+    .staff-verify-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .staff-verify-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .staff-verify-hint {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    #verifyCode:focus {
+      outline: none;
+      border-color: color-mix(in srgb, var(--accent-primary-live) 55%, rgba(255,255,255,0.2));
+      box-shadow: 0 0 0 2px rgba(34,211,238,0.12);
+    }
+    .staff-pending-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .staff-pending-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding-bottom: 6px;
+      background: linear-gradient(180deg, rgba(8,12,22,0.92), rgba(8,12,22,0.7));
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      margin-bottom: 6px;
+    }
+    .staff-pending-count {
+      min-width: 32px;
+      text-align: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: rgba(14, 19, 32, 0.9);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #f8fafc;
+      font-weight: 700;
+    }
+
+    @media (max-width: 820px) {
+      .staff-board {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      #app {
+        width: 100vw;
+        max-width: 100vw;
+        margin: 0;
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+      .screen,
+      .pass-card,
+      .staff-form,
+      .staff-radar,
+      .ceo-card,
+      .ceo-hq-panel {
+        width: 100%;
+        max-width: 100%;
+      }
+      .pass-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .pass-header > div:last-child {
+        align-items: flex-start;
+      }
+      .member-hero-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+      .community-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .community-stat strong {
+        font-size: 18px;
+      }
+      .staff-verify-grid {
+        grid-template-columns: 1fr;
+      }
+      .staff-pending {
+        min-height: unset;
+      }
+    }
+    .screen {
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+    .screen:not(.active) {
+      opacity: 0;
+      transform: translateY(6px);
+      pointer-events: none;
     }
 
     /* === RAVE PASS CARD LIGHTS (CSS ONLY) === */
@@ -7338,7 +7832,7 @@
         radial-gradient(circle at 20% 35%, rgba(0,255,209,0.10), transparent 45%),
         radial-gradient(circle at 80% 70%, rgba(140,84,255,0.12), transparent 48%);
       mix-blend-mode: overlay;
-      opacity: 0.22;
+      opacity: 0.18;
       transform: translate3d(0,0,0);
       animation: raveScan 3.6s linear infinite;
     }
@@ -7347,6 +7841,51 @@
         0 0 0 1px rgba(140, 84, 255, 0.22),
         0 0 18px rgba(0, 255, 209, 0.10),
         0 0 44px rgba(255, 0, 200, 0.06);
+    }
+    .pass-security {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 10px 0 14px;
+      padding: 6px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(90deg, rgba(15,20,36,0.85), rgba(15,22,40,0.55));
+    }
+    .pass-micro {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.7);
+    }
+    .pass-holo {
+      height: 6px;
+      flex: 1;
+      border-radius: 999px;
+      background: linear-gradient(90deg,
+        rgba(34,211,238,0.1),
+        rgba(99,102,241,0.45),
+        rgba(244,114,182,0.35),
+        rgba(34,211,238,0.1));
+      filter: blur(0.2px);
+      box-shadow: 0 0 12px rgba(56,189,248,0.18);
+    }
+    .pass-security-stripe {
+      position: absolute;
+      right: -40px;
+      top: 90px;
+      width: 120px;
+      height: 120px;
+      transform: rotate(18deg);
+      background: linear-gradient(135deg,
+        rgba(34,211,238,0.0),
+        rgba(56,189,248,0.22),
+        rgba(99,102,241,0.25),
+        rgba(244,114,182,0.18));
+      opacity: 0.45;
+      pointer-events: none;
+      z-index: 1;
     }
     .pass-card:hover {
       box-shadow:
@@ -7371,6 +7910,90 @@
         animation: none !important;
         opacity: 0.18 !important;
       }
+      .screen {
+        transition: none !important;
+      }
+    }
+
+    .edit-pencil {
+      width: 14px;
+      height: 14px;
+      display: inline-block;
+      font-size: 0;
+      color: var(--accent-primary-live);
+      background: currentColor;
+      -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>') no-repeat center / contain;
+      mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>') no-repeat center / contain;
+    }
+    /* === Launch polish overrides (UI only) === */
+    :root {
+      --glass-opa: 0.5;
+      --glass-blur: 6px;
+    }
+    body { font-size: 15px; line-height: 1.45; }
+    h1, .hero-title { font-size: 28px; line-height: 1.25; letter-spacing: 0.2px; }
+    h2, .section-title { font-size: 20px; line-height: 1.3; }
+    h3 { font-size: 18px; line-height: 1.35; }
+    .small { font-size: 13px; }
+
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(34,211,238,0.65), 0 0 40px rgba(244,114,182,0.35); }
+    .btn-secondary:hover { box-shadow: 0 0 10px rgba(148,163,184,0.12); }
+
+    .status-pill,
+    .chip,
+    .kpi-chip {
+      position: relative;
+      padding-left: 18px;
+    }
+    .status-pill::before,
+    .chip::before,
+    .kpi-chip::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: currentColor;
+      opacity: 0.85;
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .ceo-hq-panel + .ceo-hq-panel::before,
+    .card-hd + .card-hd::before,
+    .section-card + .section-card::before,
+    .panel + .panel::before {
+      content: "";
+      display: block;
+      height: 1px;
+      margin: 18px 0 14px;
+      background: linear-gradient(90deg, transparent, rgba(34,211,238,0.4), rgba(244,114,182,0.3), transparent);
+      opacity: 0.6;
+    }
+
+    .hero-focus { position: relative; }
+    .hero-focus::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      box-shadow: 0 0 0 1px rgba(34,211,238,0.35), 0 0 22px rgba(34,211,238,0.12);
+    }
+
+    .micro-label {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(203,213,245,0.7);
+    }
+
+    .screen { animation: screenFade 0.15s ease-out; }
+    @keyframes screenFade {
+      from { opacity: 0.92; transform: translateY(2px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
@@ -7446,14 +8069,14 @@
       <button id="addToHomeBtn" class="btn btn-primary cta-shimmer" style="margin-top:18px;margin-bottom:18px;background:linear-gradient(120deg,#22d3ee,#f472b6);color:#0b1222;font-weight:800;letter-spacing:0.06em;box-shadow:0 12px 32px rgba(34,211,238,0.35),0 0 28px rgba(244,114,182,0.35);border:none;">
         Add to Home Screen
       </button>
-      <p class="small" style="margin-top:14px;">
-        Already a member?
+      <div class="landing-login-row">
+        <div class="landing-login-label">Already a member?</div>
         <span id="landingLoginLink" class="linkish">Log in</span>
-      </p>
-      <p class="small" style="margin-top:12px;margin-bottom:4px;">
-        Venue portal?
+      </div>
+      <div class="landing-login-row">
+        <div class="landing-login-label">Venue portal?</div>
         <button id="landingStaffLogin" class="linkish linkish-btn" type="button">Log in as venue staff</button>
-      </p>
+      </div>
       <div class="insta-cta-wrap">
         <div class="insta-cta">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -7591,7 +8214,7 @@
         You’ll get a digital Nightlife Pass you can show at bars to unlock perks.
       </p>
       <p class="small">
-        <span id="skipLoginBeta" class="linkish">Skip login (beta version)</span>
+        <span id="skipLoginBeta" class="linkish beta-ui">Skip login (beta version)</span>
       </p>
       <button type="button" class="btn btn-secondary back-btn" id="authBackBtn" style="margin-top:8px;display:block;margin-left:auto;margin-right:auto;max-width:240px;">
         Back to start
@@ -7738,6 +8361,11 @@
               <div id="membershipStatusDetail" style="font-size:11px;color:#94a3b8;max-width:240px;text-align:center;"></div>
             </div>
           </div>
+          <div class="pass-security" aria-hidden="true">
+            <div class="pass-micro">FoCo After Dark — 21+</div>
+            <div class="pass-holo"></div>
+          </div>
+          <div class="pass-security-stripe" aria-hidden="true"></div>
 
           <!-- Quick strip -->
           <div class="meta-row quick-strip">
@@ -7762,6 +8390,7 @@
                 <div class="user-row">
                 <div class="avatar" id="avatarInitials" title="Tap to edit badge">
                   <span class="avatar-text" id="avatarText">AW</span>
+                  <span class="avatar-flair" id="avatarFlair" aria-hidden="true"></span>
                 </div>
                 <div class="user-details">
                   <div class="user-name" id="passUserName">FoCo Member</div>
@@ -7821,29 +8450,53 @@
           </div>
           <div class="vip-member-deal" id="vipMemberDeal"></div>
 
-          <div class="community-stats" id="communityStats">
-            <div class="community-stat">
-              <span>Vouchers left</span>
-              <strong id="statVouchersLeft">0</strong>
+          <div class="member-hero card-hd hero-focus">
+            <div class="micro-label">Tonight’s value</div>
+            <div class="member-hero-header">
+              <div class="member-hero-title">Tonight’s value</div>
+              <div class="member-hero-sub">Your live pass balance + perks.</div>
             </div>
-            <div class="community-stat">
-              <span>Logins</span>
-              <strong id="statLoginCount">0</strong>
+            <div class="community-stats" id="communityStats">
+              <div class="community-stat">
+                <span>Vouchers left</span>
+                <strong id="statVouchersLeft">0</strong>
+              </div>
+              <div class="community-stat">
+                <span>Logins</span>
+                <strong id="statLoginCount">0</strong>
+              </div>
+              <div class="community-stat">
+                <span>Nights active</span>
+                <strong id="statActiveDays">0</strong>
+              </div>
+              <div class="community-stat">
+                <span>Tonight’s vibe</span>
+                <strong id="statTonightVibe">Social</strong>
+              </div>
+              <div class="community-stat desktop-only">
+                <span>Total redemptions</span>
+                <strong id="statRedemptions">0</strong>
+              </div>
+              <div class="community-stat desktop-only">
+                <span>Venues visited</span>
+                <strong id="statVenuesVisited">0</strong>
+              </div>
             </div>
-            <div class="community-stat">
-              <span>Nights active</span>
-              <strong id="statActiveDays">0</strong>
+            <div class="cheers-card" id="cheersCard">
+              <div class="cheers-label">Tonight’s cheers</div>
+              <div class="cheers-quote" id="cheersQuoteText">Cheers to late nights and loud laughs.</div>
             </div>
-          </div>
-          <div class="meta-note" id="voucherBalanceNote"></div>
+            <div class="meta-note" id="voucherBalanceNote"></div>
 
-          <div class="redeem-row" style="display:flex;flex-direction:column;gap:8px;">
-            <button type="button" class="btn redeem-btn" id="redeemTrigger">
-              Redeem a perk
-            </button>
-            <button type="button" class="btn add-vouchers-btn" id="buyDrinksBtn">
-              Buy redemption tokens
-            </button>
+            <div class="redeem-row" style="display:flex;flex-direction:column;gap:8px;">
+              <button type="button" class="btn redeem-btn" id="redeemTrigger">
+                Redeem a perk
+              </button>
+              <button type="button" class="btn add-vouchers-btn" id="buyDrinksBtn">
+                Buy redemption tokens
+              </button>
+            </div>
+            <div class="card-footer-note">Live updates · Tonight only</div>
           </div>
           <div class="secondary-actions" id="memberActionButtons">
             <button type="button" class="btn review-btn" id="rewardsTrigger">
@@ -8101,7 +8754,7 @@
         <div class="error" id="staffLoginError"></div>
         <button type="button" class="btn btn-primary" id="staffLoginSubmit">Log in</button>
       </form>
-      <p class="small" id="staffBetaHint" style="margin-top:10px;text-align:center;">
+      <p class="small beta-ui" id="staffBetaHint" style="margin-top:10px;text-align:center;">
         Beta access? Use venue code “beta” and passphrase “betastaff” (or “foco-beta”).
       </p>
       <button type="button" class="btn btn-secondary back-btn" id="staffLoginBack" style="margin-top:12px;">
@@ -8143,13 +8796,10 @@
         <option value="glass">Glass</option>
       </select>
     </div>
-    <div class="kpi-row">
-      <div class="kpi-chip" id="kpiScans">Scans tonight: <span>0</span></div>
-      <div class="kpi-chip" id="kpiAlerts">Alerts live: <span>0</span></div>
-    </div>
     <div class="staff-board">
       <!-- Card 1: Verify & lookup -->
-      <div class="staff-form" id="verifyCard">
+      <div class="staff-form staff-hero hero-focus" id="verifyCard">
+        <div class="micro-label">Verify console</div>
         <div class="staff-filter">Logged in as <strong id="staffVenueLabel">Venue</strong>.</div>
         <div class="staff-verify-head">
           <div class="staff-verify-title">Fast verify</div>
@@ -8188,6 +8838,7 @@
             <button type="submit" class="btn btn-primary">Check member ID</button>
           </div>
         </form>
+        <div class="card-footer-note">Live queue · Last 24h</div>
       </div>
 
       <!-- Card 2: Live pulse -->
@@ -8362,11 +9013,12 @@
           </div>
         </header>
 
-        <section class="ceo-hq-panel active" data-ceo-panel="overview">
+        <section class="ceo-hq-panel active hero-focus" data-ceo-panel="overview">
           <div class="ceo-panel-header">
             <h3>HQ Overview</h3>
             <p class="small">System health, realtime status, and today’s activity.</p>
           </div>
+          <div class="micro-label">HQ Overview</div>
           <div class="ceo-kpi-grid" id="ceoMetrics">
             <div class="ceo-kpi-card">
               <strong id="metricMemberTotal">0</strong>
@@ -8409,6 +9061,7 @@
               <span>recent reviews avg</span>
             </div>
           </div>
+          <div class="card-footer-note">Live metrics · Updated in real time</div>
           <div class="ceo-hq-cards">
             <div class="ceo-reset-card" id="ceoSystemHealthCard" style="display:none;">
               <div style="flex:1;">
@@ -8482,6 +9135,7 @@
                 <strong>Launch mode</strong>
                 <div class="meta-note">Toggle beta vs. live experience for all users.</div>
                 <div class="meta-note">Preview impact: affects non-CEO members only.</div>
+                <div class="meta-note">What this does: switches the public experience between beta and live. CEO Black Card is never affected.</div>
                 <div id="ceoLaunchStatus" class="meta-note" style="margin-top:6px;font-size:12px;color:#cbd5f5;">Loading…</div>
               </div>
               <button type="button" class="btn btn-secondary" id="ceoLaunchToggle">Toggle</button>
@@ -8490,13 +9144,14 @@
               <div style="flex:1;">
                 <strong>App lock</strong>
                 <div class="meta-note">Lock the app for everyone except the CEO.</div>
+                <div class="meta-note">What this does: blocks non-CEO writes. CEO Black Card stays active.</div>
                 <div id="ceoAppLockStatus" class="meta-note" style="margin-top:6px;font-size:12px;color:#cbd5f5;">Loading…</div>
                 <a id="ceoEmergencyUnlock" class="linkish" style="display:none;">Emergency Unlock</a>
               </div>
               <button type="button" class="btn btn-danger" id="ceoAppLockToggle">Lock app</button>
             </div>
           </div>
-          <div class="beta-switcher" id="ceoBetaSwitcher">
+          <div class="beta-switcher beta-ui" id="ceoBetaSwitcher">
             <div class="beta-switcher-header">
               <span class="beta-pill">Beta test controls</span>
               <span class="beta-note" id="ceoPreviewLabel">Live CEO view</span>
@@ -8654,10 +9309,11 @@
             <h3>Data Reset (Danger Zone)</h3>
             <p class="small">Use safe presets. CEO data is always preserved.</p>
           </div>
-          <div class="ceo-reset-card" id="ceoResetCard">
+          <div class="ceo-reset-card beta-ui" id="ceoResetCard">
             <div style="flex:1;">
               <strong>Reset beta data</strong>
               <div class="meta-note">Choose what to wipe. CEO remains untouched. “AI smart select” applies a safe preset.</div>
+              <div class="meta-note">What this does: wipes selected beta-only datasets. CEO Black Card, CEO account, and Stripe are never touched.</div>
               <div class="ceo-reset-grid" id="betaResetGrid">
                 <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="members" checked /> Stats & perks</label>
                 <label class="ceo-reset-toggle"><input type="checkbox" class="beta-reset-toggle" data-key="redemptions" checked /> Redemptions log</label>
@@ -8881,6 +9537,9 @@
           <li>Dreeboy LLC and participating venues reserve the right to revoke or invalidate vouchers for fraud or misuse.</li>
         </ul>
 
+        <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Local availability</h4>
+        <p>FoCo After Dark is designed for use in Fort Collins, CO and participating venues in the area. Offers, perks, and redemption availability vary by venue and may change without notice.</p>
+
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Service availability & realtime updates</h4>
         <p>FoCo After Dark relies on internet connectivity, device capability, and third-party services (including Firebase and payment processors). While we design for near real-time sync, delivery can be delayed by network conditions, device power settings, or platform constraints. We do not guarantee uninterrupted service or zero-latency delivery.</p>
 
@@ -8892,6 +9551,9 @@
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Venue responsibility</h4>
         <p>Venues control their own perks, redemption policies, and service decisions. Venue staff may refuse service, decline a redemption, or modify offers in accordance with local laws and venue policies.</p>
+
+        <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Account security</h4>
+        <p>You are responsible for safeguarding your login credentials and device access. If you believe your account has been accessed without permission, contact support immediately.</p>
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Data accuracy & audit logs</h4>
         <p>We log redemption attempts, verification events, and timestamps for operational, analytics, and fraud-prevention purposes. We strive for accuracy, but logs may be delayed or incomplete due to connectivity or device issues.</p>
@@ -8919,11 +9581,20 @@
           <h5 style="margin-top:10px;color:var(--accent-cyan);font-size:13px;">How we use information</h5>
           <p style="color:#cbd5f5;">We use information to operate and improve the service: to authenticate members, enable and verify voucher redemptions, prevent abuse and fraud, provide support, process payments, and analyze usage for product improvements. We may also use aggregated, de-identified data for analytics and partner reporting.</p>
 
+          <h5 style="margin-top:10px;color:var(--accent-cyan);font-size:13px;">AI features</h5>
+          <p style="color:#cbd5f5;">Some in-app features may use AI to generate responses or summaries (for example, HQ assistant tools). AI output may be inaccurate or incomplete. Do not rely on AI responses for legal, medical, or safety decisions. We may use prompts and system data to improve reliability, but we do not train public AI models on your private data without permission.</p>
+
           <h5 style="margin-top:10px;color:var(--accent-cyan);font-size:13px;">Sharing & third parties</h5>
           <p style="color:#cbd5f5;">We share data only as needed to provide the service: with payment processors, hosting and database providers (e.g., Firebase), analytics providers, and venues for redemption verification. We do not sell personal data. Any third party we use is contractually required to protect personal data and limit use to providing the requested services.</p>
 
           <h5 style="margin-top:10px;color:var(--accent-cyan);font-size:13px;">Data retention & your rights</h5>
           <p style="color:#cbd5f5;">We retain redemption and audit logs for operational and fraud-prevention purposes for a reasonable period (typically up to 3 years) unless otherwise required by law. You may request access to, correction of, or deletion of your personal data by contacting support. Deleting your account will remove your personal profile; some anonymized or aggregated logs may be retained for legal or operational reasons.</p>
+
+          <h5 style="margin-top:10px;color:var(--accent-cyan);font-size:13px;">Refunds, disputes & chargebacks</h5>
+          <p style="color:#cbd5f5;">Subscription fees are billed according to your membership plan. Refunds are not guaranteed and are evaluated case-by-case. If you believe a charge is incorrect, contact support first so we can review and resolve it before you file a dispute with your card issuer.</p>
+
+          <h5 style="margin-top:10px;color:var(--accent-cyan);font-size:13px;">Venue liability & third-party services</h5>
+          <p style="color:#cbd5f5;">Participating venues are independent businesses. They control their own pricing, promotions, and service decisions. FoCo After Dark is not responsible for venue policies, service outcomes, or changes to offers. Third-party services (payments, hosting, messaging) operate under their own terms and policies.</p>
 
           <h5 style="margin-top:10px;color:var(--accent-cyan);font-size:13px;">Security</h5>
           <p style="color:#cbd5f5;">We use industry-standard measures such as TLS for data in transit and rely on hosting providers' encryption-at-rest. Access to production systems is restricted and logged. We do not publish internal credentials or secrets in-app.</p>
@@ -9173,7 +9844,7 @@
 
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     const firebaseAuth = getAuth(app);
-    setPersistence(firebaseAuth, browserLocalPersistence).catch(() => {});
+    setPersistence(firebaseAuth, browserSessionPersistence).catch(() => {});
     const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|crios|android/i.test(navigator.userAgent);
     const firestoreSettings = isSafari
       ? {
@@ -9250,6 +9921,9 @@
       idleActive = false;
     }
     async function handleIdleTimeout() {
+      if (currentScreenName === "staffPortal" || staffSession?.venue) {
+        return;
+      }
       stopIdleTimer();
       try {
         await signOut(firebaseAuth);
@@ -9317,6 +9991,11 @@
     }
     function startIdleTimer() {
       stopIdleTimer();
+      if (currentScreenName === "staffPortal" || staffSession?.venue) {
+        return;
+      }
+      idleActive = true;
+      idleTimer = setTimeout(handleIdleTimeout, IDLE_TIMEOUT_MS);
     }
     ["mousemove", "keydown", "touchstart", "click"].forEach(evt => {
       document.addEventListener(evt, resetIdleTimer, { passive: true });
@@ -9476,7 +10155,9 @@
         maybeShowOnboarding();
         startIdleTimer();
       } else {
-        if (name === "staffPortal" || name === "ceoPortal" || name === "venues") {
+        if (name === "staffPortal") {
+          stopIdleTimer();
+        } else if (name === "ceoPortal" || name === "venues") {
           startIdleTimer();
           // Reveal portal contents with smooth staggered animation
           revealPortal(name);
@@ -10097,7 +10778,7 @@
         beginAuthSubmit();
         const attemptId = logAuthAttempt(email, "ceo");
           try {
-            await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
+            await setPersistence(firebaseAuth, browserSessionPersistence);
             try {
               console.info("[auth] pre-signin", {
                 mode: "ceo",
@@ -10206,7 +10887,7 @@
       beginAuthSubmit();
       const attemptId = logAuthAttempt(email, authMode);
       try {
-        await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
+        await setPersistence(firebaseAuth, browserSessionPersistence);
         console.info("[auth] pre-signin", {
           mode: authMode,
           email,
@@ -10273,7 +10954,7 @@
       }
       try {
         const remember = !!(rememberMe && rememberMe.checked);
-        await setPersistence(firebaseAuth, remember ? browserLocalPersistence : browserSessionPersistence);
+        await setPersistence(firebaseAuth, browserSessionPersistence);
         updateRememberedEmail(remember ? email : null);
         suppressLandingRedirectOnce = true;
         const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
@@ -16067,6 +16748,12 @@ let onboardingIndex = 0;
       if (pulsePrimary) {
         pulsePrimary.textContent = `Vibe: ${currentVibe === "blacking" ? "Blacking Out" : currentVibe[0].toUpperCase() + currentVibe.slice(1)}`;
       }
+      const vibeStat = document.getElementById("statTonightVibe");
+      if (vibeStat) {
+        vibeStat.textContent = currentVibe === "blacking"
+          ? "Blacking Out"
+          : currentVibe[0].toUpperCase() + currentVibe.slice(1);
+      }
     }
     function setVibe(vibeName) {
       const code = (currentPassCode || "").toUpperCase();
@@ -16966,10 +17653,15 @@ let onboardingIndex = 0;
     }
     function applyAvatarFlair(flair = "", opts = {}) {
       if (!avatarInitials) return;
+      const avatarFlairEl = document.getElementById("avatarFlair");
       const next = flair || "";
       const prev = currentAvatarFlair || "";
       currentAvatarFlair = next;
       avatarInitials.dataset.flair = next;
+      if (avatarFlairEl) {
+        avatarFlairEl.textContent = next;
+        avatarFlairEl.style.display = next ? "inline-flex" : "none";
+      }
       if (currentPassCode && allowLocalCache()) {
         setMemberDirectoryEntry(currentPassCode, { avatarFlair: next });
       }
@@ -21153,10 +21845,14 @@ let onboardingIndex = 0;
         document.getElementById("onboardingSkip"),
         document.getElementById("ceoBetaSwitcher"),
         document.getElementById("staffBetaHint"),
-        document.getElementById("skipLoginBeta")
+        document.getElementById("skipLoginBeta"),
+        document.getElementById("ceoResetCard")
       ];
       elements.forEach(el => {
         if (!el) return;
+        el.style.display = hideBeta ? "none" : "";
+      });
+      document.querySelectorAll(".beta-ui").forEach(el => {
         el.style.display = hideBeta ? "none" : "";
       });
       // Update top-level body class for any CSS hooks
@@ -23568,8 +24264,278 @@ let onboardingIndex = 0;
       document.addEventListener("touchstart", handleHapticEvent, { passive: true });
     }
 
+  const cheersQuotes = [
+    "Cheers to late nights and loud laughs.",
+    "Here’s to flirty glances and neon chances.",
+    "Sip slow, sparkle fast.",
+    "Raise a glass to reckless charisma.",
+    "Dark bars, bright hearts.",
+    "Tonight tastes like trouble.",
+    "One drink closer to legendary.",
+    "Glow up, drink up.",
+    "No curfew, just courage.",
+    "Kiss the night, not the clock.",
+    "Cocktails over caution.",
+    "Sinfully smooth, respectfully loud.",
+    "Good nights hit harder.",
+    "Lips red, receipts blue.",
+    "Pour decisions welcome.",
+    "Flirt first, ask later.",
+    "Cheers to bad ideas and great stories.",
+    "Hush now — the music’s talking.",
+    "Stay reckless, drink responsible-ish.",
+    "Neon makes everything honest.",
+    "We don’t count drinks, we count moments.",
+    "Midnight looks good on you.",
+    "Dress code: dangerous.",
+    "Let the bass do the talking.",
+    "Tonight’s vibe: don’t text your ex.",
+    "Bar lights, soft bites.",
+    "Make it a double, make it a story.",
+    "Dirty martini, clean intent.",
+    "Sip, smile, disappear.",
+    "Keep it wild, keep it classy.",
+    "Glow in, go out.",
+    "The night called. We answered.",
+    "Sparkle like you mean it.",
+    "Fewer rules, better nights.",
+    "Raise your standards and your glass.",
+    "Loose ties, tight circles.",
+    "Whispered plans, loud toasts.",
+    "Nightlife is a contact sport.",
+    "Kisses taste better after midnight.",
+    "Flirty, not sorry.",
+    "Take the shot, take the story.",
+    "Neon makes the truth look prettier.",
+    "You look like trouble I can toast to.",
+    "Clever drinks for dirty minds.",
+    "A little sin, a lot of sparkle.",
+    "Pour me a plot twist.",
+    "Make the bar your runway.",
+    "Good trouble, better company.",
+    "Keep your secrets, share your shots.",
+    "Stay gold, stay bold.",
+    "We came for one. We stayed for the vibe.",
+    "Confidence on the rocks.",
+    "Eyes up, glass up.",
+    "Make it loud, make it last.",
+    "All glitter, no guilt.",
+    "Bad decisions, premium ambiance.",
+    "The night is my plus one.",
+    "A toast to being unforgettable.",
+    "Show up. Glow up.",
+    "Drinks strong, boundaries stronger.",
+    "Meet me where the music is.",
+    "Neon nights, velvet fights.",
+    "We’re not lost, we’re bar-hopping.",
+    "Kiss me like the DJ dropped it.",
+    "Dressed to spill secrets.",
+    "Bite your lip, sip your drink.",
+    "Eyes on me, tab on you.",
+    "Caution is cute but overrated.",
+    "Let’s make memories we can keep.",
+    "Keep the spark, lose the signal.",
+    "Tonight’s currency: charisma.",
+    "Soft hearts, sharp heels.",
+    "Sway with me, not away from me.",
+    "No regrets, just receipts.",
+    "Flirt in italics.",
+    "We don’t do quiet.",
+    "Sip happens.",
+    "Rendezvous with chaos.",
+    "Bad ideas taste like citrus.",
+    "Strobe lights, smooth lines.",
+    "Make it bold, make it yours.",
+    "Velvet nights, sharp edges.",
+    "Your move, my glass.",
+    "Neon on, doubts off.",
+    "Stay out, stand out.",
+    "The bar knows our names.",
+    "Cheers to the mischief in you.",
+    "Whiskey whispers, tequila tells.",
+    "Take a sip, take a risk.",
+    "Loud laugh, soft touch.",
+    "Confidence pours first.",
+    "Slower sips, faster sparks.",
+    "We’re here for the glow.",
+    "Shots are cheap, stories are priceless.",
+    "Steal a look, leave a mark.",
+    "No soft launches tonight.",
+    "Suits, skirts, and secrets.",
+    "Guilty pleasures, clean exits.",
+    "Make it naughty, keep it nice.",
+    "A little chaos never hurt.",
+    "Sip it like you mean it.",
+    "Talk less, dance more.",
+    "Take me to the good part.",
+    "Glow hard or go home.",
+    "Tequila sunsets, midnight confessions.",
+    "Let’s be the reason it’s a good night.",
+    "Flirt with the city lights.",
+    "Neon makes everyone look dangerous.",
+    "One drink closer to a new story.",
+    "Tonight is the after party.",
+    "Dress up, show down.",
+    "Kisses cost extra.",
+    "This round’s on fate.",
+    "Cheers to the chaos we chose."
+    ,"Consent is sexy, confidence is louder."
+    ,"Hot, honest, and a little bit dangerous."
+    ,"Pour me a wicked good time."
+    ,"Raise your glass and your standards."
+    ,"Flirty, filthy, and fully in control."
+    ,"Good girls go to bed. Bad girls go to brunch."
+    ,"Dirty minds, clean boundaries."
+    ,"A little spice, a lot of respect."
+    ,"Dress like a snack, drink like a boss."
+    ,"Cheers to the men who listen and the women who lead."
+    ,"Let’s get a little messy—on the dance floor."
+    ,"Make it sexy, make it safe."
+    ,"Soft hearts, sharp tongues."
+    ,"One drink, two looks, three sparks."
+    ,"Naughty by choice, classy by default."
+    ,"Buy me a drink and mind your manners."
+    ,"Confidence is the hottest thing in the room."
+    ,"A dirty martini for a clean slate."
+    ,"Hot takes and harder sips."
+    ,"Cheers to strong women and kind men."
+    ,"Kiss the neck, skip the drama."
+    ,"The vibe is consent and cocktails."
+    ,"Sweet talk, strong pour."
+    ,"Flirty eyes, fearless heart."
+    ,"Keep it sexy, keep it respectful."
+    ,"Sip slow, choose fast."
+    ,"We love a man who says ‘Are you into this?’"
+    ,"We love a woman who knows what she wants."
+    ,"Dirty jokes, clean intentions."
+    ,"Your body, your rules, your round."
+    ,"Tequila and truth—handle with care."
+    ,"Flirt responsibly."
+    ,"A little lust, a lot of trust."
+    ,"Bold lips, bold boundaries."
+    ,"Say it with your eyes, not your ego."
+    ,"Sexy is a mindset, not a dress code."
+    ,"Badass women, good dudes, great drinks."
+    ,"Let the shot be strong, not your assumptions."
+    ,"Sip happens—so does respect."
+    ,"I like my drinks dirty and my consent clear."
+    ,"Hot girls hydrate between rounds."
+    ,"Hot guys ask first."
+    ,"Classy, but we swear."
+    ,"Kinda filthy, fully fabulous."
+    ,"Flirty and feral—in a good way."
+    ,"Cute but can handle a double."
+    ,"Dirty martinis, clean comms."
+    ,"Seduce the night, not the standards."
+    ,"Good vibes, better boundaries."
+    ,"Neon lights, grown-up nights."
+    ,"Play nice, play hard."
+    ,"You can look, you can ask, you can listen."
+    ,"Confidence looks good on everyone."
+    ,"A toast to women who take up space."
+    ,"A toast to men who make it safe."
+    ,"She’s the main character. He’s the supporting act."
+    ,"Drink up, show up, respect up."
+    ,"If it’s not a ‘hell yes,’ it’s a no."
+    ,"Flirt with the night, not with consent."
+    ,"Raise a glass to mutual obsession."
+    ,"Keep your hands to yourself unless invited."
+    ,"Bold moves, soft asks."
+    ,"Cuss a little. Care a lot."
+    ,"Sexy doesn’t mean available."
+    ,"Sweet smiles, sharp comebacks."
+    ,"We love a king with emotional intelligence."
+    ,"We love a queen with standards."
+    ,"Hot, horny, and highly respectful."
+    ,"Sassy, classy, and a little bad‑ass‑y."
+    ,"A little dirty, a lot of dignity."
+    ,"Cheers to consent, chemistry, and cocktails."
+    ,"If you’re into it, say it."
+    ,"If you’re not, say it louder."
+    ,"We drink for fun, not for pressure."
+    ,"Make it playful, not pushy."
+    ,"Your yes is sexy. Your no is powerful."
+    ,"Talk dirty, listen clean."
+    ,"Tonight’s theme: bold and bothered."
+    ,"Respect turns me on."
+    ,"Kiss like you mean it—or don’t."
+    ,"Good guys finish last round."
+    ,"Good girls choose their own pace."
+    ,"Bad boys ask nicely."
+    ,"Bad bitches set the bar."
+    ,"Flirt with purpose."
+    ,"Be a gentleman, not a ghost."
+    ,"Be a goddess, not a guest."
+    ,"Dirty dancing, clean consent."
+    ,"Shots? Sure. Pressure? Never."
+    ,"Grown folks only."
+    ,"Seduction is a conversation."
+    ,"Let’s get reckless—with kindness."
+    ,"Love the night. Respect the room."
+    ,"We’re adults. Act like it."
+    ,"Bold lips, brave asks."
+    ,"Spicy banter, sweet boundaries."
+    ,"Say please, say thank you, say yes."
+    ,"Hot mess, but make it polite."
+    ,"Flirty but firm."
+    ,"Cuss with charm."
+    ,"Glow up and own it."
+    ,"We came to sip, not to slip."
+    ,"The hottest thing? Mutual respect."
+    ,"No means no. Cheers means cheers."
+    ,"Cute, crude, and courteous."
+    ,"Steamy looks, chill vibes."
+    ,"Bad decisions are better with consent."
+    ,"Kinks are cool. Consent is cooler."
+    ,"We toast to power and pleasure."
+    ,"Own the night, share the spotlight."
+    ,"A little heat, a lot of heart."
+    ,"Sexy is confidence. Consent is mandatory."
+    ,"Late night, clear minds."
+    ,"Drink up, lift each other up."
+    ,"We flirt. We listen. We respect."
+    ,"Bold moves, kind hearts."
+    ,"Tonight’s menu: sass, class, and a little ass."
+    ,"Hot takes, hotter consent."
+    ,"The bar is open. So is the conversation."
+    ,"Cheers to women who lead and men who learn."
+    ,"Adults only, respect always."
+    ,"Turn ons: kindness, confidence, boundaries."
+    ,"Raise your glass, not your voice."
+    ,"Dirty jokes, clean exits."
+    ,"Party hard, behave harder."
+    ,"Sexy nights, safe hearts."
+    ,"Clever, dirty, and downright respectful."
+    ,"Lights low, standards high."
+    ,"If it’s mutual, make it memorable."
+    ,"Fun as hell, decent as always."
+    ,"Shamelessly classy."
+    ,"We do bold, not rude."
+    ,"Flirt fast, consent first."
+    ,"Tonight’s vibe: grown & glowing."
+    ,"Power looks good on everyone."
+    ,"Respect is the real flex."
+    ,"Kiss with permission, dance with pride."
+  ];
+  let cheersQuoteTimer = null;
+  function initCheersQuotes() {
+    const el = document.getElementById("cheersQuoteText");
+    if (!el) return;
+    let idx = Math.floor(Math.random() * cheersQuotes.length);
+    el.textContent = cheersQuotes[idx];
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    if (cheersQuoteTimer) clearInterval(cheersQuoteTimer);
+    cheersQuoteTimer = setInterval(() => {
+      idx = (idx + 1) % cheersQuotes.length;
+      el.textContent = cheersQuotes[idx];
+    }, 5000);
+  }
+
   // One-time hooks
   attachCopyHandlers();
+  initCheersQuotes();
 
   window.addEventListener("pageshow", refreshOnLaunch);
 
