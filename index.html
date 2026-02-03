@@ -25189,7 +25189,8 @@ let onboardingIndex = 0;
       return payload;
     }
 
-    async function initWeatherFx(){
+    let weatherFxInterval = null;
+    async function refreshWeatherFx(){
       const el = fxEl();
       if(!el) return;
       try{
@@ -25200,14 +25201,15 @@ let onboardingIndex = 0;
       }catch{
         applyFx({ mode: "cloudy", tn: "day" });
       }
+    }
 
-      setInterval(async () => {
+    async function initWeatherFx(){
+      await refreshWeatherFx();
+      if (weatherFxInterval) clearInterval(weatherFxInterval);
+      weatherFxInterval = setInterval(async () => {
         try{
           localStorage.removeItem(CACHE_KEY);
-          const w = await fetchWeather();
-          const tn = w.isDay ? "day" : "night";
-          const mode = deriveMode(w.code, w.wind);
-          applyFx({ mode, tn });
+          await refreshWeatherFx();
         }catch{}
       }, 30 * 60 * 1000);
     }
@@ -25216,6 +25218,17 @@ let onboardingIndex = 0;
       document.addEventListener("DOMContentLoaded", initWeatherFx);
     } else {
       initWeatherFx();
+    }
+
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: "geolocation" }).then((perm) => {
+        perm.onchange = () => {
+          if (perm.state === "granted") {
+            localStorage.removeItem(CACHE_KEY);
+            refreshWeatherFx();
+          }
+        };
+      }).catch(() => {});
     }
   })();
 
