@@ -230,6 +230,72 @@
     .screen.active {
       display: block;
     }
+    .status-banner {
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      width: 100%;
+      padding: 10px 14px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      color: #e2e8f0;
+      background: linear-gradient(120deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.9));
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      backdrop-filter: blur(8px);
+    }
+    .maintenance-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 28px 18px;
+    }
+    .maintenance-card {
+      width: min(520px, 100%);
+      text-align: center;
+      padding: 28px 22px;
+      border-radius: 20px;
+      background: rgba(10, 14, 24, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+    }
+    .maintenance-card img {
+      width: 96px;
+      height: 96px;
+      object-fit: contain;
+      margin: 0 auto 12px;
+      filter: drop-shadow(0 0 18px rgba(34,211,238,0.45));
+    }
+    .maintenance-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #f8fafc;
+    }
+    .maintenance-message {
+      color: #cbd5f5;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .maintenance-subtext {
+      color: #94a3b8;
+      font-size: 12px;
+      margin-bottom: 18px;
+    }
+    .maintenance-retry {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      border-radius: 14px;
+      border: 1px solid rgba(34, 211, 238, 0.4);
+      background: linear-gradient(120deg, rgba(34,211,238,0.18), rgba(56,189,248,0.12));
+      color: #e2e8f0;
+      font-weight: 600;
+    }
     #staffLoginScreen,
     #staffPortalScreen {
       background: linear-gradient(160deg, rgba(6, 12, 24, 0.97), rgba(8, 14, 28, 0.95));
@@ -8095,7 +8161,18 @@
 </head>
   <body>
       <div class="realtime-pill" id="realtimeStatusPill" data-state="syncing">Syncing</div>
+      <div id="statusBanner" class="status-banner" style="display:none;"></div>
       <div id="app">
+        <!-- MAINTENANCE SCREEN -->
+        <div id="maintenanceScreen" class="screen maintenance-screen">
+          <div class="maintenance-card">
+            <img src="foco-logo.png" alt="FoCo After Dark logo" />
+            <div class="maintenance-title">Maintenance mode</div>
+            <div class="maintenance-message" id="maintenanceMessage">🍺 Keg is tapped — maintenance in progress.</div>
+            <div class="maintenance-subtext" id="maintenanceSubtext">Please check back in a few minutes.</div>
+            <button type="button" class="maintenance-retry" id="maintenanceRetryBtn">Retry</button>
+          </div>
+        </div>
         <!-- LANDING SCREEN -->
         <div id="landingScreen" class="screen active">
           <div class="landing-bg">
@@ -10114,6 +10191,7 @@
     const screens = {
       landing: document.getElementById("landingScreen"),
       auth: document.getElementById("authScreen"),
+      maintenance: document.getElementById("maintenanceScreen"),
       membership: document.getElementById("membershipScreen"),
       payment: document.getElementById("paymentScreen"),
       pass: document.getElementById("passScreen"),
@@ -10174,6 +10252,9 @@
     let appLockedAt = null;
     let appLockOverride = false;
     let appLockSignoutPending = false;
+    let maintenanceModeActive = false;
+    let maintenanceBootChecked = false;
+    let maintenanceRetryInFlight = false;
     const PENDING_MEMBERSHIP_STORAGE_KEY = "pendingMembershipUser";
     let profileWheelRotation = 0;
     let profileWheelSpinInFlight = false;
@@ -11489,6 +11570,10 @@
     const userMiniDisplay = document.getElementById("userMiniDisplay");
     const refreshBtn = document.getElementById("refreshBtn");
     const landingRefreshBtn = document.getElementById("landingRefreshBtn");
+    const statusBanner = document.getElementById("statusBanner");
+    const maintenanceMessage = document.getElementById("maintenanceMessage");
+    const maintenanceSubtext = document.getElementById("maintenanceSubtext");
+    const maintenanceRetryBtn = document.getElementById("maintenanceRetryBtn");
     const logoutLink = document.getElementById("logoutLink");
     const passUserName = document.getElementById("passUserName");
     const userUsername = document.getElementById("userUsername");
@@ -22058,6 +22143,153 @@ let onboardingIndex = 0;
     function maybeApplyPendingRefresh() {
       // Updates are user-initiated only; no auto-reload.
     }
+    function setStatusBanner(message) {
+      if (!statusBanner) return;
+      if (message) {
+        statusBanner.textContent = message;
+        statusBanner.style.display = "block";
+      } else {
+        statusBanner.textContent = "";
+        statusBanner.style.display = "none";
+      }
+    }
+    function renderMaintenanceScreen(data = {}) {
+      maintenanceModeActive = true;
+      const msg = data.maintenanceMessage || "🍺 Keg is tapped — maintenance in progress.";
+      const until = data.maintenanceUntil?.toDate ? data.maintenanceUntil.toDate() : (data.maintenanceUntil ? new Date(data.maintenanceUntil) : null);
+      if (maintenanceMessage) maintenanceMessage.textContent = msg;
+      if (maintenanceSubtext) {
+        maintenanceSubtext.textContent = until
+          ? `Please check back by ${until.toLocaleString("en-US", { timeZone: "America/Denver" })}.`
+          : "Please check back in a few minutes.";
+      }
+      setStatusBanner("");
+      showScreen("maintenance");
+    }
+    function clearMaintenanceScreen() {
+      maintenanceModeActive = false;
+      if (currentScreenName === "maintenance") {
+        showScreen("landing");
+      }
+    }
+    async function fetchAppSettingsOnce() {
+      if (!db) return null;
+      try {
+        const ref = doc(db, "settings", "app");
+        const snap = await getDoc(ref);
+        return snap.exists() ? snap.data() : {};
+      } catch (err) {
+        console.warn("Settings preflight failed", err);
+        return null;
+      }
+    }
+    let authListenerStarted = false;
+    function startAuthListener() {
+      if (authListenerStarted) return;
+      authListenerStarted = true;
+      onAuthStateChanged(firebaseAuth, async (user) => {
+        authReady = true;
+        detachAllRealtimeListeners("auth-change");
+        blockedWriteLabels.clear();
+        lastAuthUid = user?.uid || null;
+        console.info("[auth] state", {
+          uid: user?.uid || null,
+          isAnonymous: !!user?.isAnonymous,
+          email: user?.email || null
+        });
+        const loginForced = forceShowLogin || window.location.hash === "#login";
+        if (!user) {
+          if (authTransition || authSubmitInFlight) {
+            return;
+          }
+          authClaimsReady = false;
+          authClaims = null;
+          memberProfile = null;
+          memberDocRef = null;
+          currentPassCode = null;
+          ceoSession = false;
+          isCeoAccount = false;
+          document.body.classList.remove("ceo-active");
+          localStorage.removeItem(ACCENT_KEY);
+          localStorage.removeItem(BG_KEY);
+          applyAccentTheme("cyan");
+          applyBackgroundTheme("default");
+          stopCeoMembersRealtime();
+          clearCeoRedemptionsRealtime();
+          clearCeoReviewsRealtime();
+          stopCeoMessagesListener();
+          stopCloseOutReportsListener();
+          updateCeoPassUI();
+          if (loginForced) {
+            suppressLandingRedirectOnce = true;
+            renderLoginScreen();
+          } else {
+            showScreen("landing");
+            suppressLandingRedirectOnce = false;
+          }
+          initialAuthResolved = true;
+          return;
+        }
+        if (loginForced) {
+          forceShowLogin = false;
+          clearLoginHash();
+        }
+        if (user && forceStaffLogoutOnLoad) {
+          forceStaffLogoutOnLoad = false;
+          staffSession = null;
+          localStorage.removeItem("staffSession");
+          showScreen("landing");
+          try { await firebaseAuth.signOut(); } catch (_) {}
+          initialAuthResolved = true;
+          return;
+        }
+        await refreshAuthClaims(user);
+        const allowAnonSession = user.isAnonymous && (pendingStaffVenueId || staffSession || betaPassMode);
+        if (user.isAnonymous && !allowAnonSession) {
+          console.info("[auth] anonymous blocked → landing");
+          authClaimsReady = false;
+          authClaims = null;
+          memberProfile = null;
+          memberDocRef = null;
+          currentPassCode = null;
+          localStorage.removeItem(ACCENT_KEY);
+          localStorage.removeItem(BG_KEY);
+          applyAccentTheme("cyan");
+          applyBackgroundTheme("default");
+          showScreen("landing");
+          initialAuthResolved = true;
+          return;
+        }
+        if (pendingStaffVenueId && isStaffAccount(user)) {
+          applyStaffSession(pendingStaffVenueId);
+          pendingStaffVenueId = null;
+        }
+        if (restoreStaffSessionIfPossible(user)) {
+          attachRealtimeForCurrentContext("staff-restore");
+          initialAuthResolved = true;
+          return;
+        }
+        await handleAuthenticatedUser(user);
+        attachRealtimeForCurrentContext("auth-change");
+        initialAuthResolved = true;
+      });
+    }
+    async function bootWithMaintenanceCheck() {
+      if (maintenanceBootChecked) return;
+      maintenanceBootChecked = true;
+      const data = await fetchAppSettingsOnce();
+      if (data?.maintenanceMode === true) {
+        renderMaintenanceScreen(data);
+        return;
+      }
+      maintenanceModeActive = false;
+      if (data?.statusBannerEnabled && data?.statusBannerMessage) {
+        setStatusBanner(data.statusBannerMessage);
+      } else {
+        setStatusBanner("");
+      }
+      startAuthListener();
+    }
     function watchSettingsDoc() {
       if (!db || !authReady || !firebaseAuth.currentUser) return;
       if (settingsPollTimer) {
@@ -22070,6 +22302,13 @@ let onboardingIndex = 0;
         isLaunched = !!data.launched;
         appLocked = !!data.appLocked;
         appLockedAt = data.appLockedAt || null;
+        if (!maintenanceModeActive) {
+          if (data.statusBannerEnabled && data.statusBannerMessage) {
+            setStatusBanner(data.statusBannerMessage);
+          } else {
+            setStatusBanner("");
+          }
+        }
         if (isLaunched && betaPassMode) {
           exitBetaPassMode();
           localStorage.removeItem("betaSkipActive");
@@ -24653,92 +24892,28 @@ let onboardingIndex = 0;
 
   window.addEventListener("pageshow", refreshOnLaunch);
 
-  onAuthStateChanged(firebaseAuth, async (user) => {
-    authReady = true;
-    detachAllRealtimeListeners("auth-change");
-    blockedWriteLabels.clear();
-    lastAuthUid = user?.uid || null;
-    console.info("[auth] state", {
-      uid: user?.uid || null,
-      isAnonymous: !!user?.isAnonymous,
-      email: user?.email || null
-    });
-    const loginForced = forceShowLogin || window.location.hash === "#login";
-    if (!user) {
-      if (authTransition || authSubmitInFlight) {
-        return;
-      }
-      authClaimsReady = false;
-      authClaims = null;
-      memberProfile = null;
-      memberDocRef = null;
-      currentPassCode = null;
-      ceoSession = false;
-      isCeoAccount = false;
-      document.body.classList.remove("ceo-active");
-      localStorage.removeItem(ACCENT_KEY);
-      localStorage.removeItem(BG_KEY);
-      applyAccentTheme("cyan");
-      applyBackgroundTheme("default");
-      stopCeoMembersRealtime();
-      clearCeoRedemptionsRealtime();
-      clearCeoReviewsRealtime();
-      stopCeoMessagesListener();
-      stopCloseOutReportsListener();
-      updateCeoPassUI();
-      if (loginForced) {
-        suppressLandingRedirectOnce = true;
-        renderLoginScreen();
+  if (maintenanceRetryBtn) {
+    maintenanceRetryBtn.addEventListener("click", async () => {
+      if (maintenanceRetryInFlight) return;
+      maintenanceRetryInFlight = true;
+      const data = await fetchAppSettingsOnce();
+      if (data?.maintenanceMode === true) {
+        renderMaintenanceScreen(data);
       } else {
-        showScreen("landing");
-        suppressLandingRedirectOnce = false;
+        maintenanceModeActive = false;
+        if (data?.statusBannerEnabled && data?.statusBannerMessage) {
+          setStatusBanner(data.statusBannerMessage);
+        } else {
+          setStatusBanner("");
+        }
+        clearMaintenanceScreen();
+        startAuthListener();
       }
-      initialAuthResolved = true;
-      return;
-    }
-    if (loginForced) {
-      forceShowLogin = false;
-      clearLoginHash();
-    }
-    if (user && forceStaffLogoutOnLoad) {
-      forceStaffLogoutOnLoad = false;
-      staffSession = null;
-      localStorage.removeItem("staffSession");
-      showScreen("landing");
-      try { await firebaseAuth.signOut(); } catch (_) {}
-      initialAuthResolved = true;
-      return;
-    }
-    await refreshAuthClaims(user);
-    const allowAnonSession = user.isAnonymous && (pendingStaffVenueId || staffSession || betaPassMode);
-    if (user.isAnonymous && !allowAnonSession) {
-      console.info("[auth] anonymous blocked → landing");
-      authClaimsReady = false;
-      authClaims = null;
-      memberProfile = null;
-      memberDocRef = null;
-      currentPassCode = null;
-      localStorage.removeItem(ACCENT_KEY);
-      localStorage.removeItem(BG_KEY);
-      applyAccentTheme("cyan");
-      applyBackgroundTheme("default");
-      showScreen("landing");
-      initialAuthResolved = true;
-      return;
-    }
-    if (pendingStaffVenueId && isStaffAccount(user)) {
-      applyStaffSession(pendingStaffVenueId);
-      pendingStaffVenueId = null;
-    }
-    if (restoreStaffSessionIfPossible(user)) {
-      attachRealtimeForCurrentContext("staff-restore");
-      initialAuthResolved = true;
-      return;
-    }
-    await handleAuthenticatedUser(user);
-    attachRealtimeForCurrentContext("auth-change");
-    initialAuthResolved = true;
-  });
+      maintenanceRetryInFlight = false;
+    });
+  }
+
+  bootWithMaintenanceCheck();
 
   window.addEventListener("online", () => {
     logRealtime("online");
