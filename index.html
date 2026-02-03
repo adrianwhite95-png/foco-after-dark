@@ -4195,6 +4195,8 @@
       font-size: 30px;
       font-weight: 900;
       letter-spacing: 0.08em;
+      text-align: center;
+      width: 100%;
       color: rgba(255,255,255,0.75);
       text-shadow: 0 0 8px rgba(34,211,238,0.35);
       filter: drop-shadow(0 0 8px rgba(34,211,238,0.25));
@@ -8018,7 +8020,6 @@
       inset: -15%;
       pointer-events: none;
       background:
-        repeating-linear-gradient(180deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 1px, transparent 2px, transparent 6px),
         radial-gradient(circle at 50% 50%, rgba(34,211,238,0.18), transparent 60%);
       opacity: 0.35;
       mix-blend-mode: normal;
@@ -8054,6 +8055,9 @@
       opacity: 1 !important;
       mix-blend-mode: screen;
     }
+    .staff-radar .radar-grid {
+      animation: radarGridPulse 3.8s ease-in-out infinite !important;
+    }
     .staff-radar .radar-swirl {
       animation: radarSwirl var(--radar-swirl-speed, 16s) linear infinite !important;
     }
@@ -8076,6 +8080,11 @@
       0% { transform: rotate(0deg); opacity: 0.2; }
       50% { transform: rotate(180deg); opacity: 0.32; }
       100% { transform: rotate(360deg); opacity: 0.2; }
+    }
+    @keyframes radarGridPulse {
+      0% { opacity: 0.22; }
+      50% { opacity: 0.42; }
+      100% { opacity: 0.22; }
     }
     @keyframes staffRadarSweep {
       0% { background-position: 0% 40%; }
@@ -8936,7 +8945,7 @@
           <div class="radar-sweep"></div>
           <div class="radar-streaks" id="radarStreaks"></div>
           <div class="radar-bursts" id="radarBursts"></div>
-          <div class="radar-graffiti" id="radarGraffiti">Live Floor</div>
+          <div class="radar-graffiti" id="radarGraffiti"></div>
           <div class="radar-pings" id="radarPings"></div>
           <div class="radar-particles" id="radarParticles"></div>
         </div>
@@ -16865,7 +16874,7 @@ let onboardingIndex = 0;
     }
     function setRadarGraffiti(name) {
       if (!radarGraffiti) return;
-      radarGraffiti.textContent = name || "Live Floor";
+      radarGraffiti.textContent = name || "";
     }
     function loadStaffAccent(venueId) {
       if (!venueId) return null;
@@ -19350,8 +19359,8 @@ let onboardingIndex = 0;
       const hot = recent.filter(entry => now - new Date(entry.timestamp || now).getTime() <= 7 * 60 * 1000);
         if (staffRadarCount) staffRadarCount.textContent = `${recent.length} scans · last hour`;
         if (staffRadarMood) staffRadarMood.textContent = radarStatusLabel(recent.length, hot.length);
-      const intensity = Math.min(1, (recent.length + hot.length * 1.4) / 12);
-      const power = Math.min(1, (recent.length + hot.length * 0.5) / 10);
+      const intensity = Math.max(0.18, Math.min(1, (recent.length + hot.length * 1.4) / 12));
+      const power = Math.max(0.12, Math.min(1, (recent.length + hot.length * 0.5) / 10));
       if (staffRadarEl) {
         const hue = Math.max(160, Math.min(205, 185 - power * 25));
         const sweepOpacity = 0.45 + power * 0.45;
@@ -21287,6 +21296,7 @@ let onboardingIndex = 0;
       updateStaffKpis(tonightAlerts.filter(a => a.venueId === venueId).length, !!vipDealsCache[venueId]);
       scheduleAutoCloseOut();
       showScreen("staffPortal");
+      updateStaffRadar();
       if (verifyCodeInput) verifyCodeInput.focus();
       handlePendingScanVerification();
       startIdleTimer();
@@ -21336,7 +21346,7 @@ let onboardingIndex = 0;
         memberProfile.staffSession = null;
       }
       stopStaffMessagesListener();
-      setRadarGraffiti("Live Floor");
+      setRadarGraffiti("");
       staffVenueReceipts = [];
       renderStaffSentReceipts();
       renderStaffVipDeal();
