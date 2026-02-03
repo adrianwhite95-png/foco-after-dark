@@ -3105,6 +3105,29 @@
       mix-blend-mode: screen;
       filter: blur(10px);
     }
+    .weather-fx[data-mode="thunder"] .fx-thunder::before,
+    .weather-fx[data-mode="thunder"] .fx-thunder::after{
+      content:"";
+      position:absolute;
+      top:-6%;
+      width:46px;
+      height:72%;
+      opacity:0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(186,230,253,0.9));
+      clip-path: polygon(46% 0, 70% 0, 54% 27%, 74% 27%, 28% 100%, 44% 58%, 24% 58%);
+      filter: drop-shadow(0 0 12px rgba(186,230,253,0.9));
+      mix-blend-mode: screen;
+      transform: rotate(6deg);
+    }
+    .weather-fx[data-mode="thunder"] .fx-thunder::before{
+      left:63%;
+      animation: lightningBoltA 6.5s infinite;
+    }
+    .weather-fx[data-mode="thunder"] .fx-thunder::after{
+      left:34%;
+      height:58%;
+      animation: lightningBoltB 6.5s infinite;
+    }
     @keyframes thunderFlash{
       0%, 84%, 100% { opacity:0; }
       86% { opacity:0.9; }
@@ -3112,9 +3135,25 @@
       90% { opacity:0.65; }
       92% { opacity:0.05; }
     }
+    @keyframes lightningBoltA{
+      0%, 84%, 100% { opacity:0; transform: rotate(6deg) scale(0.98); }
+      86% { opacity:0.95; transform: rotate(4deg) scale(1.02); }
+      87% { opacity:0.2; }
+      89% { opacity:0.82; }
+      91% { opacity:0.08; }
+    }
+    @keyframes lightningBoltB{
+      0%, 85%, 100% { opacity:0; transform: rotate(-4deg) scale(0.97); }
+      87% { opacity:0.85; transform: rotate(-3deg) scale(1.01); }
+      88% { opacity:0.15; }
+      90% { opacity:0.68; }
+      92% { opacity:0.06; }
+    }
     @media (prefers-reduced-motion: reduce){
       .weather-fx .fx-layer{ animation:none !important; }
       .weather-fx .fx-precip{ display:none !important; }
+      .weather-fx .fx-thunder::before,
+      .weather-fx .fx-thunder::after{ animation:none !important; opacity:0 !important; }
     }
     .landing-asterism {
       position: absolute;
