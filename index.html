@@ -10075,6 +10075,7 @@
     <div class="modal-card" style="max-height:80vh;overflow:auto;">
       <div class="modal-header">
         <div class="modal-title">Analytics</div>
+        <button class="btn btn-secondary" id="ceoAnalyticsDownloadPdf" type="button" style="padding:6px 10px;font-size:12px;">Download PDF</button>
         <button class="modal-close" id="ceoAnalyticsClose" type="button">Close</button>
       </div>
       <div id="ceoAnalyticsContent"></div>
@@ -10466,6 +10467,8 @@
     let settingsPollTimer = null;
     let ceoMembersUnsub = null;
     let ceoMembersCache = [];
+    let ceoAnalyticsLatestSnapshot = null;
+    let ceoAnalyticsWeeklyHistory = [];
     let ceoMembersFilterKey = "all";
     let ceoMembersSearchTerm = "";
     let rewardsProgress = { count: 0, threshold: 5, available: false, rewardType: null, cycleKey: null, claimed: 0 };
@@ -12328,6 +12331,7 @@
     const ceoAnalyticsBtn = document.getElementById("ceoAnalyticsBtn");
     const ceoAnalyticsModal = document.getElementById("ceoAnalyticsModal");
     const ceoAnalyticsClose = document.getElementById("ceoAnalyticsClose");
+    const ceoAnalyticsDownloadPdf = document.getElementById("ceoAnalyticsDownloadPdf");
     const ceoAnalyticsContent = document.getElementById("ceoAnalyticsContent");
     const ceoResetCard = document.getElementById("ceoResetCard");
     const ceoMembersCard = document.getElementById("ceoMembersCard");
@@ -12604,8 +12608,6 @@
     }
     const ACCENT_KEY = "accentTheme";
     const CEO_PASS_ID = "DREE4695";
-    const ACTIVE_PROFILE_ALLOWLIST = new Set(["drunk ceo", "foco ceo", "dreeboy", "dree boy", "beta dude", "betadude"]);
-    const ACTIVE_PROFILE_PASS_ALLOWLIST = new Set([CEO_PASS_ID, "BETA"]);
     const STAFF_ACCENT_PREFIX = "staffAccent_";
     const IDLE_TIMEOUT_MS = 2 * 60 * 1000;
     const STATS_CACHE_PREFIX = "statsCache_";
@@ -20852,11 +20854,13 @@ let onboardingIndex = 0;
     function renderCeoAnalytics() {
       if (!ceoAnalyticsContent) return;
       const snapshot = computeAnalyticsSnapshot();
+      ceoAnalyticsLatestSnapshot = snapshot;
       upsertWeeklyAnalyticsSnapshot(snapshot);
       const weeklyHistory = Object.values(loadWeeklyAnalyticsSnapshots())
         .sort((a, b) => new Date(b.capturedAt || 0).getTime() - new Date(a.capturedAt || 0).getTime())
         .slice(0, 6)
         .map(entry => `${entry.weekKey}: ${entry.verifiedCount} verified · ${entry.activeProfiles} active profiles`);
+      ceoAnalyticsWeeklyHistory = weeklyHistory.slice();
       const vipPurchases = summarizeVipVoucherPurchases();
       ceoAnalyticsContent.innerHTML = `
         <div class="analytics-grid">
@@ -21396,6 +21400,98 @@ let onboardingIndex = 0;
         });
       }
       return lines.flatMap(line => wrapPdfLine(sanitizePdfText(line), 90));
+    }
+    function buildCeoAnalyticsPdfLines(snapshot = {}, weeklyHistory = []) {
+      const demographics = Array.isArray(snapshot.demographics) ? snapshot.demographics : [];
+      const peakTimes = Array.isArray(snapshot.peakTimes) ? snapshot.peakTimes : [];
+      const nightlyTrends = Array.isArray(snapshot.nightlyTrends) ? snapshot.nightlyTrends : [];
+      const perkPopularity = Array.isArray(snapshot.perkPopularity) ? snapshot.perkPopularity : [];
+      const topVenues = Array.isArray(snapshot.topVenues) ? snapshot.topVenues : [];
+      const topMembers = Array.isArray(snapshot.topMembers) ? snapshot.topMembers : [];
+      const tokenSummary = snapshot.tokenSummary || {};
+      const lines = [
+        "FoCo After Dark Analytics Report",
+        `Generated (MT): ${formatMST(snapshot.capturedAt || Date.now())}`,
+        `Week: ${snapshot.weekKey || getWeekToken()}`,
+        `Active profiles: ${snapshot.activeProfiles || 0}`,
+        "",
+        "Customer demographics:"
+      ];
+      demographics.forEach(item => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("Verification funnel:");
+      lines.push(`- Verified: ${snapshot.verifiedCount || 0}`);
+      lines.push(`- Pending: ${snapshot.pendingCount || 0}`);
+      lines.push(`- Denied/Canceled: ${snapshot.deniedCount || 0}`);
+      lines.push("");
+      lines.push("Core metrics:");
+      lines.push(`- ROI: ${snapshot.roi || "n/a"}`);
+      lines.push(`- Member return rate: ${snapshot.memberReturnRate || 0}%`);
+      lines.push(`- Avg tab standard: $${snapshot?.avgTabs?.standard || "0.00"}`);
+      lines.push(`- Avg tab VIP: $${snapshot?.avgTabs?.vip || "0.00"}`);
+      lines.push("");
+      lines.push("Peak times:");
+      (peakTimes.length ? peakTimes : ["No redemptions yet."]).slice(0, 5).forEach(item => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("Nightly redemption trends:");
+      (nightlyTrends.length ? nightlyTrends : ["No redemptions yet."]).slice(0, 6).forEach(item => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("Top venues:");
+      (topVenues.length ? topVenues : ["No verified scans yet."]).slice(0, 5).forEach(item => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("Top members:");
+      (topMembers.length ? topMembers : ["No member redemptions yet."]).slice(0, 5).forEach(item => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("Perk popularity:");
+      (perkPopularity.length ? perkPopularity : ["No verified redemptions yet."]).slice(0, 5).forEach(item => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("Token purchases:");
+      lines.push(`- Purchases: ${tokenSummary.count || 0}`);
+      lines.push(`- Tokens sold: ${tokenSummary.tokens || 0}`);
+      lines.push(`- Revenue: $${Number(tokenSummary.revenue || 0).toFixed(2)}`);
+      lines.push("");
+      lines.push("Weekly snapshots:");
+      (weeklyHistory.length ? weeklyHistory : ["No weekly snapshots yet."]).slice(0, 6).forEach(item => lines.push(`- ${item}`));
+      return lines.flatMap(line => wrapPdfLine(sanitizePdfText(line), 90));
+    }
+    async function downloadCeoAnalyticsReportPdf(snapshot = null, weeklyHistory = null) {
+      const activeSnapshot = snapshot || ceoAnalyticsLatestSnapshot || computeAnalyticsSnapshot();
+      const activeHistory = Array.isArray(weeklyHistory) ? weeklyHistory : (ceoAnalyticsWeeklyHistory || []);
+      if (!activeSnapshot) return;
+      const lines = buildCeoAnalyticsPdfLines(activeSnapshot, activeHistory);
+      const pdf = buildSimplePdf(lines);
+      const blob = new Blob([pdf], { type: "application/pdf" });
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const weekToken = (activeSnapshot.weekKey || getWeekToken()).replace(/[^\w-]/g, "");
+      const filename = `analytics-${weekToken}-${stamp}.pdf`;
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{ description: "PDF Document", accept: { "application/pdf": [".pdf"] } }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          showToast("Analytics PDF saved.");
+          return;
+        } catch (err) {
+          if (err?.name !== "AbortError") {
+            console.warn("Analytics PDF save picker failed, falling back to download", err);
+          } else {
+            return;
+          }
+        }
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast("Analytics PDF downloaded.");
     }
     function buildSimplePdf(lines) {
       const fontSize = 11;
@@ -23202,7 +23298,7 @@ let onboardingIndex = 0;
     function normalizeMemberName(value = "") {
       return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
     }
-    function isActiveProfileEntry(data = {}, uid = "") {
+    function getActiveProfileKey(data = {}, uid = "") {
       const passCode = (data.passCode || "").toString().trim().toUpperCase();
       const names = [
         data.username,
@@ -23211,9 +23307,14 @@ let onboardingIndex = 0;
         data.legalName
       ].map(normalizeMemberName).filter(Boolean);
       const uidName = normalizeMemberName(uid);
-      if (passCode && ACTIVE_PROFILE_PASS_ALLOWLIST.has(passCode)) return true;
-      if (uidName && ACTIVE_PROFILE_ALLOWLIST.has(uidName)) return true;
-      return names.some(name => ACTIVE_PROFILE_ALLOWLIST.has(name));
+      const allNames = new Set([...names, uidName].filter(Boolean));
+      if (passCode === CEO_PASS_ID || allNames.has("drunk ceo") || allNames.has("foco ceo")) return "ceo";
+      if (passCode === "BETA" || allNames.has("beta dude") || allNames.has("betadude")) return "beta";
+      if (allNames.has("dreeboy") || allNames.has("dree boy")) return "dreeboy";
+      return null;
+    }
+    function isActiveProfileEntry(data = {}, uid = "") {
+      return !!getActiveProfileKey(data, uid);
     }
     function isAnonymousMemberEntry(data = {}) {
       if (data.isAnonymous === true || data.anonymous === true) return true;
@@ -23225,6 +23326,54 @@ let onboardingIndex = 0;
         || (data.passCode || "").toString().trim()
       );
       return !hasIdentity;
+    }
+    function toMillisSafe(value) {
+      if (!value) return 0;
+      if (value?.toDate) {
+        const ms = value.toDate().getTime();
+        return Number.isFinite(ms) ? ms : 0;
+      }
+      const ms = new Date(value).getTime();
+      return Number.isFinite(ms) ? ms : 0;
+    }
+    function getActiveProfilePriority(profileKey, data = {}) {
+      const tier = normalizeTierKey(data.tier || data.membershipTier || data.membership || data.plan || "");
+      const override = (data.membershipOverride || data.override || "").toString().toUpperCase();
+      const passCode = (data.passCode || "").toString().trim().toUpperCase();
+      const lastActivityMs = Math.max(
+        toMillisSafe(data.lastLoginAt || data.lastLoginDate || data.lastActiveAt || data.lastActive || 0),
+        toMillisSafe(data.updatedAt || 0),
+        toMillisSafe(data.createdAt || data.memberSince || data.joinedAt || 0)
+      );
+      let priority = lastActivityMs;
+      if (profileKey === "ceo") {
+        if (passCode === CEO_PASS_ID) priority += 1e14;
+        if (tier === "ceo" || override === "CEO") priority += 2e14;
+        if (data.ceo === true) priority += 3e14;
+      } else if (profileKey === "dreeboy") {
+        if (tier === "free" || override === "CEO_FREE" || data.freeMembership === true) priority += 1e14;
+      } else if (profileKey === "beta") {
+        if (tier === "beta") priority += 1e14;
+      }
+      return priority;
+    }
+    function dedupeActiveMembersByProfile(items = []) {
+      const bestByProfile = new Map();
+      items.forEach(item => {
+        const data = item?.data || item || {};
+        const uid = item?.uid || data.uid || "";
+        const profileKey = getActiveProfileKey(data, uid);
+        if (!profileKey) return;
+        const score = getActiveProfilePriority(profileKey, data);
+        const prev = bestByProfile.get(profileKey);
+        if (!prev || score > prev.score) {
+          bestByProfile.set(profileKey, { score, data, uid });
+        }
+      });
+      return Array.from(bestByProfile.values()).map(entry => ({
+        data: entry.data,
+        uid: entry.uid
+      }));
     }
     function shouldIncludeCeoMember(data = {}, uid = "") {
       const lowerUid = (uid || "").toLowerCase();
@@ -23348,9 +23497,11 @@ let onboardingIndex = 0;
         // can be excluded by Firestore orderBy semantics. We sort client-side instead.
         const q = query(collection(db, "members"), limit(1500));
         ceoMembersUnsub = subscribeSnapshot("ceoMembers", q, null, (snap) => {
-          ceoMembersCache = snap.docs
-            .filter(docSnap => shouldIncludeCeoMember(docSnap.data() || {}, docSnap.id))
-            .map(docSnap => normalizeCeoMemberData(docSnap.data() || {}, docSnap.id))
+          const candidates = snap.docs
+            .map(docSnap => ({ data: docSnap.data() || {}, uid: docSnap.id }))
+            .filter(item => shouldIncludeCeoMember(item.data, item.uid));
+          ceoMembersCache = dedupeActiveMembersByProfile(candidates)
+            .map(item => normalizeCeoMemberData(item.data || {}, item.uid || ""))
             .sort((a, b) => {
               const aDate = a?.createdAt;
               const bDate = b?.createdAt;
@@ -23423,6 +23574,7 @@ let onboardingIndex = 0;
         const filter = document.querySelector(".ceo-reset-card [data-ceo-filter].active");
         const filterKey = filter ? filter.getAttribute("data-ceo-filter") : "all";
         users = users.filter(u => shouldIncludeCeoMember(u || {}, u?.uid || ""));
+        users = dedupeActiveMembersByProfile(users).map(item => ({ ...(item.data || {}), uid: item.uid || "" }));
         users = users.filter(u => {
           if (filterKey === "vip") return (u.tier || "").toLowerCase() === "vip";
           if (filterKey === "standard") return (u.tier || "").toLowerCase() === "standard";
@@ -23640,6 +23792,12 @@ let onboardingIndex = 0;
       ceoAnalyticsBtn.addEventListener("click", () => {
         renderCeoAnalytics();
         ceoAnalyticsModal.classList.add("active");
+      });
+    }
+    if (ceoAnalyticsDownloadPdf) {
+      ceoAnalyticsDownloadPdf.addEventListener("click", () => {
+        if (!ceoAnalyticsLatestSnapshot) renderCeoAnalytics();
+        downloadCeoAnalyticsReportPdf(ceoAnalyticsLatestSnapshot, ceoAnalyticsWeeklyHistory);
       });
     }
     // Demo mode controls removed
