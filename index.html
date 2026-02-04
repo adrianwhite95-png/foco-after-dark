@@ -9568,20 +9568,6 @@
           <div class="ceo-hq-grid">
             <section class="ceo-panel">
               <div class="ceo-panel-header">
-                <h4>Generate CEO vouchers</h4>
-                <p>One-tap codes for guests. Shows up as CEO-issued in venue redemptions.</p>
-              </div>
-              <div class="ceo-panel-actions">
-                <button type="button" class="btn btn-secondary" data-ceo-gen-perk="shot">Shot perk voucher</button>
-                <button type="button" class="btn btn-secondary" data-ceo-gen-perk="drink">Drink perk voucher</button>
-                <button type="button" class="btn btn-secondary" data-ceo-gen-perk="free_drink">Free drink voucher</button>
-              </div>
-              <p class="support-success" id="ceoGenSuccess" style="display:none;margin-top:8px;">Code generated.</p>
-              <div id="ceoIssuedList" class="ceo-issued-scroll"></div>
-            </section>
-
-            <section class="ceo-panel">
-              <div class="ceo-panel-header">
                 <h4>Grant monthly tokens</h4>
                 <p>Add redemption tokens to a member for the current month only.</p>
               </div>
@@ -12743,6 +12729,7 @@
     let staffTickerEntries = [];
     let heroSlideIndex = 0;
     let heroCarouselInterval = null;
+    let testimonialTicker = null;
     let pitchIndex = 0;
     let alertsRotationIndex = 0;
     let badgeDirectory = loadBadgeDirectory();
@@ -12771,6 +12758,12 @@
       testimonialQuote.textContent = pick.quote;
       testimonialSource.textContent = pick.source;
     }
+    function startTestimonialTicker() {
+      if (testimonialTicker) clearInterval(testimonialTicker);
+      testimonialTicker = setInterval(() => {
+        updateRandomTestimonial();
+      }, 5000);
+    }
     function setLandingTagline() {
       if (!landingTagline) return;
       const pick = LANDING_TAGLINES[Math.floor(Math.random() * LANDING_TAGLINES.length)];
@@ -12781,6 +12774,7 @@
       return;
     }
     updateRandomTestimonial();
+    startTestimonialTicker();
     startLandingSlideshow();
 
     async function displayScanConfirmation(code) {
@@ -22987,6 +22981,20 @@ let onboardingIndex = 0;
       if (Number.isNaN(date.getTime())) return "—";
       return date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric" });
     }
+    function shouldIncludeCeoMember(data = {}, uid = "") {
+      const lowerUid = (uid || "").toLowerCase();
+      const role = (data.role || "").toString().toLowerCase();
+      const tier = (data.tier || data.membershipTier || "").toString().toLowerCase();
+      const passCode = (data.passCode || "").toString().trim();
+      const isVenueOrStaff = data.staff === true
+        || role === "staff"
+        || role === "venue"
+        || tier === "staff"
+        || tier === "venue"
+        || lowerUid.startsWith("staff_");
+      if (isVenueOrStaff) return false;
+      return Boolean(uid) || Boolean(passCode);
+    }
     function normalizeCeoMemberData(data = {}, uid = "") {
       const rawTier = (data.tier || data.membershipTier || data.membership || data.plan || "").toString();
       const tierKey = normalizeTierKey(rawTier);
@@ -23091,7 +23099,9 @@ let onboardingIndex = 0;
       try {
         const q = query(collection(db, "members"), orderBy("createdAt", "desc"), limit(1500));
         ceoMembersUnsub = subscribeSnapshot("ceoMembers", q, null, (snap) => {
-          ceoMembersCache = snap.docs.map(docSnap => normalizeCeoMemberData(docSnap.data() || {}, docSnap.id));
+          ceoMembersCache = snap.docs
+            .filter(docSnap => shouldIncludeCeoMember(docSnap.data() || {}, docSnap.id))
+            .map(docSnap => normalizeCeoMemberData(docSnap.data() || {}, docSnap.id));
           renderCeoMembersTable();
         }, (err) => {
           console.warn("ceo members realtime failed", err);
@@ -23156,16 +23166,19 @@ let onboardingIndex = 0;
         }
         const filter = document.querySelector(".ceo-reset-card [data-ceo-filter].active");
         const filterKey = filter ? filter.getAttribute("data-ceo-filter") : "all";
+        users = users.filter(u => shouldIncludeCeoMember(u || {}, u?.uid || ""));
         users = users.filter(u => {
           if (filterKey === "vip") return (u.tier || "").toLowerCase() === "vip";
+          if (filterKey === "standard") return (u.tier || "").toLowerCase() === "standard";
+          if (filterKey === "free") {
+            const tier = (u.tier || "").toLowerCase();
+            const override = (u.membershipOverride || "").toString().toUpperCase();
+            return tier === "free" || override === "CEO_FREE";
+          }
           if (filterKey === "paused") return !!u.paused;
           if (filterKey === "past_due") return (u.paymentStatus || "").toLowerCase() === "past_due";
           return true;
         });
-        const tierCounts = counts.tier || {};
-        const genderCounts = counts.gender || {};
-        const statusCounts = counts.status || {};
-        const total = counts.total || 0;
         ceoMembersCache = users.map(u => normalizeCeoMemberData(u || {}, u.uid || ""));
         renderCeoMembersTable();
       } catch (err) {
