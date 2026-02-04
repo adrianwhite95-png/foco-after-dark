@@ -23187,11 +23187,20 @@ let onboardingIndex = 0;
       }
       stopCeoMembersRealtime();
       try {
-        const q = query(collection(db, "members"), orderBy("createdAt", "desc"), limit(1500));
+        // Do not orderBy createdAt here; older docs without createdAt (ex: legacy CEO_FREE accounts)
+        // can be excluded by Firestore orderBy semantics. We sort client-side instead.
+        const q = query(collection(db, "members"), limit(1500));
         ceoMembersUnsub = subscribeSnapshot("ceoMembers", q, null, (snap) => {
           ceoMembersCache = snap.docs
             .filter(docSnap => shouldIncludeCeoMember(docSnap.data() || {}, docSnap.id))
-            .map(docSnap => normalizeCeoMemberData(docSnap.data() || {}, docSnap.id));
+            .map(docSnap => normalizeCeoMemberData(docSnap.data() || {}, docSnap.id))
+            .sort((a, b) => {
+              const aDate = a?.createdAt;
+              const bDate = b?.createdAt;
+              const aMs = aDate?.toDate ? aDate.toDate().getTime() : (aDate ? new Date(aDate).getTime() : 0);
+              const bMs = bDate?.toDate ? bDate.toDate().getTime() : (bDate ? new Date(bDate).getTime() : 0);
+              return (Number.isFinite(bMs) ? bMs : 0) - (Number.isFinite(aMs) ? aMs : 0);
+            });
           renderCeoMembersTable();
         }, (err) => {
           console.warn("ceo members realtime failed", err);
