@@ -6453,6 +6453,41 @@
     .ceo-table tr:nth-child(even) td {
       background: rgba(255,255,255,0.01);
     }
+    .ceo-member-preview-card {
+      max-width: 620px;
+    }
+    .ceo-member-preview-meta {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+    .ceo-member-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+    }
+    .ceo-member-preview-item {
+      background: rgba(9, 14, 28, 0.7);
+      border: 1px solid rgba(148,163,184,0.2);
+      border-radius: 12px;
+      padding: 10px;
+      min-height: 58px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .ceo-member-preview-item .label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+    .ceo-member-preview-item .value {
+      font-size: 13px;
+      color: #e2e8f0;
+      word-break: break-word;
+    }
     .ceo-reset-footer {
       display: flex;
       flex-direction: column;
@@ -10084,6 +10119,17 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="ceoMemberPreviewModal">
+    <div class="modal-card ceo-member-preview-card" style="max-height:80vh;overflow:auto;">
+      <div class="modal-header">
+        <div class="modal-title" id="ceoMemberPreviewTitle">Member profile</div>
+        <button class="modal-close" id="ceoMemberPreviewClose" type="button">Close</button>
+      </div>
+      <p class="ceo-member-preview-meta" id="ceoMemberPreviewMeta">Quick profile details.</p>
+      <div class="ceo-member-preview-grid" id="ceoMemberPreviewBody"></div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="ceoRedemptionModal">
     <div class="modal-card" style="max-height:80vh;overflow:auto;">
       <div class="modal-header">
@@ -12335,6 +12381,11 @@
     const ceoAnalyticsClose = document.getElementById("ceoAnalyticsClose");
     const ceoAnalyticsDownloadPdf = document.getElementById("ceoAnalyticsDownloadPdf");
     const ceoAnalyticsContent = document.getElementById("ceoAnalyticsContent");
+    const ceoMemberPreviewModal = document.getElementById("ceoMemberPreviewModal");
+    const ceoMemberPreviewTitle = document.getElementById("ceoMemberPreviewTitle");
+    const ceoMemberPreviewMeta = document.getElementById("ceoMemberPreviewMeta");
+    const ceoMemberPreviewBody = document.getElementById("ceoMemberPreviewBody");
+    const ceoMemberPreviewClose = document.getElementById("ceoMemberPreviewClose");
     const ceoResetCard = document.getElementById("ceoResetCard");
     const ceoMembersCard = document.getElementById("ceoMembersCard");
     const ceoMembersRefresh = document.getElementById("ceoMembersRefresh");
@@ -23408,6 +23459,7 @@ let onboardingIndex = 0;
       const statusKey = paused ? "paused" : ((data.paymentStatus || data.membershipStatus || "active").toString().toLowerCase());
       const statusLabel = paused ? "Paused" : statusKey.replace("_", " ");
       const lastActiveRaw = data.lastLoginAt || data.lastLoginDate || data.lastActiveAt || data.lastActive || null;
+      const createdAtRaw = data.createdAt || data.memberSince || data.joinedAt || null;
       return {
         uid,
         uidShort: uid ? uid.slice(0, 6) : "—",
@@ -23419,10 +23471,67 @@ let onboardingIndex = 0;
         statusLabel,
         paused,
         gender: data.gender || "Unspecified",
-        createdAt: data.createdAt || data.memberSince || data.joinedAt || null,
-        createdAtLabel: formatCeoDate(data.createdAt || data.memberSince || data.joinedAt || null),
-        lastActiveLabel: formatCeoDateTime(lastActiveRaw)
+        createdAt: createdAtRaw,
+        createdAtLabel: formatCeoDate(createdAtRaw),
+        lastActiveLabel: formatCeoDateTime(lastActiveRaw),
+        email: (data.email || data.contactEmail || "").toString().trim(),
+        paymentStatus: (data.paymentStatus || data.membershipStatus || "").toString().trim(),
+        membershipOverride: override || "",
+        freeMembership: data.freeMembership === true || override === "CEO_FREE",
+        birthDateLabel: formatCeoDate(data.birthDate || data.dob || null),
+        phone: (data.phone || data.phoneNumber || "").toString().trim()
       };
+    }
+    function escapeHtmlText(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+    function closeCeoMemberPreviewModal() {
+      if (ceoMemberPreviewModal) ceoMemberPreviewModal.classList.remove("active");
+    }
+    function openCeoMemberPreviewModal(uid = "") {
+      if (!ceoMemberPreviewModal || !ceoMemberPreviewBody || !uid) return;
+      const member = ceoMembersCache.find((m) => m.uid === uid);
+      if (!member) {
+        showToast("Member profile unavailable.");
+        return;
+      }
+      const snippets = [
+        { label: "Username", value: member.username || "—" },
+        { label: "Pass ID", value: member.passCode || "—" },
+        { label: "UID", value: member.uid || "—" },
+        { label: "Tier", value: member.tier || "—" },
+        { label: "Status", value: member.statusLabel || "—" },
+        { label: "Gender", value: member.gender || "—" },
+        { label: "Joined", value: member.createdAtLabel || "—" },
+        { label: "Last active", value: member.lastActiveLabel || "—" },
+        { label: "Email", value: member.email || "—" },
+        { label: "Birthday", value: member.birthDateLabel || "—" },
+        { label: "Phone", value: member.phone || "—" },
+        { label: "Override", value: member.membershipOverride || "—" },
+        { label: "Free membership", value: member.freeMembership ? "Yes" : "No" },
+        { label: "Payment state", value: member.paymentStatus || "—" }
+      ];
+      if (ceoMemberPreviewTitle) ceoMemberPreviewTitle.textContent = member.username || "Member profile";
+      if (ceoMemberPreviewMeta) {
+        const parts = [
+          member.passCode ? `Pass ${member.passCode}` : "",
+          member.uid ? `UID ${member.uid}` : ""
+        ].filter(Boolean);
+        ceoMemberPreviewMeta.textContent = parts.join(" · ") || "Quick profile details.";
+      }
+      ceoMemberPreviewBody.innerHTML = snippets.map((item) => `
+        <div class="ceo-member-preview-item">
+          <div class="label">${escapeHtmlText(item.label)}</div>
+          <div class="value">${escapeHtmlText(item.value)}</div>
+        </div>
+      `).join("");
+      ceoMemberPreviewModal.classList.add("active");
     }
     function getFilteredCeoMembers() {
       const term = ceoMembersSearchTerm.trim().toLowerCase();
@@ -23477,7 +23586,7 @@ let onboardingIndex = 0;
                 <button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:11px;border-radius:10px;" data-member-uid="${m.uid}" data-member-paused="${m.paused ? "1" : "0"}">
                   ${m.paused ? "Unpause" : "Pause"}
                 </button>
-                <button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:11px;border-radius:10px;" disabled title="Coming soon">
+                <button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:11px;border-radius:10px;" data-member-view="${m.uid}">
                   View
                 </button>
               </div>
@@ -23678,6 +23787,12 @@ let onboardingIndex = 0;
     }
     if (ceoMembersList) {
       ceoMembersList.addEventListener("click", async (e) => {
+        const viewBtn = e.target.closest("button[data-member-view]");
+        if (viewBtn) {
+          const memberUid = viewBtn.getAttribute("data-member-view") || "";
+          openCeoMemberPreviewModal(memberUid);
+          return;
+        }
         const btn = e.target.closest("button[data-member-uid]");
         if (!btn) return;
         const uid = btn.getAttribute("data-member-uid");
@@ -23809,6 +23924,14 @@ let onboardingIndex = 0;
     if (ceoAnalyticsModal) {
       ceoAnalyticsModal.addEventListener("click", (e) => {
         if (e.target === ceoAnalyticsModal) ceoAnalyticsModal.classList.remove("active");
+      });
+    }
+    if (ceoMemberPreviewClose) {
+      ceoMemberPreviewClose.addEventListener("click", closeCeoMemberPreviewModal);
+    }
+    if (ceoMemberPreviewModal) {
+      ceoMemberPreviewModal.addEventListener("click", (e) => {
+        if (e.target === ceoMemberPreviewModal) closeCeoMemberPreviewModal();
       });
     }
 
