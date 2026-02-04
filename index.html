@@ -8732,7 +8732,7 @@
                 <div class="app-title" style="font-size:16px;margin-bottom:2px;">
                   <span>FoCo</span> After Dark
                 </div>
-                <div class="tagline" style="font-size:11px;margin-bottom:0;color:#67e8f9;">
+                <div class="tagline" id="passBrandTagline" style="font-size:11px;margin-bottom:0;color:#67e8f9;">
                   Good nights hit harder when you’re earning while you party.
                 </div>
               </div>
@@ -10558,6 +10558,9 @@
       } else {
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
       }
+      if (name === "pass") {
+        setPassBrandTagline();
+      }
       if (name === "auth") {
         applyRememberedEmailToForm();
         resetAuthSubmitState();
@@ -11842,23 +11845,91 @@
     const profileWheelCaption = document.getElementById("profileWheelCaption");
     const profileWheelResultMini = document.getElementById("profileWheelResultMini");
     const landingTagline = document.getElementById("landingTagline");
+    const passBrandTagline = document.getElementById("passBrandTagline");
     const addToHomeBtn = document.getElementById("addToHomeBtn");
     const currentUsersCount = document.getElementById("currentUsersCount");
     let deferredInstallPrompt = null;
     const addToHomeOverlay = document.getElementById("addToHomeOverlay");
     const addToHomeClose = document.getElementById("addToHomeClose");
-    const LANDING_TAGLINES = [
-      "Go out. Get rewarded.",
-      "Unlock the night.",
-      "Earn while you party.",
-      "Your nightlife cheat code.",
-      "Make your night worth more.",
-      "If you’re going out… you might as well get rewarded for being bad.",
-      "Where bad decisions come with perks.",
-      "You’re one tap away from a better night than everyone else.",
-      "Your best nights start with a little temptation.",
-      "Where the wild nights pay off."
-    ];
+    function buildNightTaglinePool(seedList = [], leadIns = [], payoffs = [], targetCount = 120) {
+      const pool = Array.isArray(seedList) ? [...seedList] : [];
+      for (let i = 0; i < leadIns.length && pool.length < targetCount; i += 1) {
+        for (let j = 0; j < payoffs.length && pool.length < targetCount; j += 1) {
+          pool.push(`${leadIns[i]} ${payoffs[j]}`);
+        }
+      }
+      return pool;
+    }
+    const LANDING_TAGLINES = buildNightTaglinePool(
+      [
+        "Go out. Get rewarded.",
+        "Unlock the night.",
+        "Earn while you party.",
+        "Your nightlife cheat code.",
+        "Make your night worth more.",
+        "If you’re going out… you might as well get rewarded for being bad.",
+        "Where bad decisions come with perks.",
+        "You’re one tap away from a better night than everyone else.",
+        "Your best nights start with a little temptation.",
+        "Where the wild nights pay off."
+      ],
+      [
+        "Pour the first drink,",
+        "Fort Collins after dark says",
+        "Your tab should work harder,",
+        "Late starts and loud bars mean",
+        "Trade ordinary nights for",
+        "If you're grabbing one more round,",
+        "When the lights drop low,",
+        "For dirty martinis and clean perks,",
+        "Stack your drinks with",
+        "When the music gets reckless,"
+      ],
+      [
+        "you deserve perks that hit harder.",
+        "the night should pay you back.",
+        "your pass should keep up.",
+        "better decisions start with better rewards.",
+        "make the city fund your fun.",
+        "redeem first, party second.",
+        "let your pass carry the damage.",
+        "keep it messy, keep it rewarded.",
+        "sip smarter and stay out longer.",
+        "this is where nightlife gets useful.",
+        "good chaos should come with benefits.",
+        "every round should move your balance.",
+        "make every bar stop count tonight."
+      ],
+      130
+    );
+    const PASS_BRAND_TAGLINES = buildNightTaglinePool(
+      [
+        "Good nights hit harder when you’re earning while you party."
+      ],
+      [
+        "Sip bold,",
+        "Drink first,",
+        "Midnight plans only get better when",
+        "One more round works best when",
+        "Dirty martinis, clean balances,",
+        "When the bar gets loud,",
+        "For nights that start late,",
+        "Tonight’s tab should"
+      ],
+      [
+        "your pass keeps paying you back.",
+        "your perks keep up with your pace.",
+        "every redemption lands in real time.",
+        "your profile earns while you pour.",
+        "your balance should move with every vibe.",
+        "every round should hit your value.",
+        "let the perks carry the night.",
+        "turn every pour into payoff.",
+        "make every toast count tonight.",
+        "stack perks while the room gets reckless."
+      ],
+      130
+    );
     const LANDING_SLIDES = [
       "assets/landing.jpg",
       "https://images.unsplash.com/photo-1605901309584-66bf3f02f5e3?auto=format&fit=crop&w=2000&q=80",
@@ -12730,6 +12801,8 @@
     let heroSlideIndex = 0;
     let heroCarouselInterval = null;
     let testimonialTicker = null;
+    let landingTaglineTicker = null;
+    let passBrandTaglineTicker = null;
     let pitchIndex = 0;
     let alertsRotationIndex = 0;
     let badgeDirectory = loadBadgeDirectory();
@@ -12764,10 +12837,25 @@
         updateRandomTestimonial();
       }, 5000);
     }
+    function startHeadlineTicker() {
+      if (landingTaglineTicker) clearInterval(landingTaglineTicker);
+      landingTaglineTicker = setInterval(() => {
+        if (currentScreenName === "landing") setLandingTagline();
+      }, 5000);
+      if (passBrandTaglineTicker) clearInterval(passBrandTaglineTicker);
+      passBrandTaglineTicker = setInterval(() => {
+        if (currentScreenName === "pass") setPassBrandTagline();
+      }, 5000);
+    }
     function setLandingTagline() {
       if (!landingTagline) return;
       const pick = LANDING_TAGLINES[Math.floor(Math.random() * LANDING_TAGLINES.length)];
       landingTagline.textContent = pick;
+    }
+    function setPassBrandTagline() {
+      if (!passBrandTagline) return;
+      const pick = PASS_BRAND_TAGLINES[Math.floor(Math.random() * PASS_BRAND_TAGLINES.length)];
+      passBrandTagline.textContent = pick;
     }
     function startLandingSlideshow() {
       // Static hero image (slideshow disabled)
@@ -12775,6 +12863,8 @@
     }
     updateRandomTestimonial();
     startTestimonialTicker();
+    setPassBrandTagline();
+    startHeadlineTicker();
     startLandingSlideshow();
 
     async function displayScanConfirmation(code) {
