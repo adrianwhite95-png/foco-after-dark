@@ -12,6 +12,7 @@
 const functions = require('firebase-functions/v1'); // v1 for auth/pubsub legacy
 const { HttpsError } = functions.https;
 const admin = require('firebase-admin');
+const { Timestamp } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const CEO_PASS_ID = "DREE4695";
@@ -143,16 +144,17 @@ function getReportTransporter() {
   });
 }
 
-async function sendReportEmail(subject, text) {
+async function sendReportEmail(subject, text, opts = {}) {
   const transporter = getReportTransporter();
   if (!transporter) {
     return { sent: false, error: "SMTP not configured" };
   }
   const from = process.env.REPORTS_SMTP_FROM || process.env.REPORTS_SMTP_USER || "reports@focoafterdark.com";
+  const to = opts.to || REPORTS_TO_EMAIL;
   try {
     await transporter.sendMail({
       from: `FoCo After Dark <${from}>`,
-      to: REPORTS_TO_EMAIL,
+      to,
       subject,
       text
     });
@@ -359,6 +361,10 @@ async function resolveMemberByPassCode(passCode, tx, fallbackUid = null) {
       (memberData.tier || "").toString().toLowerCase() === "beta" ||
       (memberData.membershipTier || "").toString().toLowerCase() === "beta" ||
       (memberData.email || "").toString().toLowerCase() === BETA_EMAIL ||
+      (memberData.email || "").toString().toLowerCase().includes("beta") ||
+      (memberData.membershipOverride || "").toString().toUpperCase().includes("BETA") ||
+      memberData.beta === true ||
+      memberData.isBeta === true ||
       fallbackUid === BETA_UID;
     if (existingPass && existingPass !== passCode && !isBetaMember) {
       throw new HttpsError("permission-denied", "Pass ID does not match signed-in user.");
@@ -743,10 +749,10 @@ exports.initUserProfile = functions.auth.user().onCreate(async (user) => {
   return true;
 });
 
-// Nightly 3am MT close-out summary with analytics + guaranteed email queue
-exports.nightlyCloseOut = functions.runWith(reportEmailSecrets).pubsub.schedule('0 3 * * *').timeZone('America/Denver').onRun(async () => {
-  const now = admin.firestore.Timestamp.now();
-  const dayStart = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+// Nightly close-out summary with analytics + guaranteed email queue
+async function runNightlyCloseOutCore(source = "nightlyCloseOut") {
+  const now = Timestamp.now();
+  const dayStart = Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
 
   const VENUE_CATALOG = {
     bar_district: "The Bar District",
@@ -897,7 +903,8 @@ exports.nightlyCloseOut = functions.runWith(reportEmailSecrets).pubsub.schedule(
     subject: `Nightly FoCo After Dark report • ${new Date().toLocaleDateString('en-US', { timeZone: 'America/Denver' })}`,
     createdAt: now,
     status: 'pending',
-    meta: summary
+    meta: summary,
+    source
   };
 
   const humanText = `FoCo After Dark nightly report
@@ -920,7 +927,7 @@ This email sends even when counts are zero.`;
 
   let emailSent = false;
   let emailError = null;
-  const smtpResult = await sendReportEmail(payload.subject, humanText);
+  const smtpResult = await sendReportEmail(payload.subject, humanText, { to: REPORTS_TO_EMAIL });
   if (smtpResult.sent) {
     emailSent = true;
     console.log("Nightly close-out email sent via SMTP");
@@ -976,6 +983,65 @@ This email sends even when counts are zero.`;
     console.log('Queued nightly email in mail collection');
   } catch (err) {
     console.warn('nightlyCloseOut: failed to enqueue mail collection', err);
+  }
+
+  // Per-venue close-out emails (one per venue, daily)
+  const dayLabel = new Date().toLocaleDateString('en-US', { timeZone: 'America/Denver' });
+  const venueEntries = Object.values(perVenue || {});
+  for (const entry of venueEntries) {
+    try {
+      const venueName = entry.venueName || entry.venue || "Venue";
+      const venueTotals = {
+        verified: entry.verified || 0,
+        pending: entry.pending || 0,
+        uniqueMembers: entry.uniqueMembers?.size || 0,
+        topPerk: Object.entries(entry.byPerk || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || "None",
+        peakHour: Object.entries(entry.hourly || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || "n/a"
+      };
+      const venueLines = (entry.items || []).slice(0, 50).map(item =>
+        `${item.code} · ${item.perk} · ${new Date(item.timestamp).toLocaleString('en-US', { timeZone: 'America/Denver' })}`
+      );
+      const venueText = `FoCo After Dark close-out report
+
+Venue: ${venueName}
+Generated at (MT): ${summary.generatedAt}
+Window: last 24 hours
+
+Verified: ${venueTotals.verified}
+Pending: ${venueTotals.pending}
+Unique guests: ${venueTotals.uniqueMembers}
+Top perk: ${venueTotals.topPerk}
+Peak hour: ${venueTotals.peakHour}
+
+Recent activity:
+${venueLines.length ? venueLines.join('\n') : 'No redemptions yet.'}
+`;
+
+      const venueSubject = `Close-out report • ${venueName} • ${dayLabel}`;
+      const venueResult = await sendReportEmail(venueSubject, venueText, { to: REPORTS_TO_EMAIL });
+      if (venueResult.sent) {
+        console.log(`Venue close-out email sent via SMTP: ${venueName}`);
+      } else {
+        console.warn(`Venue close-out email failed via SMTP: ${venueName}`, venueResult.error);
+      }
+
+      try {
+        await db.collection('mail').add({
+          to: [REPORTS_TO_EMAIL],
+          message: {
+            subject: venueSubject,
+            text: venueText
+          },
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          source: 'nightlyCloseOutVenue',
+          venue: entry.venue || null
+        });
+      } catch (err) {
+        console.warn('nightlyCloseOut: failed to enqueue venue mail', venueName, err);
+      }
+    } catch (err) {
+      console.warn('nightlyCloseOut: per-venue email failed', err);
+    }
   }
 
   // Insert into systemEmails for delivery (use your mail pipeline / Extension)
@@ -1042,6 +1108,26 @@ This email sends even when counts are zero.`;
   }
 
   return null;
+}
+
+exports.nightlyCloseOut = functions.runWith(reportEmailSecrets)
+  .pubsub.schedule('0 3 * * *')
+  .timeZone('America/Denver')
+  .onRun(async () => runNightlyCloseOutCore('nightlyCloseOut'));
+
+exports.runCloseOutNow = functions.runWith(reportEmailSecrets).https.onCall(async (data, context) => {
+  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
+  const uid = context.auth.uid;
+  let requesterData = {};
+  try {
+    const snap = await db.collection('members').doc(uid).get();
+    requesterData = snap.exists ? (snap.data() || {}) : {};
+  } catch (_) {}
+  if (!isCeoContext(context, requesterData)) {
+    throw new HttpsError('permission-denied', 'CEO only');
+  }
+  await runNightlyCloseOutCore('manualCloseOut');
+  return { ok: true };
 });
 
 

@@ -9404,7 +9404,7 @@
           <div class="ceo-kpi-grid" id="ceoMetrics">
             <div class="ceo-kpi-card">
               <strong id="metricMemberTotal">0</strong>
-              <span>members total</span>
+              <span>active profiles</span>
             </div>
             <div class="ceo-kpi-card">
               <strong id="metricMemberVip">0</strong>
@@ -12604,6 +12604,8 @@
     }
     const ACCENT_KEY = "accentTheme";
     const CEO_PASS_ID = "DREE4695";
+    const ACTIVE_PROFILE_ALLOWLIST = new Set(["drunk ceo", "foco ceo", "dreeboy", "dree boy", "beta dude", "betadude"]);
+    const ACTIVE_PROFILE_PASS_ALLOWLIST = new Set([CEO_PASS_ID, "BETA"]);
     const STAFF_ACCENT_PREFIX = "staffAccent_";
     const IDLE_TIMEOUT_MS = 2 * 60 * 1000;
     const STATS_CACHE_PREFIX = "statsCache_";
@@ -16935,7 +16937,9 @@ let onboardingIndex = 0;
     }
     let demoMode = false;
     const PURCHASE_RECEIPTS_KEY = "purchaseReceipts";
+    const PURCHASE_RECEIPTS_RESET_KEY = "purchaseReceiptsReset_2026_02_04";
     let purchaseReceipts = loadPurchaseReceipts();
+    resetLegacyPurchaseReceipts();
     let vipDealsCache = loadVipDealsFromStorage();
     function incrementRewardsProgress() {
       syncRewardsCycle();
@@ -18521,22 +18525,42 @@ let onboardingIndex = 0;
       delete passDirectoryCache[key];
     }
 
+    function isTokenPurchaseReceipt(entry = {}) {
+      const type = (entry.type || "").toString().toLowerCase();
+      const pack = (entry.pack || "").toString().toLowerCase();
+      const title = (entry.title || "").toString().toLowerCase();
+      return type === "voucher" && (pack.startsWith("tokens") || title.includes("token"));
+    }
+    function sanitizePurchaseReceipts(items) {
+      return (Array.isArray(items) ? items : []).filter(isTokenPurchaseReceipt);
+    }
     function loadPurchaseReceipts() {
-      if (memberProfile?.purchaseReceipts) return memberProfile.purchaseReceipts;
+      const fromProfile = sanitizePurchaseReceipts(memberProfile?.purchaseReceipts || []);
+      if (fromProfile.length) return fromProfile;
       if (!allowLocalCache()) return [];
       try {
-        return JSON.parse(localStorage.getItem(PURCHASE_RECEIPTS_KEY) || "[]");
+        return sanitizePurchaseReceipts(JSON.parse(localStorage.getItem(PURCHASE_RECEIPTS_KEY) || "[]"));
       } catch (err) {
         return [];
       }
     }
     function savePurchaseReceipts(items) {
+      const cleaned = sanitizePurchaseReceipts(items || []);
       if (allowLocalCache()) {
-        localStorage.setItem(PURCHASE_RECEIPTS_KEY, JSON.stringify(items || []));
+        localStorage.setItem(PURCHASE_RECEIPTS_KEY, JSON.stringify(cleaned));
       }
-      persistMemberState({ purchaseReceipts: items || [] });
+      persistMemberState({ purchaseReceipts: cleaned });
+    }
+    function resetLegacyPurchaseReceipts() {
+      if (!allowLocalCache()) return;
+      if (localStorage.getItem(PURCHASE_RECEIPTS_RESET_KEY) === "1") return;
+      localStorage.setItem(PURCHASE_RECEIPTS_KEY, "[]");
+      localStorage.setItem(PURCHASE_RECEIPTS_RESET_KEY, "1");
+      purchaseReceipts = [];
+      savePurchaseReceipts([]);
     }
     function appendPurchaseReceipt(entry) {
+      if (!isTokenPurchaseReceipt(entry)) return;
       purchaseReceipts.unshift(entry);
       purchaseReceipts = purchaseReceipts.slice(0, 50);
       savePurchaseReceipts(purchaseReceipts);
@@ -20658,16 +20682,60 @@ let onboardingIndex = 0;
       profileBadges.style.display = badges.length ? "flex" : "none";
     }
 
+    const CEO_ANALYTICS_WEEKLY_KEY = "ceoAnalyticsWeeklySnapshots_v1";
+    function loadWeeklyAnalyticsSnapshots() {
+      if (!allowLocalCache()) return {};
+      try {
+        const parsed = JSON.parse(localStorage.getItem(CEO_ANALYTICS_WEEKLY_KEY) || "{}");
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (_) {
+        return {};
+      }
+    }
+    function saveWeeklyAnalyticsSnapshots(map) {
+      if (!allowLocalCache()) return;
+      localStorage.setItem(CEO_ANALYTICS_WEEKLY_KEY, JSON.stringify(map || {}));
+    }
+    function upsertWeeklyAnalyticsSnapshot(snapshot = {}) {
+      const weekKey = snapshot.weekKey || getWeekToken();
+      const map = loadWeeklyAnalyticsSnapshots();
+      map[weekKey] = {
+        weekKey,
+        capturedAt: new Date().toISOString(),
+        activeProfiles: Number(snapshot.activeProfiles) || 0,
+        verifiedCount: Number(snapshot.verifiedCount) || 0,
+        pendingCount: Number(snapshot.pendingCount) || 0,
+        deniedCount: Number(snapshot.deniedCount) || 0,
+        tokenRevenue: Number(snapshot?.tokenSummary?.revenue || 0),
+        tokenPurchases: Number(snapshot?.tokenSummary?.count || 0)
+      };
+      saveWeeklyAnalyticsSnapshots(map);
+      if (db && isCeoAccount && authClaimsReady && hasCeoClaim()) {
+        setDoc(doc(db, "ceoAnalyticsWeekly", weekKey), {
+          ...map[weekKey],
+          updatedAt: serverTimestamp()
+        }, { merge: true }).catch(err => {
+          console.warn("Failed to save weekly analytics snapshot", err);
+        });
+      }
+    }
+
     function computeAnalyticsSnapshot() {
       const directory = loadMemberDirectory();
-      const members = Object.entries(directory).map(([passId, data]) => ({ passId, ...(data || {}) }));
+      const members = Object.entries(directory)
+        .map(([passId, data]) => ({ passId, ...(data || {}) }))
+        .filter(member => isActiveProfileEntry(member, member.uid || member.passId))
+        .filter(member => !isAnonymousMemberEntry(member));
       const tierCounts = { standard: 0, vip: 0, ceo: 0 };
       members.forEach(member => {
         const tier = member.tier?.toLowerCase() || "standard";
         if (tierCounts[tier] !== undefined) tierCounts[tier] += 1;
       });
       const totalMembers = Math.max(1, members.length);
-      const verified = getCeoRedemptions().filter(entry => entry.status === "verified");
+      const entries = getCeoRedemptions();
+      const verified = entries.filter(entry => entry.status === "verified");
+      const pending = entries.filter(entry => entry.status === "pending");
+      const denied = entries.filter(entry => entry.status === "denied" || entry.status === "canceled");
       const valueMap = { drink: 3, shot: 1, cover: 8 };
       const perkCounts = { drink: 0, shot: 0, cover: 0 };
       const perkLabels = {
@@ -20678,6 +20746,7 @@ let onboardingIndex = 0;
       const hourBuckets = {};
       const nightlyBuckets = {};
       const memberRedemptionCounts = {};
+      const venueCounts = {};
       const tierValueTotals = { standard: 0, vip: 0 };
       const tierRedeemCounts = { standard: 0, vip: 0 };
       verified.forEach(entry => {
@@ -20708,6 +20777,8 @@ let onboardingIndex = 0;
         hourBuckets[hour] = (hourBuckets[hour] || 0) + 1;
         const dateKey = date.toLocaleDateString();
         nightlyBuckets[dateKey] = (nightlyBuckets[dateKey] || 0) + 1;
+        const venueId = (entry.venue || entry.requestedVenue || "unknown").toLowerCase();
+        venueCounts[venueId] = (venueCounts[venueId] || 0) + 1;
       });
       const returningMembers = Object.values(memberRedemptionCounts).filter(count => count > 1).length;
       const memberReturnRate = members.length ? Math.round((returningMembers / members.length) * 100) : 0;
@@ -20724,7 +20795,24 @@ let onboardingIndex = 0;
         .map(([dateKey, count]) => `${dateKey}: ${count}`);
       const avgTabStandard = tierRedeemCounts.standard ? (tierValueTotals.standard / tierRedeemCounts.standard) : 0;
       const avgTabVip = tierRedeemCounts.vip ? (tierValueTotals.vip / tierRedeemCounts.vip) : 0;
+      const topVenues = Object.entries(venueCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([venueId, count]) => `${venuesInfo[venueId]?.name || venueId}: ${count}`);
+      const topMembers = Object.entries(memberRedemptionCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([passId, count]) => `${passId || "Unknown"}: ${count}`);
+      const tokenReceipts = sanitizePurchaseReceipts(purchaseReceipts);
+      const tokenRevenue = tokenReceipts.reduce((sum, entry) => sum + parseCurrency(entry.total || entry.detail || ""), 0);
+      const tokenCount = tokenReceipts.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
       return {
+        capturedAt: new Date().toISOString(),
+        weekKey: getWeekToken(),
+        activeProfiles: members.length,
+        verifiedCount: verified.length,
+        pendingCount: pending.length,
+        deniedCount: denied.length,
         demographics: [
           `VIP: ${Math.round((tierCounts.vip / totalMembers) * 100)}% (${tierCounts.vip})`,
           `Standard: ${Math.round((tierCounts.standard / totalMembers) * 100)}% (${tierCounts.standard})`,
@@ -20739,6 +20827,13 @@ let onboardingIndex = 0;
           vip: avgTabVip.toFixed(2)
         },
         perkPopularity: Object.entries(perkCounts).map(([key, count]) => `${perkLabels[key] || key}: ${count}`),
+        topVenues,
+        topMembers,
+        tokenSummary: {
+          count: tokenReceipts.length,
+          tokens: tokenCount,
+          revenue: tokenRevenue
+        }
       };
     }
 
@@ -20757,8 +20852,12 @@ let onboardingIndex = 0;
     function renderCeoAnalytics() {
       if (!ceoAnalyticsContent) return;
       const snapshot = computeAnalyticsSnapshot();
+      upsertWeeklyAnalyticsSnapshot(snapshot);
+      const weeklyHistory = Object.values(loadWeeklyAnalyticsSnapshots())
+        .sort((a, b) => new Date(b.capturedAt || 0).getTime() - new Date(a.capturedAt || 0).getTime())
+        .slice(0, 6)
+        .map(entry => `${entry.weekKey}: ${entry.verifiedCount} verified · ${entry.activeProfiles} active profiles`);
       const vipPurchases = summarizeVipVoucherPurchases();
-      const venueOptions = Object.entries(venuesInfo).map(([id, info]) => `<option value="${id}">${info.name}</option>`).join("");
       ceoAnalyticsContent.innerHTML = `
         <div class="analytics-grid">
           <div class="analytics-section">
@@ -20778,6 +20877,14 @@ let onboardingIndex = 0;
             <ul><li>${snapshot.roi}</li></ul>
           </div>
           <div class="analytics-section">
+            <h5>Verification funnel</h5>
+            <ul>
+              <li>Verified: ${snapshot.verifiedCount}</li>
+              <li>Pending: ${snapshot.pendingCount}</li>
+              <li>Denied/Canceled: ${snapshot.deniedCount}</li>
+            </ul>
+          </div>
+          <div class="analytics-section">
             <h5>Member return rate</h5>
             <ul><li>${snapshot.memberReturnRate}% of members have redeemed more than once</li></ul>
           </div>
@@ -20793,6 +20900,14 @@ let onboardingIndex = 0;
             <ul>${snapshot.perkPopularity.map(item => `<li>${item}</li>`).join("")}</ul>
           </div>
           <div class="analytics-section">
+            <h5>Top venues by verified scans</h5>
+            <ul>${(snapshot.topVenues.length ? snapshot.topVenues : ["No verified scans yet."]).map(item => `<li>${item}</li>`).join("")}</ul>
+          </div>
+          <div class="analytics-section">
+            <h5>Top members by redemptions</h5>
+            <ul>${(snapshot.topMembers.length ? snapshot.topMembers : ["No member redemptions yet."]).map(item => `<li>${item}</li>`).join("")}</ul>
+          </div>
+          <div class="analytics-section">
             <h5>VIP add-on sales</h5>
             <ul>
               <li>${vipPurchases.count} purchases</li>
@@ -20800,13 +20915,23 @@ let onboardingIndex = 0;
               <li>$${vipPurchases.revenue.toFixed(2)} revenue</li>
             </ul>
           </div>
+          <div class="analytics-section">
+            <h5>Token purchases (fresh reset)</h5>
+            <ul>
+              <li>${snapshot.tokenSummary.count} purchases</li>
+              <li>${snapshot.tokenSummary.tokens} tokens sold</li>
+              <li>$${snapshot.tokenSummary.revenue.toFixed(2)} revenue</li>
+            </ul>
+          </div>
         </div>
         <div class="analytics-section">
-          <h5>In-app purchase receipts</h5>
-          <div id="ceoPurchaseReceipts">No in-app purchase receipts yet.</div>
+          <h5>Weekly analytics snapshots</h5>
+          <ul>
+            <li>${snapshot.weekKey} saved ${formatMST(snapshot.capturedAt)}</li>
+            ${(weeklyHistory.length ? weeklyHistory : ["No weekly snapshots yet."]).map(item => `<li>${item}</li>`).join("")}
+          </ul>
         </div>
       `;
-      renderCeoPurchaseReceipts();
     }
 
     function getDemoRedemptions() {
@@ -20854,7 +20979,10 @@ let onboardingIndex = 0;
 
       const membersList = ceoMembersCache.length
         ? ceoMembersCache
-        : Object.entries(loadMemberDirectory()).map(([, data]) => normalizeCeoMemberData(data || {}, data?.uid || ""));
+        : Object.entries(loadMemberDirectory())
+          .filter(([, data]) => isActiveProfileEntry(data || {}, data?.uid || ""))
+          .filter(([, data]) => !isAnonymousMemberEntry(data || {}))
+          .map(([, data]) => normalizeCeoMemberData(data || {}, data?.uid || ""));
       const memberCounts = membersList.reduce((acc, m) => {
         acc.total += 1;
         if (m.tierKey === "vip") acc.vip += 1;
@@ -23071,6 +23199,33 @@ let onboardingIndex = 0;
       if (Number.isNaN(date.getTime())) return "—";
       return date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric" });
     }
+    function normalizeMemberName(value = "") {
+      return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+    }
+    function isActiveProfileEntry(data = {}, uid = "") {
+      const passCode = (data.passCode || "").toString().trim().toUpperCase();
+      const names = [
+        data.username,
+        data.displayName,
+        data.name,
+        data.legalName
+      ].map(normalizeMemberName).filter(Boolean);
+      const uidName = normalizeMemberName(uid);
+      if (passCode && ACTIVE_PROFILE_PASS_ALLOWLIST.has(passCode)) return true;
+      if (uidName && ACTIVE_PROFILE_ALLOWLIST.has(uidName)) return true;
+      return names.some(name => ACTIVE_PROFILE_ALLOWLIST.has(name));
+    }
+    function isAnonymousMemberEntry(data = {}) {
+      if (data.isAnonymous === true || data.anonymous === true) return true;
+      const hasIdentity = Boolean(
+        (data.email || "").toString().trim()
+        || (data.username || "").toString().trim()
+        || (data.displayName || "").toString().trim()
+        || (data.name || "").toString().trim()
+        || (data.passCode || "").toString().trim()
+      );
+      return !hasIdentity;
+    }
     function shouldIncludeCeoMember(data = {}, uid = "") {
       const lowerUid = (uid || "").toLowerCase();
       const role = (data.role || "").toString().toLowerCase();
@@ -23083,7 +23238,9 @@ let onboardingIndex = 0;
         || tier === "venue"
         || lowerUid.startsWith("staff_");
       if (isVenueOrStaff) return false;
-      return Boolean(uid) || Boolean(passCode);
+      if (!(Boolean(uid) || Boolean(passCode))) return false;
+      if (isAnonymousMemberEntry(data)) return false;
+      return isActiveProfileEntry(data, uid);
     }
     function normalizeCeoMemberData(data = {}, uid = "") {
       const rawTier = (data.tier || data.membershipTier || data.membership || data.plan || "").toString();
@@ -23149,7 +23306,7 @@ let onboardingIndex = 0;
         if (m.statusKey === "past_due") acc.pastDue += 1;
         return acc;
       }, { total: 0, vip: 0, standard: 0, free: 0, paused: 0, pastDue: 0 });
-      ceoMembersTotals.textContent = `Members: ${totals.total} · VIP: ${totals.vip} · Standard: ${totals.standard} · Free: ${totals.free} · Paused: ${totals.paused} · Past due: ${totals.pastDue}`;
+      ceoMembersTotals.textContent = `Active profiles: ${totals.total} · VIP: ${totals.vip} · Standard: ${totals.standard} · Free: ${totals.free} · Paused: ${totals.paused} · Past due: ${totals.pastDue}`;
       const rows = list.map(m => {
         const statusClass = (m.statusKey === "paused" || m.statusKey === "past_due") ? "pill danger" : "pill ghost";
         return `
