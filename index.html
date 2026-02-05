@@ -13323,9 +13323,10 @@
     }
 
     function getVoucherTier() {
+      if (isCeoActive()) return "ceo";
+      if (isFreeMember()) return "free";
       return normalizeTierKey(currentMembershipTier)
         || normalizeTierKey(memberProfile?.tier)
-        || (isCeoActive() ? "ceo" : (isFreeMember() ? "free" : "standard"))
         || "standard";
     }
     function toDateSafe(value) {
