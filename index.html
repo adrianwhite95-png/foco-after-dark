@@ -10322,6 +10322,18 @@
     const params = new URLSearchParams(window.location.search);
     const SAFE_MODE = params.get("safe") === "1";
     const DEBUG_MODE = params.get("debug") === "1";
+    function detectHardReload() {
+      try {
+        const navEntries = performance.getEntriesByType?.("navigation");
+        const navType = navEntries && navEntries[0] ? navEntries[0].type : "";
+        if (navType === "reload") return true;
+      } catch (_) {}
+      try {
+        if (performance.navigation && performance.navigation.type === 1) return true;
+      } catch (_) {}
+      return false;
+    }
+    let forceLogoutOnReload = detectHardReload();
     // Strip cache-busting params from visible URL without reloading.
     (() => {
       try {
@@ -23138,7 +23150,21 @@ let onboardingIndex = 0;
           email: user?.email || null
         });
         const loginForced = forceShowLogin || window.location.hash === "#login";
+        if (forceLogoutOnReload && user) {
+          forceLogoutOnReload = false;
+          clearLoginSessionFlag(user.uid);
+          try {
+            await signOut(firebaseAuth);
+          } catch (err) {
+            console.warn("Reload sign-out skipped:", err);
+          }
+          applyRememberedEmailToForm();
+          showScreen("landing");
+          initialAuthResolved = true;
+          return;
+        }
         if (!user) {
+          forceLogoutOnReload = false;
           clearLoginSessionFlag(previousUid);
           if (authTransition || authSubmitInFlight) {
             return;
