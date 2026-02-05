@@ -10918,7 +10918,8 @@
     let isCeoAccount = false;
     let isBetaAccount = false;
     function isFreeMember(profile = memberProfile) {
-      return Boolean(profile?.freeMembership);
+      const override = (profile?.membershipOverride || profile?.override || "").toString().toUpperCase();
+      return Boolean(profile?.freeMembership) || override === "CEO_FREE";
     }
     function isStripeExcludedMember(profile = memberProfile) {
       const override = (profile?.membershipOverride || "").toString().toUpperCase();
@@ -25455,8 +25456,16 @@ let onboardingIndex = 0;
         return;
       }
       const perkLabel = ceoActive ? `Executive ${selectedPerkLabel}` : selectedPerkLabel;
+      let pendingReserved = false;
+      const rollbackPendingReservation = () => {
+        if (!pendingReserved || unlimited) return;
+        decrementPendingForPass(activePassId, selectedPerkId);
+        pendingReserved = false;
+        renderRedemptionOptions();
+      };
       if (!unlimited) {
         incrementPendingForCurrent(selectedPerkId);
+        pendingReserved = true;
       }
       renderRedemptionOptions();
       let authUser = firebaseAuth.currentUser;
@@ -25465,6 +25474,7 @@ let onboardingIndex = 0;
           authUser = await waitForAuthReady();
         } catch (err) {
           console.warn("[createRedemption] auth not ready", err);
+          rollbackPendingReservation();
           creditInfo.textContent = "Sign in required to redeem.";
           showToast("Sign in required to redeem.", 2400);
           return;
@@ -25476,11 +25486,13 @@ let onboardingIndex = 0;
         console.warn("[createRedemption] token refresh failed", err);
       }
       if (!functionsClient) {
+        rollbackPendingReservation();
         creditInfo.textContent = "Redemption unavailable. Try again.";
         return;
       }
       const perkId = selectedVenuePerkId || selectedPerkId;
       if (!perkId) {
+        rollbackPendingReservation();
         creditInfo.textContent = "Select a perk to redeem.";
         return;
       }
@@ -25507,10 +25519,7 @@ let onboardingIndex = 0;
         payload = resp?.data?.redemption || null;
       } catch (err) {
         console.warn("[createRedemption] failed", err);
-        if (!unlimited) {
-          decrementPendingForPass(activePassId, selectedPerkId);
-          renderRedemptionOptions();
-        }
+        rollbackPendingReservation();
         const missing = Array.isArray(err?.details?.missingFields) ? err.details.missingFields : null;
         if (missing && missing.length) {
           showToast(`Redeem failed: missing fields ${missing.join("/")}`, 3200);
@@ -25529,6 +25538,7 @@ let onboardingIndex = 0;
       }
       const code = (payload?.redemptionId || payload?.code || "").toUpperCase();
       if (!code) {
+        rollbackPendingReservation();
         creditInfo.textContent = "Could not start redemption.";
         return;
       }

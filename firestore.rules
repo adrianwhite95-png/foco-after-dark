@@ -69,6 +69,92 @@ service cloud.firestore {
       return !isAppLocked() || isAdmin() || isCeo();
     }
 
+    function ownerMemberCreateAllowed() {
+      return !request.resource.data.keys().hasAny([
+        "ceo",
+        "admin",
+        "staff",
+        "revoked",
+        "paused",
+        "pausedAt",
+        "resumedAt",
+        "freeMembership",
+        "membershipOverride",
+        "membership_override",
+        "membershipTierOverride",
+        "override",
+        "tier",
+        "membershipTier",
+        "validUntil",
+        "paymentStatus",
+        "membershipStatus",
+        "billing",
+        "billingProvider",
+        "stripeCustomerId",
+        "stripeSubscriptionId",
+        "defaultPaymentMethodId",
+        "cancelAtPeriodEnd",
+        "cancelRequestedAt",
+        "canceledAt",
+        "currentPeriodEnd",
+        "nextRenewal",
+        "lastCharge",
+        "lastChargeAt",
+        "lastPaidAt",
+        "lastPaymentAt",
+        "lastStripeEvent",
+        "lastStripeEventAt",
+        "lastInvoiceId",
+        "lastInvoiceStatus",
+        "lastInvoicePaid",
+        "ceoMonthlyTokenGrants",
+        "perksRemaining"
+      ]);
+    }
+
+    function ownerMemberUpdateAllowed() {
+      return !request.resource.data.diff(resource.data).changedKeys().hasAny([
+        "ceo",
+        "admin",
+        "staff",
+        "revoked",
+        "paused",
+        "pausedAt",
+        "resumedAt",
+        "freeMembership",
+        "membershipOverride",
+        "membership_override",
+        "membershipTierOverride",
+        "override",
+        "tier",
+        "membershipTier",
+        "validUntil",
+        "paymentStatus",
+        "membershipStatus",
+        "billing",
+        "billingProvider",
+        "stripeCustomerId",
+        "stripeSubscriptionId",
+        "defaultPaymentMethodId",
+        "cancelAtPeriodEnd",
+        "cancelRequestedAt",
+        "canceledAt",
+        "currentPeriodEnd",
+        "nextRenewal",
+        "lastCharge",
+        "lastChargeAt",
+        "lastPaidAt",
+        "lastPaymentAt",
+        "lastStripeEvent",
+        "lastStripeEventAt",
+        "lastInvoiceId",
+        "lastInvoiceStatus",
+        "lastInvoicePaid",
+        "ceoMonthlyTokenGrants",
+        "perksRemaining"
+      ]);
+    }
+
     // CEO-issued vouchers: only server (Admin SDK / Cloud Functions) may create/modify.
     // Clients may read these only if they are authorized staff/CEO/admin (custom claims).
     match /ceoVouchers/{code} {
@@ -179,10 +265,10 @@ service cloud.firestore {
     // Member profiles (readable to authenticated users; writes limited)
     match /members/{uid} {
       allow read: if isSignedIn() && (isOwner(uid) || hasPrivilegedRole());
-      allow create: if isSignedIn() && isOwner(uid);
+      allow create: if isSignedIn() && isOwner(uid) && ownerMemberCreateAllowed();
       allow update: if isSignedIn() && (
         (isAdmin() || isCeo())
-        || (isOwner(uid) && !isAppLocked())
+        || (isOwner(uid) && !isAppLocked() && ownerMemberUpdateAllowed())
       );
       allow delete: if isOwner(uid) || isAdmin() || isCeo();
     }

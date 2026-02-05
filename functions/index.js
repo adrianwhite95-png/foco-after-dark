@@ -427,6 +427,291 @@ function toMillis(value) {
   return null;
 }
 
+const MAX_VOUCHER_CARRYOVER = 3;
+const VOUCHER_LIMITS = { standard: 5, vip: 10 };
+
+function toDateSafe(value) {
+  if (!value) return null;
+  if (typeof value.toDate === "function") {
+    const parsed = value.toDate();
+    return Number.isNaN(parsed?.getTime?.()) ? null : parsed;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function oneMonthFrom(fromDate = new Date()) {
+  const d = new Date(fromDate);
+  const day = d.getDate();
+  d.setMonth(d.getMonth() + 1);
+  if (d.getDate() < day) {
+    d.setDate(0);
+  }
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function shiftMonth(baseDate, delta) {
+  const d = new Date(baseDate);
+  const day = d.getDate();
+  d.setMonth(d.getMonth() + delta);
+  if (d.getDate() < day) {
+    d.setDate(0);
+  }
+  return d;
+}
+
+function countBillingCycles(startIso, now = new Date()) {
+  if (!startIso) return 0;
+  const start = new Date(startIso);
+  if (Number.isNaN(start.getTime())) return 0;
+  let months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+  if (now.getDate() < start.getDate()) {
+    months -= 1;
+  }
+  return Math.max(1, months + 1);
+}
+
+function resolveBillingStartIsoForWallet(memberData = {}, billing = {}) {
+  const start = billing?.start || billing?.lastCharge;
+  if (start) return start;
+  if (billing?.nextRenewal) {
+    const guess = new Date(billing.nextRenewal);
+    if (!Number.isNaN(guess.getTime())) {
+      guess.setMonth(guess.getMonth() - 1);
+      return guess.toISOString();
+    }
+  }
+  return memberData?.memberSince || null;
+}
+
+function getVoucherCycleWindowForWallet(memberData = {}, billing = {}, now = new Date()) {
+  const startIso = resolveBillingStartIsoForWallet(memberData, billing);
+  let startDate = startIso ? new Date(startIso) : null;
+  if (!startDate || Number.isNaN(startDate.getTime())) {
+    startDate = new Date(now);
+    startDate.setDate(1);
+    startDate.setHours(0, 0, 0, 0);
+  }
+  const cycles = countBillingCycles(startDate.toISOString(), now);
+  const cycleStart = shiftMonth(startDate, Math.max(0, cycles - 1));
+  const cycleEnd = oneMonthFrom(cycleStart);
+  const hasPrevious = cycles > 1;
+  const prevStart = hasPrevious ? shiftMonth(startDate, cycles - 2) : shiftMonth(cycleStart, -1);
+  const prevEnd = cycleStart;
+  return {
+    current: { start: cycleStart, end: cycleEnd },
+    previous: { start: prevStart, end: prevEnd },
+    hasPrevious,
+    startDate,
+    cycles
+  };
+}
+
+function getMonthTokenFromDate(date = new Date()) {
+  const parsed = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(parsed.getTime())) return getMonthTokenFromDate(new Date());
+  const m = String(parsed.getMonth() + 1).padStart(2, "0");
+  return `${parsed.getFullYear()}-${m}`;
+}
+
+function getVoucherLimitForTierForWallet(tier) {
+  if (!tier) return 0;
+  if (tier === "ceo" || tier === "free") return Infinity;
+  return VOUCHER_LIMITS[tier] || VOUCHER_LIMITS.standard;
+}
+
+function normalizeVoucherTierForWallet(memberData = {}) {
+  const overrideRaw =
+    memberData?.membershipOverride ||
+    memberData?.override ||
+    memberData?.membership_override ||
+    memberData?.membershipTierOverride ||
+    "";
+  const override = String(overrideRaw).toUpperCase();
+  if (memberData?.ceo === true || override === "CEO") return "ceo";
+  if (memberData?.freeMembership === true || override === "CEO_FREE") return "free";
+  const tier = String(memberData?.tier || memberData?.membershipTier || "").toLowerCase();
+  if (tier === "ceo") return "ceo";
+  if (tier === "free") return "free";
+  if (tier === "vip") return "vip";
+  return "standard";
+}
+
+function isCountedRedemptionStatus(status, includePending = false) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "verified" || normalized === "approved" || normalized === "confirmed") return true;
+  if (includePending && (normalized === "pending" || normalized === "requested")) return true;
+  return false;
+}
+
+function getRedemptionEntryDate(entry = {}) {
+  return toDateSafe(entry?.verifiedAt || entry?.timestamp || entry?.createdAt || null);
+}
+
+function countRedemptionsInWindow(entries = [], window, options = {}) {
+  if (!window) return 0;
+  const includePending = Boolean(options.includePending);
+  const start = window.start;
+  const end = window.end;
+  return entries.reduce((count, entry) => {
+    if (!isCountedRedemptionStatus(entry?.status, includePending)) return count;
+    const stamp = getRedemptionEntryDate(entry);
+    if (!stamp) return count;
+    if (stamp >= start && stamp <= end) return count + 1;
+    return count;
+  }, 0);
+}
+
+function resolveLatestSuccessfulPaymentDate(billing = {}, memberData = {}) {
+  const candidates = [
+    billing?.lastCharge,
+    billing?.lastPaidAt,
+    billing?.lastPaymentAt,
+    billing?.paymentDate,
+    memberData?.lastCharge,
+    memberData?.lastChargeAt,
+    memberData?.lastPaidAt,
+    memberData?.lastPaymentAt
+  ].map(toDateSafe).filter(Boolean);
+  if (!candidates.length) return null;
+  return new Date(Math.max(...candidates.map((d) => d.getTime())));
+}
+
+function hasSuccessfulPaymentThisCycleForWallet(tier, billing = {}, memberData = {}, now = new Date()) {
+  if (tier !== "standard" && tier !== "vip") return true;
+  const status = String(memberData?.paymentStatus || "active").toLowerCase();
+  if (status !== "active") return false;
+  const paidAt = resolveLatestSuccessfulPaymentDate(billing, memberData);
+  if (!paidAt) return false;
+  const cycle = getVoucherCycleWindowForWallet(memberData, billing, now)?.current;
+  if (!cycle?.start || !cycle?.end) return false;
+  return paidAt >= cycle.start && paidAt <= cycle.end;
+}
+
+function computeVoucherBalanceForWallet(memberData = {}, entries = [], now = new Date(), unlimited = false) {
+  if (unlimited) {
+    return { unlimited: true, remaining: Infinity, paymentRequired: false };
+  }
+  const tier = normalizeVoucherTierForWallet(memberData);
+  const limit = getVoucherLimitForTierForWallet(tier);
+  if (!Number.isFinite(limit)) {
+    return { unlimited: true, remaining: Infinity, paymentRequired: false };
+  }
+  const billing = (memberData?.billing && typeof memberData.billing === "object") ? memberData.billing : {};
+  if (!hasSuccessfulPaymentThisCycleForWallet(tier, billing, memberData, now)) {
+    return {
+      unlimited: false,
+      remaining: 0,
+      limit,
+      carryover: 0,
+      usedCurrent: 0,
+      total: 0,
+      extraTokens: 0,
+      paymentRequired: true
+    };
+  }
+
+  const startIso = resolveBillingStartIsoForWallet(memberData, billing);
+  let startDate = startIso ? new Date(startIso) : null;
+  if (!startDate || Number.isNaN(startDate.getTime())) {
+    startDate = new Date(now);
+    startDate.setDate(1);
+    startDate.setHours(0, 0, 0, 0);
+  }
+  const cycles = countBillingCycles(startDate.toISOString(), now);
+  const purchasedTotal = Math.max(0, Number(memberData?.extraRedemptionTokens || 0));
+  const grantKey = getMonthTokenFromDate(now);
+  const monthlyGrantRaw = memberData?.ceoMonthlyTokenGrants && typeof memberData.ceoMonthlyTokenGrants === "object"
+    ? memberData.ceoMonthlyTokenGrants[grantKey]
+    : 0;
+  const monthlyGrant = Math.max(0, Number(monthlyGrantRaw || 0));
+  let purchasedRemaining = purchasedTotal;
+  let carryover = 0;
+  let result = {
+    unlimited: false,
+    remaining: 0,
+    limit,
+    carryover: 0,
+    usedCurrent: 0,
+    total: 0,
+    extraTokens: 0,
+    paymentRequired: false
+  };
+  for (let i = 0; i < cycles; i += 1) {
+    const cycleStart = shiftMonth(startDate, i);
+    const cycleEnd = oneMonthFrom(cycleStart);
+    const isCurrent = i === cycles - 1;
+    const cycleUsed = countRedemptionsInWindow(entries, { start: cycleStart, end: cycleEnd }, { includePending: isCurrent });
+    const regularAllowance = limit + carryover;
+    const regularAllowanceWithGrant = regularAllowance + (isCurrent ? monthlyGrant : 0);
+    const consumedTokens = Math.max(0, cycleUsed - regularAllowanceWithGrant);
+    const purchasedAfter = Math.max(0, purchasedRemaining - consumedTokens);
+    const regularUnused = Math.max(0, regularAllowance - cycleUsed);
+    const nextCarryover = purchasedAfter > 0 ? 0 : Math.min(MAX_VOUCHER_CARRYOVER, regularUnused);
+    if (isCurrent) {
+      const remainingRegular = Math.max(0, regularAllowanceWithGrant - cycleUsed);
+      const remaining = remainingRegular + purchasedAfter;
+      result = {
+        unlimited: false,
+        remaining,
+        limit,
+        carryover,
+        usedCurrent: cycleUsed,
+        total: regularAllowanceWithGrant + purchasedRemaining,
+        extraTokens: purchasedAfter,
+        paymentRequired: false
+      };
+    }
+    purchasedRemaining = purchasedAfter;
+    carryover = nextCarryover;
+  }
+  return result;
+}
+
+function parsePerkQuantity(value) {
+  const qty = Number(value);
+  if (!Number.isFinite(qty) || qty <= 0) return null;
+  return Math.round(qty);
+}
+
+function getTierPerkQuantity(perkData = {}, tier = "standard") {
+  const standardQty = parsePerkQuantity(
+    perkData?.standardQty ?? perkData?.standard ?? perkData?.standardCount ?? null
+  );
+  const vipQty = parsePerkQuantity(
+    perkData?.vipQty ?? perkData?.vip ?? perkData?.vipCount ?? null
+  );
+  const legacyLimit = parsePerkQuantity(
+    perkData?.limit ?? perkData?.qty ?? perkData?.quantity ?? null
+  );
+  let resolvedStandard = standardQty || legacyLimit || null;
+  let resolvedVip = vipQty || legacyLimit || null;
+  if (resolvedStandard && !resolvedVip) resolvedVip = resolvedStandard;
+  if (resolvedVip && !resolvedStandard) resolvedStandard = resolvedVip;
+  if (tier === "vip") return resolvedVip || 0;
+  if (tier === "standard") return resolvedStandard || 0;
+  return Infinity;
+}
+
+function getVenuePerkUsageCountForWallet(entries = [], perkId = "", venueId = "") {
+  if (!perkId) return 0;
+  const normalizedPerkId = String(perkId);
+  const normalizedVenueId = String(venueId || "").toLowerCase();
+  let used = 0;
+  entries.forEach((entry = {}) => {
+    const entryPerkId = entry?.venuePerkId || entry?.perkId || entry?.perkKey || "";
+    if (!entryPerkId || String(entryPerkId) !== normalizedPerkId) return;
+    const entryVenue = String(entry?.requestedVenue || entry?.venue || "").toLowerCase();
+    if (normalizedVenueId && entryVenue && entryVenue !== normalizedVenueId) return;
+    const status = String(entry?.status || "").toLowerCase();
+    if (status === "pending" || status === "verified" || status === "approved" || status === "confirmed") {
+      used += 1;
+    }
+  });
+  return used;
+}
+
 exports.createRedemption = functions.https.onCall(async (data, context) => {
   try {
     if (!context.auth) {
@@ -496,15 +781,60 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
             throw new HttpsError("resource-exhausted", "Slow down and try again.");
           }
 
-          // Allow multiple pending redemptions as long as balance permits.
+          const unlimited = isStripeExcluded(claims, memberData)
+            || ["ceo", "free"].includes(normalizeVoucherTierForWallet(memberData));
+          let memberEntries = [];
+          if (!unlimited) {
+            const memberRedRef = db.collection("members").doc(resolved.uid).collection("redemptions");
+            const memberRedSnap = await tx.get(memberRedRef);
+            memberEntries = memberRedSnap.docs.map((docSnap) => docSnap.data() || {});
+            const wallet = computeVoucherBalanceForWallet(memberData, memberEntries, now.toDate(), false);
+            if (wallet.remaining <= 0) {
+              throw new HttpsError(
+                "failed-precondition",
+                wallet.paymentRequired
+                  ? "Payment required to reload monthly tokens."
+                  : "Thank you for using FoCo After Dark this month, balance will reload next month.",
+                {
+                  reason: wallet.paymentRequired ? "PAYMENT_REQUIRED" : "TOKEN_LIMIT_REACHED",
+                  remaining: wallet.remaining
+                }
+              );
+            }
+          }
 
           const perkSnap = await tx.get(perkRef);
           let perkData = perkSnap.data() || {};
           if (!perkSnap.exists) {
-            if (perkLabel) {
+            const fallbackId = perkId.toLowerCase();
+            const allowFallback = perkKey === "reward_shot" || fallbackId === "drink" || fallbackId === "shot" || fallbackId === "cover";
+            if (allowFallback && perkLabel) {
               perkData = { label: perkLabel };
             } else {
               throw new HttpsError("not-found", "Perk not found.");
+            }
+          }
+          if (!unlimited) {
+            const tierForPerk = normalizeVoucherTierForWallet(memberData);
+            if ((tierForPerk === "standard" || tierForPerk === "vip") && perkSnap.exists) {
+              const perkQty = getTierPerkQuantity(perkData, tierForPerk);
+              if (!perkQty) {
+                throw new HttpsError("failed-precondition", "No redemptions left for this perk.", {
+                  reason: "PERK_LIMIT_REACHED",
+                  perkId,
+                  tier: tierForPerk
+                });
+              }
+              const perkUsed = getVenuePerkUsageCountForWallet(memberEntries, perkId, venueId);
+              if (perkUsed >= perkQty) {
+                throw new HttpsError("failed-precondition", "No redemptions left for this perk.", {
+                  reason: "PERK_LIMIT_REACHED",
+                  perkId,
+                  tier: tierForPerk,
+                  used: perkUsed,
+                  limit: perkQty
+                });
+              }
             }
           }
 
@@ -1521,6 +1851,7 @@ function isStripeExcluded(token = {}, memberDocData = {}) {
   const memberEmail = (memberDocData?.email || "").toLowerCase();
   const email = claimEmail || memberEmail;
   const overrideRaw = memberDocData?.membershipOverride
+    || memberDocData?.override
     || memberDocData?.membership_override
     || memberDocData?.membershipTierOverride
     || "";
