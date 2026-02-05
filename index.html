@@ -13328,6 +13328,39 @@
         || (isCeoActive() ? "ceo" : (isFreeMember() ? "free" : "standard"))
         || "standard";
     }
+    function toDateSafe(value) {
+      if (!value) return null;
+      if (value?.toDate) {
+        const parsed = value.toDate();
+        return Number.isNaN(parsed?.getTime?.()) ? null : parsed;
+      }
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+    function resolveLatestSuccessfulPaymentDate(billing = {}, profile = memberProfile) {
+      const candidates = [
+        billing.lastCharge,
+        billing.lastPaidAt,
+        billing.lastPaymentAt,
+        billing.paymentDate,
+        profile?.lastCharge,
+        profile?.lastChargeAt,
+        profile?.lastPaidAt,
+        profile?.lastPaymentAt
+      ].map(toDateSafe).filter(Boolean);
+      if (!candidates.length) return null;
+      return new Date(Math.max(...candidates.map((d) => d.getTime())));
+    }
+    function hasSuccessfulPaymentThisCycle(tier, billing = {}, profile = memberProfile) {
+      if (tier !== "standard" && tier !== "vip") return true;
+      const status = (profile?.paymentStatus || "active").toLowerCase();
+      if (status !== "active") return false;
+      const paidAt = resolveLatestSuccessfulPaymentDate(billing, profile);
+      if (!paidAt) return false;
+      const cycle = getVoucherCycleWindow(billing)?.current;
+      if (!cycle?.start || !cycle?.end) return false;
+      return paidAt >= cycle.start && paidAt <= cycle.end;
+    }
 
     function getPurchasedTokenTotal() {
       const profile = memberProfile || {};
@@ -13366,6 +13399,18 @@
       const entries = getMemberRedemptionEntries();
       const uid = firebaseAuth.currentUser?.uid;
       const billing = uid ? loadBilling(uid) : {};
+      if (!hasSuccessfulPaymentThisCycle(tier, billing, memberProfile)) {
+        return {
+          unlimited: false,
+          remaining: 0,
+          limit,
+          carryover: 0,
+          usedCurrent: 0,
+          total: 0,
+          extraTokens: 0,
+          paymentRequired: true
+        };
+      }
       const startIso = resolveBillingStart(billing) || memberProfile?.memberSince || null;
       let startDate = startIso ? new Date(startIso) : null;
       if (!startDate || Number.isNaN(startDate.getTime())) {
@@ -13421,8 +13466,11 @@
       }
       if (statVouchersLeft) statVouchersLeft.textContent = `${balance.remaining}`;
       if (balance.remaining <= 0) {
-        if (voucherBalanceNote) voucherBalanceNote.textContent = VOUCHER_LIMIT_MESSAGE;
-        if (redeemVoucherBalance) redeemVoucherBalance.textContent = VOUCHER_LIMIT_MESSAGE;
+        const blockedMsg = balance.paymentRequired
+          ? "Payment required to reload monthly tokens."
+          : VOUCHER_LIMIT_MESSAGE;
+        if (voucherBalanceNote) voucherBalanceNote.textContent = blockedMsg;
+        if (redeemVoucherBalance) redeemVoucherBalance.textContent = blockedMsg;
       } else {
         if (voucherBalanceNote) {
           if (balance.extraTokens) {
@@ -13504,15 +13552,8 @@
         saveBilling(uid, billing);
         return;
       }
-      const due = new Date(billing.nextRenewal);
-      if (now >= due) {
-        restorePerksForTier(tier);
-        billing.lastCharge = now.toISOString();
-        billing.nextRenewal = oneMonthFrom(now).toISOString();
-        saveBilling(uid, billing);
-        showToast(`Perks refreshed for ${tier.toUpperCase()} membership`);
-      }
       updateExpiryDisplay();
+      updateVoucherBalanceUI();
     }
 
     function getMemberRedemptionEntries() {
@@ -19301,6 +19342,8 @@ let onboardingIndex = 0;
 
     function getRemainingFor(perkId) {
       if (isCeoActive() || isFreeMember()) return 999;
+      const wallet = getVoucherBalanceForTier(getVoucherTier());
+      if (!wallet.unlimited && wallet.remaining <= 0) return 0;
       const venueId = redeemVenueSelect ? redeemVenueSelect.value : selectedRedeemVenue;
       const tier = normalizeTierKey(currentMembershipTier)
         || normalizeTierKey(memberProfile?.tier)
@@ -19722,7 +19765,9 @@ let onboardingIndex = 0;
         selectedPerkId = null;
         selectedVenuePerkId = null;
         selectedPerkLabel = null;
-        creditInfo.textContent = VOUCHER_LIMIT_MESSAGE;
+        creditInfo.textContent = voucherBalance.paymentRequired
+          ? "Payment required to reload monthly tokens."
+          : VOUCHER_LIMIT_MESSAGE;
         return;
       }
       const ceoActive = isCeoActive();
@@ -25389,7 +25434,9 @@ let onboardingIndex = 0;
       }
       const voucherBalance = getVoucherBalanceForTier(getVoucherTier());
       if (!voucherBalance.unlimited && voucherBalance.remaining <= 0) {
-        creditInfo.textContent = VOUCHER_LIMIT_MESSAGE;
+        creditInfo.textContent = voucherBalance.paymentRequired
+          ? "Payment required to reload monthly tokens."
+          : VOUCHER_LIMIT_MESSAGE;
         return;
       }
       ensurePassCode();
