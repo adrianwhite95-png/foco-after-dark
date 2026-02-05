@@ -8999,7 +8999,7 @@
           </div>
           <div class="night-wheel card-hd no-tilt">
             <h4>Night Wheel</h4>
-            <p>Spin for a bar, drink special, and a little challenge. Standard: 2 spins/month · VIP: 4 spins/month.</p>
+            <p>Spin for a bar, a crew move, and a dare challenge. Standard: 2 spins/month · VIP: 4 spins/month.</p>
             <div class="night-wheel-actions">
               <button type="button" class="btn btn-primary" id="nightWheelSpin">Spin the wheel</button>
               <span class="meta-label" id="nightWheelRemaining" style="color:#cbd5f5;">Spins left this month</span>
@@ -9009,7 +9009,6 @@
           <div class="points-total-card">
             <div>
               <div class="points-total-label">Total points</div>
-              <div class="points-total-note">Night wheel, reviews, redemptions, and login bonuses all count.</div>
             </div>
             <div class="points-total-value" id="pointsBalance">0 pts</div>
           </div>
@@ -17214,66 +17213,131 @@ let onboardingIndex = 0;
       { id: "firstReview", label: "First Review", desc: "Leave your first review.", icon: "📝" },
       { id: "monthlyStreak", label: "Streak Starter", desc: "Redeem 5 perks in a month.", icon: "🔥" },
     ];
+    const NIGHT_WHEEL_MOVES = [
+      "Neon mission",
+      "Crew objective",
+      "Dance cue",
+      "Social spark",
+      "Wild card",
+      "Energy check",
+      "Main character move",
+      "Hype task",
+      "Floor challenge",
+      "After-hours objective"
+    ];
     const NIGHT_WHEEL_CHALLENGES = [
-      "Start a 10-second dance-off with your crew.",
-      "Teach someone a new cheers and use it on the next round.",
-      "Compliment the DJ and request a song.",
-      "Order the bartender’s favorite drink and rate it.",
-      "High-five five strangers near the bar.",
-      "Swap seats with a friend for one round and meet their neighbor.",
-      "Leave a 5-star review for the venue before midnight.",
-      "Take a group photo with another table (ask first!).",
-      "Try a mocktail and convince a friend to taste it.",
-      "Tip extra on your next order and say thanks by name.",
-      "Offer a sincere compliment to someone’s outfit.",
-      "Challenge a stranger to rock-paper-scissors; loser buys water.",
-      "Ask the bartender for a surprise drink and guess the ingredients.",
-      "Teach someone a dance move you just made up.",
-      "Start a conga line for 15 seconds.",
-      "Find someone with the same first letter name and cheers together.",
-      "Swap hats/glasses with a friend for one song.",
-      "Start a mini sing-along to the chorus of the current song.",
-      "Pair up two friends who’ve never met and introduce them.",
-      "Start a two-truths-and-a-dare with your group.",
-      "Ask someone their best karaoke song and promise to duet later.",
-      "Trade playlists with someone for the next round.",
-      "Start a slow-motion toast with everyone at your table.",
-      "Challenge your table to only whisper for one minute.",
-      "Start a friendly staring contest with a friend; winner picks the drink.",
-      "Give someone a random nickname and use it all night (keep it kind).",
-      "Ask the DJ to dedicate the next song to your table.",
-      "Find someone celebrating and start a quick celebratory cheer.",
-      "Teach a new handshake to your group.",
-      "Ask someone for their best life advice in one sentence.",
-      "Start a photo scavenger hunt: neon sign, disco ball, smiling bartender.",
-      "Play “would you rather” with the person next to you.",
-      "Get a group to do a synchronized sip countdown: 3, 2, 1, sip.",
-      "Ask a stranger what their hidden talent is (no pressure to show it).",
-      "Start a friendly “best laugh” contest—loudest wins.",
-      "Lead a five-second freeze dance when the beat drops.",
-      "Ask someone to show you a magic trick; rate it out of 10.",
-      "Challenge a friend to a silent dance battle for 15 seconds.",
-      "Get a cheers going with the table on your left and right.",
-      "Start a quick pose-off for a photo—best pose wins bragging rights."
+      "Dare: Get your whole group to do a synchronized 3-second pose in the middle of the dance floor.",
+      "Dare: Introduce yourself to someone new and ask their go-to pregame song.",
+      "Dare: Do your best dramatic runway walk to the bar and back.",
+      "Dare: Get two friends to recreate a fake album cover photo with you.",
+      "Dare: Ask a stranger to rate your dance move from 1 to 10.",
+      "Dare: Start a 10-second dance circle with your crew.",
+      "Dare: Make up a new cheers and get three people to use it tonight.",
+      "Dare: Get your group to spell FOCO with your arms for a photo.",
+      "Dare: Ask the DJ booth for a song request with max confidence.",
+      "Dare: Trade places with someone in your group and copy their vibe for one song.",
+      "Dare: Give a genuine compliment to three different people.",
+      "Dare: Do a slow-motion entrance when you return from the bar.",
+      "Dare: Start a one-minute no-phone dance challenge with your group.",
+      "Dare: Find someone wearing the same color as you and do a cheers.",
+      "Dare: Create a secret handshake with someone you just met.",
+      "Dare: Let your friends pick your dance move for the next 20 seconds.",
+      "Dare: Ask someone for their best hype phrase and shout it with your crew.",
+      "Dare: Do your most over-the-top laugh for five seconds.",
+      "Dare: Challenge someone to a best-spin contest.",
+      "Dare: Get a boomerang-style clip with five people jumping at once.",
+      "Dare: Do your best fake paparazzi wave while walking through the room.",
+      "Dare: Start a one-song shoulder-shuffle contest at your table.",
+      "Dare: Ask someone what song always makes them lose control on the dance floor.",
+      "Dare: Get your group to clap on beat for 15 seconds.",
+      "Dare: Introduce two strangers to each other like a game show host.",
+      "Dare: Do a dramatic point to the DJ right when the beat drops.",
+      "Dare: Start a best dressed vote with nearby people.",
+      "Dare: Get your crew to do matching finger-guns in a group photo.",
+      "Dare: Do a no-speaking charades dance move and make friends guess it.",
+      "Dare: Ask someone for their favorite college night-out memory.",
+      "Dare: Perform your best fake acceptance speech for \"Best Vibe\".",
+      "Dare: Get your group to do a 5-second freeze right on the chorus.",
+      "Dare: Challenge a friend to dance with zero arm movement.",
+      "Dare: Create a fake band name with three random people.",
+      "Dare: Ask someone to teach you one move and immediately perform it.",
+      "Dare: Get a stranger to pick your next dance style.",
+      "Dare: Start a quick call-and-response chant with your crew.",
+      "Dare: Do your best robot dance for 15 seconds.",
+      "Dare: Get three people to air-guitar at the same time.",
+      "Dare: Find the person with the most neon outfit and salute them.",
+      "Dare: Get your friends to hype you like you're entering a fight ring.",
+      "Dare: Start a one-minute \"only moonwalk attempts\" challenge.",
+      "Dare: Ask someone for the wildest concert they've ever been to.",
+      "Dare: Do a dramatic spin and point at your favorite song lyric.",
+      "Dare: Start a tiny dance line and move five steps together.",
+      "Dare: Challenge someone to a one-move dance battle.",
+      "Dare: Get your group to do a synchronized head nod on beat.",
+      "Dare: Ask someone to pick your \"party nickname\" for the night.",
+      "Dare: Do your best club promoter voice and invite your friends to dance.",
+      "Dare: Find someone celebrating something and start a mini cheer.",
+      "Dare: Get your table to vote on the song of the night so far.",
+      "Dare: Do a 10-second no-blink stare at a friend while dancing.",
+      "Dare: Ask someone for their best karaoke song and sing one line with them.",
+      "Dare: Lead your group in a fake runway finale pose.",
+      "Dare: Challenge a friend to dance using only shoulders and knees.",
+      "Dare: Get a squad photo with everyone making the same face.",
+      "Dare: Ask a stranger to name your dance move.",
+      "Dare: Do your best dramatic hair flip (or hat flip) on the beat.",
+      "Dare: Start a 3-person spin circle for one chorus.",
+      "Dare: Get someone to record your 5-second \"main character\" walk.",
+      "Dare: Ask a new person what their favorite bar game is.",
+      "Dare: Do your best two-step for one full minute without stopping.",
+      "Dare: Get your crew to shout \"FoCo!\" in sync once.",
+      "Dare: Challenge someone to copy your move exactly for 10 seconds.",
+      "Dare: Make up a fake dance trend and teach it to two people.",
+      "Dare: Ask someone which song would be their walk-up anthem.",
+      "Dare: Do a fake red carpet interview with a friend.",
+      "Dare: Get your group to recreate a sports team huddle and break.",
+      "Dare: Start a clap-wave with people near your table.",
+      "Dare: Ask someone for one song you should add to your party playlist.",
+      "Dare: Do your best victory dance after ordering.",
+      "Dare: Challenge a friend to dance backward for 15 seconds.",
+      "Dare: Get a random group to join a one-chorus dance moment.",
+      "Dare: Ask someone for their top post-midnight food pick.",
+      "Dare: Perform a 10-second invisible jump-rope dance.",
+      "Dare: Do your best fake DJ hand motions during the drop.",
+      "Dare: Get your crew to do a synchronized \"cheers and point\" photo.",
+      "Dare: Challenge someone to a no-smile dance duel.",
+      "Dare: Ask someone what song instantly brings back college memories.",
+      "Dare: Do your best statue pose until someone notices.",
+      "Dare: Create a three-person dance combo and perform it once.",
+      "Dare: Ask someone to pick your signature move for the night.",
+      "Dare: Get your group to cheer for a stranger's dance move.",
+      "Dare: Do your best exaggerated slow dance solo for 10 seconds.",
+      "Dare: Ask someone which campus bar story they still laugh about.",
+      "Dare: Start a mini \"who has the best shuffle\" vote.",
+      "Dare: Get your table to do one synchronized toast countdown.",
+      "Dare: Perform your best fake mic-drop pose after a chorus.",
+      "Dare: Ask someone for their hottest party take in one sentence.",
+      "Dare: Challenge your crew to dance with one hand in pocket.",
+      "Dare: Get five people to point at the camera at once for a shot.",
+      "Dare: Do a confidence lap around your section with your crew hyping you.",
+      "Dare: Ask someone for the most underrated dance song ever.",
+      "Dare: Start a one-chorus dance relay with your friends.",
+      "Dare: Do your best fake drum solo on the nearest table edge (gently).",
+      "Dare: Ask someone what song should close out the night.",
+      "Dare: Get your group to do a dramatic group stare then burst dance.",
+      "Dare: Challenge a friend to dance like they're in a music video intro.",
+      "Dare: Ask someone for their go-to confidence boost before going out.",
+      "Dare: End the challenge with a full-group \"we run this bar\" pose."
     ];
     function getNightWheelVenueSpecial() {
-      const venueIds = Object.keys(venuesInfo || {});
+      const venueIds = Object.keys(venuesInfo || {}).filter(Boolean);
       if (!isLaunched && !venueIds.includes("beta")) venueIds.push("beta");
-      const entries = venueIds.map((venueId) => {
-        const perks = getVenuePerksForVenue(venueId);
-        const normalized = normalizeVenuePerks(perks || []);
-        if (!normalized.length) return null;
-        const venueName = getVenueDisplayName(venueId);
-        return { venueId, venueName, perks: normalized };
-      }).filter(Boolean);
-      if (!entries.length) return null;
-      const venuePick = randomFrom(entries);
-      const perkPick = randomFrom(venuePick.perks);
-      if (!perkPick || !perkPick.label) return null;
+      if (!venueIds.length) return null;
+      const venueId = randomFrom(venueIds);
+      const venueName = getVenueDisplayName(venueId);
+      const moveLabel = randomFrom(NIGHT_WHEEL_MOVES) || "Crew objective";
       return {
-        venueId: venuePick.venueId,
-        venueName: venuePick.venueName,
-        perkLabel: perkPick.label
+        venueId,
+        venueName,
+        moveLabel
       };
     }
     function getAccentPreset(theme = "cyan") {
@@ -17658,14 +17722,14 @@ let onboardingIndex = 0;
       }
       const selection = getNightWheelVenueSpecial();
       if (!selection) {
-        showToast("No venue specials posted yet.");
+        showToast("No venues are live on the wheel yet.");
         return;
       }
       triggerProfileWheelSpin();
       const bar = selection.venueName;
-      const special = selection.perkLabel;
+      const move = selection.moveLabel;
       const challenge = randomFrom(NIGHT_WHEEL_CHALLENGES);
-      const summary = `${bar} · ${special}`;
+      const summary = `${bar} · ${move}`;
       nightWheelLastSummary = summary.length > 52 ? `${summary.slice(0, 49)}…` : summary;
       const code = (currentPassCode || "").toUpperCase();
       const entry = getNightWheelEntry(code) || {};
@@ -17676,7 +17740,7 @@ let onboardingIndex = 0;
       setNightWheelEntry(code, { period, spins });
       nightWheelResult.innerHTML = `
         <strong style="color:#a5f3fc;">Bar:</strong> ${bar}<br/>
-        <strong style="color:#fbbf24;">Special:</strong> ${special}<br/>
+        <strong style="color:#fbbf24;">Move:</strong> ${move}<br/>
         <strong style="color:#f472b6;">Challenge:</strong> ${challenge}
       `;
       nightWheelResult.dataset.hasResult = "1";
