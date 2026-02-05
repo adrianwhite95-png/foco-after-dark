@@ -15022,7 +15022,8 @@ let onboardingIndex = 0;
       successTimers.set(element, timeout);
     }
 
-    logoutLink.addEventListener("click", async () => {
+    async function signOutToLanding(options = {}) {
+      const showRefreshToast = options.showRefreshToast === true;
       const currentUid = firebaseAuth.currentUser?.uid;
       forceShowLogin = false;
       clearLoginHash();
@@ -15067,6 +15068,11 @@ let onboardingIndex = 0;
       applyRememberedEmailToForm();
       showScreen("landing");
       stopIdleTimer();
+      if (showRefreshToast) showToast("Refreshed. Please log in again.", 2000);
+    }
+
+    logoutLink.addEventListener("click", async () => {
+      await signOutToLanding();
     });
 
     if (navMenuToggle) {
@@ -15074,17 +15080,7 @@ let onboardingIndex = 0;
     }
     async function softRefresh() {
       if (navMenu) navMenu.classList.remove("open");
-      if (firebaseAuth.currentUser) {
-        try {
-          showPassLoading();
-          await handleAuthenticatedUser(firebaseAuth.currentUser);
-        } catch (err) {
-          console.warn("Soft refresh failed, doing hard reload", err);
-          window.location.reload();
-        }
-      } else {
-        window.location.reload();
-      }
+      await signOutToLanding({ showRefreshToast: true });
     }
     if (refreshBtn) {
       refreshBtn.addEventListener("click", () => {
