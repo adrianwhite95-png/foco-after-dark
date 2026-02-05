@@ -3839,6 +3839,39 @@
       font-size: 12px;
       line-height: 1.45;
     }
+    .points-total-card {
+      margin: 10px 0 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: linear-gradient(135deg, rgba(8, 13, 26, 0.92), rgba(10, 20, 36, 0.88));
+      box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.15), 0 10px 28px rgba(2, 8, 23, 0.32);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .points-total-label {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+    .points-total-value {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      color: #67e8f9;
+      text-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
+      white-space: nowrap;
+    }
+    .points-total-note {
+      margin-top: 4px;
+      font-size: 11px;
+      color: #cbd5f5;
+      opacity: 0.88;
+    }
     .vibe-menu {
       display: flex;
       flex-direction: column;
@@ -8973,6 +9006,13 @@
             </div>
             <div class="night-wheel-result" id="nightWheelResult">Ready when you are.</div>
           </div>
+          <div class="points-total-card">
+            <div>
+              <div class="points-total-label">Total points</div>
+              <div class="points-total-note">Night wheel, reviews, redemptions, and login bonuses all count.</div>
+            </div>
+            <div class="points-total-value" id="pointsBalance">0 pts</div>
+          </div>
 
           <div class="divider"></div>
           <div class="perks-title">Included perks</div>
@@ -11677,6 +11717,7 @@
           return;
         }
         isBetaAccount = false;
+        resetRewardsProgressState();
         showScreen("landing");
         clearPassRealtime();
         clearGlobalRealtime();
@@ -11688,6 +11729,7 @@
       }
       if (!user) {
         isBetaAccount = false;
+        resetRewardsProgressState();
         showScreen("landing");
         memberProfile = null;
         memberDocRef = null;
@@ -11701,10 +11743,12 @@
       await loadMemberProfileWithTimeout(user);
       if (!memberProfile) {
         showToast("Unable to sync your profile. Check your connection and try again.");
+        resetRewardsProgressState();
         showScreen("landing");
         clearPassLoading();
         return;
       }
+      refreshRewardsProgressState();
 
       const email = (user.email || "").toLowerCase();
       const passCode = (memberProfile?.passCode || "").toUpperCase();
@@ -12795,24 +12839,65 @@
     const VOUCHER_LIMITS = { standard: 5, vip: 10 };
     const MAX_VOUCHER_CARRYOVER = 3;
     const VOUCHER_LIMIT_MESSAGE = "Thank you for using FoCo After Dark this month, balance will reload next month.";
+    function getRewardsStorageKey(uid = firebaseAuth.currentUser?.uid) {
+      return uid ? `${REWARDS_KEY}_${uid}` : REWARDS_KEY;
+    }
+    function sanitizeRewardsProgressState(state = {}) {
+      const threshold = 5;
+      const count = Math.max(0, Number(state.count) || 0);
+      const claimed = Math.max(0, Number(state.claimed) || 0);
+      return {
+        threshold,
+        count: Math.min(count, threshold),
+        available: Boolean(state.available),
+        rewardType: state.rewardType || null,
+        cycleKey: state.cycleKey || null,
+        claimed
+      };
+    }
     function loadRewardsProgress() {
-      if (memberProfile?.rewardsProgress) return memberProfile.rewardsProgress;
-      if (!allowLocalCache()) return {};
-      try {
-        return JSON.parse(localStorage.getItem(REWARDS_KEY) || "{}");
-      } catch (err) {
-        return {};
+      if (memberProfile?.rewardsProgress && typeof memberProfile.rewardsProgress === "object") {
+        return sanitizeRewardsProgressState(memberProfile.rewardsProgress);
       }
+      if (!allowLocalCache() && !firebaseAuth.currentUser?.uid) return {};
+      const keys = [];
+      const uid = firebaseAuth.currentUser?.uid;
+      if (uid) keys.push(getRewardsStorageKey(uid));
+      keys.push(REWARDS_KEY);
+      for (const key of keys) {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(key) || "{}");
+          if (parsed && typeof parsed === "object" && Object.keys(parsed).length) {
+            return sanitizeRewardsProgressState(parsed);
+          }
+        } catch (_) {}
+      }
+      return {};
     }
     function saveRewardsProgress(state) {
-      rewardsProgress = { ...rewardsProgress, ...state };
-      if (allowLocalCache()) {
-        localStorage.setItem(REWARDS_KEY, JSON.stringify(rewardsProgress));
-      }
+      rewardsProgress = sanitizeRewardsProgressState({ ...rewardsProgress, ...state });
+      const uid = firebaseAuth.currentUser?.uid;
+      try {
+        if (uid) {
+          localStorage.setItem(getRewardsStorageKey(uid), JSON.stringify(rewardsProgress));
+        } else if (allowLocalCache()) {
+          localStorage.setItem(REWARDS_KEY, JSON.stringify(rewardsProgress));
+        }
+      } catch (_) {}
+      if (memberProfile) memberProfile.rewardsProgress = { ...rewardsProgress };
       persistMemberState({ rewardsProgress });
       updateRewardsUI();
     }
-    rewardsProgress = { ...rewardsProgress, ...loadRewardsProgress() };
+    function resetRewardsProgressState() {
+      rewardsProgress = sanitizeRewardsProgressState({ threshold: 5, count: 0, available: false, rewardType: null, cycleKey: null, claimed: 0 });
+      updateRewardsUI();
+    }
+    function refreshRewardsProgressState() {
+      rewardsProgress = sanitizeRewardsProgressState({ threshold: 5, ...loadRewardsProgress() });
+      syncRewardsCycle();
+      updateRewardsUI();
+    }
+    rewardsProgress = sanitizeRewardsProgressState({ threshold: 5, ...loadRewardsProgress() });
     function getRewardsCycleKey() {
       const uid = firebaseAuth.currentUser?.uid;
       const billing = uid ? loadBilling(uid) : {};
@@ -12825,11 +12910,7 @@
       const cycleKey = getRewardsCycleKey();
       if (!cycleKey) return;
       if (rewardsProgress.cycleKey !== cycleKey) {
-        rewardsProgress = { ...rewardsProgress, count: 0, available: false, rewardType: null, cycleKey, claimed: 0 };
-        if (allowLocalCache()) {
-          localStorage.setItem(REWARDS_KEY, JSON.stringify(rewardsProgress));
-        }
-        persistMemberState({ rewardsProgress });
+        saveRewardsProgress({ count: 0, available: false, rewardType: null, cycleKey, claimed: 0 });
       }
     }
     const onboardingSteps = [
@@ -13258,6 +13339,7 @@
       const next = Math.max(0, Number(tokens) || 0);
       if (!memberProfile) memberProfile = {};
       memberProfile.extraRedemptionTokens = next;
+      updateMemberProfile({ extraRedemptionTokens: next });
       persistMemberState({ extraRedemptionTokens: next });
       if (currentPassCode) {
         setMemberDirectoryEntry(currentPassCode, { extraRedemptionTokens: next });
@@ -13478,9 +13560,25 @@
         return date.toISOString().slice(0, 10);
       }
     }
+    function getLoginSessionKey(uid) {
+      return uid ? `${LOGIN_SESSION_PREFIX}${uid}` : null;
+    }
+    function clearLoginSessionFlag(uid) {
+      const key = getLoginSessionKey(uid);
+      if (!key) return;
+      try { sessionStorage.removeItem(key); } catch (_) {}
+    }
 
     function updateLoginStatsForUser(user) {
       if (!user || user.isAnonymous || !memberProfile) return;
+      const uid = user.uid || "";
+      const sessionKey = getLoginSessionKey(uid);
+      if (sessionKey) {
+        try {
+          if (sessionStorage.getItem(sessionKey) === "1") return;
+          sessionStorage.setItem(sessionKey, "1");
+        } catch (_) {}
+      }
       const todayKey = getMstDateKey(new Date());
       const lastKey = memberProfile.lastLoginDate || "";
       const loginCount = Number(memberProfile.loginCount || 0) + 1;
@@ -13489,11 +13587,17 @@
         activeDays += 1;
       }
       const lastLoginAt = new Date().toISOString();
-      memberProfile = { ...memberProfile, loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt };
-      persistMemberState({ loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt });
-      if (currentPassCode) {
-        setMemberDirectoryEntry(currentPassCode, { lastLoginAt });
+      const loginBonus = 20;
+      const nextPoints = Math.max(0, Number(memberProfile.points || 0) + loginBonus);
+      memberProfile = { ...memberProfile, loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt, points: nextPoints };
+      const passCode = (memberProfile.passCode || currentPassCode || "").toUpperCase();
+      if (passCode) {
+        setPointsForPass(passCode, nextPoints, { skipPersist: true, forceLower: true });
+        setMemberDirectoryEntry(passCode, { lastLoginAt, points: nextPoints });
       }
+      persistMemberState({ loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt, points: nextPoints, pointsUpdatedAt: serverTimestamp() });
+      showToast(`+${loginBonus} pts · Login bonus`, 1800);
+      updatePointsUI();
       updateLastCheckinUI();
     }
 
@@ -14932,6 +15036,7 @@ let onboardingIndex = 0;
       resetInMemoryCaches();
       ["betaSkipActive", "staffSession", "ceoSession", "pendingScanVerify", "lastUid", "lastRole", "lastRoute", "activeProfile", "betaLogin", "anonLogin"].forEach(key => localStorage.removeItem(key));
       if (currentUid) {
+        clearLoginSessionFlag(currentUid);
         localStorage.removeItem(`passcode_${currentUid}`);
         localStorage.removeItem(`membership_${currentUid}`);
         localStorage.removeItem(`memberSince_${currentUid}`);
@@ -16890,6 +16995,7 @@ let onboardingIndex = 0;
     const AUTO_CLOSE_OUT_KEY = "autoCloseOutSent";
     const NIGHT_WHEEL_KEY = "nightWheelSpins";
     const POINTS_KEY = "pointsLedger";
+    const LOGIN_SESSION_PREFIX = "loginSessionSeen_";
     const USERNAME_CHANGE_KEY = "usernameChange";
     const USERNAME_EMAIL_MAP = "usernameEmailMap";
     const VENUE_RATINGS_KEY = "venueRatings";
@@ -22964,6 +23070,7 @@ let onboardingIndex = 0;
         authReady = true;
         detachAllRealtimeListeners("auth-change");
         blockedWriteLabels.clear();
+        const previousUid = lastAuthUid;
         lastAuthUid = user?.uid || null;
         console.info("[auth] state", {
           uid: user?.uid || null,
@@ -22972,6 +23079,7 @@ let onboardingIndex = 0;
         });
         const loginForced = forceShowLogin || window.location.hash === "#login";
         if (!user) {
+          clearLoginSessionFlag(previousUid);
           if (authTransition || authSubmitInFlight) {
             return;
           }
@@ -22992,6 +23100,7 @@ let onboardingIndex = 0;
           clearCeoReviewsRealtime();
           stopCeoMessagesListener();
           stopCloseOutReportsListener();
+          resetRewardsProgressState();
           updateCeoPassUI();
           if (loginForced) {
             suppressLandingRedirectOnce = true;
@@ -23029,6 +23138,7 @@ let onboardingIndex = 0;
           localStorage.removeItem(BG_KEY);
           applyAccentTheme("cyan");
           applyBackgroundTheme("default");
+          resetRewardsProgressState();
           showScreen("landing");
           initialAuthResolved = true;
           return;
