@@ -8737,6 +8737,10 @@
             <input id="cardName" type="text" autocomplete="cc-name" />
           </div>
           <div class="field">
+            <label for="membershipPromoCode">Promo code (optional)</label>
+            <input id="membershipPromoCode" type="text" placeholder="FOCOFAM20" autocomplete="off" />
+          </div>
+          <div class="field">
             <label>Card & payment method</label>
             <div id="paymentElement"></div>
           </div>
@@ -10289,6 +10293,7 @@
     import {
       initializeFirestore,
       memoryLocalCache,
+      disableNetwork,
       doc,
       getDoc,
       setDoc,
@@ -10334,6 +10339,15 @@
       return false;
     }
     let forceLogoutOnReload = detectHardReload();
+    const REALTIME_RELOAD_GUARD_KEY = "rtReloadGuardTs";
+    let realtimeAttachDelayUntil = 0;
+    try {
+      const raw = Number(sessionStorage.getItem(REALTIME_RELOAD_GUARD_KEY) || 0);
+      if (Number.isFinite(raw) && raw > 0 && (Date.now() - raw) < 15000) {
+        realtimeAttachDelayUntil = Date.now() + 3000;
+      }
+      sessionStorage.removeItem(REALTIME_RELOAD_GUARD_KEY);
+    } catch (_) {}
     // Strip cache-busting params from visible URL without reloading.
     (() => {
       try {
@@ -10362,14 +10376,27 @@
     const firestoreSettings = isSafari
       ? {
         localCache: memoryLocalCache(),
-        experimentalAutoDetectLongPolling: true,
+        experimentalForceLongPolling: true,
+        experimentalAutoDetectLongPolling: false,
         useFetchStreams: false
       }
       : {};
     const db = initializeFirestore(app, firestoreSettings);
     if (isSafari) {
-      console.info("[auth] Safari detected: Firestore persistence disabled");
+      console.info("[auth] Safari detected: Firestore long-polling mode enabled");
     }
+    window.addEventListener("pagehide", () => {
+      try { sessionStorage.setItem(REALTIME_RELOAD_GUARD_KEY, String(Date.now())); } catch (_) {}
+      try {
+        disableNetwork(db).catch(() => {});
+      } catch (_) {}
+    });
+    window.addEventListener("beforeunload", () => {
+      try { sessionStorage.setItem(REALTIME_RELOAD_GUARD_KEY, String(Date.now())); } catch (_) {}
+      try {
+        disableNetwork(db).catch(() => {});
+      } catch (_) {}
+    });
     const BETA_FALLBACK_EMAIL = "beta@focoafterdark.com";
     const BETA_FALLBACK_CODE = "beta";
     let functionsClient = null;
@@ -12564,6 +12591,7 @@
     const paymentPlanPrice = document.getElementById("paymentPlanPrice");
     const skipPaymentBtn = document.getElementById("skipPaymentBtn");
     const cardNameInput = document.getElementById("cardName");
+    const membershipPromoInput = document.getElementById("membershipPromoCode");
     const paymentElementContainer = document.getElementById("paymentElement");
     const paymentSubmitBtn = document.getElementById("paymentSubmit");
     const paymentBackBtn = document.getElementById("paymentBackBtn");
@@ -13967,6 +13995,19 @@
   }
   function attachRealtimeForCurrentContext(reason = "") {
     if (!authReady) return;
+    if (Date.now() < realtimeAttachDelayUntil) {
+      logRealtime("attachSkipped", "reload-guard");
+      const waitMs = Math.max(200, realtimeAttachDelayUntil - Date.now());
+      setTimeout(() => {
+        if (!firebaseAuth.currentUser || !authReady) return;
+        attachRealtimeForCurrentContext("reload-guard-release");
+      }, waitMs);
+      return;
+    }
+    if (forceLogoutOnReload) {
+      logRealtime("attachSkipped", "reload-logout");
+      return;
+    }
     const user = firebaseAuth.currentUser;
     if (!db) return;
     if (!user) return;
@@ -14078,6 +14119,19 @@
   const activeRealtimeUnsubs = new Map();
   const indexToastLabels = new Set();
   const blockedRealtimeLabels = new Map();
+  const staffOnlyRealtimeLabels = new Set([
+    "staffPerks",
+    "staffRedemptions",
+    "staffMessages",
+    "closeOutReports"
+  ]);
+  const ceoOnlyRealtimeLabels = new Set([
+    "ceoRedemptions",
+    "ceoReviews",
+    "ceoMessages",
+    "ceoMembers",
+    "ceoHealth"
+  ]);
   const pillHeartbeatLabels = new Set([
     "settingsApp"
   ]);
@@ -14105,6 +14159,11 @@
   }
   function detachRealtimeLabel(label, reason = "") {
     clearActiveRealtimeListener(label, reason || "manual");
+  }
+  function canAttachRealtimeLabel(label) {
+    if (staffOnlyRealtimeLabels.has(label) && !hasStaffClaim()) return false;
+    if (ceoOnlyRealtimeLabels.has(label) && !hasCeoClaim()) return false;
+    return true;
   }
   function clearAllRealtimeListeners(reason = "") {
     Array.from(activeRealtimeUnsubs.keys()).forEach((label) => {
@@ -14185,7 +14244,19 @@
   }
   function subscribeSnapshot(label, target, options, onNext, onError) {
     if (!authReady || !firebaseAuth.currentUser) return null;
+    if (Date.now() < realtimeAttachDelayUntil) {
+      logRealtime("attachSkipped", `${label}:reload-guard`);
+      return null;
+    }
+    if (forceLogoutOnReload) {
+      logRealtime("attachSkipped", `${label}:reload-logout`);
+      return null;
+    }
     if (isRealtimeLabelBlocked(label)) return null;
+    if (!canAttachRealtimeLabel(label)) {
+      logRealtime("attachSkipped", `${label}:missing-claim`);
+      return null;
+    }
     const existing = activeRealtimeUnsubs.get(label);
     if (typeof existing === "function") {
       return existing;
@@ -14207,12 +14278,21 @@
           onNext(snap);
         },
         (err) => {
-          console.error(`[${label}] snapshot failed`, err);
+          const unavailable = (err?.code || "").includes("unavailable");
+          if (!unavailable) {
+            console.error(`[${label}] snapshot failed`, err);
+          } else {
+            console.warn(`[${label}] snapshot unavailable; using cached/offline data`, err?.message || err);
+          }
           noteRealtimeError(label, err);
           if (isPermissionDeniedError(err)) {
             blockRealtimeLabel(label, Infinity);
             // Detach on next tick to avoid watch-stream churn in Safari.
             setTimeout(() => detachRealtimeLabel(label, "permission-denied"), 0);
+          } else if (unavailable) {
+            // Network/proxy hiccups can spam Listen errors in Safari; back off briefly.
+            blockRealtimeLabel(label, 30 * 1000);
+            setTimeout(() => detachRealtimeLabel(label, "unavailable"), 0);
           } else if (isFailedPreconditionError(err)) {
             blockRealtimeLabel(label, 90 * 1000);
             if (!indexToastLabels.has(label)) {
@@ -16064,7 +16144,8 @@ let onboardingIndex = 0;
       if (paymentSavedCard) paymentSavedCard.style.display = "none";
       try {
         const fn = httpsCallable(functionsClient, "createMembershipPaymentIntent");
-        const resp = await fn({ tier });
+        const promoCode = membershipPromoInput?.value?.trim() || "";
+        const resp = await fn({ tier, promoCode });
         const data = resp?.data || {};
         if (data.free) {
           pendingMembershipTier = tier;
@@ -16370,7 +16451,8 @@ let onboardingIndex = 0;
       }
       try {
         const fn = httpsCallable(functionsClient, "chargeMembershipOnFile");
-        const resp = await fn({ tier });
+        const promoCode = membershipPromoInput?.value?.trim() || "";
+        const resp = await fn({ tier, promoCode });
         const data = resp?.data || {};
         if (data.free) {
           pendingMembershipTier = null;

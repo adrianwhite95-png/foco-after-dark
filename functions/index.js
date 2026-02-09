@@ -1739,6 +1739,16 @@ async function applyVoucherPack(uid, pack) {
 }
 
 const stripeSecrets = { secrets: ["STRIPE_SECRET", "STRIPE_PUBLISHABLE"] };
+const STRIPE_PROMOS = {
+  LAUNCH30: {
+    couponId: "iydJPH3m",
+    limit: 30,
+  },
+  FOCOFAM20: {
+    promotionCodeId: "promo_1Sz1GSQ4Ij3ax7macXklpdje",
+  },
+};
+const LAUNCH30_RESERVE_MS = 30 * 60 * 1000;
 const stripeWebhookSecrets = { secrets: ["STRIPE_SECRET", "STRIPE_WEBHOOK_SECRET"] };
 
 function isCeoContext(context, profileData) {
@@ -1865,6 +1875,121 @@ function isStripeExcluded(token = {}, memberDocData = {}) {
   );
 }
 
+function normalizePromoCodeInput(raw) {
+  return (raw || "").toString().trim().toUpperCase();
+}
+
+function isNewMembership(memberDocData = {}) {
+  return !(
+    memberDocData?.membershipActivatedAt
+    || memberDocData?.stripeSubscriptionId
+    || memberDocData?.lastCharge
+  );
+}
+
+async function reserveLaunch30(uid) {
+  const ref = db.collection("promoCounters").doc("launch30");
+  const now = Date.now();
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : {};
+    const usedUids = data.usedUids || {};
+    const reservedUidsRaw = data.reservedUids || {};
+    const reservedUids = {};
+    Object.entries(reservedUidsRaw).forEach(([key, ts]) => {
+      if (typeof ts === "number" && now - ts < LAUNCH30_RESERVE_MS) {
+        reservedUids[key] = ts;
+      }
+    });
+    const usedCount = Object.keys(usedUids).length;
+    const reservedCount = Object.keys(reservedUids).length;
+    if (usedUids[uid]) {
+      return { eligible: false, reason: "already_used", usedCount, reservedCount };
+    }
+    if (reservedUids[uid]) {
+      return { eligible: true, alreadyReserved: true, usedCount, reservedCount };
+    }
+    if (usedCount + reservedCount >= STRIPE_PROMOS.LAUNCH30.limit) {
+      return { eligible: false, reason: "limit_reached", usedCount, reservedCount };
+    }
+    reservedUids[uid] = now;
+    tx.set(ref, {
+      usedUids,
+      reservedUids,
+      usedCount,
+      reservedCount: reservedCount + 1,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return { eligible: true, reserved: true, usedCount, reservedCount: reservedCount + 1 };
+  });
+}
+
+async function finalizeLaunch30(uid, success) {
+  if (!uid) return;
+  const ref = db.collection("promoCounters").doc("launch30");
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return;
+    const data = snap.data() || {};
+    const usedUids = data.usedUids || {};
+    const reservedUids = data.reservedUids || {};
+    let changed = false;
+    if (success && !usedUids[uid]) {
+      usedUids[uid] = Date.now();
+      changed = true;
+    }
+    if (reservedUids[uid]) {
+      delete reservedUids[uid];
+      changed = true;
+    }
+    if (!changed) return;
+    tx.set(ref, {
+      usedUids,
+      reservedUids,
+      usedCount: Object.keys(usedUids).length,
+      reservedCount: Object.keys(reservedUids).length,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
+}
+
+async function resolveMembershipPromo({ uid, memberDocData, promoCodeInput }) {
+  const promoInput = normalizePromoCodeInput(promoCodeInput);
+  const isNew = isNewMembership(memberDocData);
+  if (!isNew && promoInput) {
+    throw new HttpsError("failed-precondition", "Promo codes are only available for new memberships.");
+  }
+  if (promoInput) {
+    if (promoInput === "FOCOFAM20") {
+      return {
+        discount: { promotion_code: STRIPE_PROMOS.FOCOFAM20.promotionCodeId },
+        promoTag: "focofam20",
+      };
+    }
+    if (promoInput === "LAUNCH30") {
+      const launch = await reserveLaunch30(uid);
+      if (!launch.eligible) {
+        throw new HttpsError("failed-precondition", "Launch promo has reached the redemption limit.");
+      }
+      return {
+        discount: { coupon: STRIPE_PROMOS.LAUNCH30.couponId },
+        promoTag: "launch30",
+      };
+    }
+    throw new HttpsError("invalid-argument", "Invalid promo code.");
+  }
+  if (isNew) {
+    const launch = await reserveLaunch30(uid);
+    if (launch.eligible) {
+      return {
+        discount: { coupon: STRIPE_PROMOS.LAUNCH30.couponId },
+        promoTag: "launch30",
+      };
+    }
+  }
+  return { discount: null, promoTag: null };
+}
+
 async function getMemberContext(uid) {
   const ref = db.collection("members").doc(uid);
   const snap = await ref.get();
@@ -1921,7 +2046,7 @@ async function retrieveStripeSubscription(stripe, subscriptionId) {
   }
 }
 
-async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, uid, email, tier, token }) {
+async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, uid, email, tier, token, discount, promoTag }) {
   const normalizedTier = normalizeTierKey(tier);
   const customerId = await ensureStripeCustomer({
     stripe,
@@ -1934,6 +2059,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
 
   let subscription = await retrieveStripeSubscription(stripe, memberDocData?.stripeSubscriptionId);
   const hasActiveSubscription = subscription && !["canceled", "incomplete_expired"].includes(subscription.status);
+  const promoMeta = promoTag ? { promo: promoTag } : {};
 
   if (hasActiveSubscription) {
     const currentItem = subscription.items?.data?.[0];
@@ -1943,7 +2069,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
         cancel_at_period_end: false,
         proration_behavior: "none",
         billing_cycle_anchor: "unchanged",
-        metadata: { uid, tier: normalizedTier },
+        metadata: { uid, tier: normalizedTier, ...promoMeta },
         items: [{
           id: currentItem.id,
           price_data: subscriptionPriceDataForTier(normalizedTier),
@@ -1952,7 +2078,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
       });
     } else if (subscription.metadata?.tier !== normalizedTier) {
       subscription = await stripe.subscriptions.update(subscription.id, {
-        metadata: { uid, tier: normalizedTier },
+        metadata: { uid, tier: normalizedTier, ...promoMeta },
         expand: ["latest_invoice.payment_intent", "items.data.price"],
       });
     }
@@ -1962,7 +2088,8 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
       items: [{ price_data: subscriptionPriceDataForTier(normalizedTier) }],
       payment_behavior: "default_incomplete",
       payment_settings: { save_default_payment_method: "on_subscription" },
-      metadata: { uid, tier: normalizedTier },
+      metadata: { uid, tier: normalizedTier, ...promoMeta },
+      discounts: discount ? [discount] : undefined,
       expand: ["latest_invoice.payment_intent", "items.data.price"],
     });
   }
@@ -1993,11 +2120,18 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
   const uid = context.auth.uid;
   const email = (context.auth.token.email || '').toLowerCase();
   const tier = normalizeTierKey((data?.tier || 'standard').toString());
+  const promoCodeInput = (data?.promoCode || "").toString();
   const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
   assertStripeAllowed(context, memberDocData);
   const stripe = getStripeClient();
   const { publishable } = getStripeConfig();
   if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
+
+  const promoContext = await resolveMembershipPromo({
+    uid,
+    memberDocData,
+    promoCodeInput,
+  });
 
   const { subscription, paymentIntent } = await upsertMembershipSubscription({
     stripe,
@@ -2007,6 +2141,8 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
     email,
     tier,
     token: context.auth.token,
+    discount: promoContext.discount,
+    promoTag: promoContext.promoTag,
   });
 
   if (!paymentIntent?.client_secret) {
@@ -2045,6 +2181,7 @@ exports.confirmMembershipActivation = functions.runWith(stripeSecrets).https.onC
   }
   const tier = normalizeTierKey(intent.metadata?.tier || memberDocData?.tier || 'standard');
   const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
+  const promoTag = (subscription?.metadata?.promo || intent.metadata?.promo || "").toString().toLowerCase();
   const updates = {
     tier,
     membershipTier: membershipTierLabel(tier),
@@ -2055,12 +2192,16 @@ exports.confirmMembershipActivation = functions.runWith(stripeSecrets).https.onC
     stripeSubscriptionId: subscription?.id || memberDocData?.stripeSubscriptionId || null,
     defaultPaymentMethodId: intent.payment_method || memberDocData?.defaultPaymentMethodId || null,
     lastCharge: new Date().toISOString(),
+    membershipActivatedAt: memberDocData?.membershipActivatedAt || new Date().toISOString(),
     currentPeriodEnd: currentPeriodEndIso,
     nextRenewal: currentPeriodEndIso,
     lastStripeEvent: "membership_confirmed",
     lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
   };
   await memberRef.set(updates, { merge: true });
+  if (promoTag === "launch30") {
+    await finalizeLaunch30(uid, true);
+  }
   return { ok: true, tier, subscriptionId: updates.stripeSubscriptionId };
 });
 
@@ -2352,12 +2493,20 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
   const uid = context.auth.uid;
   const email = (context.auth.token.email || '').toLowerCase();
   const tier = normalizeTierKey((data?.tier || 'standard').toString());
+  const promoCodeInput = (data?.promoCode || "").toString();
 
   const { ref: memberRef, data: profile } = await getMemberContext(uid);
   assertStripeAllowed(context, profile);
   const stripe = getStripeClient();
   const { publishable } = getStripeConfig();
   if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
+
+  const promoContext = await resolveMembershipPromo({
+    uid,
+    memberDocData: profile,
+    promoCodeInput,
+  });
+  const promoMeta = promoContext.promoTag ? { promo: promoContext.promoTag } : {};
 
   const customerId = await ensureStripeCustomer({
     stripe,
@@ -2409,7 +2558,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
         proration_behavior: "none",
         billing_cycle_anchor: "unchanged",
         default_payment_method: defaultPm,
-        metadata: { uid, tier },
+        metadata: { uid, tier, ...promoMeta },
         items: [{
           id: currentItem.id,
           price_data: subscriptionPriceDataForTier(tier),
@@ -2424,7 +2573,8 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
       items: [{ price_data: subscriptionPriceDataForTier(tier) }],
       payment_behavior: "default_incomplete",
       payment_settings: { save_default_payment_method: "on_subscription" },
-      metadata: { uid, tier },
+      metadata: { uid, tier, ...promoMeta },
+      discounts: promoContext.discount ? [promoContext.discount] : undefined,
       expand: ["latest_invoice.payment_intent", "items.data.price"],
     });
   }
@@ -2457,9 +2607,13 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     currentPeriodEnd: currentPeriodEndIso,
     nextRenewal: currentPeriodEndIso,
     lastCharge: paymentIntent ? new Date().toISOString() : (profile?.lastCharge || null),
+    membershipActivatedAt: profile?.membershipActivatedAt || new Date().toISOString(),
     lastStripeEvent: "chargeMembershipOnFile",
     lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
+  if (promoContext.promoTag === "launch30") {
+    await finalizeLaunch30(uid, true);
+  }
   return { ok: true, tier, subscriptionId: subscription?.id || null };
 });
 
