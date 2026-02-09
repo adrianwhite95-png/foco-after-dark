@@ -10261,7 +10261,7 @@
     <div class="onboarding-card">
       <span class="onboarding-steps" id="onboardingIndicator">Step 1 of 3</span>
       <h3 id="onboardingTitle">Welcome to FoCo After Dark</h3>
-      <p id="onboardingBody">Use your pass to redeem perks, flash your QR, and get green-lit instantly.</p>
+      <p id="onboardingBody">Your Nightlife Pass unlocks venue perks, spins, and member-only rewards.</p>
       <button type="button" class="btn btn-primary" id="onboardingNext">Next</button>
       <button type="button" class="btn btn-secondary" id="onboardingSkip" style="margin-top:8px;">Skip for now</button>
     </div>
@@ -11521,6 +11521,8 @@
           if (gender) profilePayload.gender = gender;
           if (username) profilePayload.username = username;
           if (username) profilePayload.username = username;
+          profilePayload.onboardingEligible = true;
+          profilePayload.onboardingComplete = false;
           if (Object.keys(profilePayload).length) {
             if (db) {
               const memberRef = doc(db, "members", cred.user.uid);
@@ -12954,9 +12956,9 @@
       }
     }
     const onboardingSteps = [
-      { title: "Pick your perk", copy: "Tap “Redeem a perk” and choose a venue perk from the bar you’re at." },
-      { title: "Show QR + Pass ID", copy: "Your QR works offline. Staff can also type the Pass ID if scanners are busy." },
-      { title: "Staff verifies", copy: "They confirm in their FoCo portal, balances sync instantly, and you’re in." }
+      { title: "Redeem in two taps", copy: "Use “Redeem a perk” to claim a venue deal. Your balance updates instantly." },
+      { title: "Show your Pass ID", copy: "At the venue, show your Pass ID for staff verification—no scanners required." },
+      { title: "Earn while you party", copy: "Spin the Night Wheel, leave reviews, and stack points all month long." }
     ];
     const ONBOARDING_STORAGE_KEY = "foco_onboarding_complete";
     function loadBadgeDirectory() {
@@ -14883,12 +14885,20 @@ let onboardingIndex = 0;
     }
     function hideOnboarding(persist = true) {
       if (onboardingOverlay) onboardingOverlay.classList.remove("active");
-      if (persist) localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
+      if (persist) {
+        localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
+        updateMemberProfile({
+          onboardingComplete: true,
+          onboardingEligible: false,
+          onboardingSeenAt: new Date().toISOString()
+        });
+      }
     }
     function maybeShowOnboarding(force = false) {
       if (!onboardingOverlay || !onboardingTitle) return;
       if (isCeoActive() || isCeoAccount) return;
       if (!force && localStorage.getItem(ONBOARDING_STORAGE_KEY) === "true") return;
+      if (!force && !memberProfile?.onboardingEligible) return;
       onboardingIndex = 0;
       updateOnboardingStep();
       onboardingOverlay.classList.add("active");
