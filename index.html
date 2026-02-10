@@ -13212,10 +13212,7 @@
     function getActiveVenuePerks(venueId) {
       if (!venueId) return [];
       const cached = venuePerksCache[venueId];
-      if (Array.isArray(cached) && cached.length) return cached;
-      if (!isLaunched) {
-        return buildBetaVenuePerks(venueId);
-      }
+      if (Array.isArray(cached)) return cached;
       return [];
     }
     function buildFeaturedVenuesFromPerks() {
@@ -13223,14 +13220,14 @@
       const list = [];
       venueIds.forEach(venueId => {
         const perks = getActiveVenuePerks(venueId);
-        if (!perks.length) return;
-        const primary = perks[0];
+        const hasPerks = perks.length > 0;
+        const primary = hasPerks ? perks[0] : null;
         const info = venuesInfo[venueId] || {};
         list.push({
           venueId,
           name: info.name || getVenueDisplayName(venueId),
-          badge: formatFeaturedBadge(primary.label),
-          detail: formatFeaturedDetail(primary)
+          badge: hasPerks ? formatFeaturedBadge(primary.label) : "Perks pending",
+          detail: hasPerks ? formatFeaturedDetail(primary) : "This venue hasn't posted perks yet"
         });
       });
       return list;
@@ -26020,8 +26017,10 @@ let onboardingIndex = 0;
       }
       if (isCeoAccount && canCeoRealtime) {
         attachCeoRedemptionsRealtime();
+        attachCloseOutReportsRealtime();
       } else {
         clearCeoRedemptionsRealtime();
+        stopCloseOutReportsListener();
       }
       if (isCeoAccount) {
         appLockOverride = false;
