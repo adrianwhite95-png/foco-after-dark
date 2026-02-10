@@ -754,27 +754,30 @@
       border-radius: 16px;
       box-shadow: 0 12px 26px rgba(0,0,0,0.4);
     }
-    .staff-logout-top {
+    .staff-portal-top {
       display: flex;
-      width: fit-content;
-      justify-content: center;
+      justify-content: flex-end;
+      margin: 2px 0 8px;
+    }
+    .staff-logout-top {
+      display: inline-flex;
       align-items: center;
-      padding: 10px 18px;
+      justify-content: center;
+      padding: 8px 14px;
       border-radius: 999px;
-      background: linear-gradient(135deg, var(--staff-primary), var(--staff-secondary));
-      border: 2px solid var(--staff-border-strong);
-      outline: 2px solid rgba(226, 232, 240, 0.22);
-      outline-offset: 2px;
-      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.4), 0 0 12px var(--staff-glow);
-      color: #e2e8f0;
+      background: rgba(8, 13, 24, 0.92);
+      border: 1px solid var(--staff-border);
+      color: var(--staff-text);
       font-weight: 700;
-      letter-spacing: 0.04em;
-      min-width: 210px;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
+      transition: box-shadow 0.2s ease;
+      min-width: 0;
     }
     .staff-logout-top:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.45), 0 0 16px var(--staff-glow);
+      transform: none;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.22);
     }
     .venue-chip {
       padding: 6px 12px;
@@ -8140,6 +8143,40 @@
       .staff-pending {
         min-height: unset;
       }
+      #staffPortalScreen .app-title {
+        text-align: left;
+        font-size: 20px;
+        letter-spacing: 0.12em;
+      }
+      #staffPortalScreen .app-title span {
+        display: block;
+        font-size: 11px;
+        letter-spacing: 0.26em;
+        opacity: 0.78;
+      }
+      #staffPortalScreen .tagline {
+        text-align: left;
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      #staffPortalScreen .staff-meta-row {
+        justify-content: flex-start;
+      }
+      #staffPortalScreen .staff-sticky-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      #staffPortalScreen .staff-sticky-bar .venue-chip {
+        align-self: flex-start;
+      }
+      #staffPortalScreen .sticky-actions {
+        width: 100%;
+      }
+      #staffPortalScreen .sticky-actions .chip {
+        flex: 1;
+        justify-content: center;
+      }
     }
     .screen {
       transition: opacity 140ms ease, transform 140ms ease;
@@ -9260,7 +9297,7 @@
   </div>
 
   <div id="staffPortalScreen" class="screen">
-    <div style="display:flex;justify-content:center;margin-bottom:10px;margin-top:4px;">
+    <div class="staff-portal-top">
       <button type="button" class="staff-logout-top" id="staffLogoutTop">Log out</button>
     </div>
     <div class="app-title" id="staffPortalTitle"><span>Venue</span> Dashboard</div>
