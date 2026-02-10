@@ -10524,6 +10524,8 @@
     let betaPassMode = localStorage.getItem("betaSkipActive") === "true";
     let staffMessagesUnsub = null;
     let ceoMessagesUnsub = null;
+    let ceoMemberPreviewUnsub = null;
+    let ceoMemberPreviewUid = null;
     let closeOutReportsUnsub = null;
     let staffRedemptionUnsubs = [];
     let ceoRedemptionsUnsub = null;
@@ -24015,6 +24017,12 @@ let onboardingIndex = 0;
       if (Number.isNaN(date.getTime())) return "—";
       return date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric" });
     }
+    function getCeoDateKey(value) {
+      if (!value) return null;
+      const date = value.toDate ? value.toDate() : new Date(value);
+      if (Number.isNaN(date.getTime())) return null;
+      return date.toLocaleDateString("en-CA", { timeZone: "America/Denver" });
+    }
     function normalizeMemberName(value = "") {
       return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
     }
@@ -24125,7 +24133,8 @@ let onboardingIndex = 0;
       const paused = data.paused === true;
       const statusKey = paused ? "paused" : ((data.paymentStatus || data.membershipStatus || "active").toString().toLowerCase());
       const statusLabel = paused ? "Paused" : statusKey.replace("_", " ");
-      const lastActiveRaw = data.lastLoginAt || data.lastLoginDate || data.lastActiveAt || data.lastActive || null;
+      const lastLoginRaw = data.lastLoginAt || data.lastLoginDate || data.lastLogin || null;
+      const lastActiveRaw = data.lastActiveAt || data.lastActive || lastLoginRaw || null;
       const createdAtRaw = data.createdAt || data.memberSince || data.joinedAt || null;
       return {
         uid,
@@ -24141,6 +24150,7 @@ let onboardingIndex = 0;
         createdAt: createdAtRaw,
         createdAtLabel: formatCeoDate(createdAtRaw),
         lastActiveLabel: formatCeoDateTime(lastActiveRaw),
+        lastLoginLabel: formatCeoDateTime(lastLoginRaw || lastActiveRaw),
         email: (data.email || data.contactEmail || "").toString().trim(),
         paymentStatus: (data.paymentStatus || data.membershipStatus || "").toString().trim(),
         membershipOverride: override || "",
@@ -24159,7 +24169,55 @@ let onboardingIndex = 0;
       }[char]));
     }
     function closeCeoMemberPreviewModal() {
+      if (ceoMemberPreviewUnsub) {
+        try { ceoMemberPreviewUnsub(); } catch (_) {}
+        ceoMemberPreviewUnsub = null;
+      }
+      ceoMemberPreviewUid = null;
       if (ceoMemberPreviewModal) ceoMemberPreviewModal.classList.remove("active");
+    }
+    function updateCeoMemberPreviewStat(key, value) {
+      if (!ceoMemberPreviewBody) return;
+      const node = ceoMemberPreviewBody.querySelector(`[data-ceo-preview-key="${key}"] .value`);
+      if (node) node.textContent = value;
+    }
+    function isVerifiedRedemptionEntry(entry = {}) {
+      const status = String(entry.status || "").toLowerCase();
+      return entry.used === true || ["verified", "approved", "confirmed"].includes(status);
+    }
+    function getRedemptionEntryDate(entry = {}) {
+      return entry.verifiedAt || entry.timestamp || entry.createdAt || entry.usedAt || entry.updatedAt || null;
+    }
+    function attachCeoMemberPreviewRedemptions(uid = "") {
+      if (!db || !uid || !ceoMemberPreviewBody) return;
+      if (ceoMemberPreviewUnsub) {
+        try { ceoMemberPreviewUnsub(); } catch (_) {}
+        ceoMemberPreviewUnsub = null;
+      }
+      ceoMemberPreviewUid = uid;
+      updateCeoMemberPreviewStat("perksRedeemed", "0");
+      updateCeoMemberPreviewStat("nightsActive", "0");
+      try {
+        const ref = collection(db, "members", uid, "redemptions");
+        ceoMemberPreviewUnsub = subscribeSnapshot("ceoMemberPreviewRedemptions", ref, null, (snap) => {
+          if (ceoMemberPreviewUid !== uid) return;
+          const entries = snap.docs.map(docSnap => docSnap.data() || {});
+          let redeemed = 0;
+          const nights = new Set();
+          entries.forEach(entry => {
+            if (!isVerifiedRedemptionEntry(entry)) return;
+            redeemed += 1;
+            const key = getCeoDateKey(getRedemptionEntryDate(entry));
+            if (key) nights.add(key);
+          });
+          updateCeoMemberPreviewStat("perksRedeemed", String(redeemed));
+          updateCeoMemberPreviewStat("nightsActive", String(nights.size));
+        }, (err) => {
+          console.warn("CEO member preview redemptions failed", err);
+        });
+      } catch (err) {
+        console.warn("CEO member preview redemptions failed", err);
+      }
     }
     function openCeoMemberPreviewModal(uid = "") {
       if (!ceoMemberPreviewModal || !ceoMemberPreviewBody || !uid) return;
@@ -24168,14 +24226,21 @@ let onboardingIndex = 0;
         showToast("Member profile unavailable.");
         return;
       }
+      if (ceoMemberPreviewUnsub) {
+        try { ceoMemberPreviewUnsub(); } catch (_) {}
+        ceoMemberPreviewUnsub = null;
+      }
       const snippets = [
         { label: "Username", value: member.username || "—" },
         { label: "Pass ID", value: member.passCode || "—" },
         { label: "UID", value: member.uid || "—" },
         { label: "Tier", value: member.tier || "—" },
         { label: "Status", value: member.statusLabel || "—" },
+        { label: "Perks redeemed", value: "0", key: "perksRedeemed" },
+        { label: "Nights active", value: "0", key: "nightsActive" },
         { label: "Gender", value: member.gender || "—" },
         { label: "Joined", value: member.createdAtLabel || "—" },
+        { label: "Last login", value: member.lastLoginLabel || member.lastActiveLabel || "—" },
         { label: "Last active", value: member.lastActiveLabel || "—" },
         { label: "Email", value: member.email || "—" },
         { label: "Birthday", value: member.birthDateLabel || "—" },
@@ -24193,11 +24258,12 @@ let onboardingIndex = 0;
         ceoMemberPreviewMeta.textContent = parts.join(" · ") || "Quick profile details.";
       }
       ceoMemberPreviewBody.innerHTML = snippets.map((item) => `
-        <div class="ceo-member-preview-item">
+        <div class="ceo-member-preview-item"${item.key ? ` data-ceo-preview-key="${item.key}"` : ""}>
           <div class="label">${escapeHtmlText(item.label)}</div>
           <div class="value">${escapeHtmlText(item.value)}</div>
         </div>
       `).join("");
+      attachCeoMemberPreviewRedemptions(uid);
       ceoMemberPreviewModal.classList.add("active");
     }
     function getFilteredCeoMembers() {
