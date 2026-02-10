@@ -103,6 +103,7 @@
       box-shadow: var(--hd-shadow);
       border-radius: calc(var(--radius-card) - 6px);
       transition: box-shadow 260ms ease, background 260ms ease;
+      overflow: hidden;
     }
     .card-hd:hover { box-shadow: 0 30px 80px rgba(2,6,23,0.75), 0 0 60px rgba(34,211,238,0.06); }
     .card-hd.no-tilt,
@@ -1840,6 +1841,7 @@
       background: rgba(8, 14, 28, 0.6);
       box-shadow: 0 16px 32px rgba(2, 6, 23, 0.45), 0 0 18px rgba(34, 211, 238, 0.12);
       margin: 8px 0 10px;
+      overflow: hidden;
     }
     .user-row {
       display: flex;
@@ -2333,6 +2335,8 @@
       align-items: center;
       gap: 12px;
       margin-bottom: 6px;
+      position: relative;
+      z-index: 12;
     }
     .spray-tag {
       flex: 1;
@@ -2362,7 +2366,7 @@
     }
     .nav-dropdown {
       position: relative;
-      z-index: 4;
+      z-index: 1200;
     }
     .nav-toggle {
       background: linear-gradient(120deg, #0ea5e9, #22c55e);
@@ -2388,6 +2392,7 @@
       overflow: hidden;
       display: none;
       backdrop-filter: blur(10px);
+      z-index: 1300;
     }
     .nav-menu.active {
       display: block;
@@ -3613,6 +3618,7 @@
       border: 1px solid rgba(148, 163, 184, 0.35);
       padding: 18px;
       box-shadow: 0 0 30px rgba(0, 207, 255, 0.2);
+      overflow: hidden;
     }
     .featured-venues h4 {
       font-size: 13px;
@@ -3637,6 +3643,7 @@
       border: 1px solid rgba(148, 163, 184, 0.35);
       background: radial-gradient(circle at 20% 10%, rgba(34, 211, 238, 0.18), transparent 55%), rgba(2, 6, 23, 0.92);
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
     }
     .night-wheel h4 {
       margin: 0 0 6px;
@@ -3759,7 +3766,7 @@
     .featured-card {
       text-align: left;
       position: relative;
-      overflow: visible;
+      overflow: hidden;
       perspective: 1200px;
     }
     .featured-card-inner {
@@ -3978,6 +3985,7 @@
       border: 1px solid rgba(148, 163, 184, 0.35);
       box-shadow: 0 0 30px rgba(45, 212, 191, 0.25);
       padding: 20px;
+      overflow: hidden;
     }
     .staff-gate-card h4 {
       margin: 0 0 6px;
@@ -4000,6 +4008,7 @@
       box-shadow: 0 0 30px rgba(0, 207, 255, 0.3);
       padding: 20px;
       position: relative;
+      overflow: hidden;
     }
     .venue-detail-card h5 {
       font-size: 18px;
@@ -6166,6 +6175,7 @@
       flex-direction: column;
       gap: 10px;
       min-height: 0;
+      overflow: hidden;
     }
     .ceo-panel-header {
       display: flex;
@@ -6627,6 +6637,7 @@
     }
     .ceo-log-panel {
       min-height: 0;
+      overflow: hidden;
     }
     .ceo-panel-controls {
       display: flex;
