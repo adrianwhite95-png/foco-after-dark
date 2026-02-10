@@ -22565,6 +22565,7 @@ let onboardingIndex = 0;
     let staffGateVerified = false;
     let staffGateCodeValue = "";
     let staffGateResumeLogin = false;
+    const STAFF_GATE_CODE = "foco2026";
 
     function openStaffGate() {
       if (!staffGateOverlay) return;
@@ -22591,7 +22592,11 @@ let onboardingIndex = 0;
         if (staffGateError) staffGateError.textContent = "Enter the staff access code.";
         return;
       }
-      staffGateCodeValue = entered;
+      if (entered.toLowerCase() !== STAFF_GATE_CODE) {
+        if (staffGateError) staffGateError.textContent = "Incorrect access code. Try again.";
+        return;
+      }
+      staffGateCodeValue = STAFF_GATE_CODE;
       staffGateVerified = true;
       closeStaffGate();
       if (staffGateResumeLogin) {
