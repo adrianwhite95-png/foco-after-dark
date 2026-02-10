@@ -1971,7 +1971,7 @@ exports.redeemPoints = functions.runWith(stripeSecrets).https.onCall(async (data
     if (points > 2000) {
       throw new HttpsError("invalid-argument", "Maximum of 2000 points per discount.");
     }
-    const creditCents = Math.max(0, Math.round(points / 20));
+    const creditCents = Math.max(0, Math.round(points / 10));
     if (creditCents <= 0) {
       throw new HttpsError("invalid-argument", "Invalid discount amount.");
     }

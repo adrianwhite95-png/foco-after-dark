@@ -10312,7 +10312,7 @@
       <div class="small" id="pointsRedeemPreview" style="color:#e2e8f0;margin-top:4px;"></div>
       <ul class="points-redeem-rules">
         <li><strong>Voucher tokens:</strong> 500 pts = +2 tokens. Tokens expire at the end of your current billing cycle.</li>
-        <li><strong>Membership discount:</strong> 500 pts = $0.25 off next invoice. Max $1 (2000 pts).</li>
+        <li><strong>Membership discount:</strong> 500 pts = $0.50 off next invoice. Max $2 (2000 pts).</li>
         <li>Points can be redeemed in 500‑point increments.</li>
         <li>Only active Standard/VIP members can redeem points.</li>
       </ul>
@@ -18551,8 +18551,8 @@ let onboardingIndex = 0;
         const tokens = (amount / 500) * 2;
         pointsRedeemPreview.textContent = `${amount} pts → +${tokens} voucher tokens (this month only).`;
       } else {
-        const creditCents = Math.round(amount / 20);
-        pointsRedeemPreview.textContent = `${amount} pts → $${(creditCents / 100).toFixed(2)} off next month (max $1).`;
+        const creditCents = Math.round(amount / 10);
+        pointsRedeemPreview.textContent = `${amount} pts → $${(creditCents / 100).toFixed(2)} off next month (max $2).`;
       }
       if (pointsRedeemConfirm) pointsRedeemConfirm.disabled = false;
     }
