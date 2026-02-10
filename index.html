@@ -26404,8 +26404,8 @@ let onboardingIndex = 0;
       };
       if (!useCloudProfile()) {
         cacheStaffRedemptionForVenue(entry);
-        addRedemptionLogEntry(entry, { skipSync: true });
       }
+      addRedemptionLogEntry(entry, { skipSync: true });
       closeRedeemModal();
       showRedemptionQr(perkLabel, code, requestedVenue);
     });
