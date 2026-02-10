@@ -3872,6 +3872,16 @@
       color: #cbd5f5;
       opacity: 0.88;
     }
+    .points-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin: 6px 0 16px;
+    }
+    .points-actions .btn {
+      width: auto;
+      padding: 8px 14px;
+      font-size: 12px;
+    }
     .vibe-menu {
       display: flex;
       flex-direction: column;
@@ -9016,6 +9026,9 @@
             </div>
             <div class="points-total-value" id="pointsBalance">0 pts</div>
           </div>
+          <div class="points-actions">
+            <button type="button" class="btn btn-secondary" id="redeemPointsBtn">Redeem points</button>
+          </div>
 
           <div class="divider"></div>
           <div class="perks-title">Included perks</div>
@@ -10264,6 +10277,33 @@
       <p id="onboardingBody">Your Nightlife Pass unlocks venue perks, spins, and member-only rewards.</p>
       <button type="button" class="btn btn-primary" id="onboardingNext">Next</button>
       <button type="button" class="btn btn-secondary" id="onboardingSkip" style="margin-top:8px;">Skip for now</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="pointsRedeemModal">
+    <div class="modal-card">
+      <div class="modal-title">Redeem points</div>
+      <p style="font-size:12px;color:#cbd5f5;line-height:1.5;">
+        Trade points for voucher tokens or a discount on next month’s membership.
+      </p>
+      <div class="field">
+        <label for="pointsRedeemType">Redeem for</label>
+        <select id="pointsRedeemType">
+          <option value="tokens">Voucher tokens (this month only)</option>
+          <option value="discount">Membership discount (next invoice)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="pointsRedeemAmount">Points to use</label>
+        <select id="pointsRedeemAmount"></select>
+      </div>
+      <div class="small" id="pointsRedeemBalance" style="color:#94a3b8;margin-top:6px;"></div>
+      <div class="small" id="pointsRedeemPreview" style="color:#e2e8f0;margin-top:4px;"></div>
+      <div class="error" id="pointsRedeemError" style="margin-top:8px;"></div>
+      <div class="payment-actions" style="margin-top:14px;">
+        <button type="button" class="btn btn-primary" id="pointsRedeemConfirm">Redeem</button>
+        <button type="button" class="btn btn-secondary" id="pointsRedeemCancel">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -12608,6 +12648,15 @@
     const statActiveDays = document.getElementById("statActiveDays");
     const voucherBalanceNote = document.getElementById("voucherBalanceNote");
     const redeemVoucherBalance = document.getElementById("redeemVoucherBalance");
+    const redeemPointsBtn = document.getElementById("redeemPointsBtn");
+    const pointsRedeemModal = document.getElementById("pointsRedeemModal");
+    const pointsRedeemType = document.getElementById("pointsRedeemType");
+    const pointsRedeemAmount = document.getElementById("pointsRedeemAmount");
+    const pointsRedeemBalance = document.getElementById("pointsRedeemBalance");
+    const pointsRedeemPreview = document.getElementById("pointsRedeemPreview");
+    const pointsRedeemError = document.getElementById("pointsRedeemError");
+    const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
+    const pointsRedeemCancel = document.getElementById("pointsRedeemCancel");
     const pulseBand = document.getElementById("pulseBand");
     const pulsePassId = document.getElementById("pulsePassId");
     const pulsePrimary = document.getElementById("pulsePrimary");
@@ -13316,6 +13365,12 @@
       return false;
     }
 
+    function isPendingRedemptionFresh(entry, now = new Date(), maxMs = PENDING_REDEMPTION_TIMEOUT_MS) {
+      const stamp = getRedemptionEntryDate(entry);
+      if (!stamp) return false;
+      return (now.getTime() - stamp.getTime()) <= maxMs;
+    }
+
     function getVoucherCycleWindow(billing = {}) {
       const now = new Date();
       const startIso = resolveBillingStart(billing) || memberProfile?.memberSince || null;
@@ -13341,10 +13396,17 @@
     function countRedemptionsInWindow(entries, window, options = {}) {
       const includePending = Boolean(options.includePending);
       if (!window) return 0;
+      const now = options.now instanceof Date ? options.now : new Date();
       const start = window.start;
       const end = window.end;
       return entries.reduce((count, entry) => {
-        if (!isCountedRedemptionStatus(entry.status, includePending)) return count;
+        const status = String(entry.status || "").toLowerCase();
+        if (status === "pending" || status === "requested") {
+          if (!includePending) return count;
+          if (!isPendingRedemptionFresh(entry, now)) return count;
+        } else if (!isCountedRedemptionStatus(status, false)) {
+          return count;
+        }
         const date = getRedemptionEntryDate(entry);
         if (!date) return count;
         if (date >= start && date <= end) return count + 1;
@@ -13410,6 +13472,14 @@
       return Number.isFinite(value) ? Math.max(0, value) : 0;
     }
 
+    function getPointsMonthlyTokenGrantTotal(profile = memberProfile) {
+      const grants = profile?.pointsMonthlyTokenGrants;
+      if (!grants || typeof grants !== "object") return 0;
+      const key = getMonthTokenFromDate(new Date());
+      const value = Number(grants[key] || 0);
+      return Number.isFinite(value) ? Math.max(0, value) : 0;
+    }
+
     function setPurchasedTokenTotal(tokens) {
       const next = Math.max(0, Number(tokens) || 0);
       if (!memberProfile) memberProfile = {};
@@ -13449,7 +13519,7 @@
       }
       const cycles = countBillingCycles(startDate.toISOString(), new Date());
       const purchasedTotal = getPurchasedTokenTotal();
-      const monthlyGrant = getCeoMonthlyTokenGrantTotal();
+      const monthlyGrant = getCeoMonthlyTokenGrantTotal() + getPointsMonthlyTokenGrantTotal();
       let purchasedRemaining = Math.max(0, purchasedTotal);
       let carryover = 0;
       let result = { unlimited: false, remaining: 0, limit, carryover: 0, usedCurrent: 0, total: 0, extraTokens: 0 };
@@ -15873,6 +15943,10 @@ let onboardingIndex = 0;
         delete payload.extraRedemptionTokens;
         delete payload.extraVouchers;
         delete payload.lastVoucherPurchase;
+        delete payload.pointsMonthlyTokenGrants;
+        delete payload.pointsRedeemedTotal;
+        delete payload.lastPointsRedemptionAt;
+        delete payload.lastPointsRedemptionType;
         if (!Object.keys(payload).length) return;
         await setDoc(memberDocRef, payload, { merge: true });
         if (memberProfile?.passCode) {
@@ -16097,6 +16171,82 @@ let onboardingIndex = 0;
         supportError.textContent = "Could not send. Please try again in a moment.";
       }
     });
+
+    if (redeemPointsBtn) {
+      redeemPointsBtn.addEventListener("click", openPointsRedeemModal);
+    }
+    if (pointsRedeemCancel) {
+      pointsRedeemCancel.addEventListener("click", closePointsRedeemModal);
+    }
+    if (pointsRedeemModal) {
+      pointsRedeemModal.addEventListener("click", (e) => {
+        if (e.target === pointsRedeemModal) closePointsRedeemModal();
+      });
+    }
+    if (pointsRedeemType) {
+      pointsRedeemType.addEventListener("change", () => {
+        buildPointsRedeemOptions();
+        updatePointsRedeemPreview();
+      });
+    }
+    if (pointsRedeemAmount) {
+      pointsRedeemAmount.addEventListener("change", updatePointsRedeemPreview);
+    }
+    if (pointsRedeemConfirm) {
+      pointsRedeemConfirm.addEventListener("click", async () => {
+        if (!functionsClient) {
+          if (pointsRedeemError) pointsRedeemError.textContent = "Points redemption unavailable.";
+          return;
+        }
+        const type = pointsRedeemType?.value || "tokens";
+        const amount = Number(pointsRedeemAmount?.value || 0);
+        if (!amount || amount < 500) {
+          if (pointsRedeemError) pointsRedeemError.textContent = "Select a valid point amount.";
+          return;
+        }
+        if (pointsRedeemError) pointsRedeemError.textContent = "";
+        const originalLabel = pointsRedeemConfirm.textContent;
+        pointsRedeemConfirm.disabled = true;
+        pointsRedeemConfirm.textContent = "Processing…";
+        try {
+          const fn = httpsCallable(functionsClient, "redeemPoints");
+          const resp = await fn({ type, points: amount });
+          const data = resp?.data || {};
+          if (Number.isFinite(Number(data.points))) {
+            memberProfile = memberProfile || {};
+            memberProfile.points = Number(data.points);
+            updatePointsUI();
+          }
+          if (type === "tokens") {
+            const monthKey = data.monthKey;
+            const tokenGrant = Number(data.tokenGrant || 0);
+            if (monthKey && tokenGrant) {
+              memberProfile.pointsMonthlyTokenGrants = memberProfile.pointsMonthlyTokenGrants || {};
+              const current = Number(memberProfile.pointsMonthlyTokenGrants[monthKey] || 0);
+              memberProfile.pointsMonthlyTokenGrants[monthKey] = current + tokenGrant;
+              updateVoucherBalanceUI();
+              renderRedemptionOptions();
+            }
+            showToast(`+${tokenGrant} voucher tokens added.`, 2400);
+          } else {
+            const credit = Number(data.creditCents || 0);
+            if (credit) {
+              showToast(`$${(credit / 100).toFixed(2)} off next month applied.`, 2600);
+            } else {
+              showToast("Discount applied to next month.", 2400);
+            }
+          }
+          closePointsRedeemModal();
+        } catch (err) {
+          if (pointsRedeemError) {
+            pointsRedeemError.textContent = err?.message || "Could not redeem points.";
+          }
+        } finally {
+          pointsRedeemConfirm.disabled = false;
+          pointsRedeemConfirm.textContent = originalLabel;
+        }
+      });
+    }
 
     const membershipPlanInfo = {
       standard: { label: "Standard", price: `$${MEMBERSHIP_FEES.standard.toFixed(2)} / month` },
@@ -17126,6 +17276,7 @@ let onboardingIndex = 0;
     const VENUE_USER_RATINGS_KEY = "venueUserRatings";
     const VIBE_KEY = "vibeState";
     const APP_VERSION = "v6";
+    const PENDING_REDEMPTION_TIMEOUT_MS = 60 * 60 * 1000;
     function membershipSelected() {
       return Boolean(currentMembershipTier && currentMembershipTier !== "standard_pending");
     }
@@ -17153,6 +17304,10 @@ let onboardingIndex = 0;
       delete payload.extraRedemptionTokens;
       delete payload.extraVouchers;
       delete payload.lastVoucherPurchase;
+      delete payload.pointsMonthlyTokenGrants;
+      delete payload.pointsRedeemedTotal;
+      delete payload.lastPointsRedemptionAt;
+      delete payload.lastPointsRedemptionType;
       if (!Object.keys(payload).length) return;
       setDoc(doc(db, "members", uid), payload, { merge: true }).catch(err => console.warn("persistMemberState failed", err));
     }
@@ -18274,7 +18429,88 @@ let onboardingIndex = 0;
       if (userUsername) {
         userUsername.textContent = `@${preferredUsername()}`;
       }
+      refreshPointsRedeemAvailability();
       updateQuickStrip();
+    }
+
+    function canRedeemPoints() {
+      if (isCeoActive() || isFreeMember()) return false;
+      const tier = normalizeTierKey(currentMembershipTier || memberProfile?.tier || "");
+      if (!["standard", "vip"].includes(tier)) return false;
+      const status = (memberProfile?.paymentStatus || "active").toLowerCase();
+      if (status !== "active") return false;
+      return true;
+    }
+
+    function refreshPointsRedeemAvailability() {
+      if (!redeemPointsBtn) return;
+      redeemPointsBtn.style.display = canRedeemPoints() ? "inline-flex" : "none";
+    }
+
+    function getAvailablePoints() {
+      return Math.max(0, Number(memberProfile?.points || 0));
+    }
+
+    function buildPointsRedeemOptions() {
+      if (!pointsRedeemAmount) return;
+      const available = getAvailablePoints();
+      const type = (pointsRedeemType?.value || "tokens").toLowerCase();
+      const max = type === "discount"
+        ? Math.min(2000, Math.floor(available / 500) * 500)
+        : Math.floor(available / 500) * 500;
+      pointsRedeemAmount.innerHTML = "";
+      if (max < 500) {
+        const opt = document.createElement("option");
+        opt.value = "0";
+        opt.textContent = "Not enough points";
+        pointsRedeemAmount.appendChild(opt);
+        return;
+      }
+      for (let pts = 500; pts <= max; pts += 500) {
+        const opt = document.createElement("option");
+        opt.value = String(pts);
+        opt.textContent = `${pts} pts`;
+        pointsRedeemAmount.appendChild(opt);
+      }
+    }
+
+    function updatePointsRedeemPreview() {
+      if (!pointsRedeemPreview || !pointsRedeemAmount || !pointsRedeemType) return;
+      const available = getAvailablePoints();
+      const amount = Number(pointsRedeemAmount.value || 0);
+      const type = pointsRedeemType.value;
+      if (pointsRedeemBalance) {
+        pointsRedeemBalance.textContent = `Available: ${available} pts`;
+      }
+      if (!amount || amount < 500) {
+        pointsRedeemPreview.textContent = "You need at least 500 points.";
+        if (pointsRedeemConfirm) pointsRedeemConfirm.disabled = true;
+        return;
+      }
+      if (type === "tokens") {
+        const tokens = (amount / 500) * 2;
+        pointsRedeemPreview.textContent = `${amount} pts → +${tokens} voucher tokens (this month only).`;
+      } else {
+        const creditCents = Math.round(amount / 20);
+        pointsRedeemPreview.textContent = `${amount} pts → $${(creditCents / 100).toFixed(2)} off next month (max $1).`;
+      }
+      if (pointsRedeemConfirm) pointsRedeemConfirm.disabled = false;
+    }
+
+    function openPointsRedeemModal() {
+      if (!pointsRedeemModal) return;
+      if (!canRedeemPoints()) {
+        showToast("Points are only available for active Standard/VIP members.", 2600);
+        return;
+      }
+      if (pointsRedeemError) pointsRedeemError.textContent = "";
+      buildPointsRedeemOptions();
+      updatePointsRedeemPreview();
+      pointsRedeemModal.classList.add("active");
+    }
+
+    function closePointsRedeemModal() {
+      if (pointsRedeemModal) pointsRedeemModal.classList.remove("active");
     }
 
     function updateQuickStrip() {

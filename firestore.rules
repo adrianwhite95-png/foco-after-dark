@@ -114,6 +114,10 @@ service cloud.firestore {
         "pointsDaily",
         "pointsDailyDate",
         "pointsUpdatedAt",
+        "pointsMonthlyTokenGrants",
+        "pointsRedeemedTotal",
+        "lastPointsRedemptionAt",
+        "lastPointsRedemptionType",
         "venuesVisited",
         "ceoMonthlyTokenGrants",
         "perksRemaining"
@@ -165,6 +169,10 @@ service cloud.firestore {
         "pointsDaily",
         "pointsDailyDate",
         "pointsUpdatedAt",
+        "pointsMonthlyTokenGrants",
+        "pointsRedeemedTotal",
+        "lastPointsRedemptionAt",
+        "lastPointsRedemptionType",
         "venuesVisited",
         "ceoMonthlyTokenGrants",
         "perksRemaining"
@@ -290,6 +298,11 @@ service cloud.firestore {
     }
 
     match /members/{uid}/redemptions/{redemptionId} {
+      allow read: if isSignedIn() && (isOwner(uid) || hasPrivilegedRole());
+      allow create, update, delete: if false;
+    }
+
+    match /members/{uid}/pointsRedemptions/{redemptionId} {
       allow read: if isSignedIn() && (isOwner(uid) || hasPrivilegedRole());
       allow create, update, delete: if false;
     }

@@ -628,6 +628,14 @@ function resolveLatestSuccessfulPaymentDate(billing = {}, memberData = {}) {
   return new Date(Math.max(...candidates.map((d) => d.getTime())));
 }
 
+function getPointsMonthlyTokenGrantTotal(memberData = {}, now = new Date()) {
+  const grants = memberData?.pointsMonthlyTokenGrants;
+  if (!grants || typeof grants !== "object") return 0;
+  const key = getMonthTokenFromDate(now);
+  const value = Number(grants[key] || 0);
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
 function hasSuccessfulPaymentThisCycleForWallet(tier, billing = {}, memberData = {}, now = new Date()) {
   if (tier !== "standard" && tier !== "vip") return true;
   const status = String(memberData?.paymentStatus || "active").toLowerCase();
@@ -675,7 +683,9 @@ function computeVoucherBalanceForWallet(memberData = {}, entries = [], now = new
   const monthlyGrantRaw = memberData?.ceoMonthlyTokenGrants && typeof memberData.ceoMonthlyTokenGrants === "object"
     ? memberData.ceoMonthlyTokenGrants[grantKey]
     : 0;
-  const monthlyGrant = Math.max(0, Number(monthlyGrantRaw || 0));
+  const ceoMonthlyGrant = Math.max(0, Number(monthlyGrantRaw || 0));
+  const pointsMonthlyGrant = getPointsMonthlyTokenGrantTotal(memberData, now);
+  const monthlyGrant = ceoMonthlyGrant + pointsMonthlyGrant;
   let purchasedRemaining = purchasedTotal;
   let carryover = 0;
   let result = {
@@ -1112,6 +1122,138 @@ exports.resolveUsernameToEmail = functions.https.onCall(async (data, context) =>
     return { email: memberData?.email || null };
   }
   return { email: null };
+});
+
+exports.redeemPoints = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  const uid = context.auth.uid;
+  const type = (data?.type || "").toString().toLowerCase();
+  const points = Math.floor(Number(data?.points || 0));
+  if (!points || points < 500 || points % 500 !== 0) {
+    throw new HttpsError("invalid-argument", "Points must be in 500-point increments.");
+  }
+  const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
+  if (isStripeExcluded(context.auth.token, memberDocData)) {
+    throw new HttpsError("failed-precondition", "This account is not eligible for point redemptions.");
+  }
+  const tier = normalizeTierKey(memberDocData?.tier || memberDocData?.membershipTier || "");
+  if (!["standard", "vip"].includes(tier)) {
+    throw new HttpsError("failed-precondition", "Points are only available for Standard and VIP members.");
+  }
+  if (memberDocData?.paused || memberDocData?.revoked) {
+    throw new HttpsError("failed-precondition", "Membership is inactive.");
+  }
+  const paymentStatus = String(memberDocData?.paymentStatus || "active").toLowerCase();
+  if (paymentStatus !== "active") {
+    throw new HttpsError("failed-precondition", "Payment must be active to redeem points.");
+  }
+  const available = Math.max(0, Number(memberDocData?.points || 0));
+  if (available < points) {
+    throw new HttpsError("failed-precondition", "Not enough points.");
+  }
+
+  if (type === "tokens") {
+    const tokenGrant = (points / 500) * 2;
+    const monthKey = getMonthTokenFromDate(new Date());
+    const redemptionRef = memberRef.collection("pointsRedemptions").doc();
+    const result = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(memberRef);
+      const dataSnap = snap.exists ? snap.data() : {};
+      const current = Math.max(0, Number(dataSnap.points || 0));
+      if (current < points) throw new HttpsError("failed-precondition", "Not enough points.");
+      const updates = {
+        points: current - points,
+        pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastPointsRedemptionAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastPointsRedemptionType: "tokens",
+        pointsRedeemedTotal: admin.firestore.FieldValue.increment(points),
+        [`pointsMonthlyTokenGrants.${monthKey}`]: admin.firestore.FieldValue.increment(tokenGrant)
+      };
+      tx.set(memberRef, updates, { merge: true });
+      tx.set(redemptionRef, {
+        type: "tokens",
+        points,
+        tokens: tokenGrant,
+        monthKey,
+        status: "applied",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        appliedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      return { points: current - points };
+    });
+    return { ok: true, type: "tokens", points: result.points, tokenGrant, monthKey };
+  }
+
+  if (type === "discount") {
+    if (points > 2000) {
+      throw new HttpsError("invalid-argument", "Maximum of 2000 points per discount.");
+    }
+    const creditCents = Math.max(0, Math.round(points / 20));
+    if (creditCents <= 0) {
+      throw new HttpsError("invalid-argument", "Invalid discount amount.");
+    }
+    const stripeCustomerId = memberDocData?.stripeCustomerId;
+    if (!stripeCustomerId) {
+      throw new HttpsError("failed-precondition", "Billing profile not found.");
+    }
+    const stripe = getStripeClient();
+    const redemptionRef = memberRef.collection("pointsRedemptions").doc();
+    let remainingPoints = available;
+    try {
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(memberRef);
+        const dataSnap = snap.exists ? snap.data() : {};
+        const current = Math.max(0, Number(dataSnap.points || 0));
+        if (current < points) throw new HttpsError("failed-precondition", "Not enough points.");
+        remainingPoints = current - points;
+        tx.set(memberRef, {
+          points: remainingPoints,
+          pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastPointsRedemptionAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastPointsRedemptionType: "discount",
+          pointsRedeemedTotal: admin.firestore.FieldValue.increment(points)
+        }, { merge: true });
+        tx.set(redemptionRef, {
+          type: "discount",
+          points,
+          creditCents,
+          status: "pending",
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      });
+
+      const customer = await stripe.customers.retrieve(stripeCustomerId);
+      const currentBalance = Number(customer?.balance || 0);
+      const nextBalance = currentBalance - creditCents;
+      await stripe.customers.update(stripeCustomerId, { balance: nextBalance });
+      await redemptionRef.set({
+        status: "applied",
+        appliedAt: admin.firestore.FieldValue.serverTimestamp(),
+        stripeCustomerId,
+        creditCents,
+        stripeBalanceAfter: nextBalance
+      }, { merge: true });
+      return { ok: true, type: "discount", points: remainingPoints, creditCents, balanceAfter: nextBalance };
+    } catch (err) {
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(memberRef);
+        const dataSnap = snap.exists ? snap.data() : {};
+        const current = Math.max(0, Number(dataSnap.points || 0));
+        tx.set(memberRef, {
+          points: current + points,
+          pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        tx.set(redemptionRef, {
+          status: "failed",
+          failedAt: admin.firestore.FieldValue.serverTimestamp(),
+          error: err?.message || "Stripe update failed"
+        }, { merge: true });
+      });
+      throw new HttpsError("internal", "Could not apply discount. Points refunded.");
+    }
+  }
+
+  throw new HttpsError("invalid-argument", "Unknown redemption type.");
 });
 
 // Award points server-side to prevent client tampering.
