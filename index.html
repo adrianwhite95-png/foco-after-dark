@@ -1194,7 +1194,7 @@
       pointer-events: none;
       z-index: 0;
     }
-    .landing-wrapper > :not(.landing-strobe):not(.weather-fx) {
+    .landing-wrapper > :not(.landing-strobe) {
       position: relative;
       z-index: 1;
     }
@@ -2983,196 +2983,6 @@
       animation-delay: -6s, -3s;
     }
 
-    /* === Landing Weather FX (CSS only overlays, factual via Open-Meteo) === */
-    .weather-fx{
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      z-index:0;
-      overflow:hidden;
-      opacity:0;
-      transition:opacity 220ms ease;
-      mix-blend-mode: screen;
-      border-radius: inherit;
-    }
-    .weather-fx.on{ opacity: 1; }
-    .weather-fx .fx-layer{
-      position:absolute;
-      inset:0;
-      opacity:0;
-    }
-    .weather-fx[data-tn="day"]{
-      filter: saturate(1.10) brightness(1.06);
-    }
-    .weather-fx[data-tn="night"]{
-      filter: saturate(0.96) brightness(0.95) contrast(1.08);
-    }
-    .weather-fx[data-mode="clear"] .fx-sunbeam,
-    .weather-fx[data-mode="clear"] .fx-moonbeam{
-      opacity:0.95;
-    }
-    .weather-fx[data-tn="day"] .fx-sunbeam::before{
-      content:"";
-      position:absolute;
-      inset:-35%;
-      background: linear-gradient(120deg, transparent 38%, rgba(255,255,255,0.30) 50%, transparent 64%);
-      transform: translateX(-42%) rotate(10deg);
-      filter: blur(9px);
-      animation: sunSweep 6.2s ease-in-out infinite;
-    }
-    @keyframes sunSweep{
-      0%   { transform: translateX(-45%) rotate(10deg); opacity:0.42; }
-      35%  { opacity:0.95; }
-      65%  { opacity:0.86; }
-      100% { transform: translateX(55%) rotate(10deg); opacity:0.36; }
-    }
-    .weather-fx[data-tn="night"] .fx-moonbeam::before{
-      content:"";
-      position:absolute;
-      inset:-40%;
-      background: radial-gradient(circle at 70% 20%, rgba(255,255,255,0.14), transparent 50%);
-      filter: blur(7px);
-      animation: moonPulse 6.5s ease-in-out infinite;
-    }
-    @keyframes moonPulse{
-      0%,100% { opacity:0.65; transform: scale(1.02); }
-      50%     { opacity:0.96; transform: scale(1.06); }
-    }
-    .weather-fx[data-mode="cloudy"] .fx-clouds{ opacity:1; animation: cloudDrift 45s linear infinite; }
-    .weather-fx[data-mode="cloudy"][data-tn="night"] .fx-clouds{ opacity:0.86; }
-    .weather-fx .fx-clouds{
-      background:
-        radial-gradient(circle at 18% 28%, rgba(255,255,255,.14), transparent 48%),
-        radial-gradient(circle at 55% 35%, rgba(255,255,255,.11), transparent 52%),
-        radial-gradient(circle at 80% 25%, rgba(255,255,255,.10), transparent 50%);
-      filter: blur(11px);
-      transform: translateX(-10%);
-    }
-    @keyframes cloudDrift{
-      0%   { transform: translateX(-10%); }
-      100% { transform: translateX(10%); }
-    }
-    .weather-fx[data-mode="fog"] .fx-fog{ opacity:1; animation: fogDrift 55s linear infinite; }
-    .weather-fx .fx-fog{
-      background:
-        radial-gradient(circle at 25% 50%, rgba(255,255,255,0.14), transparent 60%),
-        radial-gradient(circle at 70% 55%, rgba(255,255,255,0.12), transparent 62%),
-        linear-gradient(0deg, rgba(255,255,255,0.08), transparent 35%, rgba(255,255,255,0.08));
-      filter: blur(13px);
-      transform: translateX(-8%);
-    }
-    @keyframes fogDrift{
-      0%   { transform: translateX(-8%); }
-      100% { transform: translateX(8%); }
-    }
-    .weather-fx[data-mode="wind"] .fx-wind{ opacity:1; animation: windSweep 2.4s linear infinite; }
-    .weather-fx .fx-wind::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      background:
-        linear-gradient(120deg,
-          transparent 0%,
-          rgba(255,255,255,0.0) 35%,
-          rgba(255,255,255,0.26) 45%,
-          rgba(255,255,255,0.0) 55%,
-          transparent 100%);
-      filter: blur(7px);
-      transform: translateX(-30%);
-    }
-    @keyframes windSweep{
-      0%   { transform: translateX(-35%); opacity:0.35; }
-      50%  { opacity:0.72; }
-      100% { transform: translateX(35%); opacity:0.35; }
-    }
-    .weather-fx[data-mode="rain"] .fx-precip,
-    .weather-fx[data-mode="snow"] .fx-precip{
-      opacity:1;
-      mix-blend-mode: screen;
-      filter: blur(0.3px);
-    }
-    .weather-fx .fx-precip .drop{
-      position:absolute;
-      top:-15%;
-      width:2px;
-      height:22px;
-      border-radius:999px;
-      background: rgba(186,230,253,0.68);
-      animation: rainFall 1.2s linear infinite;
-    }
-    @keyframes rainFall{
-      to { transform: translateY(130vh); opacity:0.15; }
-    }
-    .weather-fx .fx-precip .flake{
-      position:absolute;
-      top:-10%;
-      width:6px;
-      height:6px;
-      border-radius:999px;
-      background: rgba(255,255,255,0.48);
-      filter: blur(0.2px);
-      animation: snowFall 6.0s linear infinite;
-    }
-    @keyframes snowFall{
-      0%   { transform: translate(0,0); opacity:0.85; }
-      100% { transform: translate(70px, 130vh); opacity:0.12; }
-    }
-    .weather-fx[data-mode="thunder"] .fx-thunder{ opacity:1; animation: thunderFlash 6.5s infinite; }
-    .weather-fx .fx-thunder{
-      background: radial-gradient(circle at 65% 20%, rgba(255,255,255,0.26), transparent 45%);
-      mix-blend-mode: screen;
-      filter: blur(10px);
-    }
-    .weather-fx[data-mode="thunder"] .fx-thunder::before,
-    .weather-fx[data-mode="thunder"] .fx-thunder::after{
-      content:"";
-      position:absolute;
-      top:-6%;
-      width:46px;
-      height:72%;
-      opacity:0;
-      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(186,230,253,0.9));
-      clip-path: polygon(46% 0, 70% 0, 54% 27%, 74% 27%, 28% 100%, 44% 58%, 24% 58%);
-      filter: drop-shadow(0 0 14px rgba(186,230,253,0.9));
-      mix-blend-mode: screen;
-      transform: rotate(6deg);
-    }
-    .weather-fx[data-mode="thunder"] .fx-thunder::before{
-      left:63%;
-      animation: lightningBoltA 6.5s infinite;
-    }
-    .weather-fx[data-mode="thunder"] .fx-thunder::after{
-      left:34%;
-      height:58%;
-      animation: lightningBoltB 6.5s infinite;
-    }
-    @keyframes thunderFlash{
-      0%, 84%, 100% { opacity:0; }
-      86% { opacity:1; }
-      88% { opacity:0.15; }
-      90% { opacity:0.78; }
-      92% { opacity:0.05; }
-    }
-    @keyframes lightningBoltA{
-      0%, 84%, 100% { opacity:0; transform: rotate(6deg) scale(0.98); }
-      86% { opacity:1; transform: rotate(4deg) scale(1.02); }
-      87% { opacity:0.2; }
-      89% { opacity:0.90; }
-      91% { opacity:0.08; }
-    }
-    @keyframes lightningBoltB{
-      0%, 85%, 100% { opacity:0; transform: rotate(-4deg) scale(0.97); }
-      87% { opacity:0.92; transform: rotate(-3deg) scale(1.01); }
-      88% { opacity:0.15; }
-      90% { opacity:0.76; }
-      92% { opacity:0.06; }
-    }
-    @media (prefers-reduced-motion: reduce){
-      .weather-fx .fx-layer{ animation:none !important; }
-      .weather-fx .fx-precip{ display:none !important; }
-      .weather-fx .fx-thunder::before,
-      .weather-fx .fx-thunder::after{ animation:none !important; opacity:0 !important; }
-    }
     .landing-asterism {
       position: absolute;
       width: 150px;
@@ -5406,6 +5216,51 @@
     #passScreen {
       background: rgba(8, 10, 14, 0.85);
       border: 1px solid var(--border);
+    }
+    #passScreen,
+    #staffPortalScreen {
+      position: relative;
+      overflow: hidden;
+    }
+    #passScreen::before,
+    #staffPortalScreen::before {
+      content: "";
+      position: absolute;
+      inset: -45%;
+      mix-blend-mode: screen;
+      filter: blur(18px);
+      opacity: 0.42;
+      animation: strobeSpin 18s linear infinite, strobePulse 5.4s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    #passScreen::before {
+      background: conic-gradient(
+        from 0deg,
+        color-mix(in srgb, var(--accent-primary-live) 40%, transparent),
+        transparent 20%,
+        color-mix(in srgb, var(--accent-secondary-live) 36%, transparent),
+        transparent 45%,
+        color-mix(in srgb, var(--accent-primary-live) 32%, transparent),
+        transparent 100%
+      );
+    }
+    #staffPortalScreen::before {
+      background: conic-gradient(
+        from 0deg,
+        color-mix(in srgb, var(--staff-primary, #7dd3fc) 40%, transparent),
+        transparent 20%,
+        color-mix(in srgb, var(--staff-secondary, #38bdf8) 36%, transparent),
+        transparent 45%,
+        color-mix(in srgb, var(--staff-primary, #7dd3fc) 32%, transparent),
+        transparent 100%
+      );
+      opacity: 0.34;
+    }
+    #passScreen > *,
+    #staffPortalScreen > * {
+      position: relative;
+      z-index: 1;
     }
     .landing-wrapper {
       background: rgba(255,255,255,0.02);
@@ -8629,16 +8484,6 @@
           </div>
           <div class="landing-wrapper">
             <div class="landing-strobe" aria-hidden="true"></div>
-            <div id="weatherFx" class="weather-fx" aria-hidden="true">
-              <div class="fx-layer fx-stars"></div>
-              <div class="fx-layer fx-clouds"></div>
-              <div class="fx-layer fx-sunbeam"></div>
-              <div class="fx-layer fx-moonbeam"></div>
-              <div class="fx-layer fx-fog"></div>
-              <div class="fx-layer fx-wind"></div>
-              <div class="fx-layer fx-precip"></div>
-              <div class="fx-layer fx-thunder"></div>
-            </div>
             <button id="landingRefreshBtn" class="refresh-btn" title="Reload">Reload</button>
             <div class="brand-logo brand-logo-landing">
               <img src="foco-logo.png" alt="FoCo After Dark neon logo" class="brand-logo-img" />
@@ -26954,186 +26799,6 @@ let onboardingIndex = 0;
       el.textContent = cheersQuotes[idx];
     }, 5000);
   }
-
-  // Landing Weather FX (Open-Meteo, no API key)
-  (() => {
-    const FX_ID = "weatherFx";
-    const CACHE_KEY = "foco_weather_fx_cache_v2";
-    const CACHE_MINUTES = 12;
-    const FORT_COLLINS = { lat: 40.5853, lon: -105.0844 };
-
-    const fxEl = () => document.getElementById(FX_ID);
-    const precipLayer = () => fxEl()?.querySelector(".fx-precip");
-
-    function nowMs(){ return Date.now(); }
-
-    function readCache(){
-      try{
-        const raw = localStorage.getItem(CACHE_KEY);
-        if(!raw) return null;
-        const obj = JSON.parse(raw);
-        if(!obj || !obj.ts || !obj.payload) return null;
-        if(nowMs() - obj.ts > CACHE_MINUTES*60*1000) return null;
-        return obj.payload;
-      }catch{ return null; }
-    }
-    function writeCache(payload){
-      try{
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: nowMs(), payload }));
-      }catch{}
-    }
-
-    function getGeo(){
-      return new Promise((resolve) => {
-        if(!navigator.geolocation) return resolve(null);
-        navigator.geolocation.getCurrentPosition(
-          pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-          () => resolve(null),
-          { timeout: 4500, maximumAge: 60*60*1000, enableHighAccuracy: false }
-        );
-      });
-    }
-
-    function openMeteoUrl(lat, lon){
-      const params = new URLSearchParams({
-        latitude: String(lat),
-        longitude: String(lon),
-        current: "weather_code,is_day,wind_speed_10m",
-        timezone: "auto"
-      });
-      return `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
-    }
-
-    function deriveMode(code, windSpeed){
-      if([95,96,99].includes(code)) return "thunder";
-      if([71,73,75,77,85,86].includes(code)) return "snow";
-      if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return "rain";
-      if([45,48].includes(code)) return "fog";
-      if(windSpeed != null && windSpeed >= 20) return "wind";
-      if([2,3].includes(code)) return "cloudy";
-      if([0,1].includes(code)) return "clear";
-      return "cloudy";
-    }
-
-    function clearParticles(){
-      const p = precipLayer();
-      if(!p) return;
-      p.innerHTML = "";
-    }
-
-    function buildRain(){
-      const p = precipLayer();
-      if(!p) return;
-      clearParticles();
-      const n = 135;
-      for(let i=0;i<n;i++){
-        const d = document.createElement("span");
-        d.className = "drop";
-        d.style.left = (Math.random()*100) + "%";
-        d.style.animationDelay = (Math.random()*1.1) + "s";
-        d.style.animationDuration = (0.75 + Math.random()*0.9) + "s";
-        d.style.opacity = (0.20 + Math.random()*0.34).toFixed(2);
-        const w = 1.6 + Math.random()*1.6;
-        d.style.width = w + "px";
-        p.appendChild(d);
-      }
-    }
-
-    function buildSnow(){
-      const p = precipLayer();
-      if(!p) return;
-      clearParticles();
-      const n = 75;
-      for(let i=0;i<n;i++){
-        const f = document.createElement("span");
-        f.className = "flake";
-        f.style.left = (Math.random()*100) + "%";
-        f.style.animationDelay = (Math.random()*3.0) + "s";
-        f.style.animationDuration = (4.2 + Math.random()*5.0) + "s";
-        const s = 3.0 + Math.random()*6.0;
-        f.style.width = s + "px";
-        f.style.height = s + "px";
-        f.style.opacity = (0.18 + Math.random()*0.44).toFixed(2);
-        p.appendChild(f);
-      }
-    }
-
-    function applyFx({ mode, tn }){
-      const el = fxEl();
-      if(!el) return;
-      el.classList.add("on");
-      el.setAttribute("data-mode", mode);
-      el.setAttribute("data-tn", tn);
-      if(mode === "rain" || mode === "thunder") buildRain();
-      else if(mode === "snow") buildSnow();
-      else clearParticles();
-    }
-
-    async function fetchWeather(){
-      const cached = readCache();
-      if(cached) return cached;
-
-      const geo = await getGeo();
-      const lat = geo?.lat ?? FORT_COLLINS.lat;
-      const lon = geo?.lon ?? FORT_COLLINS.lon;
-
-      const res = await fetch(openMeteoUrl(lat, lon), { cache: "no-store" });
-      if(!res.ok) throw new Error("weather_fetch_failed");
-
-      const json = await res.json();
-      const cur = json?.current || {};
-
-      const code = cur.weather_code;
-      const isDay = !!cur.is_day;
-      const wind = cur.wind_speed_10m;
-
-      const payload = { code, isDay, wind };
-      writeCache(payload);
-      return payload;
-    }
-
-    let weatherFxInterval = null;
-    async function refreshWeatherFx(){
-      const el = fxEl();
-      if(!el) return;
-      try{
-        const w = await fetchWeather();
-        const tn = w.isDay ? "day" : "night";
-        const mode = deriveMode(w.code, w.wind);
-        applyFx({ mode, tn });
-      }catch{
-        applyFx({ mode: "cloudy", tn: "day" });
-      }
-    }
-
-    async function initWeatherFx(){
-      await refreshWeatherFx();
-      if (weatherFxInterval) clearInterval(weatherFxInterval);
-      weatherFxInterval = setInterval(async () => {
-        try{
-          localStorage.removeItem(CACHE_KEY);
-          await refreshWeatherFx();
-        }catch{}
-      }, 12 * 60 * 1000);
-    }
-
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", initWeatherFx);
-    } else {
-      initWeatherFx();
-    }
-
-    if (navigator.permissions && navigator.permissions.query) {
-      navigator.permissions.query({ name: "geolocation" }).then((perm) => {
-        perm.onchange = () => {
-          if (perm.state === "granted") {
-            localStorage.removeItem(CACHE_KEY);
-            refreshWeatherFx();
-          }
-        };
-      }).catch(() => {});
-    }
-  })();
 
   // One-time hooks
   attachCopyHandlers();
