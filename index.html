@@ -17172,8 +17172,7 @@ let onboardingIndex = 0;
     };
     var currentVibe = "social";
     const POINT_RULES = {
-      redemption: { drink: 10, shot: 12, cover: 15, reward_shot: 8, default: 8 },
-      uniqueVenueBonus: 15,
+      redemption: { default: 10 },
       review: 25,
       upgradeVip: 100
     };
@@ -18255,18 +18254,7 @@ let onboardingIndex = 0;
       return ledger[key] || { points: 0, venues: {}, username: preferredUsername(), tier: currentMembershipTier || "standard" };
     }
     function pointsForRedemption(entry) {
-      const perkKey = entry?.perkKey || entry?.perk || "default";
-      const key = perkKey.toLowerCase();
-      const base = POINT_RULES.redemption[key] || POINT_RULES.redemption.default;
-      let total = base;
-      if (entry?.venue) {
-        const passEntry = getPointsEntry(currentPassCode);
-        const visited = passEntry.venues || {};
-        if (!visited[entry.venue.toLowerCase()]) {
-          total += POINT_RULES.uniqueVenueBonus;
-        }
-      }
-      return total;
+      return POINT_RULES.redemption.default;
     }
     function resetInMemoryCaches() {
       try {
