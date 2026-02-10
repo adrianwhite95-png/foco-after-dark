@@ -13462,6 +13462,23 @@
     function updateRewardsUI() {
       if (!rewardsProgress) return;
       syncRewardsCycle();
+      const rewardsDisabled = isCeoActive() || isFreeMember() || memberProfile?.ceo === true;
+      if (rewardsDisabled) {
+        if (rewardsProgressFill) rewardsProgressFill.style.width = "100%";
+        if (rewardsProgressText) rewardsProgressText.textContent = "Unlimited vouchers on this account";
+        if (rewardsNextText) rewardsNextText.textContent = "Voucher rewards are not needed for CEO / CEO_FREE accounts.";
+        if (rewardsRedeemBtn) rewardsRedeemBtn.disabled = true;
+        if (rewardsError) rewardsError.textContent = "";
+        if (rewardsTrigger) {
+          rewardsTrigger.textContent = "Voucher rewards (unlimited)";
+          rewardsTrigger.classList.remove("reward-ready");
+        }
+        if (navRewardsItem) {
+          navRewardsItem.textContent = "Voucher rewards (unlimited)";
+          navRewardsItem.classList.remove("reward-ready");
+        }
+        return;
+      }
       const nextTarget = 5;
       const progressCount = rewardsProgress.available ? nextTarget : rewardsProgress.count;
       const pct = rewardsProgress.available ? 100 : Math.min(100, Math.floor((progressCount / nextTarget) * 100));
@@ -15649,6 +15666,10 @@ let onboardingIndex = 0;
     if (rewardsRedeemBtn) {
       rewardsRedeemBtn.addEventListener("click", () => {
         syncRewardsCycle();
+        if (isCeoActive() || isFreeMember() || memberProfile?.ceo === true) {
+          if (rewardsError) rewardsError.textContent = "This account has unlimited vouchers.";
+          return;
+        }
         if (!rewardsProgress.available) {
           if (rewardsError) rewardsError.textContent = "Keep redeeming to unlock rewards.";
           return;
