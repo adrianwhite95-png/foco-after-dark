@@ -9315,6 +9315,7 @@
         <button type="button" class="chip ghost" data-scroll="verifyCard">Verify</button>
         <button type="button" class="chip ghost" data-scroll="alertCard">Post alert</button>
         <button type="button" class="chip ghost" data-scroll="codesCard">Codes</button>
+        <button type="button" class="chip ghost" data-scroll="staffMore">More</button>
       </div>
     </div>
     <div class="staff-accent-row">
@@ -10921,7 +10922,12 @@
         e.preventDefault();
         const targetId = btn.dataset.scroll;
         const target = targetId ? document.getElementById(targetId) : null;
-        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (target) {
+          if (target.tagName === "DETAILS") {
+            target.open = true;
+          }
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       });
     });
 
