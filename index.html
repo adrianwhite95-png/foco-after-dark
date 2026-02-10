@@ -6598,6 +6598,38 @@
       color: #e2e8f0;
       word-break: break-word;
     }
+    .ceo-member-preview-actions {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(8, 12, 26, 0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .ceo-member-preview-action-title {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #fef3c7;
+    }
+    .ceo-member-preview-action-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    #ceoMemberVoucherAmount {
+      flex: 1 1 110px;
+      min-width: 110px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      color: #e2e8f0;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
     .ceo-reset-footer {
       display: flex;
       flex-direction: column;
@@ -10253,6 +10285,25 @@
       </div>
       <p class="ceo-member-preview-meta" id="ceoMemberPreviewMeta">Quick profile details.</p>
       <div class="ceo-member-preview-grid" id="ceoMemberPreviewBody"></div>
+      <div class="ceo-member-preview-actions" id="ceoMemberPreviewActions">
+        <div class="ceo-member-preview-action-title">Grant vouchers (current cycle)</div>
+        <div class="ceo-member-preview-action-row">
+          <input id="ceoMemberVoucherAmount" type="number" min="1" max="50" placeholder="Tokens" />
+          <button type="button" class="btn btn-secondary" id="ceoMemberVoucherGrantBtn">Grant</button>
+        </div>
+        <div class="meta-note">Member sees a one-time message on next login.</div>
+        <p class="support-success" id="ceoMemberVoucherGrantStatus" style="display:none;"></p>
+      </div>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="voucherGrantModal">
+    <div class="modal-card" style="max-width:420px;">
+      <div class="modal-header">
+        <div class="modal-title">Vouchers added</div>
+        <button class="modal-close" id="voucherGrantClose" type="button">Close</button>
+      </div>
+      <p id="voucherGrantBody" style="color:#e2e8f0;line-height:1.5;margin:10px 0 16px;"></p>
+      <button class="btn btn-primary" id="voucherGrantAcknowledge" type="button" style="width:100%;">Got it</button>
     </div>
   </div>
 
@@ -12624,6 +12675,14 @@
     const ceoMemberPreviewMeta = document.getElementById("ceoMemberPreviewMeta");
     const ceoMemberPreviewBody = document.getElementById("ceoMemberPreviewBody");
     const ceoMemberPreviewClose = document.getElementById("ceoMemberPreviewClose");
+    const ceoMemberPreviewActions = document.getElementById("ceoMemberPreviewActions");
+    const ceoMemberVoucherAmount = document.getElementById("ceoMemberVoucherAmount");
+    const ceoMemberVoucherGrantBtn = document.getElementById("ceoMemberVoucherGrantBtn");
+    const ceoMemberVoucherGrantStatus = document.getElementById("ceoMemberVoucherGrantStatus");
+    const voucherGrantModal = document.getElementById("voucherGrantModal");
+    const voucherGrantBody = document.getElementById("voucherGrantBody");
+    const voucherGrantClose = document.getElementById("voucherGrantClose");
+    const voucherGrantAcknowledge = document.getElementById("voucherGrantAcknowledge");
     const ceoResetCard = document.getElementById("ceoResetCard");
     const ceoMembersCard = document.getElementById("ceoMembersCard");
     const ceoMembersRefresh = document.getElementById("ceoMembersRefresh");
@@ -13921,6 +13980,9 @@
       });
       addPoints(loginBonus, "Login bonus");
       updateLastCheckinUI();
+      if (memberProfile?.pendingVoucherGrant) {
+        showVoucherGrantNotice(memberProfile.pendingVoucherGrant);
+      }
       maybeCelebrateAllAchievements();
     }
 
@@ -18678,6 +18740,28 @@ let onboardingIndex = 0;
         return;
       }
       lastCheckinText.textContent = "—";
+    }
+    const VOUCHER_GRANT_SEEN_PREFIX = "voucherGrantSeen_";
+    function closeVoucherGrantModal() {
+      if (voucherGrantModal) voucherGrantModal.classList.remove("active");
+    }
+    function showVoucherGrantNotice(pending) {
+      if (!pending || !pending.amount) return;
+      const uid = firebaseAuth.currentUser?.uid || "anon";
+      const grantId = pending.id || pending.createdAt || `${pending.amount}-${pending.monthKey || ""}`;
+      const seenKey = `${VOUCHER_GRANT_SEEN_PREFIX}${uid}_${grantId}`;
+      try {
+        if (sessionStorage.getItem(seenKey) === "1") return;
+        sessionStorage.setItem(seenKey, "1");
+      } catch (_) {}
+      if (!voucherGrantModal || !voucherGrantBody) return;
+      const cycle = getVoucherCycleWindow(memberProfile?.billing || {})?.current;
+      const endLabel = cycle?.end ? formatMST(cycle.end, { year: "numeric" }) : "end of this billing cycle";
+      const amount = Number(pending.amount) || 0;
+      voucherGrantBody.textContent = `Good news — you received ${amount} voucher token${amount === 1 ? "" : "s"} for this billing cycle. They expire ${cycle?.end ? `on ${endLabel}` : "at the end of the billing cycle"}.`;
+      voucherGrantModal.classList.add("active");
+      memberProfile.pendingVoucherGrant = null;
+      updateMemberProfile({ pendingVoucherGrant: null });
     }
     function ensurePointsEntry() {
       const code = (currentPassCode || "").toUpperCase();
@@ -24255,6 +24339,64 @@ let onboardingIndex = 0;
       ceoMemberPreviewUid = null;
       if (ceoMemberPreviewModal) ceoMemberPreviewModal.classList.remove("active");
     }
+    function showCeoMemberVoucherGrantStatus(message, success = true) {
+      if (!ceoMemberVoucherGrantStatus) return;
+      ceoMemberVoucherGrantStatus.textContent = message;
+      ceoMemberVoucherGrantStatus.style.color = success ? "#a7f3d0" : "#f97373";
+      ceoMemberVoucherGrantStatus.style.display = "block";
+      window.setTimeout(() => {
+        if (ceoMemberVoucherGrantStatus) ceoMemberVoucherGrantStatus.style.display = "none";
+      }, 3600);
+    }
+    async function grantCeoMemberVouchers() {
+      if (!isCeoAccount || !db || !ceoMemberPreviewActions) {
+        showCeoMemberVoucherGrantStatus("CEO access required.", false);
+        return;
+      }
+      const uid = ceoMemberPreviewActions.dataset.uid || "";
+      if (!uid) {
+        showCeoMemberVoucherGrantStatus("Select a member first.", false);
+        return;
+      }
+      const amount = Math.max(1, Math.min(50, Number(ceoMemberVoucherAmount?.value || 0) || 0));
+      if (!amount) {
+        showCeoMemberVoucherGrantStatus("Enter a token amount.", false);
+        return;
+      }
+      if (ceoMemberVoucherGrantBtn) ceoMemberVoucherGrantBtn.disabled = true;
+      try {
+        const ref = doc(db, "members", uid);
+        const snap = await getDoc(ref);
+        const data = snap.exists() ? snap.data() || {} : {};
+        const cycleKey = getMonthTokenFromDate(new Date());
+        const current = Number(data.ceoMonthlyTokenGrants?.[cycleKey] || 0);
+        const next = Math.max(0, current + amount);
+        const grantId = `grant_${Date.now()}`;
+        const pendingVoucherGrant = {
+          id: grantId,
+          amount,
+          monthKey: cycleKey,
+          createdAt: new Date().toISOString()
+        };
+        const updates = {
+          [`ceoMonthlyTokenGrants.${cycleKey}`]: next,
+          pendingVoucherGrant,
+          updatedAt: serverTimestamp()
+        };
+        if (!guardWriteAction("ceoMemberGrantVouchers", "App is locked (read-only).", { silent: true })) {
+          showCeoMemberVoucherGrantStatus("App is locked (read-only).", false);
+          return;
+        }
+        await setDoc(ref, updates, { merge: true });
+        showCeoMemberVoucherGrantStatus(`Granted +${amount} voucher token${amount === 1 ? "" : "s"} (this cycle).`);
+        showToast(`+${amount} vouchers granted.`);
+      } catch (err) {
+        console.warn("Failed to grant vouchers", err);
+        showCeoMemberVoucherGrantStatus("Could not grant vouchers. Try again.", false);
+      } finally {
+        if (ceoMemberVoucherGrantBtn) ceoMemberVoucherGrantBtn.disabled = false;
+      }
+    }
     function updateCeoMemberPreviewStat(key, value) {
       if (!ceoMemberPreviewBody) return;
       const node = ceoMemberPreviewBody.querySelector(`[data-ceo-preview-key="${key}"] .value`);
@@ -24332,6 +24474,13 @@ let onboardingIndex = 0;
           member.uid ? `UID ${member.uid}` : ""
         ].filter(Boolean);
         ceoMemberPreviewMeta.textContent = parts.join(" · ") || "Quick profile details.";
+      }
+      if (ceoMemberPreviewActions) {
+        ceoMemberPreviewActions.dataset.uid = member.uid || "";
+        ceoMemberPreviewActions.dataset.passCode = member.passCode || "";
+      }
+      if (ceoMemberVoucherAmount) {
+        ceoMemberVoucherAmount.value = "1";
       }
       ceoMemberPreviewBody.innerHTML = snippets.map((item) => `
         <div class="ceo-member-preview-item"${item.key ? ` data-ceo-preview-key="${item.key}"` : ""}>
@@ -24764,6 +24913,20 @@ let onboardingIndex = 0;
     if (ceoMemberPreviewModal) {
       ceoMemberPreviewModal.addEventListener("click", (e) => {
         if (e.target === ceoMemberPreviewModal) closeCeoMemberPreviewModal();
+      });
+    }
+    if (ceoMemberVoucherGrantBtn) {
+      ceoMemberVoucherGrantBtn.addEventListener("click", grantCeoMemberVouchers);
+    }
+    if (voucherGrantClose) {
+      voucherGrantClose.addEventListener("click", closeVoucherGrantModal);
+    }
+    if (voucherGrantAcknowledge) {
+      voucherGrantAcknowledge.addEventListener("click", closeVoucherGrantModal);
+    }
+    if (voucherGrantModal) {
+      voucherGrantModal.addEventListener("click", (e) => {
+        if (e.target === voucherGrantModal) closeVoucherGrantModal();
       });
     }
 
