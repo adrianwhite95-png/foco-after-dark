@@ -3934,6 +3934,22 @@
     .vibe-social { background: linear-gradient(120deg, rgba(34, 211, 238, 0.2), rgba(34, 197, 94, 0.18)); border-color: rgba(34, 211, 238, 0.45); }
     .vibe-casual { background: linear-gradient(120deg, rgba(251, 191, 36, 0.2), rgba(56, 189, 248, 0.16)); border-color: rgba(251, 191, 36, 0.4); color: #fef9c3; }
     .featured-card {
+      text-align: left;
+      position: relative;
+      overflow: visible;
+      perspective: 1200px;
+    }
+    .featured-card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.6s ease;
+      transform-style: preserve-3d;
+    }
+    .featured-card.is-flipped .featured-card-inner {
+      transform: rotateY(180deg);
+    }
+    .featured-card-face {
       padding: 14px;
       border-radius: 18px;
       background: radial-gradient(circle at 20% 20%, rgba(250, 204, 21, 0.35), transparent 60%), rgba(8, 12, 26, 0.95);
@@ -3941,10 +3957,20 @@
       text-align: left;
       position: relative;
       overflow: hidden;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      min-height: 116px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: box-shadow 0.3s ease, transform 0.3s ease;
     }
-    .featured-card:hover {
-      transform: translateY(-4px);
+    .featured-card-back {
+      position: absolute;
+      inset: 0;
+      transform: rotateY(180deg);
+    }
+    .featured-card:hover .featured-card-face {
       box-shadow: 0 18px 35px rgba(250, 204, 21, 0.35);
     }
     .featured-card strong {
@@ -3962,6 +3988,9 @@
       line-height: 1.35;
       word-break: break-word;
       hyphens: auto;
+    }
+    .featured-card .featured-address {
+      color: #cbd5f5;
     }
     .featured-badge {
       display: inline-flex;
@@ -13304,11 +13333,21 @@
       const topRatedId = getTopRatedVenueId();
       featuredVenuesGrid.innerHTML = featuredVenuesData.map(venue => {
         const badge = topRatedId && venue.venueId === topRatedId ? "Top Bar" : venue.badge;
+        const address = (venuesInfo[venue.venueId] || {}).address || "Address coming soon";
         return `
-        <div class="featured-card">
-          <div class="featured-badge">${badge}</div>
-          <strong>${venue.name}</strong>
-          <span>${venue.detail}</span>
+        <div class="featured-card" data-venue-id="${venue.venueId}" role="button" tabindex="0">
+          <div class="featured-card-inner">
+            <div class="featured-card-face featured-card-front">
+              <div class="featured-badge">${badge}</div>
+              <strong>${venue.name}</strong>
+              <span>${venue.detail}</span>
+            </div>
+            <div class="featured-card-face featured-card-back">
+              <div class="featured-badge">Address</div>
+              <strong>${venue.name}</strong>
+              <span class="featured-address">${address}</span>
+            </div>
+          </div>
         </div>
       `;
       }).join("");
@@ -13328,14 +13367,29 @@
       const topFour = featuredVenuesData.slice(0, 4);
       passFeaturedGrid.innerHTML = topFour.map(venue => {
         const badge = topRatedId && venue.venueId === topRatedId ? "Top Bar" : venue.badge;
+        const address = (venuesInfo[venue.venueId] || {}).address || "Address coming soon";
         return `
-        <div class="featured-card">
-          <div class="featured-badge">${badge}</div>
-          <strong>${venue.name}</strong>
-          <span>${venue.detail}</span>
+        <div class="featured-card" data-venue-id="${venue.venueId}" role="button" tabindex="0">
+          <div class="featured-card-inner">
+            <div class="featured-card-face featured-card-front">
+              <div class="featured-badge">${badge}</div>
+              <strong>${venue.name}</strong>
+              <span>${venue.detail}</span>
+            </div>
+            <div class="featured-card-face featured-card-back">
+              <div class="featured-badge">Address</div>
+              <strong>${venue.name}</strong>
+              <span class="featured-address">${address}</span>
+            </div>
+          </div>
         </div>
       `;
       }).join("");
+    }
+    function toggleFeaturedCardFlip(target) {
+      const card = target.closest(".featured-card");
+      if (!card) return;
+      card.classList.toggle("is-flipped");
     }
     function startHeroRotation() {
       if (heroCarouselInterval) {
@@ -13827,6 +13881,8 @@
       }
       const todayKey = getMstDateKey(new Date());
       const lastKey = memberProfile.lastLoginDate || "";
+      const previousLoginAt = memberProfile.lastLoginAt || null;
+      const previousLoginDate = memberProfile.lastLoginDate || null;
       const loginCount = Number(memberProfile.loginCount || 0) + 1;
       let activeDays = Number(memberProfile.activeDays || 0);
       if (!lastKey || lastKey !== todayKey) {
@@ -13834,12 +13890,35 @@
       }
       const lastLoginAt = new Date().toISOString();
       const loginBonus = 20;
-      memberProfile = { ...memberProfile, loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt };
+      memberProfile = {
+        ...memberProfile,
+        loginCount,
+        activeDays,
+        lastLoginDate: todayKey,
+        lastLoginAt,
+        lastCheckinAt: previousLoginAt,
+        lastCheckinDate: previousLoginDate
+      };
       const passCode = (memberProfile.passCode || currentPassCode || "").toUpperCase();
       if (passCode) {
-        setMemberDirectoryEntry(passCode, { lastLoginAt });
+        setMemberDirectoryEntry(passCode, { lastLoginAt, lastCheckinAt: previousLoginAt, lastCheckinDate: previousLoginDate });
       }
-      persistMemberState({ loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt });
+      persistMemberState({
+        loginCount,
+        activeDays,
+        lastLoginDate: todayKey,
+        lastLoginAt,
+        lastCheckinAt: previousLoginAt,
+        lastCheckinDate: previousLoginDate
+      });
+      updateMemberProfile({
+        loginCount,
+        activeDays,
+        lastLoginDate: todayKey,
+        lastLoginAt,
+        lastCheckinAt: previousLoginAt,
+        lastCheckinDate: previousLoginDate
+      });
       addPoints(loginBonus, "Login bonus");
       updateLastCheckinUI();
       maybeCelebrateAllAchievements();
@@ -18589,13 +18668,13 @@ let onboardingIndex = 0;
 
     function updateLastCheckinUI() {
       if (!lastCheckinText) return;
-      const stamp = memberProfile?.lastLoginAt || "";
+      const stamp = memberProfile?.lastCheckinAt || "";
       if (stamp) {
         lastCheckinText.textContent = formatMST(stamp, { year: "numeric" });
         return;
       }
-      if (memberProfile?.lastLoginDate) {
-        lastCheckinText.textContent = memberProfile.lastLoginDate;
+      if (memberProfile?.lastCheckinDate) {
+        lastCheckinText.textContent = memberProfile.lastCheckinDate;
         return;
       }
       lastCheckinText.textContent = "—";
@@ -24185,9 +24264,6 @@ let onboardingIndex = 0;
       const status = String(entry.status || "").toLowerCase();
       return entry.used === true || ["verified", "approved", "confirmed"].includes(status);
     }
-    function getRedemptionEntryDate(entry = {}) {
-      return entry.verifiedAt || entry.timestamp || entry.createdAt || entry.usedAt || entry.updatedAt || null;
-    }
     function attachCeoMemberPreviewRedemptions(uid = "") {
       if (!db || !uid || !ceoMemberPreviewBody) return;
       if (ceoMemberPreviewUnsub) {
@@ -24471,6 +24547,29 @@ let onboardingIndex = 0;
     }
     if (ceoMembersExport) {
       ceoMembersExport.addEventListener("click", exportCeoMembersCsv);
+    }
+
+    if (featuredVenuesGrid) {
+      featuredVenuesGrid.addEventListener("click", (e) => {
+        toggleFeaturedCardFlip(e.target);
+      });
+      featuredVenuesGrid.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        toggleFeaturedCardFlip(e.target);
+        e.preventDefault();
+      }
+      });
+    }
+    if (passFeaturedGrid) {
+      passFeaturedGrid.addEventListener("click", (e) => {
+        toggleFeaturedCardFlip(e.target);
+      });
+      passFeaturedGrid.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        toggleFeaturedCardFlip(e.target);
+        e.preventDefault();
+      }
+      });
     }
 
     function startHealthWatch() {
