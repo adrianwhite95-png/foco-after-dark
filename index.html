@@ -303,11 +303,14 @@
     }
     #staffLoginScreen,
     #staffPortalScreen {
-      background: linear-gradient(160deg, rgba(6, 12, 24, 0.97), rgba(8, 14, 28, 0.95));
+      background: linear-gradient(160deg,
+        color-mix(in srgb, var(--staff-primary, #7dd3fc) 14%, rgba(6, 12, 24, 0.97)),
+        color-mix(in srgb, var(--staff-secondary, #38bdf8) 12%, rgba(8, 14, 28, 0.95))
+      );
       box-shadow:
-        0 0 35px rgba(34, 211, 238, 0.25),
+        0 0 35px var(--staff-glow, rgba(34, 211, 238, 0.25)),
         0 24px 45px rgba(0, 0, 0, 0.65);
-      border: 1px solid rgba(148, 163, 184, 0.2);
+      border: 1px solid var(--staff-border, rgba(148, 163, 184, 0.2));
     }
 
     .app-title {
@@ -1556,7 +1559,12 @@
       content: "";
       position: absolute;
       inset: -35%;
-      background: conic-gradient(from 0deg, rgba(34, 211, 238, 0.16), transparent 35%, rgba(244, 114, 182, 0.14), transparent 70%);
+      background: conic-gradient(from 0deg,
+        color-mix(in srgb, var(--accent-primary-live, var(--vibe-primary, #22d3ee)) 55%, transparent),
+        transparent 35%,
+        color-mix(in srgb, var(--accent-secondary-live, var(--vibe-secondary, #8b5cf6)) 50%, transparent),
+        transparent 70%
+      );
       animation: pulseAura var(--pulse-aura-speed, 16s) linear infinite;
       pointer-events: none;
       filter: blur(12px);
@@ -1575,8 +1583,8 @@
     .pulse-sparks span {
       position: absolute;
       border-radius: 50%;
-      background: color-mix(in srgb, var(--vibe-primary, #22d3ee) 80%, transparent);
-      box-shadow: 0 0 14px var(--vibe-glow, rgba(34, 211, 238, 0.35));
+      background: color-mix(in srgb, var(--accent-primary-live, var(--vibe-primary, #22d3ee)) 80%, transparent);
+      box-shadow: 0 0 14px var(--accent-glow-live, var(--vibe-glow, rgba(34, 211, 238, 0.35)));
       transform: translate(-50%, -50%);
       opacity: var(--pulse-spark-opacity, 0.2);
       animation: pulseSpark var(--pulse-spark-speed, 6s) ease-in-out infinite;
@@ -1587,7 +1595,7 @@
     .pulse-streaks span {
       position: absolute;
       height: 2px;
-      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--vibe-primary, #22d3ee) 80%, transparent), transparent);
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent-primary-live, var(--vibe-primary, #22d3ee)) 80%, transparent), transparent);
       transform: translate(-50%, -50%) rotate(var(--pulse-streak-rot, 0deg));
       opacity: var(--pulse-streak-opacity, 0.2);
       animation: pulseStreak var(--pulse-streak-speed, 4s) linear infinite;
@@ -1598,8 +1606,8 @@
     .pulse-bursts span {
       position: absolute;
       border-radius: 50%;
-      border: 1px solid color-mix(in srgb, var(--vibe-secondary, #22c55e) 80%, transparent);
-      box-shadow: 0 0 16px color-mix(in srgb, var(--vibe-primary, #22d3ee) 70%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent-secondary-live, var(--vibe-secondary, #22c55e)) 80%, transparent);
+      box-shadow: 0 0 16px color-mix(in srgb, var(--accent-primary-live, var(--vibe-primary, #22d3ee)) 70%, transparent);
       transform: translate(-50%, -50%);
       opacity: var(--pulse-burst-opacity, 0.2);
       animation: pulseBurst var(--pulse-burst-speed, 5s) ease-out infinite;
@@ -7852,6 +7860,20 @@
     .status-pill-sm.used { color: #38bdf8; }
     .status-pill-sm.denied,
     .status-pill-sm.canceled { color: #f87171; }
+    .creator-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 215, 0, 0.55);
+      background: rgba(255, 215, 0, 0.12);
+      color: #fcd34d;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-left: 6px;
+    }
     .status-pill-sm.verified::before {
       border-radius: 0;
       -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>') no-repeat center / contain;
@@ -18137,6 +18159,19 @@ let onboardingIndex = 0;
         glow: palette.glow
       };
     }
+    function getAccentHueForTheme(theme = "cyan") {
+      const map = {
+        cyan: 185,
+        magenta: 330,
+        gold: 45,
+        jade: 160,
+        electric: 265,
+        ember: 20,
+        glass: 200,
+        ceo: 48
+      };
+      return map[theme] ?? 185;
+    }
     function boostGlowAlpha(color, target = 0.75) {
       if (!color || typeof color !== "string") return color;
       const match = color.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([0-9.]+)\)/i);
@@ -18150,6 +18185,7 @@ let onboardingIndex = 0;
         const strongGlow = boostGlowAlpha(palette.glow, 0.6);
         const strongBorder = boostGlowAlpha(palette.border, 0.5);
         const baseGlow = boostGlowAlpha(palette.glow, 0.5);
+        const radarHue = getAccentHueForTheme(theme);
         staffPortalScreen.style.setProperty("--staff-primary", palette.primary);
         staffPortalScreen.style.setProperty("--staff-secondary", palette.secondary);
         staffPortalScreen.style.setProperty("--staff-border", palette.border);
@@ -18159,6 +18195,7 @@ let onboardingIndex = 0;
         staffPortalScreen.style.setProperty("--staff-surface", "rgba(6,10,22,0.94)");
         staffPortalScreen.style.setProperty("--staff-text", "#e2e8f0");
         staffPortalScreen.style.setProperty("--staff-muted", "#94a3b8");
+        staffPortalScreen.style.setProperty("--radar-hue", radarHue);
         if (radarGraffiti) {
           radarGraffiti.style.color = palette.primary;
           radarGraffiti.style.textShadow = `0 0 12px ${palette.glow}, 0 0 28px rgba(99,102,241,0.45), 0 0 48px rgba(8,47,73,0.8)`;
@@ -20181,6 +20218,7 @@ let onboardingIndex = 0;
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
           ceo: !!data.ceo,
+          tier: data.tier || null,
           status: data.status || "pending",
           timestamp: toIso(data.createdAt || data.timestamp),
           verifiedAt: toIso(data.verifiedAt || data.timestamp),
@@ -20736,6 +20774,11 @@ let onboardingIndex = 0;
         renderStaffPendingQueue();
       }
     }
+    function isCreatorRedemption(entry = {}) {
+      const passId = (entry.passId || "").toUpperCase();
+      const tier = String(entry.tier || "").toLowerCase();
+      return entry.ceo === true || passId === CEO_PASS_ID || tier === "ceo";
+    }
     function renderStaffPendingQueue() {
       if (!staffPendingList || !staffPendingCount) return;
       if (!staffSession) {
@@ -20774,10 +20817,11 @@ let onboardingIndex = 0;
         const statusClass = isPending ? "pending" : "verified";
         const perkLabel = entry.venuePerkLabel || entry.perk || entry.perkKey || "Perk";
         const venueName = entry.requestedVenue ? getVenueDisplayName(entry.requestedVenue) : getVenueDisplayName(entry.venue);
+        const creatorBadge = isCreatorRedemption(entry) ? '<span class="creator-pill">Creator</span>' : "";
         return `
           <div class="staff-pending-row" data-pending-code="${entry.code}" data-pending-status="${statusLabel}">
             <div class="staff-pending-meta">
-              <div><strong>${entry.code}</strong> · Pass ID: ${entry.passId || "—"}</div>
+              <div><strong>${entry.code}</strong> · Pass ID: ${entry.passId || "—"} ${creatorBadge}</div>
               <div class="staff-pending-sub">${perkLabel}${venueName ? ` · ${venueName}` : ""}</div>
             </div>
             <div class="staff-pending-actions">
@@ -21991,6 +22035,7 @@ let onboardingIndex = 0;
           venue: data.venue || null,
           requestedVenue: data.requestedVenue || null,
           ceo: !!data.ceo,
+          tier: data.tier || null,
           status: data.status || "pending",
           timestamp: toIso(data.timestamp) || new Date().toISOString(),
           verifiedAt: toIso(data.verifiedAt),
@@ -22077,6 +22122,7 @@ let onboardingIndex = 0;
             const venueText = venueValue
               ? `<span style="color:#94a3b8;">Venue: ${venueValue}</span>`
               : "<span style='color:#94a3b8;'>Venue: Pending</span>";
+            const creatorBadge = isCreatorRedemption(entry) ? ' <span class="creator-pill">Creator</span>' : "";
             const label = entry.perk
               ? entry.perk
               : entry.perkKey === "reward_shot"
@@ -22088,7 +22134,7 @@ let onboardingIndex = 0;
             return `
               <div class="log-row">
                 <strong>${entry.code} · ${label}</strong>
-                <div>${entry.member || "FoCo member"}</div>
+                <div>${entry.member || "FoCo member"}${creatorBadge}</div>
                 ${venueText}
                 <div class="log-meta">
                   <span>${date}</span>
@@ -22132,10 +22178,11 @@ let onboardingIndex = 0;
               : entry.perkKey === "reward_shot"
                 ? "Reward: shot perk"
                 : (entry.perkKey || "Perk");
+            const creatorBadge = isCreatorRedemption(entry) ? ' <span class="creator-pill">Creator</span>' : "";
             return `
               <div class="log-row">
                 <strong>${label}</strong>
-                <div>${entry.member || "FoCo member"}</div>
+                <div>${entry.member || "FoCo member"}${creatorBadge}</div>
                 <div class="log-meta">
                   <span>${date}</span>
                   <span class="status-pill-sm ${entry.status}">${entry.status}</span>
