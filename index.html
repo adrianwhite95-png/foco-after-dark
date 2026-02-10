@@ -5876,6 +5876,15 @@
       }
       .community-stat { padding: 12px 10px; border-radius: 16px; }
       .community-stat strong { font-size: 15px; }
+      body.ios .community-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      body.ios .community-stat.desktop-only.show-ios {
+        display: block;
+      }
+      body.ios .community-stat.stat-redemptions {
+        grid-column: 1 / -1;
+      }
       .secondary-actions {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -8951,8 +8960,8 @@
                 <span>Tonight’s vibe</span>
                 <strong id="statTonightVibe">Social</strong>
               </div>
-              <div class="community-stat desktop-only">
-                <span>Total redemptions</span>
+              <div class="community-stat desktop-only show-ios stat-redemptions">
+                <span>Vouchers redeemed</span>
                 <strong id="statRedemptions">0</strong>
               </div>
               <div class="community-stat desktop-only">
@@ -10449,6 +10458,11 @@
     const firebaseAuth = getAuth(app);
     setPersistence(firebaseAuth, browserSessionPersistence).catch(() => {});
     const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|crios|android/i.test(navigator.userAgent);
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+      || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (isIOS) {
+      document.body.classList.add("ios");
+    }
     const firestoreSettings = isSafari
       ? {
         localCache: memoryLocalCache(),
