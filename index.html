@@ -3801,7 +3801,7 @@
     }
     .featured-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 8px;
       margin-bottom: 16px;
     }
@@ -3951,20 +3951,33 @@
       display: block;
       font-size: 14px;
       color: #fef9c3;
+      line-height: 1.25;
+      word-break: break-word;
+      hyphens: auto;
     }
     .featured-card span {
+      display: block;
       font-size: 12px;
       color: #e2e8f0;
+      line-height: 1.35;
+      word-break: break-word;
+      hyphens: auto;
     }
     .featured-badge {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
       padding: 2px 8px;
       border-radius: 999px;
       background: rgba(6, 182, 212, 0.2);
       color: #a5f3fc;
       font-size: 10px;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.06em;
       margin-bottom: 6px;
+      max-width: 100%;
+      white-space: normal;
+      word-break: break-word;
+      line-height: 1.2;
     }
     .venues-grid {
       display: flex;
@@ -9191,30 +9204,6 @@
         <h4>Featured venues</h4>
         <div class="featured-grid" id="featuredVenuesGrid"></div>
       </div>
-      <div class="venues-grid">
-        <div class="venues-category">
-        <h4>Bars · Nightlife</h4>
-        <ul class="venues-list">
-          <li><button class="venue-btn" data-venue="bar_district">The Bar District</button></li>
-          <li><button class="venue-btn" data-venue="yeti">Yeti Bar & Grill</button></li>
-          <li><button class="venue-btn" data-venue="rec_room">Rec Room Fort Collins</button></li>
-          <li><button class="venue-btn" data-venue="bondi_beach">Bondi Beach Bar &amp; Grill</button></li>
-          <li><button class="venue-btn" data-venue="surfside">Surfside</button></li>
-          <li><button class="venue-btn" data-venue="lucky_joes">Lucky Joe’s Sidewalk Saloon</button></li>
-          <li><button class="venue-btn" data-venue="trail_head">Trail Head Tavern</button></li>
-          <li><button class="venue-btn" data-venue="steak_out">Steak-Out Saloon</button></li>
-          <li><button class="venue-btn" data-venue="road_34">Road 34 Bike Bar</button></li>
-          <li><button class="venue-btn" data-venue="brothers">Brothers</button></li>
-          <li><button class="venue-btn" data-venue="pour_brothers">Pour Brothers Community Tavern</button></li>
-          <li><button class="venue-btn" data-venue="elliotts">Elliott’s Martini Bar</button></li>
-          <li><button class="venue-btn" data-venue="tap_handle">Tap and Handle</button></li>
-          <li><button class="venue-btn" data-venue="high_point">High Point</button></li>
-          <li><button class="venue-btn" data-venue="pinball_jones">Pinball Jones</button></li>
-          <li><button class="venue-btn" data-venue="town_pump">Town Pump</button></li>
-          <li><button class="venue-btn" data-venue="mayor_old_town">The Mayor of Old Town</button></li>
-        </ul>
-      </div>
-      </div>
       <button class="btn btn-secondary back-btn" id="venuesBackBtn">Back to pass</button>
     </div>
     <!-- subtle particles canvas for luxe feel -->
@@ -13248,7 +13237,7 @@
     function formatFeaturedBadge(label = "") {
       const clean = String(label || "").replace(/[^a-z0-9 ]/gi, "").trim();
       if (!clean) return "Perk live";
-      return clean.length > 16 ? `${clean.slice(0, 15)}…` : clean;
+      return clean;
     }
     function formatFeaturedDetail(perk = {}) {
       const label = String(perk.label || "").trim();
@@ -17091,6 +17080,7 @@ let onboardingIndex = 0;
       const venueName = venuesInfo[venueId]?.name || venueId;
       venuePerksCache[venueId] = perks;
       renderRedemptionOptions();
+      refreshFeaturedVenuesData();
       if (!db) {
         if (staffPerksSuccess) staffPerksSuccess.style.display = "block";
         return;
@@ -17159,6 +17149,7 @@ let onboardingIndex = 0;
         }));
         venuePerksCache[venueId] = normalizeVenuePerks(perks);
         renderStaffPerksEditor(venuePerksCache[venueId]);
+        refreshFeaturedVenuesData();
       }, () => {
         renderStaffPerksEditor(venuePerksCache[venueId] || []);
       });
