@@ -104,6 +104,8 @@
       border-radius: calc(var(--radius-card) - 6px);
       transition: box-shadow 260ms ease, background 260ms ease;
       overflow: hidden;
+      clip-path: inset(0 round calc(var(--radius-card) - 6px));
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
     }
     .card-hd:hover { box-shadow: 0 30px 80px rgba(2,6,23,0.75), 0 0 60px rgba(34,211,238,0.06); }
     .card-hd.no-tilt,
@@ -1598,8 +1600,9 @@
 
     /* Nightlife pass styling */
     .pass-card {
+      --pass-radius: 28px;
       position: relative;
-      border-radius: 28px;
+      border-radius: var(--pass-radius);
       padding: 20px 14px 16px;
       background: linear-gradient(135deg, rgba(7, 11, 24, 0.92), rgba(12, 30, 52, 0.95));
       overflow: hidden;
@@ -8248,6 +8251,8 @@
       position: relative;
       overflow: hidden;
       isolation: isolate;
+      clip-path: inset(0 round var(--pass-radius));
+      -webkit-mask-image: -webkit-radial-gradient(white, black);
     }
     .pass-card > * {
       position: relative;
