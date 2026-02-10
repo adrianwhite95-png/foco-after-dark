@@ -112,6 +112,86 @@
       box-shadow: var(--hd-shadow);
       transition: none;
     }
+    .card-hd,
+    .pass-card,
+    .ceo-card,
+    .venues-card,
+    .featured-card,
+    .venue-detail-card,
+    .ceo-panel,
+    .ceo-log-panel,
+    .vip-deal-card,
+    .alerts-card,
+    .review-card,
+    .tier-card,
+    .modal-card,
+    .black-card,
+    .support-card,
+    .confirm-card,
+    .payment-card,
+    .membership-card,
+    .cheers-card,
+    .ceo-kpi-card,
+    .ceo-status-card,
+    .ceo-reset-card,
+    .pitch-card,
+    .receipt-card,
+    .landing-feature-card {
+      background-clip: padding-box;
+      isolation: isolate;
+    }
+    .card-hd::before,
+    .card-hd::after,
+    .pass-card::before,
+    .pass-card::after,
+    .ceo-card::before,
+    .ceo-card::after,
+    .venues-card::before,
+    .venues-card::after,
+    .featured-card::before,
+    .featured-card::after,
+    .venue-detail-card::before,
+    .venue-detail-card::after,
+    .ceo-panel::before,
+    .ceo-panel::after,
+    .ceo-log-panel::before,
+    .ceo-log-panel::after,
+    .vip-deal-card::before,
+    .vip-deal-card::after,
+    .alerts-card::before,
+    .alerts-card::after,
+    .review-card::before,
+    .review-card::after,
+    .tier-card::before,
+    .tier-card::after,
+    .modal-card::before,
+    .modal-card::after,
+    .black-card::before,
+    .black-card::after,
+    .support-card::before,
+    .support-card::after,
+    .confirm-card::before,
+    .confirm-card::after,
+    .payment-card::before,
+    .payment-card::after,
+    .membership-card::before,
+    .membership-card::after,
+    .cheers-card::before,
+    .cheers-card::after,
+    .ceo-kpi-card::before,
+    .ceo-kpi-card::after,
+    .ceo-status-card::before,
+    .ceo-status-card::after,
+    .ceo-reset-card::before,
+    .ceo-reset-card::after,
+    .pitch-card::before,
+    .pitch-card::after,
+    .receipt-card::before,
+    .receipt-card::after,
+    .landing-feature-card::before,
+    .landing-feature-card::after {
+      border-radius: inherit;
+    }
 
     /* Polished HD buttons */
     .btn-hd {
@@ -5270,6 +5350,15 @@
     #staffPortalScreen > * {
       position: relative;
       z-index: 1;
+    }
+    #passScreen .pass-top {
+      z-index: 40;
+    }
+    #passScreen .nav-dropdown {
+      z-index: 50;
+    }
+    #passScreen .nav-menu {
+      z-index: 60;
     }
     .landing-wrapper {
       background: rgba(255,255,255,0.02);
