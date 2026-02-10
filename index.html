@@ -10324,6 +10324,23 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="achievementsCompleteModal">
+    <div class="modal-card">
+      <div class="modal-title">FoCo Legend Unlocked</div>
+      <p style="font-size:13px;color:#cbd5f5;line-height:1.6;margin-top:6px;">
+        You just completed every achievement. That's elite energy.
+        We dropped <strong style="color:#fbbf24;">+1,000 points</strong> into your balance.
+      </p>
+      <div style="margin-top:12px;padding:12px;border-radius:12px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);">
+        <div style="font-weight:600;color:#e2e8f0;">You're officially top-tier.</div>
+        <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Keep stacking points for perks, spins, and rewards.</div>
+      </div>
+      <div class="payment-actions" style="margin-top:14px;">
+        <button type="button" class="btn btn-primary" id="achievementsCompleteClose">Let's go</button>
+      </div>
+    </div>
+  </div>
+
   <footer class="global-footer">© 2026 Dreeboy LLC</footer>
 
   <!-- Firebase SDK -->
@@ -12674,6 +12691,8 @@
     const pointsRedeemError = document.getElementById("pointsRedeemError");
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const pointsRedeemCancel = document.getElementById("pointsRedeemCancel");
+    const achievementsCompleteModal = document.getElementById("achievementsCompleteModal");
+    const achievementsCompleteClose = document.getElementById("achievementsCompleteClose");
     const pulseBand = document.getElementById("pulseBand");
     const pulsePassId = document.getElementById("pulsePassId");
     const pulsePrimary = document.getElementById("pulsePrimary");
@@ -13741,11 +13760,19 @@
       if (!user || user.isAnonymous || !memberProfile) return;
       const uid = user.uid || "";
       const sessionKey = getLoginSessionKey(uid);
+      let skipLoginStats = false;
       if (sessionKey) {
         try {
-          if (sessionStorage.getItem(sessionKey) === "1") return;
-          sessionStorage.setItem(sessionKey, "1");
+          if (sessionStorage.getItem(sessionKey) === "1") {
+            skipLoginStats = true;
+          } else {
+            sessionStorage.setItem(sessionKey, "1");
+          }
         } catch (_) {}
+      }
+      if (skipLoginStats) {
+        maybeCelebrateAllAchievements();
+        return;
       }
       const todayKey = getMstDateKey(new Date());
       const lastKey = memberProfile.lastLoginDate || "";
@@ -13764,6 +13791,7 @@
       persistMemberState({ loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt });
       addPoints(loginBonus, "Login bonus");
       updateLastCheckinUI();
+      maybeCelebrateAllAchievements();
     }
 
     function computeStats(entries) {
@@ -16200,6 +16228,14 @@ let onboardingIndex = 0;
         if (e.target === pointsRedeemModal) closePointsRedeemModal();
       });
     }
+    if (achievementsCompleteClose) {
+      achievementsCompleteClose.addEventListener("click", closeAchievementsCompleteModal);
+    }
+    if (achievementsCompleteModal) {
+      achievementsCompleteModal.addEventListener("click", (e) => {
+        if (e.target === achievementsCompleteModal) closeAchievementsCompleteModal();
+      });
+    }
     if (pointsRedeemType) {
       pointsRedeemType.addEventListener("change", () => {
         buildPointsRedeemOptions();
@@ -17524,6 +17560,7 @@ let onboardingIndex = 0;
       perkRegular: 30
     };
     const ACHIEVEMENT_BY_ID = Object.fromEntries(ACHIEVEMENTS.map(item => [item.id, item]));
+    const ALL_ACHIEVEMENTS_REWARD = 1000;
     const NIGHT_WHEEL_MOVES = [
       "Neon mission",
       "Crew objective",
@@ -21231,6 +21268,30 @@ let onboardingIndex = 0;
       const fromProfile = entry.achievements || {};
       return { ...state, ...fromProfile };
     }
+    function hasAllAchievementsUnlocked(state) {
+      return ACHIEVEMENTS.every(item => !!state[item.id]);
+    }
+    function showAchievementsCompleteModal() {
+      if (!achievementsCompleteModal) return;
+      achievementsCompleteModal.classList.add("active");
+      burstConfetti(['#22d3ee', '#f472b6', '#fbbf24', '#60a5fa']);
+    }
+    function closeAchievementsCompleteModal() {
+      if (achievementsCompleteModal) achievementsCompleteModal.classList.remove("active");
+    }
+    function maybeCelebrateAllAchievements() {
+      if (!currentPassCode || !memberProfile) return;
+      const state = getAchievementStateForCurrentPass();
+      if (!state.allCompletePending || state.allCompleteRewarded) return;
+      if (!hasAllAchievementsUnlocked(state)) return;
+      addPoints(ALL_ACHIEVEMENTS_REWARD, "All achievements complete");
+      setAchievementStateForCurrentPass({
+        allCompletePending: false,
+        allCompleteRewarded: true,
+        allCompleteRewardedAt: new Date().toISOString()
+      });
+      showAchievementsCompleteModal();
+    }
     function setAchievementStateForCurrentPass(updates = {}) {
       if (!currentPassCode) return;
       const key = currentPassCode.toUpperCase();
@@ -21288,6 +21349,14 @@ let onboardingIndex = 0;
           addPoints(points, `Achievement: ${label}`);
         }
       });
+      if (hasAllAchievementsUnlocked(updates)) {
+        if (!updates.allCompleteAt) {
+          updates.allCompleteAt = new Date().toISOString();
+        }
+        if (!updates.allCompleteRewarded) {
+          updates.allCompletePending = true;
+        }
+      }
       ACHIEVEMENTS.forEach(item => {
         if (updates[item.id] && !entry[item.id]) newUnlocked = true;
       });
