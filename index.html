@@ -3466,72 +3466,6 @@
     .modal-backdrop.active {
       display: flex;
     }
-    #addToHomeOverlay {
-      padding: 18px;
-    }
-    #addToHomeOverlay .addtohome-steps {
-      display: none;
-    }
-    #addToHomeOverlay.ios .addtohome-steps.ios-only,
-    #addToHomeOverlay.android .addtohome-steps.android-only {
-      display: block;
-    }
-    #addToHomeOverlay .ios-callout {
-      position: absolute;
-      left: 50%;
-      bottom: calc(14px + env(safe-area-inset-bottom));
-      transform: translateX(-50%);
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      z-index: 21;
-      pointer-events: none;
-    }
-    #addToHomeOverlay.ios .ios-callout {
-      display: flex;
-    }
-    #addToHomeOverlay .ios-callout-bubble {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      border-radius: 14px;
-      background: rgba(15, 23, 42, 0.95);
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      box-shadow: 0 16px 30px rgba(2, 6, 18, 0.55);
-      color: #e2e8f0;
-    }
-    #addToHomeOverlay .ios-callout-icon {
-      width: 30px;
-      height: 30px;
-      border-radius: 10px;
-      background: rgba(148, 163, 184, 0.18);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-    }
-    #addToHomeOverlay .ios-callout-title {
-      font-weight: 700;
-      font-size: 13px;
-    }
-    #addToHomeOverlay .ios-callout-sub {
-      font-size: 11px;
-      color: #94a3b8;
-      margin-top: 2px;
-    }
-    #addToHomeOverlay .ios-callout-arrow {
-      width: 0;
-      height: 0;
-      border-left: 8px solid transparent;
-      border-right: 8px solid transparent;
-      border-top: 10px solid rgba(15, 23, 42, 0.95);
-      filter: drop-shadow(0 6px 12px rgba(2, 6, 18, 0.45));
-    }
-    #addToHomeOverlay.ios .add-to-home-card {
-      margin-bottom: 110px;
-    }
     .modal-card {
       width: calc(100% - 28px);
       max-width: 420px;
@@ -10049,38 +9983,24 @@
   </div>
 
   <div class="modal-backdrop" id="addToHomeOverlay">
-    <div class="ios-callout">
-      <div class="ios-callout-bubble">
-        <div class="ios-callout-icon">SHARE</div>
-        <div>
-          <div class="ios-callout-title">Tap Share</div>
-          <div class="ios-callout-sub">then Add to Home Screen</div>
-        </div>
-      </div>
-      <div class="ios-callout-arrow"></div>
-    </div>
-    <div class="modal-card add-to-home-card">
+    <div class="modal-card">
       <div class="modal-header">
         <div class="modal-title">Add to Home Screen</div>
         <button class="modal-close" id="addToHomeClose" type="button">Close</button>
       </div>
       <div style="font-size:13px;color:#cbd5f5;line-height:1.5;display:flex;flex-direction:column;gap:10px;">
-        <div class="addtohome-steps ios-only">
-          <div><strong>iPhone/iPad (Safari)</strong></div>
-          <ol style="padding-left:18px;display:flex;flex-direction:column;gap:6px;">
-            <li>Tap the <strong>Share</strong> icon.</li>
-            <li>Scroll if needed, tap <strong>More</strong>.</li>
-            <li>Select <strong>Add to Home Screen</strong>, then tap Add.</li>
-          </ol>
-        </div>
-        <div class="addtohome-steps android-only">
-          <div><strong>Android/Chrome</strong></div>
-          <ol style="padding-left:18px;display:flex;flex-direction:column;gap:6px;">
-            <li>Tap the <strong>⋮</strong> menu.</li>
-            <li>Select <strong>Add to Home screen</strong>.</li>
-            <li>Confirm to install.</li>
-          </ol>
-        </div>
+        <div><strong>iPhone/iPad (Safari)</strong></div>
+        <ol style="padding-left:18px;display:flex;flex-direction:column;gap:6px;">
+          <li>Tap the <strong>Share</strong> icon.</li>
+          <li>Scroll if needed, tap <strong>More</strong>.</li>
+          <li>Select <strong>Add to Home Screen</strong>, then tap Add.</li>
+        </ol>
+        <div><strong>Android/Chrome</strong></div>
+        <ol style="padding-left:18px;display:flex;flex-direction:column;gap:6px;">
+          <li>Tap the <strong>⋮</strong> menu.</li>
+          <li>Select <strong>Add to Home screen</strong>.</li>
+          <li>Confirm to install.</li>
+        </ol>
       </div>
     </div>
   </div>
@@ -10529,8 +10449,6 @@
     const firebaseAuth = getAuth(app);
     setPersistence(firebaseAuth, browserSessionPersistence).catch(() => {});
     const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|crios|android/i.test(navigator.userAgent);
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
-      || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     const firestoreSettings = isSafari
       ? {
         localCache: memoryLocalCache(),
@@ -12439,29 +12357,10 @@
       if (!canAnimate()) return;
       try { initCardParticles(); } catch (e) { console.warn('particles failed', e); }
     })();
-    function isStandaloneMode() {
-      return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
-    }
-    function refreshAddToHomeButton() {
-      if (!addToHomeBtn) return;
-      if (isStandaloneMode()) {
-        addToHomeBtn.style.display = "none";
-        return;
-      }
-      if (deferredInstallPrompt || isIOS) {
-        addToHomeBtn.style.display = "inline-block";
-      }
-    }
-    function openAddToHomeOverlay() {
-      if (!addToHomeOverlay) return;
-      addToHomeOverlay.classList.toggle("ios", isIOS);
-      addToHomeOverlay.classList.toggle("android", !isIOS);
-      addToHomeOverlay.classList.add("active");
-    }
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
       deferredInstallPrompt = e;
-      refreshAddToHomeButton();
+      if (addToHomeBtn) addToHomeBtn.style.display = "inline-block";
     });
     if (addToHomeBtn) {
       addToHomeBtn.addEventListener("click", async () => {
@@ -12474,10 +12373,9 @@
             return;
           }
         }
-        openAddToHomeOverlay();
+        if (addToHomeOverlay) addToHomeOverlay.classList.add("active");
       });
     }
-    refreshAddToHomeButton();
     function closeAddToHomeOverlay() {
       if (addToHomeOverlay) {
         addToHomeOverlay.classList.remove("active");
