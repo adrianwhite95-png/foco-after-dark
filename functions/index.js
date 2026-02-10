@@ -238,6 +238,41 @@ async function checkRateLimit(uid, opts = {}) {
   });
 }
 
+function getRequestIp(context) {
+  const raw = context?.rawRequest;
+  if (!raw) return "";
+  const forwarded = raw.headers?.["x-forwarded-for"];
+  if (forwarded) return String(forwarded).split(",")[0].trim();
+  return String(raw.ip || "");
+}
+
+function hashLookupKey(input) {
+  return crypto.createHash("sha256").update(String(input || "")).digest("hex");
+}
+
+async function enforceLookupRateLimit({ key, limit = 30, windowMs = 10 * 60 * 1000 }) {
+  if (!key) return;
+  const ref = db.collection("rateLimits").doc(key);
+  const now = Date.now();
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : {};
+    const windowStart = Number(data.windowStart || 0);
+    const count = Number(data.count || 0);
+    const isSameWindow = windowStart && (now - windowStart) < windowMs;
+    const nextCount = isSameWindow ? count + 1 : 1;
+    const nextWindow = isSameWindow ? windowStart : now;
+    if (nextCount > limit) {
+      throw new HttpsError("resource-exhausted", "Too many lookup attempts. Try again soon.");
+    }
+    tx.set(ref, {
+      windowStart: nextWindow,
+      count: nextCount,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
+}
+
 exports.generateCeoVoucher = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new HttpsError('unauthenticated', 'Authentication required');
@@ -429,6 +464,7 @@ function toMillis(value) {
 
 const MAX_VOUCHER_CARRYOVER = 3;
 const VOUCHER_LIMITS = { standard: 5, vip: 10 };
+const PENDING_REDEMPTION_TIMEOUT_MS = 60 * 60 * 1000;
 
 function toDateSafe(value) {
   if (!value) return null;
@@ -549,13 +585,27 @@ function getRedemptionEntryDate(entry = {}) {
   return toDateSafe(entry?.verifiedAt || entry?.timestamp || entry?.createdAt || null);
 }
 
+function isPendingRedemptionFresh(entry, now = new Date(), maxMs = PENDING_REDEMPTION_TIMEOUT_MS) {
+  const stamp = getRedemptionEntryDate(entry);
+  if (!stamp) return false;
+  return (now.getTime() - stamp.getTime()) <= maxMs;
+}
+
 function countRedemptionsInWindow(entries = [], window, options = {}) {
   if (!window) return 0;
   const includePending = Boolean(options.includePending);
+  const now = options.now instanceof Date ? options.now : new Date();
+  const pendingMaxMs = Number(options.pendingMaxMs || PENDING_REDEMPTION_TIMEOUT_MS);
   const start = window.start;
   const end = window.end;
   return entries.reduce((count, entry) => {
-    if (!isCountedRedemptionStatus(entry?.status, includePending)) return count;
+    const status = String(entry?.status || "").toLowerCase();
+    if (status === "pending" || status === "requested") {
+      if (!includePending) return count;
+      if (!isPendingRedemptionFresh(entry, now, pendingMaxMs)) return count;
+    } else if (!isCountedRedemptionStatus(status, false)) {
+      return count;
+    }
     const stamp = getRedemptionEntryDate(entry);
     if (!stamp) return count;
     if (stamp >= start && stamp <= end) return count + 1;
@@ -642,7 +692,11 @@ function computeVoucherBalanceForWallet(memberData = {}, entries = [], now = new
     const cycleStart = shiftMonth(startDate, i);
     const cycleEnd = oneMonthFrom(cycleStart);
     const isCurrent = i === cycles - 1;
-    const cycleUsed = countRedemptionsInWindow(entries, { start: cycleStart, end: cycleEnd }, { includePending: isCurrent });
+    const cycleUsed = countRedemptionsInWindow(
+      entries,
+      { start: cycleStart, end: cycleEnd },
+      { includePending: isCurrent, now, pendingMaxMs: PENDING_REDEMPTION_TIMEOUT_MS }
+    );
     const regularAllowance = limit + carryover;
     const regularAllowanceWithGrant = regularAllowance + (isCurrent ? monthlyGrant : 0);
     const consumedTokens = Math.max(0, cycleUsed - regularAllowanceWithGrant);
@@ -850,6 +904,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
           if (resolved.memberPassUpdate) {
             tx.set(resolved.memberRef, resolved.memberPassUpdate, { merge: true });
           }
+          const expiresAt = admin.firestore.Timestamp.fromMillis(now.toMillis() + PENDING_REDEMPTION_TIMEOUT_MS);
           const storedPayload = {
             redemptionId,
             passCode: resolvedPassCode || passCode,
@@ -861,6 +916,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
             perkKey,
             perkLabel: perkLabel || perkData.label || "Perk",
             status: "pending",
+            expiresAt,
             createdAt: serverNow,
             updatedAt: serverNow,
             timestamp: serverNow,
@@ -964,6 +1020,22 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
     if (dataSnap.venueId && dataSnap.venueId !== venueId) {
       throw new HttpsError("permission-denied", "This code belongs to another venue.");
     }
+    const pendingExpired = (String(dataSnap.status || "").toLowerCase() === "pending")
+      && !isPendingRedemptionFresh(dataSnap, now.toDate(), PENDING_REDEMPTION_TIMEOUT_MS);
+    if (pendingExpired) {
+      const memberUid = dataSnap.memberUid;
+      const expiredUpdates = {
+        status: "expired",
+        updatedAt: serverNow,
+        expiredAt: serverNow
+      };
+      tx.update(venueRedRef, expiredUpdates);
+      if (memberUid) {
+        const memberRedRef = db.collection("members").doc(memberUid).collection("redemptions").doc(redemptionId);
+        tx.set(memberRedRef, expiredUpdates, { merge: true });
+      }
+      return { ...dataSnap, ...expiredUpdates, expired: true };
+    }
     if (dataSnap.status === "verified" && action === "confirm") {
       return dataSnap;
     }
@@ -1007,7 +1079,82 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
     return { ...dataSnap, ...returnUpdates };
   });
 
+  if (result?.expired) {
+    throw new HttpsError("failed-precondition", "Code expired. Ask the member to redeem again.");
+  }
   return { ok: true, redemption: result };
+});
+
+// Resolve username to email (rate-limited, no auth required)
+exports.resolveUsernameToEmail = functions.https.onCall(async (data, context) => {
+  const raw = (data?.username || "").toString().trim().replace(/^@/, "").toLowerCase();
+  if (!raw) {
+    throw new HttpsError("invalid-argument", "Username required.");
+  }
+  if (!/^[a-z0-9_]{3,24}$/.test(raw)) {
+    throw new HttpsError("invalid-argument", "Invalid username.");
+  }
+  const ip = getRequestIp(context) || "unknown";
+  const key = `usernameLookup_${hashLookupKey(ip)}`;
+  await enforceLookupRateLimit({ key, limit: 30, windowMs: 10 * 60 * 1000 });
+
+  const unameSnap = await db.collection("usernames").doc(raw).get();
+  if (!unameSnap.exists) {
+    return { email: null };
+  }
+  const dataSnap = unameSnap.data() || {};
+  if (dataSnap.email) {
+    return { email: dataSnap.email };
+  }
+  if (dataSnap.uid) {
+    const memberSnap = await db.collection("members").doc(dataSnap.uid).get();
+    const memberData = memberSnap.exists ? memberSnap.data() : {};
+    return { email: memberData?.email || null };
+  }
+  return { email: null };
+});
+
+// Award points server-side to prevent client tampering.
+exports.awardPoints = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  const uid = context.auth.uid;
+  const delta = Number(data?.points || 0);
+  const reason = (data?.reason || "").toString().slice(0, 80);
+  const venue = (data?.venue || "").toString().trim().toLowerCase();
+  if (!Number.isFinite(delta) || delta <= 0 || delta > 50) {
+    throw new HttpsError("invalid-argument", "Invalid points amount.");
+  }
+  const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' });
+  const ref = db.collection("members").doc(uid);
+  const result = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const memberData = snap.exists ? snap.data() : {};
+    const current = Number(memberData.points || 0);
+    let daily = Number(memberData.pointsDaily || 0);
+    let dailyDate = (memberData.pointsDailyDate || "").toString();
+    if (!dailyDate || dailyDate !== todayKey) {
+      daily = 0;
+      dailyDate = todayKey;
+    }
+    const dailyCap = 200;
+    if (daily + delta > dailyCap) {
+      throw new HttpsError("resource-exhausted", "Daily points limit reached.");
+    }
+    const next = current + delta;
+    const updates = {
+      points: next,
+      pointsDaily: daily + delta,
+      pointsDailyDate: dailyDate,
+      pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastPointsReason: reason || null
+    };
+    if (venue) {
+      updates[`venuesVisited.${venue}`] = true;
+    }
+    tx.set(ref, updates, { merge: true });
+    return { points: next, venuesVisited: venue ? { ...(memberData.venuesVisited || {}), [venue]: true } : (memberData.venuesVisited || {}) };
+  });
+  return result;
 });
 
 // Seed user profile and username directory on auth create
@@ -1067,7 +1214,6 @@ exports.initUserProfile = functions.auth.user().onCreate(async (user) => {
     await db.collection('usernames').doc(uname).set({
       uid,
       email,
-      passCode,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });

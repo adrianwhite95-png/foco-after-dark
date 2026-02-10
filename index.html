@@ -11542,7 +11542,6 @@
             await setDoc(unameDoc, {
               email,
               uid: cred.user.uid,
-              passCode: (memberProfile?.passCode || "").toUpperCase(),
               createdAt: serverTimestamp()
             }, { merge: true });
           }
@@ -13415,8 +13414,6 @@
       const next = Math.max(0, Number(tokens) || 0);
       if (!memberProfile) memberProfile = {};
       memberProfile.extraRedemptionTokens = next;
-      updateMemberProfile({ extraRedemptionTokens: next });
-      persistMemberState({ extraRedemptionTokens: next });
       if (currentPassCode) {
         setMemberDirectoryEntry(currentPassCode, { extraRedemptionTokens: next });
       }
@@ -13672,16 +13669,13 @@
       }
       const lastLoginAt = new Date().toISOString();
       const loginBonus = 20;
-      const nextPoints = Math.max(0, Number(memberProfile.points || 0) + loginBonus);
-      memberProfile = { ...memberProfile, loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt, points: nextPoints };
+      memberProfile = { ...memberProfile, loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt };
       const passCode = (memberProfile.passCode || currentPassCode || "").toUpperCase();
       if (passCode) {
-        setPointsForPass(passCode, nextPoints, { skipPersist: true, forceLower: true });
-        setMemberDirectoryEntry(passCode, { lastLoginAt, points: nextPoints });
+        setMemberDirectoryEntry(passCode, { lastLoginAt });
       }
-      persistMemberState({ loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt, points: nextPoints, pointsUpdatedAt: serverTimestamp() });
-      showToast(`+${loginBonus} pts · Login bonus`, 1800);
-      updatePointsUI();
+      persistMemberState({ loginCount, activeDays, lastLoginDate: todayKey, lastLoginAt });
+      addPoints(loginBonus, "Login bonus");
       updateLastCheckinUI();
     }
 
@@ -15520,36 +15514,16 @@ let onboardingIndex = 0;
       return isCeoAccount || (!!staffSession && !!staffSession.venue);
     }
     async function resolveUsernameToEmailCloud(input) {
-      if (!db || !input) return null;
-      const target = input.trim().replace(/^@/, "").toLowerCase();
+      if (!functionsClient || !input) return null;
+      const target = input.trim().replace(/^@/, "");
       if (!target) return null;
       try {
-        const unameDoc = await getDoc(doc(db, "usernames", target));
-        if (unameDoc.exists()) {
-          const data = unameDoc.data() || {};
-          if (data.email) return data.email;
-          if (data.uid && canQueryMembersDirectory()) {
-            const memberSnap = await getDoc(doc(db, "members", data.uid));
-            const mdata = memberSnap.exists() ? memberSnap.data() : {};
-            if (mdata?.email) return mdata.email;
-          }
-        }
+        const fn = httpsCallable(functionsClient, "resolveUsernameToEmail");
+        const resp = await fn({ username: target });
+        const email = resp?.data?.email || null;
+        if (email) return email;
       } catch (err) {
         console.warn("Username cloud lookup failed", err);
-      }
-      if (!canQueryMembersDirectory()) {
-        return null;
-      }
-      try {
-        const qMembers = query(collection(db, "members"), where("username", "==", target));
-        const snap = await getDocs(qMembers);
-        const first = snap.docs[0];
-        if (first) {
-          const data = first.data() || {};
-          if (data.email) return data.email;
-        }
-      } catch (err) {
-        console.warn("Member username query failed", err);
       }
       return null;
     }
@@ -15580,7 +15554,6 @@ let onboardingIndex = 0;
           setDoc(unameDoc, {
             email,
             uid: firebaseAuth.currentUser.uid,
-            passCode: (memberProfile?.passCode || currentPassCode || "").toUpperCase(),
             updatedAt: serverTimestamp()
           }, { merge: true }).catch(err => {
             if (err?.code === "permission-denied") {
@@ -15891,7 +15864,17 @@ let onboardingIndex = 0;
       if (!memberDocRef || !db) return;
       if (!guardWriteAction("updateMemberProfile", "App is locked (read-only).", { silent: true })) return;
       try {
-        await setDoc(memberDocRef, updates, { merge: true });
+        const payload = { ...updates };
+        delete payload.points;
+        delete payload.pointsUpdatedAt;
+        delete payload.venuesVisited;
+        delete payload.pointsDaily;
+        delete payload.pointsDailyDate;
+        delete payload.extraRedemptionTokens;
+        delete payload.extraVouchers;
+        delete payload.lastVoucherPurchase;
+        if (!Object.keys(payload).length) return;
+        await setDoc(memberDocRef, payload, { merge: true });
         if (memberProfile?.passCode) {
           cachePassProfile(memberProfile.passCode, memberProfile, memberDocRef.id);
         }
@@ -16309,7 +16292,6 @@ let onboardingIndex = 0;
         } else if (data.extraVouchers) {
           extraVouchers = sanitizeExtraVouchers(data.extraVouchers, { allowUnlimited: isCeoActive() });
           if (memberProfile) memberProfile.extraVouchers = { ...extraVouchers };
-          persistMemberState({ extraVouchers: memberProfile?.extraVouchers || extraVouchers });
         } else if (pack) {
           if ((pack.perk || "").toLowerCase() === "tokens") {
             const current = getPurchasedTokenTotal();
@@ -17163,6 +17145,15 @@ let onboardingIndex = 0;
         delete payload.nightWheel;
       }
       if (currentPassCode) payload.passCode = currentPassCode.toUpperCase();
+      delete payload.points;
+      delete payload.pointsUpdatedAt;
+      delete payload.venuesVisited;
+      delete payload.pointsDaily;
+      delete payload.pointsDailyDate;
+      delete payload.extraRedemptionTokens;
+      delete payload.extraVouchers;
+      delete payload.lastVoucherPurchase;
+      if (!Object.keys(payload).length) return;
       setDoc(doc(db, "members", uid), payload, { merge: true }).catch(err => console.warn("persistMemberState failed", err));
     }
     function loadVibeMap() {
@@ -18162,9 +18153,6 @@ let onboardingIndex = 0;
           const incoming = Math.max(0, points);
           memberProfile = memberProfile || {};
           memberProfile.points = incoming;
-          if (!opts.skipPersist) {
-            persistMemberState({ points: incoming, tier: currentMembershipTier, pointsUpdatedAt: serverTimestamp() });
-          }
           updatePointsUI();
         }
         return;
@@ -18183,15 +18171,31 @@ let onboardingIndex = 0;
       setMemberDirectoryEntry(key, { points: entry.points, venuesVisited: entry.venues, username: entry.username, tier: entry.tier, email: entry.email });
       if (entry.username && entry.email) saveUsernameMapEntry(entry.username, entry.email);
       if (!opts.skipPersist) {
-        persistMemberState({ points: entry.points, tier: entry.tier, pointsUpdatedAt: serverTimestamp() });
+        persistMemberState({ tier: entry.tier });
       }
     }
-    function addPoints(points, reason = "", meta = {}) {
-      const code = (currentPassCode || "").toUpperCase();
+    async function awardPointsCloud(points, reason = "", meta = {}) {
+      if (!functionsClient || !firebaseAuth.currentUser) return null;
+      try {
+        const fn = httpsCallable(functionsClient, "awardPoints");
+        const resp = await fn({
+          points,
+          reason: reason || "",
+          venue: meta.venue || ""
+        });
+        return resp?.data || null;
+      } catch (err) {
+        console.warn("awardPoints failed", err);
+        return null;
+      }
+    }
+    async function addPoints(points, reason = "", meta = {}) {
+      const code = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
       if (!code || !Number.isFinite(points) || points <= 0) return;
       if (useCloudProfile()) {
         const current = Number(memberProfile?.points) || 0;
         const next = current + points;
+        const prevVenues = { ...(memberProfile?.venuesVisited || {}) };
         const venuesVisited = { ...(memberProfile?.venuesVisited || {}) };
         if (meta.venue) {
           venuesVisited[meta.venue.toLowerCase()] = true;
@@ -18199,15 +18203,21 @@ let onboardingIndex = 0;
         memberProfile = memberProfile || {};
         memberProfile.points = next;
         memberProfile.venuesVisited = venuesVisited;
-        persistMemberState({
-          points: next,
-          tier: currentMembershipTier,
-          venuesVisited,
-          pointsUpdatedAt: serverTimestamp()
-        });
         updatePointsUI();
         if (reason) {
           showToast(`+${points} pts · ${reason}`);
+        }
+        const serverResult = await awardPointsCloud(points, reason, meta);
+        if (serverResult && Number.isFinite(serverResult.points)) {
+          memberProfile.points = serverResult.points;
+          if (serverResult.venuesVisited) {
+            memberProfile.venuesVisited = serverResult.venuesVisited;
+          }
+          updatePointsUI();
+        } else {
+          memberProfile.points = current;
+          memberProfile.venuesVisited = prevVenues;
+          updatePointsUI();
         }
         return;
       }
@@ -18225,7 +18235,7 @@ let onboardingIndex = 0;
       savePointsLedger(ledger);
       setMemberDirectoryEntry(code, { points: entry.points, venuesVisited: entry.venues, username: entry.username, name: memberProfile?.legalName || memberProfile?.name, tier: entry.tier, email: entry.email });
       if (entry.username && entry.email) saveUsernameMapEntry(entry.username, entry.email);
-      persistMemberState({ points: entry.points, tier: entry.tier, pointsUpdatedAt: serverTimestamp() });
+      persistMemberState({ tier: entry.tier });
       updatePointsUI();
       if (reason) {
         showToast(`+${points} pts · ${reason}`);
@@ -19471,8 +19481,6 @@ let onboardingIndex = 0;
     function saveExtraVouchers() {
       if (memberProfile && firebaseAuth.currentUser) {
         memberProfile.extraVouchers = { ...extraVouchers };
-        updateMemberProfile({ extraVouchers: memberProfile.extraVouchers });
-        persistMemberState({ extraVouchers: memberProfile.extraVouchers });
       }
       if (betaPassMode) {
         localStorage.setItem("extra_beta", JSON.stringify(extraVouchers));

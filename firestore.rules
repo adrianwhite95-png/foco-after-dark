@@ -107,6 +107,14 @@ service cloud.firestore {
         "lastInvoiceId",
         "lastInvoiceStatus",
         "lastInvoicePaid",
+        "extraRedemptionTokens",
+        "extraVouchers",
+        "lastVoucherPurchase",
+        "points",
+        "pointsDaily",
+        "pointsDailyDate",
+        "pointsUpdatedAt",
+        "venuesVisited",
         "ceoMonthlyTokenGrants",
         "perksRemaining"
       ]);
@@ -150,6 +158,14 @@ service cloud.firestore {
         "lastInvoiceId",
         "lastInvoiceStatus",
         "lastInvoicePaid",
+        "extraRedemptionTokens",
+        "extraVouchers",
+        "lastVoucherPurchase",
+        "points",
+        "pointsDaily",
+        "pointsDailyDate",
+        "pointsUpdatedAt",
+        "venuesVisited",
         "ceoMonthlyTokenGrants",
         "perksRemaining"
       ]);
@@ -164,7 +180,7 @@ service cloud.firestore {
 
     // Pass index (passCode -> uid). Public-ish read for signed-in users.
     match /passes/{passCode} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.uid || hasPrivilegedRole());
       allow create, update, delete: if false;
     }
 
@@ -286,7 +302,7 @@ service cloud.firestore {
 
     // Username directory for login-by-username
     match /usernames/{name} {
-      allow read: if true;
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.uid || hasPrivilegedRole());
       allow create, update: if request.auth != null
         && request.resource.data.uid == request.auth.uid;
       allow delete: if isAdmin() || isCeo();
