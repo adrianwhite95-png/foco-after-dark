@@ -13698,7 +13698,10 @@
       const entries = getMemberRedemptionEntries();
       const uid = firebaseAuth.currentUser?.uid;
       const billing = uid ? loadBilling(uid) : {};
-      if (!hasSuccessfulPaymentThisCycle(tier, billing, memberProfile)) {
+      const monthlyGrant = getCeoMonthlyTokenGrantTotal() + getPointsMonthlyTokenGrantTotal();
+      const purchasedTotal = getPurchasedTokenTotal();
+      const paymentOk = hasSuccessfulPaymentThisCycle(tier, billing, memberProfile);
+      if (!paymentOk && monthlyGrant <= 0 && purchasedTotal <= 0) {
         return {
           unlimited: false,
           remaining: 0,
@@ -13718,8 +13721,7 @@
         startDate.setHours(0, 0, 0, 0);
       }
       const cycles = countBillingCycles(startDate.toISOString(), new Date());
-      const purchasedTotal = getPurchasedTokenTotal();
-      const monthlyGrant = getCeoMonthlyTokenGrantTotal() + getPointsMonthlyTokenGrantTotal();
+      const effectiveLimit = paymentOk ? limit : 0;
       let purchasedRemaining = Math.max(0, purchasedTotal);
       let carryover = 0;
       let result = { unlimited: false, remaining: 0, limit, carryover: 0, usedCurrent: 0, total: 0, extraTokens: 0 };
@@ -13728,7 +13730,7 @@
         const cycleEnd = oneMonthFrom(cycleStart);
         const isCurrent = i === cycles - 1;
         const cycleUsed = countRedemptionsInWindow(entries, { start: cycleStart, end: cycleEnd }, { includePending: isCurrent });
-        const regularAllowance = limit + carryover;
+        const regularAllowance = effectiveLimit + carryover;
         const regularAllowanceWithGrant = regularAllowance + (isCurrent ? monthlyGrant : 0);
         const consumedTokens = Math.max(0, cycleUsed - regularAllowanceWithGrant);
         const purchasedAfter = Math.max(0, purchasedRemaining - consumedTokens);
@@ -13744,7 +13746,8 @@
             carryover,
             usedCurrent: cycleUsed,
             total: regularAllowanceWithGrant + purchasedRemaining,
-            extraTokens: purchasedAfter
+            extraTokens: purchasedAfter,
+            paymentRequired: !paymentOk
           };
         }
         purchasedRemaining = purchasedAfter;
