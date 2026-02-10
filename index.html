@@ -18,6 +18,8 @@
   <meta name="twitter:image" content="https://foco-after-dark.web.app/foco-logo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <link rel="manifest" href="manifest.json" />
+  <meta name="application-name" content="Foco After Dark" />
+  <meta name="apple-mobile-web-app-title" content="Foco After Dark" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="foco-logo.png" />
@@ -12357,11 +12359,20 @@
     })();
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
-      deferredInstallPrompt = null; // we’re handling instructions manually
+      deferredInstallPrompt = e;
       if (addToHomeBtn) addToHomeBtn.style.display = "inline-block";
     });
     if (addToHomeBtn) {
       addToHomeBtn.addEventListener("click", async () => {
+        if (deferredInstallPrompt) {
+          deferredInstallPrompt.prompt();
+          const choice = await deferredInstallPrompt.userChoice.catch(() => null);
+          deferredInstallPrompt = null;
+          if (choice && choice.outcome === "accepted") {
+            showToast("Added to Home Screen.");
+            return;
+          }
+        }
         if (addToHomeOverlay) addToHomeOverlay.classList.add("active");
       });
     }

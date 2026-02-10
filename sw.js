@@ -1,4 +1,4 @@
-const CACHE_VERSION = "foco-cache-v9";
+const CACHE_VERSION = "foco-cache-v10";
 const CORE_ASSETS = ["/", "/index.html", "/manifest.json", "/foco-logo.png"];
 
 self.addEventListener("install", (event) => {

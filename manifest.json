@@ -1,6 +1,6 @@
 {
-  "name": "FoCo After Dark",
-  "short_name": "FoCo Pass",
+  "name": "Foco After Dark",
+  "short_name": "Foco After Dark",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#010818",
