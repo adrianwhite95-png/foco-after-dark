@@ -22,6 +22,8 @@
   <meta name="apple-mobile-web-app-title" content="Foco After Dark" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0b1020" />
   <link rel="apple-touch-icon" href="foco-logo.png" />
   <!-- GSAP for advanced animations -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer crossorigin="anonymous"></script>
@@ -69,6 +71,9 @@
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+    }
+    html {
+      color-scheme: dark;
     }
     body {
       -webkit-font-smoothing: antialiased;
@@ -14029,12 +14034,7 @@
     }
 
     function computeStats(entries) {
-      const counted = entries.filter(entry => {
-        const status = (entry.status || "").toLowerCase();
-        return ["pending", "verified", "approved", "confirmed"].includes(status)
-          && !entry.archived
-          && !entry.betaArchived;
-      });
+      const counted = entries.filter(isCountedRedemptionEntry);
       const total = counted.length;
       const venuesVisited = new Set(
         counted.map(entry => (entry.venue || entry.requestedVenue || "").toLowerCase()).filter(Boolean)
@@ -14229,6 +14229,13 @@
           }
         };
       }
+    }
+
+    function isCountedRedemptionEntry(entry = {}) {
+      const status = String(entry.status || "").toLowerCase();
+      if (!["pending", "verified", "approved", "confirmed"].includes(status)) return false;
+      if (entry.archived || entry.betaArchived) return false;
+      return true;
     }
 
     // Simple toast utility
@@ -24249,7 +24256,13 @@ let onboardingIndex = 0;
       if (!value) return "—";
       const date = value.toDate ? value.toDate() : new Date(value);
       if (Number.isNaN(date.getTime())) return "—";
-      return date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      return date.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
     }
     function getCeoDateKey(value) {
       if (!value) return null;
@@ -24474,8 +24487,7 @@ let onboardingIndex = 0;
       if (node) node.textContent = value;
     }
     function isVerifiedRedemptionEntry(entry = {}) {
-      const status = String(entry.status || "").toLowerCase();
-      return entry.used === true || ["verified", "approved", "confirmed"].includes(status);
+      return isCountedRedemptionEntry(entry);
     }
     function attachCeoMemberPreviewRedemptions(uid = "") {
       if (!db || !uid || !ceoMemberPreviewBody) return;
