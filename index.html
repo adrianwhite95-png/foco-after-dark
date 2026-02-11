@@ -10735,10 +10735,26 @@
       if (pushSupported) {
         messagingClient = getMessaging(app);
         onMessage(messagingClient, (payload) => {
-          const notice = payload?.notification;
+          const notice = payload?.notification || payload?.data || {};
           if (!notice?.title && !notice?.body) return;
+          const title = notice.title || "FoCo Alert";
+          const body = notice.body || "";
+          const link = payload?.fcmOptions?.link || payload?.data?.link || "/";
+          // In foreground, also show a system notification so iOS users see it immediately.
+          if (Notification.permission === "granted") {
+            navigator.serviceWorker.getRegistration().then((reg) => {
+              if (reg && typeof reg.showNotification === "function") {
+                reg.showNotification(title, {
+                  body,
+                  icon: "/foco-logo.png",
+                  badge: "/foco-logo.png",
+                  data: { link }
+                }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
           if (typeof showToast === "function") {
-            showToast(`${notice.title || "FoCo Alert"} — ${notice.body || ""}`.trim(), 3200);
+            showToast(`${title} — ${body}`.trim(), 3200);
           }
         });
       }
@@ -10885,10 +10901,12 @@
       }
       try {
         const fn = httpsCallable(functionsClient, "sendPushToUser");
+        const nowLabel = formatMST(Date.now(), { hour: "2-digit", minute: "2-digit", second: "2-digit" });
         const res = await fn({
           uid,
           title: "FoCo After Dark",
-          body: "Test notification delivered ✅"
+          body: `Test notification delivered at ${nowLabel} ✅`,
+          link: "/"
         });
         const data = res?.data || {};
         if (data.failed && data.failed > 0) {

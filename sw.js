@@ -17,11 +17,13 @@ messaging.onBackgroundMessage((payload) => {
   const title = notice.title || "FoCo After Dark";
   const body = notice.body || "New update from a venue.";
   const link = payload?.fcmOptions?.link || payload?.data?.link || notice.link || "/";
+  const sentAt = payload?.data?.sentAt || String(Date.now());
   self.registration.showNotification(title, {
     body,
     icon: "/foco-logo.png",
     badge: "/foco-logo.png",
-    data: { link }
+    tag: `foco-${sentAt}`,
+    data: { link, sentAt }
   });
 });
 

@@ -1782,19 +1782,26 @@ async function sendPushToAll({ title, body, link }) {
   const batches = chunkTokens(tokens, 500);
   let sent = 0;
   let failed = 0;
+  const sentAt = String(Date.now());
   for (const batch of batches) {
     const message = {
       data: {
         title: String(title || ''),
         body: String(body || ''),
-        link: link ? String(link) : ''
+        link: link ? String(link) : '',
+        sentAt
       },
       webpush: {
+        headers: {
+          Urgency: "high",
+          TTL: "2419200"
+        },
         notification: {
           title,
           body,
           icon: "https://foco-after-dark.web.app/foco-logo.png",
-          badge: "https://foco-after-dark.web.app/foco-logo.png"
+          badge: "https://foco-after-dark.web.app/foco-logo.png",
+          tag: `foco-${sentAt}`
         },
         fcmOptions: link ? { link } : undefined
       },
@@ -1819,18 +1826,25 @@ exports.sendPushToUser = functions.https.onCall(async (data, context) => {
   const tokens = tokenSnap.docs.map(d => d.id).filter(Boolean);
   if (!tokens.length) return { success: false, reason: 'no_tokens' };
   const link = (data?.link || '').toString();
+  const sentAt = String(Date.now());
   const message = {
     data: {
       title: String(title || ''),
       body: String(body || ''),
-      link
+      link,
+      sentAt
     },
     webpush: {
+      headers: {
+        Urgency: "high",
+        TTL: "2419200"
+      },
       notification: {
         title,
         body,
         icon: "https://foco-after-dark.web.app/foco-logo.png",
-        badge: "https://foco-after-dark.web.app/foco-logo.png"
+        badge: "https://foco-after-dark.web.app/foco-logo.png",
+        tag: `foco-${sentAt}`
       },
       fcmOptions: link ? { link } : undefined
     },
