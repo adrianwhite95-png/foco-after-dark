@@ -9715,6 +9715,14 @@
               </div>
             </div>
             <div class="ceo-status-card">
+              <strong>Notifications</strong>
+              <div class="meta-note">Send a test push to confirm delivery.</div>
+              <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+                <button type="button" class="btn btn-secondary" id="sendTestNotificationBtn" style="width:100%;display:none;">Send test notification</button>
+                <div class="small" id="ceoNotificationsStatus" style="color:#94a3b8;">Notifications status: unknown.</div>
+              </div>
+            </div>
+            <div class="ceo-status-card">
               <div class="micro-label">Launch checklist</div>
               <strong>Final launch sanity</strong>
               <div class="meta-note">Run these once before go‑live.</div>
@@ -10155,7 +10163,6 @@
           <div style="color:#94a3b8;">Get venue alerts, perk drops, and updates without opening the app.</div>
           <button type="button" class="btn btn-primary" id="enableNotificationsBtn" style="width:100%;">Enable notifications</button>
           <div class="small" id="enableNotificationsStatus" style="color:#94a3b8;">Notifications are off.</div>
-          <button type="button" class="btn btn-secondary" id="sendTestNotificationBtn" style="width:100%;display:none;">Send test notification</button>
         </div>
       </div>
     </div>
@@ -10703,6 +10710,9 @@
       }
       if (notificationsPromptStatus) {
         notificationsPromptStatus.textContent = message;
+      }
+      if (ceoNotificationsStatus) {
+        ceoNotificationsStatus.textContent = message;
       }
     }
     async function ensureMessagingClient() {
@@ -12425,6 +12435,7 @@
     const notificationsPromptClose = document.getElementById("notificationsPromptClose");
     const enableNotificationsPromptBtn = document.getElementById("enableNotificationsPromptBtn");
     const notificationsPromptStatus = document.getElementById("notificationsPromptStatus");
+    const ceoNotificationsStatus = document.getElementById("ceoNotificationsStatus");
     function buildNightTaglinePool(seedList = [], leadIns = [], payoffs = [], targetCount = 120) {
       const pool = Array.isArray(seedList) ? [...seedList] : [];
       for (let i = 0; i < leadIns.length && pool.length < targetCount; i += 1) {
