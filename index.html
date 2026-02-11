@@ -3375,7 +3375,7 @@
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 20;
+      z-index: 2000;
     }
     .modal-backdrop.active {
       display: flex;
@@ -3559,7 +3559,7 @@
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 30;
+      z-index: 2100;
       background: radial-gradient(circle at top, rgba(1, 8, 24, 0.86), rgba(0, 0, 0, 0.85));
       backdrop-filter: blur(8px);
       padding: 24px;
@@ -26210,6 +26210,12 @@ let onboardingIndex = 0;
     }
 
     function openRedeemModal() {
+      if (redeemModal && redeemModal.parentElement !== document.body) {
+        document.body.appendChild(redeemModal);
+      }
+      if (redeemSuccess && redeemSuccess.parentElement !== document.body) {
+        document.body.appendChild(redeemSuccess);
+      }
       populateRedeemVenueOptions();
       venuePerksCache = {};
       selectedRedeemVenue = "";
