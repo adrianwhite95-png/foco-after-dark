@@ -17132,10 +17132,6 @@ let onboardingIndex = 0;
       if (!venueId) return [];
       const cached = venuePerksCache[venueId];
       if (Array.isArray(cached) && cached.length) return cached;
-      if (!useCloudProfile()) return buildDefaultVenuePerks();
-      if (!isLaunched) {
-        return buildBetaVenuePerks(venueId);
-      }
       return [];
     }
 
