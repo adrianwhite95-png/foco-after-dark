@@ -9724,6 +9724,7 @@
                 <div class="small" id="ceoNotificationsStatus" style="color:#94a3b8;">Permission: unknown.</div>
                 <div class="small" id="ceoNotificationsToken" style="color:#94a3b8;">Token registered: unknown.</div>
                 <div class="small" id="ceoNotificationsLastPush" style="color:#94a3b8;">Last push: —</div>
+                <div class="small" id="ceoNotificationsResult" style="color:#94a3b8;">Last result: —</div>
               </div>
             </div>
             <div class="ceo-status-card">
@@ -10857,10 +10858,21 @@
             ? `Last push: ${formatMST(lastSentAt)}`
             : "Last push: —";
         }
+        if (ceoNotificationsResult) {
+          if (data.lastResult) {
+            const sent = data.lastResult.sent ?? 0;
+            const failed = data.lastResult.failed ?? 0;
+            const err = data.lastResult.lastError ? ` · ${data.lastResult.lastError}` : "";
+            ceoNotificationsResult.textContent = `Last result: sent ${sent}, failed ${failed}${err}`;
+          } else {
+            ceoNotificationsResult.textContent = "Last result: —";
+          }
+        }
       } catch (err) {
         console.warn("Push debug status failed", err);
         if (ceoNotificationsToken) ceoNotificationsToken.textContent = "Token registered: unknown.";
         if (ceoNotificationsLastPush) ceoNotificationsLastPush.textContent = "Last push: —";
+        if (ceoNotificationsResult) ceoNotificationsResult.textContent = "Last result: —";
       }
     }
 
@@ -10873,12 +10885,17 @@
       }
       try {
         const fn = httpsCallable(functionsClient, "sendPushToUser");
-        await fn({
+        const res = await fn({
           uid,
           title: "FoCo After Dark",
           body: "Test notification delivered ✅"
         });
-        showToast("Test notification sent.");
+        const data = res?.data || {};
+        if (data.failed && data.failed > 0) {
+          showToast(`Test sent · ${data.failed} failed`);
+        } else {
+          showToast("Test notification sent.");
+        }
         refreshPushDebugStatus();
       } catch (err) {
         console.warn("Test notification failed", err);
@@ -12478,6 +12495,7 @@
     const ceoNotificationsStatus = document.getElementById("ceoNotificationsStatus");
     const ceoNotificationsToken = document.getElementById("ceoNotificationsToken");
     const ceoNotificationsLastPush = document.getElementById("ceoNotificationsLastPush");
+    const ceoNotificationsResult = document.getElementById("ceoNotificationsResult");
     function buildNightTaglinePool(seedList = [], leadIns = [], payoffs = [], targetCount = 120) {
       const pool = Array.isArray(seedList) ? [...seedList] : [];
       for (let i = 0; i < leadIns.length && pool.length < targetCount; i += 1) {

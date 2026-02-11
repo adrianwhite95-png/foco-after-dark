@@ -13,10 +13,10 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
-  const notice = payload?.notification || {};
+  const notice = payload?.notification || payload?.data || {};
   const title = notice.title || "FoCo After Dark";
   const body = notice.body || "New update from a venue.";
-  const link = payload?.fcmOptions?.link || payload?.data?.link || "/";
+  const link = payload?.fcmOptions?.link || payload?.data?.link || notice.link || "/";
   self.registration.showNotification(title, {
     body,
     icon: "/foco-logo.png",

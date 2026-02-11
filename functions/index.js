@@ -1784,9 +1784,21 @@ async function sendPushToAll({ title, body, link }) {
   let failed = 0;
   for (const batch of batches) {
     const message = {
-      notification: { title, body },
+      data: {
+        title: String(title || ''),
+        body: String(body || ''),
+        link: link ? String(link) : ''
+      },
+      webpush: {
+        notification: {
+          title,
+          body,
+          icon: "https://foco-after-dark.web.app/foco-logo.png",
+          badge: "https://foco-after-dark.web.app/foco-logo.png"
+        },
+        fcmOptions: link ? { link } : undefined
+      },
       tokens: batch,
-      data: link ? { link } : undefined,
       fcmOptions: link ? { link } : undefined
     };
     const res = await messaging.sendEachForMulticast(message);
@@ -1806,13 +1818,45 @@ exports.sendPushToUser = functions.https.onCall(async (data, context) => {
   const tokenSnap = await db.collection('pushTokens').doc(targetUid).collection('tokens').get();
   const tokens = tokenSnap.docs.map(d => d.id).filter(Boolean);
   if (!tokens.length) return { success: false, reason: 'no_tokens' };
+  const link = (data?.link || '').toString();
   const message = {
-    notification: { title, body },
+    data: {
+      title: String(title || ''),
+      body: String(body || ''),
+      link
+    },
+    webpush: {
+      notification: {
+        title,
+        body,
+        icon: "https://foco-after-dark.web.app/foco-logo.png",
+        badge: "https://foco-after-dark.web.app/foco-logo.png"
+      },
+      fcmOptions: link ? { link } : undefined
+    },
     tokens
   };
   const res = await messaging.sendEachForMulticast(message);
+  const failures = [];
+  res.responses.forEach((r, idx) => {
+    if (!r.success) {
+      const code = r.error?.code || "unknown";
+      failures.push(code);
+      if (code === "messaging/registration-token-not-registered" || code === "messaging/invalid-registration-token") {
+        const badToken = tokens[idx];
+        if (badToken) {
+          db.collection('pushTokens').doc(targetUid).collection('tokens').doc(badToken).delete().catch(() => {});
+        }
+      }
+    }
+  });
   await db.collection('pushDebug').doc(targetUid).set({
-    lastSentAt: admin.firestore.FieldValue.serverTimestamp()
+    lastSentAt: admin.firestore.FieldValue.serverTimestamp(),
+    lastResult: {
+      sent: res.successCount || 0,
+      failed: res.failureCount || 0,
+      lastError: failures[0] || null
+    }
   }, { merge: true });
   return { success: true, sent: res.successCount, failed: res.failureCount };
 });
@@ -1825,9 +1869,11 @@ exports.getPushDebugStatus = functions.https.onCall(async (data, context) => {
   const lastSentAt = debugSnap.exists && debugSnap.data().lastSentAt
     ? debugSnap.data().lastSentAt.toMillis()
     : null;
+  const lastResult = debugSnap.exists ? (debugSnap.data().lastResult || null) : null;
   return {
     tokenCount: tokenSnap.size || 0,
-    lastSentAt
+    lastSentAt,
+    lastResult
   };
 });
 
