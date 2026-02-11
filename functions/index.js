@@ -4213,22 +4213,28 @@ exports.processRenewals = functions.runWith({ secrets: ["STRIPE_SECRET"] }).pubs
     console.warn('Stripe not configured; skipping renewals');
     return null;
   }
-  const snap = await db.collection('members')
+  const baseQuery = db.collection('members')
     .where('stripeSubscriptionId', '!=', null)
-    .orderBy('stripeSubscriptionId')
-    .limit(200)
-    .get();
-  for (const docSnap of snap.docs) {
-    const data = docSnap.data() || {};
-    const uid = docSnap.id;
-    if (data.paused === true || !data.stripeSubscriptionId) continue;
-    if (isStripeExcluded({}, data)) continue;
-    try {
-      const subscription = await retrieveStripeSubscription(stripe, data.stripeSubscriptionId);
-      await applyStripeSubscriptionUpdate(subscription, { uid, ref: docSnap.ref, data }, "scheduled.sync");
-    } catch (err) {
-      console.warn('Subscription sync failed for', uid, err?.message || err);
+    .orderBy('stripeSubscriptionId');
+  const pageSize = 200;
+  let cursor = null;
+  let pageSnap = await baseQuery.limit(pageSize).get();
+  while (!pageSnap.empty) {
+    for (const docSnap of pageSnap.docs) {
+      const data = docSnap.data() || {};
+      const uid = docSnap.id;
+      if (data.paused === true || !data.stripeSubscriptionId) continue;
+      if (isStripeExcluded({}, data)) continue;
+      try {
+        const subscription = await retrieveStripeSubscription(stripe, data.stripeSubscriptionId);
+        await applyStripeSubscriptionUpdate(subscription, { uid, ref: docSnap.ref, data }, "scheduled.sync");
+      } catch (err) {
+        console.warn('Subscription sync failed for', uid, err?.message || err);
+      }
     }
+    if (pageSnap.size < pageSize) break;
+    cursor = pageSnap.docs[pageSnap.docs.length - 1];
+    pageSnap = await baseQuery.startAfter(cursor).limit(pageSize).get();
   }
   return null;
 });

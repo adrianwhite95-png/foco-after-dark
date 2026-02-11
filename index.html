@@ -11528,9 +11528,14 @@
     let profileWheelSpinInFlight = false;
     let nightWheelLastSummary = "";
 
-    // Temporarily bypass membership gating to avoid forced redirects
     function requiresMembershipSelection() {
-      return false;
+      if (isCeoActive() || isFreeMember() || isBetaAccount || betaPassMode) return false;
+      return !!(
+        forceMembershipScreen ||
+        onboardingMembershipFlow ||
+        !currentMembershipTier ||
+        currentMembershipTier === "standard_pending"
+      );
     }
 
     function withTimeout(promise, ms = 3500) {
@@ -12857,13 +12862,13 @@
       }
       const needsMembership = onboardingMembershipFlow || !storedTier;
       if (needsMembership) {
-        // Default anyone missing a tier to standard and proceed
-        storedTier = "standard";
-        memberProfile = { ...(memberProfile || {}), tier: storedTier };
-        if (user.uid) {
-          if (allowLocalCache()) localStorage.setItem(`membership_${user.uid}`, storedTier);
-          clearPendingMembershipFlagForUser(user.uid);
+        forceMembershipScreen = true;
+        if (allowLocalCache() && user.uid) {
+          localStorage.removeItem(`membership_${user.uid}`);
         }
+        clearPassLoading();
+        showScreen("membership");
+        return;
       }
 
       clearPendingMembershipFlagForUser(user.uid);
