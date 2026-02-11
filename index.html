@@ -10150,6 +10150,12 @@
           <li>Select <strong>Add to Home screen</strong>.</li>
           <li>Confirm to install.</li>
         </ol>
+        <div style="margin-top:4px;padding-top:10px;border-top:1px solid rgba(148,163,184,0.25);display:flex;flex-direction:column;gap:8px;">
+          <div><strong>Enable notifications (recommended)</strong></div>
+          <div style="color:#94a3b8;">Get venue alerts, perk drops, and updates without opening the app.</div>
+          <button type="button" class="btn btn-primary" id="enableNotificationsBtn" style="width:100%;">Enable notifications</button>
+          <div class="small" id="enableNotificationsStatus" style="color:#94a3b8;">Notifications are off.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -10557,6 +10563,7 @@
       writeBatch
     } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-functions.js";
+    import { getMessaging, getToken, onMessage, isSupported as messagingIsSupported } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-messaging.js";
 
     // Your Firebase config from console
     const firebaseConfig = {
@@ -10568,6 +10575,8 @@
       appId: "1:962947086594:web:9c931c93a90992f4826a1b",
       measurementId: "G-FCLG1RNRYZ"
     };
+    // Firebase Cloud Messaging (Web Push) public key from Firebase Console.
+    const VAPID_PUBLIC_KEY = "BD8Ve6ptu3H4-hXgGKzHT9SdwHtYUDgntZVL-wfOwryashloFBCsG9TLH-6pygusFHKWoNgDN6OhIBHcM8Vgugg";
     const params = new URLSearchParams(window.location.search);
     const SAFE_MODE = params.get("safe") === "1";
     const DEBUG_MODE = params.get("debug") === "1";
@@ -10662,6 +10671,104 @@
     let analytics = null;
     let anonPromise = null;
     let betaPassMode = localStorage.getItem("betaSkipActive") === "true";
+    let messagingClient = null;
+    let pushSupported = false;
+    let pushSupportChecked = false;
+    const PUSH_TOKEN_KEY = "pushToken";
+    function isStandaloneMode() {
+      return window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    }
+    function updateNotificationsStatus(message) {
+      if (enableNotificationsStatus) {
+        enableNotificationsStatus.textContent = message;
+      }
+    }
+    async function ensureMessagingClient() {
+      if (pushSupportChecked) return pushSupported;
+      pushSupportChecked = true;
+      if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+        pushSupported = false;
+        return false;
+      }
+      try {
+        pushSupported = await messagingIsSupported();
+      } catch (_) {
+        pushSupported = false;
+      }
+      if (pushSupported) {
+        messagingClient = getMessaging(app);
+        onMessage(messagingClient, (payload) => {
+          const notice = payload?.notification;
+          if (!notice?.title && !notice?.body) return;
+          if (typeof showToast === "function") {
+            showToast(`${notice.title || "FoCo Alert"} — ${notice.body || ""}`.trim(), 3200);
+          }
+        });
+      }
+      return pushSupported;
+    }
+    async function registerPushToken(token) {
+      if (!token) return false;
+      if (localStorage.getItem(PUSH_TOKEN_KEY) === token) return true;
+      if (!firebaseAuth?.currentUser) {
+        localStorage.setItem(PUSH_TOKEN_KEY, token);
+        return true;
+      }
+      if (!functionsClient || SAFE_MODE) return false;
+      try {
+        const fn = httpsCallable(functionsClient, "registerPushToken");
+        await fn({ token });
+        localStorage.setItem(PUSH_TOKEN_KEY, token);
+        return true;
+      } catch (err) {
+        console.warn("Push token registration failed", err);
+        return false;
+      }
+    }
+    async function enablePushNotifications({ forcePrompt = false } = {}) {
+      const hasVapid = VAPID_PUBLIC_KEY && !VAPID_PUBLIC_KEY.includes("REPLACE");
+      if (!hasVapid) {
+        updateNotificationsStatus("Notifications not configured yet.");
+        if (enableNotificationsBtn) enableNotificationsBtn.disabled = true;
+        return false;
+      }
+      const supported = await ensureMessagingClient();
+      if (!supported) {
+        updateNotificationsStatus("Notifications not supported on this device.");
+        if (enableNotificationsBtn) enableNotificationsBtn.disabled = true;
+        return false;
+      }
+      if (isIOS && !isStandaloneMode()) {
+        updateNotificationsStatus("Add to Home Screen first to enable notifications.");
+        return false;
+      }
+      const permission = Notification.permission;
+      if (permission !== "granted") {
+        if (!forcePrompt) {
+          updateNotificationsStatus("Notifications are off.");
+          return false;
+        }
+        const result = await Notification.requestPermission();
+        if (result !== "granted") {
+          updateNotificationsStatus("Notifications blocked in settings.");
+          return false;
+        }
+      }
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const token = await getToken(messagingClient, {
+          vapidKey: VAPID_PUBLIC_KEY,
+          serviceWorkerRegistration: registration
+        });
+        const ok = await registerPushToken(token);
+        updateNotificationsStatus(ok ? "Notifications enabled." : "Notifications on, token pending.");
+        return ok;
+      } catch (err) {
+        console.warn("Push enable failed", err);
+        updateNotificationsStatus("Could not enable notifications.");
+        return false;
+      }
+    }
     let staffMessagesUnsub = null;
     let ceoMessagesUnsub = null;
     let ceoMemberPreviewUnsub = null;
@@ -12245,6 +12352,8 @@
     let deferredInstallPrompt = null;
     const addToHomeOverlay = document.getElementById("addToHomeOverlay");
     const addToHomeClose = document.getElementById("addToHomeClose");
+    const enableNotificationsBtn = document.getElementById("enableNotificationsBtn");
+    const enableNotificationsStatus = document.getElementById("enableNotificationsStatus");
     function buildNightTaglinePool(seedList = [], leadIns = [], payoffs = [], targetCount = 120) {
       const pool = Array.isArray(seedList) ? [...seedList] : [];
       for (let i = 0; i < leadIns.length && pool.length < targetCount; i += 1) {
@@ -12557,6 +12666,12 @@
           }
         }
         if (addToHomeOverlay) addToHomeOverlay.classList.add("active");
+        enablePushNotifications({ forcePrompt: false });
+      });
+    }
+    if (enableNotificationsBtn) {
+      enableNotificationsBtn.addEventListener("click", () => {
+        enablePushNotifications({ forcePrompt: true });
       });
     }
     function closeAddToHomeOverlay() {
@@ -24044,6 +24159,7 @@ let onboardingIndex = 0;
         }
         await handleAuthenticatedUser(user);
         attachRealtimeForCurrentContext("auth-change");
+        enablePushNotifications({ forcePrompt: false });
         initialAuthResolved = true;
       });
     }

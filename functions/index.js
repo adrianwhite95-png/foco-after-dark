@@ -1762,6 +1762,40 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
+async function getAllPushTokens() {
+  const snap = await db.collectionGroup('tokens').get();
+  const tokens = snap.docs.map(d => d.id).filter(Boolean);
+  return Array.from(new Set(tokens));
+}
+
+function chunkTokens(tokens, size = 500) {
+  const chunks = [];
+  for (let i = 0; i < tokens.length; i += size) {
+    chunks.push(tokens.slice(i, i + size));
+  }
+  return chunks;
+}
+
+async function sendPushToAll({ title, body, link }) {
+  const tokens = await getAllPushTokens();
+  if (!tokens.length) return { success: false, reason: 'no_tokens' };
+  const batches = chunkTokens(tokens, 500);
+  let sent = 0;
+  let failed = 0;
+  for (const batch of batches) {
+    const message = {
+      notification: { title, body },
+      tokens: batch,
+      data: link ? { link } : undefined,
+      fcmOptions: link ? { link } : undefined
+    };
+    const res = await messaging.sendEachForMulticast(message);
+    sent += res.successCount || 0;
+    failed += res.failureCount || 0;
+  }
+  return { success: true, sent, failed };
+}
+
 // Push notifications: send to a user by uid
 exports.sendPushToUser = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
@@ -1778,6 +1812,33 @@ exports.sendPushToUser = functions.https.onCall(async (data, context) => {
   };
   const res = await messaging.sendEachForMulticast(message);
   return { success: true, sent: res.successCount, failed: res.failureCount };
+});
+
+exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onCreate(async (snap) => {
+  const data = snap.data() || {};
+  const title = (data.title || data.venueName || 'Tonight’s alert').toString().slice(0, 80);
+  const body = (data.detail || 'New venue alert just dropped.').toString().slice(0, 160);
+  return sendPushToAll({
+    title,
+    body,
+    link: '/#alertCard'
+  });
+});
+
+exports.pushOnVipDeal = functions.firestore.document('deals/{venueId}').onWrite(async (change) => {
+  if (!change.after.exists) return null;
+  const after = change.after.data() || {};
+  const before = change.before.exists ? (change.before.data() || {}) : null;
+  if (before?.updatedAt && after?.updatedAt && before.updatedAt.isEqual && before.updatedAt.isEqual(after.updatedAt)) {
+    return null;
+  }
+  const title = (after.title || 'VIP deal live').toString().slice(0, 80);
+  const body = (after.detail || 'A VIP deal just dropped at a venue.').toString().slice(0, 160);
+  return sendPushToAll({
+    title,
+    body,
+    link: '/#alertCard'
+  });
 });
 
 // Weekly cleanup: delete old audit/rateLimit docs to save space
