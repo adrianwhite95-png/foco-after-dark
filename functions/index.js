@@ -1811,7 +1811,24 @@ exports.sendPushToUser = functions.https.onCall(async (data, context) => {
     tokens
   };
   const res = await messaging.sendEachForMulticast(message);
+  await db.collection('pushDebug').doc(targetUid).set({
+    lastSentAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
   return { success: true, sent: res.successCount, failed: res.failureCount };
+});
+
+exports.getPushDebugStatus = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
+  const uid = context.auth.uid;
+  const tokenSnap = await db.collection('pushTokens').doc(uid).collection('tokens').get();
+  const debugSnap = await db.collection('pushDebug').doc(uid).get();
+  const lastSentAt = debugSnap.exists && debugSnap.data().lastSentAt
+    ? debugSnap.data().lastSentAt.toMillis()
+    : null;
+  return {
+    tokenCount: tokenSnap.size || 0,
+    lastSentAt
+  };
 });
 
 exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onCreate(async (snap) => {
