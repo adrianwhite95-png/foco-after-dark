@@ -10675,6 +10675,7 @@
     let pushSupported = false;
     let pushSupportChecked = false;
     const PUSH_TOKEN_KEY = "pushToken";
+    const PUSH_TOKEN_UID_KEY = "pushTokenUid";
     function isStandaloneMode() {
       return window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
     }
@@ -10709,9 +10710,15 @@
     }
     async function registerPushToken(token) {
       if (!token) return false;
-      if (localStorage.getItem(PUSH_TOKEN_KEY) === token) return true;
-      if (!firebaseAuth?.currentUser) {
+      const currentUid = firebaseAuth?.currentUser?.uid || null;
+      const cachedToken = localStorage.getItem(PUSH_TOKEN_KEY);
+      const cachedUid = localStorage.getItem(PUSH_TOKEN_UID_KEY);
+      if (cachedToken === token && cachedUid === currentUid && currentUid) {
+        return true;
+      }
+      if (!currentUid) {
         localStorage.setItem(PUSH_TOKEN_KEY, token);
+        localStorage.removeItem(PUSH_TOKEN_UID_KEY);
         return true;
       }
       if (!functionsClient || SAFE_MODE) return false;
@@ -10719,6 +10726,7 @@
         const fn = httpsCallable(functionsClient, "registerPushToken");
         await fn({ token });
         localStorage.setItem(PUSH_TOKEN_KEY, token);
+        localStorage.setItem(PUSH_TOKEN_UID_KEY, currentUid);
         return true;
       } catch (err) {
         console.warn("Push token registration failed", err);
