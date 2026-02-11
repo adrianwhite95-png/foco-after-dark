@@ -1752,6 +1752,18 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
   const token = (data?.token || '').trim();
   if (!token) throw new HttpsError('invalid-argument', 'Token required');
   const uid = context.auth.uid;
+  // Keep each device token bound to only one user at a time.
+  const existing = await db.collectionGroup('tokens').where('token', '==', token).get();
+  if (!existing.empty) {
+    const cleanup = db.batch();
+    existing.docs.forEach((docSnap) => {
+      const ownerUid = docSnap.get('uid');
+      if (ownerUid && ownerUid !== uid) {
+        cleanup.delete(docSnap.ref);
+      }
+    });
+    await cleanup.commit();
+  }
   const ref = db.collection('pushTokens').doc(uid).collection('tokens').doc(token);
   await ref.set({
     token,
