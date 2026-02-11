@@ -20351,6 +20351,11 @@ let onboardingIndex = 0;
         || normalizeTierKey(memberProfile?.tier)
         || (isCeoActive() ? "ceo" : (isFreeMember() ? "free" : null))
         || (firebaseAuth.currentUser ? "standard" : null);
+      const setRedeemConfirmDisabled = (disabled) => {
+        if (!redeemConfirm) return;
+        redeemConfirm.disabled = !!disabled;
+        redeemConfirm.setAttribute("aria-disabled", disabled ? "true" : "false");
+      };
       if (!tier) {
         if (creditInfo) creditInfo.textContent = "Select a membership to redeem perks.";
         if (redemptionOptionsGrid) redemptionOptionsGrid.innerHTML = "";
@@ -20359,6 +20364,7 @@ let onboardingIndex = 0;
         selectedPerkId = null;
         selectedVenuePerkId = null;
         selectedPerkLabel = null;
+        setRedeemConfirmDisabled(true);
         return;
       }
       if (!redemptionOptionsGrid) return;
@@ -20372,6 +20378,7 @@ let onboardingIndex = 0;
         creditInfo.textContent = voucherBalance.paymentRequired
           ? "Payment required to reload monthly tokens."
           : VOUCHER_LIMIT_MESSAGE;
+        setRedeemConfirmDisabled(true);
         return;
       }
       const ceoActive = isCeoActive();
@@ -20384,28 +20391,46 @@ let onboardingIndex = 0;
         selectedVenuePerkId = null;
         selectedPerkLabel = null;
         creditInfo.textContent = "Select a venue to see available perks.";
+        setRedeemConfirmDisabled(true);
         return;
       }
       const config = getVenuePerksForVenue(venueId);
       if (!config.length) {
-        redemptionOptionsGrid.innerHTML = "";
+        redemptionOptionsGrid.innerHTML = `
+          <div class="perk-option disabled">
+            <span class="perk-label">This venue hasn’t released this month’s perks yet.</span>
+            <span class="perk-remaining">Check back soon.</span>
+          </div>
+          <div class="perk-option disabled">
+            <span class="perk-label">No perks available right now.</span>
+            <span class="perk-remaining">Updates go live instantly.</span>
+          </div>
+        `;
         selectedPerkId = null;
         selectedVenuePerkId = null;
         selectedPerkLabel = null;
-        creditInfo.textContent = "No perks available for this venue yet.";
+        creditInfo.textContent = "This venue hasn’t released this month’s perks yet.";
+        setRedeemConfirmDisabled(true);
         return;
       }
       const perksForTier = unlimitedAccess
         ? config
         : config.filter(perk => getTierQtyForPerk(perk, tier) > 0);
       if (!perksForTier.length) {
-        redemptionOptionsGrid.innerHTML = "";
+        redemptionOptionsGrid.innerHTML = `
+          <div class="perk-option disabled">
+            <span class="perk-label">No perks available for your membership tier.</span>
+            <span class="perk-remaining">Check back soon.</span>
+          </div>
+        `;
         selectedPerkId = null;
         selectedVenuePerkId = null;
         selectedPerkLabel = null;
         creditInfo.textContent = "No perks available for your membership tier yet.";
+        setRedeemConfirmDisabled(true);
         return;
       }
+      setRedeemConfirmDisabled(false);
       const passId = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
       const selectedMatch = perksForTier.find(perk => perk.id === prevSelectedId || perk.id === prevVenuePerkId) || null;
       const selectedId = selectedMatch ? selectedMatch.id : null;
