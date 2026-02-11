@@ -11,10 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 20
+      - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install functions dependencies
         run: |
@@ -39,4 +39,10 @@ jobs:
           PROJECT_ID: foco-after-dark
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
         run: |
-          firebase deploy --project "$PROJECT_ID" --only hosting,functions,firestore:rules,firestore:indexes
+          for attempt in 1 2 3; do
+            firebase deploy --project "$PROJECT_ID" --only hosting,functions,firestore:rules,firestore:indexes && exit 0
+            echo "Deploy attempt ${attempt} failed; retrying in 30s..."
+            sleep 30
+          done
+          echo "Deploy failed after 3 attempts."
+          exit 1

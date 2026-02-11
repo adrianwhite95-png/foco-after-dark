@@ -340,14 +340,22 @@ service cloud.firestore {
         ))
       );
 
-      // Staff can create only for their own venue and themselves.
+      // Staff can create for their own venue; CEO/admin can initiate venue threads.
       allow create: if isSignedIn()
         && !isAppLocked()
-        && isStaff()
-        && request.resource.data.staffUid == request.auth.uid
         && request.resource.data.message is string
         && request.resource.data.venueId is string
-        && (request.auth.token.venue == null || request.resource.data.venueId == request.auth.token.venue);
+        && (
+          (
+            isStaff()
+            && request.resource.data.staffUid == request.auth.uid
+            && (request.auth.token.venue == null || request.resource.data.venueId == request.auth.token.venue)
+          )
+          ||
+          (
+            isAdmin() || isCeo()
+          )
+        );
 
       // CEO/admin can update (reply/read flags + deletes), staff can mark read or hide their copy.
       allow update: if isSignedIn()

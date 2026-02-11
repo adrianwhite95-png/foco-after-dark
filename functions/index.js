@@ -1750,6 +1750,7 @@ exports.spinNightWheel = functions.https.onCall(async (data, context) => {
 exports.registerPushToken = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
   const token = (data?.token || '').trim();
+  const clientKey = (data?.clientKey || '').trim().slice(0, 120);
   if (!token) throw new HttpsError('invalid-argument', 'Token required');
   const uid = context.auth.uid;
   // Keep each device token bound to only one user at a time.
@@ -1764,10 +1765,25 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
     });
     await cleanup.commit();
   }
+  if (clientKey) {
+    const staleForClient = await db.collection('pushTokens').doc(uid).collection('tokens')
+      .where('clientKey', '==', clientKey)
+      .get();
+    if (!staleForClient.empty) {
+      const staleBatch = db.batch();
+      staleForClient.docs.forEach((docSnap) => {
+        if (docSnap.id !== token) {
+          staleBatch.delete(docSnap.ref);
+        }
+      });
+      await staleBatch.commit();
+    }
+  }
   const ref = db.collection('pushTokens').doc(uid).collection('tokens').doc(token);
   await ref.set({
     token,
     uid,
+    clientKey: clientKey || null,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
@@ -1788,6 +1804,34 @@ function chunkTokens(tokens, size = 500) {
   return chunks;
 }
 
+function toMillisSafe(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getPushVenueName(venueId, fallbackName = "") {
+  const normalized = String(venueId || "").trim().toLowerCase();
+  if (normalized && STAFF_VENUES[normalized]?.name) return STAFF_VENUES[normalized].name;
+  if (fallbackName) return String(fallbackName);
+  return normalized ? normalized.replace(/[_-]+/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "A venue";
+}
+
+async function cleanupInvalidPushToken(token) {
+  if (!token) return;
+  try {
+    const existing = await db.collectionGroup("tokens").where("token", "==", token).get();
+    if (existing.empty) return;
+    const batch = db.batch();
+    existing.docs.forEach(docSnap => batch.delete(docSnap.ref));
+    await batch.commit();
+  } catch (err) {
+    console.warn("push cleanup failed", token.slice(-8), err?.message || err);
+  }
+}
+
 async function sendPushToAll({ title, body, link }) {
   const tokens = await getAllPushTokens();
   if (!tokens.length) return { success: false, reason: 'no_tokens' };
@@ -1795,6 +1839,7 @@ async function sendPushToAll({ title, body, link }) {
   let sent = 0;
   let failed = 0;
   const sentAt = String(Date.now());
+  const invalidTokens = new Set();
   for (const batch of batches) {
     const message = {
       data: {
@@ -1823,6 +1868,17 @@ async function sendPushToAll({ title, body, link }) {
     const res = await messaging.sendEachForMulticast(message);
     sent += res.successCount || 0;
     failed += res.failureCount || 0;
+    res.responses.forEach((response, idx) => {
+      if (response?.success) return;
+      const code = response?.error?.code || "";
+      if (code === "messaging/registration-token-not-registered" || code === "messaging/invalid-registration-token") {
+        const badToken = batch[idx];
+        if (badToken) invalidTokens.add(badToken);
+      }
+    });
+  }
+  if (invalidTokens.size) {
+    await Promise.all(Array.from(invalidTokens).map(token => cleanupInvalidPushToken(token)));
   }
   return { success: true, sent, failed };
 }
@@ -1910,8 +1966,11 @@ exports.getPushDebugStatus = functions.https.onCall(async (data, context) => {
 
 exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onCreate(async (snap) => {
   const data = snap.data() || {};
-  const title = (data.title || data.venueName || 'Tonight’s alert').toString().slice(0, 80);
-  const body = (data.detail || 'New venue alert just dropped.').toString().slice(0, 160);
+  const venueName = getPushVenueName(data.venueId, data.venueName);
+  const headline = (data.title || "Tonight's alert").toString().trim();
+  const detail = (data.detail || "").toString().trim();
+  const title = `Tonight Alert - ${venueName}`.slice(0, 80);
+  const body = `${headline}${detail ? ` - ${detail}` : ""}`.slice(0, 160) || `New alert from ${venueName}.`;
   return sendPushToAll({
     title,
     body,
@@ -1919,20 +1978,95 @@ exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onC
   });
 });
 
-exports.pushOnVipDeal = functions.firestore.document('deals/{venueId}').onWrite(async (change) => {
+exports.pushOnVipDeal = functions.firestore.document('deals/{venueId}').onWrite(async (change, context) => {
   if (!change.after.exists) return null;
   const after = change.after.data() || {};
   const before = change.before.exists ? (change.before.data() || {}) : null;
   if (before?.updatedAt && after?.updatedAt && before.updatedAt.isEqual && before.updatedAt.isEqual(after.updatedAt)) {
     return null;
   }
-  const title = (after.title || 'VIP deal live').toString().slice(0, 80);
-  const body = (after.detail || 'A VIP deal just dropped at a venue.').toString().slice(0, 160);
+  const venueName = getPushVenueName(context.params.venueId, after.venueName);
+  const title = (`VIP Deal - ${venueName}`).slice(0, 80);
+  const body = ((after.detail || after.title || 'A VIP deal just dropped.').toString()).slice(0, 160);
   return sendPushToAll({
     title,
     body,
     link: '/#alertCard'
   });
+});
+
+async function claimPerkUpdatePushWindow(venueId, windowMs = 2 * 60 * 1000) {
+  const normalizedVenue = String(venueId || "").trim().toLowerCase();
+  if (!normalizedVenue) return false;
+  const ref = db.collection("pushSignals").doc(`perkUpdate_${normalizedVenue}`);
+  const now = Date.now();
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const lastSentMs = toMillisSafe(snap.exists ? snap.data()?.lastSentAt : null);
+    if (lastSentMs && (now - lastSentMs) < windowMs) {
+      return false;
+    }
+    tx.set(ref, {
+      venueId: normalizedVenue,
+      lastSentAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return true;
+  });
+}
+
+exports.pushOnPerkUpdate = functions.firestore.document('venues/{venueId}/perks/{perkId}').onWrite(async (change, context) => {
+  if (!change.after.exists) return null;
+  const after = change.after.data() || {};
+  const before = change.before.exists ? (change.before.data() || {}) : null;
+  if (before && JSON.stringify(before) === JSON.stringify(after)) return null;
+  const venueId = context.params.venueId;
+  const canSend = await claimPerkUpdatePushWindow(venueId);
+  if (!canSend) return null;
+  const venueName = getPushVenueName(venueId, after.venueName);
+  const title = (`Perks Updated - ${venueName}`).slice(0, 80);
+  const body = `${venueName} just updated this month's perks.`.slice(0, 160);
+  return sendPushToAll({
+    title,
+    body,
+    link: '/#alertCard'
+  });
+});
+
+exports.pushOnAlertExpiringSoon = functions.pubsub.schedule('every 5 minutes').timeZone('America/Denver').onRun(async () => {
+  const nowMs = Date.now();
+  const windowStart = admin.firestore.Timestamp.fromMillis(nowMs + (19 * 60 * 1000));
+  const windowEnd = admin.firestore.Timestamp.fromMillis(nowMs + (21 * 60 * 1000));
+  const snap = await db.collection("alerts")
+    .where("expiresAt", ">=", windowStart)
+    .where("expiresAt", "<=", windowEnd)
+    .limit(100)
+    .get();
+  if (snap.empty) return null;
+  for (const docSnap of snap.docs) {
+    const alertData = await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(docSnap.ref);
+      if (!fresh.exists) return null;
+      const data = fresh.data() || {};
+      if (data.pushExpiringSoonAt) return null;
+      const expiresMs = toMillisSafe(data.expiresAt);
+      if (!expiresMs || expiresMs <= Date.now()) return null;
+      tx.set(docSnap.ref, { pushExpiringSoonAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      return data;
+    });
+    if (!alertData) continue;
+    const venueName = getPushVenueName(alertData.venueId, alertData.venueName);
+    const headline = (alertData.title || "Tonight's alert").toString().trim();
+    const minutesLeft = Math.max(1, Math.round((toMillisSafe(alertData.expiresAt) - Date.now()) / 60000));
+    const title = (`Ending Soon - ${venueName}`).slice(0, 80);
+    const body = `${headline} expires in about ${minutesLeft} minutes.`.slice(0, 160);
+    await sendPushToAll({
+      title,
+      body,
+      link: '/#alertCard'
+    });
+  }
+  return null;
 });
 
 // Weekly cleanup: delete old audit/rateLimit docs to save space
