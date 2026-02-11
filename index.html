@@ -10588,6 +10588,8 @@
     let staffRedemptionUnsubs = [];
     let ceoRedemptionsUnsub = null;
     let ceoRedemptionsCache = [];
+    let lastCeoStats = null;
+    let lastCeoStatsAt = 0;
     let staffMessagesCache = [];
     let ceoMessagesCache = [];
     let venuePerksCache = {};
@@ -14887,10 +14889,29 @@
     }
 
     async function refreshMemberStats() {
+      const now = Date.now();
       const localEntries = getMemberRedemptionEntries();
+      if (isCeoActive() && !localEntries.length && !ceoRedemptionsCache.length && lastCeoStats && (now - lastCeoStatsAt) < 4000) {
+        applyStatsToUi(lastCeoStats);
+        updateStreakBadge(localEntries);
+        syncRewardsFromEntries(localEntries);
+        renderProfileBadges();
+        evaluateAchievements(localEntries);
+        return;
+      }
       // When signed in, rely on realtime snapshots to populate redemptionLog.
       // Offline/beta uses whatever local entries exist.
-      applyStatsToUi(computeStats(localEntries));
+      const stats = computeStats(localEntries);
+      if (isCeoActive()) {
+        if (stats.total > 0 || ceoRedemptionsCache.length) {
+          lastCeoStats = stats;
+          lastCeoStatsAt = now;
+        } else if (!ceoRedemptionsCache.length) {
+          lastCeoStats = null;
+          lastCeoStatsAt = 0;
+        }
+      }
+      applyStatsToUi(stats);
       updateStreakBadge(localEntries);
       syncRewardsFromEntries(localEntries);
       renderProfileBadges();
@@ -21298,12 +21319,14 @@ let onboardingIndex = 0;
       }
       ceoReviewsCache = [];
     }
-    function clearCeoRedemptionsRealtime() {
+    function clearCeoRedemptionsRealtime(options = {}) {
       if (ceoRedemptionsUnsub) {
         try { ceoRedemptionsUnsub(); } catch (_) {}
         ceoRedemptionsUnsub = null;
       }
-      ceoRedemptionsCache = [];
+      if (!options.preserveCache) {
+        ceoRedemptionsCache = [];
+      }
     }
     function getCeoRedemptions() {
       return ceoRedemptionsCache.length ? ceoRedemptionsCache : redemptionLog;
@@ -21312,7 +21335,7 @@ let onboardingIndex = 0;
     function attachCeoRedemptionsRealtime() {
       if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim()) return;
       if (ceoRedemptionsUnavailable) return;
-      clearCeoRedemptionsRealtime();
+      clearCeoRedemptionsRealtime({ preserveCache: true });
       try {
         const q = query(collectionGroup(db, "redemptions"), orderBy("createdAt", "desc"), limit(400));
         ceoRedemptionsUnsub = subscribeSnapshot("ceoRedemptions", q, null, (snap) => {
@@ -26174,6 +26197,10 @@ let onboardingIndex = 0;
       } else {
         clearCeoRedemptionsRealtime();
         stopCloseOutReportsListener();
+      }
+      if (!ceoActive) {
+        lastCeoStats = null;
+        lastCeoStatsAt = 0;
       }
       if (isCeoAccount) {
         appLockOverride = false;
