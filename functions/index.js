@@ -968,11 +968,35 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
     throw new HttpsError("invalid-argument", "Redemption code and venue are required.");
   }
   const claims = context.auth.token || {};
-  const isPrivileged = claims.admin === true || claims.ceo === true || claims.staff === true;
-  if (!isPrivileged) {
+  const uid = String(context.auth.uid || "");
+  const email = String(claims.email || "").toLowerCase();
+  const staffUidVenue = uid.startsWith("staff_") ? uid.slice(6) : "";
+  const isStaffUid = !!staffUidVenue || email.startsWith("staff+");
+  let allowedByRole = claims.admin === true || claims.ceo === true || claims.staff === true || isStaffUid;
+  let allowedVenue = true;
+  const tokenVenue = String(claims.venue || "").trim().toLowerCase();
+  if (claims.staff === true && tokenVenue) {
+    allowedVenue = tokenVenue === venueId;
+  } else if (staffUidVenue) {
+    allowedVenue = staffUidVenue === venueId;
+  }
+  if (!allowedByRole) {
+    // Final fallback: role marker in members doc for legacy staff sessions.
+    const memberSnap = await db.collection("members").doc(uid).get();
+    const memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
+    const role = String(memberData.role || "").toLowerCase();
+    const memberVenue = String(memberData.venueId || "").toLowerCase();
+    if (memberData.staff === true || role === "staff") {
+      allowedByRole = true;
+      if (memberVenue) {
+        allowedVenue = memberVenue === venueId;
+      }
+    }
+  }
+  if (!allowedByRole) {
     throw new HttpsError("permission-denied", "Staff access required.");
   }
-  if (claims.staff === true && claims.venue && claims.venue !== venueId) {
+  if (!allowedVenue) {
     throw new HttpsError("permission-denied", "Wrong venue.");
   }
 
@@ -1904,12 +1928,16 @@ async function claimPushDispatchWindow(dispatchKey, windowMs = 10 * 1000) {
   const now = Date.now();
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    const lastMs = toMillisSafe(snap.exists ? snap.data()?.lastSentAt : null);
+    const storedLastMs = Number(snap.exists ? snap.data()?.lastSentMs : 0);
+    const lastMs = Number.isFinite(storedLastMs) && storedLastMs > 0
+      ? storedLastMs
+      : toMillisSafe(snap.exists ? snap.data()?.lastSentAt : null);
     if (lastMs && (now - lastMs) < windowMs) {
       return false;
     }
     tx.set(ref, {
       key: normalized.slice(0, 280),
+      lastSentMs: now,
       lastSentAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
@@ -2148,7 +2176,7 @@ exports.getPushDebugStatus = functions.https.onCall(async (data, context) => {
   };
 });
 
-exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onWrite(async (change) => {
+exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onWrite(async (change, context) => {
   // Only notify for newly posted alerts (not edits/removals/expiry updates).
   if (!change.after.exists || change.before.exists) return null;
   const data = change.after.data() || {};
@@ -2159,11 +2187,14 @@ exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onW
   const detail = (data.detail || "").toString().trim();
   const title = `Tonight Alert - ${venueName}`.slice(0, 80);
   const body = `${headline}${detail ? ` - ${detail}` : ""}`.slice(0, 160) || `New alert from ${venueName}.`;
+  const dedupeKey = `alert-create:${String(data.venueId || "")}:${String(context?.params?.alertId || "")}`;
   return sendPushToAll({
     title,
     body,
     link: '/#alertCard',
-    source: "alert-create"
+    source: "alert-create",
+    dedupeKey,
+    dedupeWindowMs: 60000
   });
 });
 
@@ -2198,11 +2229,14 @@ exports.pushOnVipDeal = functions.firestore.document('deals/{venueId}').onWrite(
   const venueName = getPushVenueName(context.params.venueId, after.venueName);
   const title = (`VIP Deal - ${venueName}`).slice(0, 80);
   const body = ((after.detail || after.title || 'A VIP deal just dropped.').toString()).slice(0, 160);
+  const dedupeKey = `vip-deal:${String(context?.params?.venueId || "")}`;
   return sendPushToAll({
     title,
     body,
     link: '/#alertCard',
-    source: "vip-deal"
+    source: "vip-deal",
+    dedupeKey,
+    dedupeWindowMs: 60000
   });
 });
 
@@ -2243,7 +2277,8 @@ exports.pushOnPerkUpdate = functions.firestore.document('venues/{venueId}/perks/
       ]
     : null;
   // Notify only when a perk is posted/changed (not timestamp-only writes).
-  if (!afterSig[0] || afterSig[1] <= 0 || afterSig[2] <= 0) return null;
+  // Allow either tier to be active; skip only if both are unavailable.
+  if (!afterSig[0] || (afterSig[1] <= 0 && afterSig[2] <= 0)) return null;
   if (beforeSig && JSON.stringify(beforeSig) === JSON.stringify(afterSig)) return null;
   const venueId = context.params.venueId;
   const canSend = await claimPerkUpdatePushWindow(venueId);
@@ -2251,11 +2286,14 @@ exports.pushOnPerkUpdate = functions.firestore.document('venues/{venueId}/perks/
   const venueName = getPushVenueName(venueId, after.venueName);
   const title = (`Perks Updated - ${venueName}`).slice(0, 80);
   const body = `${venueName} just updated this month's perks.`.slice(0, 160);
+  const dedupeKey = `perk-update:${String(venueId || "").trim().toLowerCase()}`;
   return sendPushToAll({
     title,
     body,
     link: '/#alertCard',
-    source: "perk-update"
+    source: "perk-update",
+    dedupeKey,
+    dedupeWindowMs: 60000
   });
 });
 

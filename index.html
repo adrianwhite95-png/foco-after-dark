@@ -8764,6 +8764,8 @@
 
     /* Final profile pass glow pass: keep the entire card visibly lit, not only the badge */
     #passScreen .pass-card {
+      position: relative;
+      isolation: isolate;
       background:
         radial-gradient(140% 110% at 14% 12%, color-mix(in srgb, var(--accent-primary-live) 26%, transparent), transparent 62%),
         radial-gradient(120% 100% at 86% 88%, color-mix(in srgb, var(--accent-secondary-live) 22%, transparent), transparent 58%),
@@ -8775,9 +8777,23 @@
         inset 0 0 36px color-mix(in srgb, var(--accent-primary-live) 22%, transparent),
         inset 0 0 56px color-mix(in srgb, var(--accent-secondary-live) 18%, transparent) !important;
     }
+    #passScreen .pass-card > * {
+      position: relative;
+      z-index: 2;
+    }
     #passScreen .pass-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background:
+        radial-gradient(110% 80% at 10% 8%, color-mix(in srgb, var(--accent-primary-live) 24%, transparent), transparent 62%),
+        radial-gradient(90% 70% at 92% 88%, color-mix(in srgb, var(--accent-secondary-live) 24%, transparent), transparent 60%);
+      mix-blend-mode: screen;
       opacity: 0.62 !important;
       filter: blur(8px) saturate(1.45);
+      z-index: 1;
     }
     #passScreen .pass-card::after {
       opacity: 0.28 !important;
@@ -8788,6 +8804,13 @@
         0 14px 30px rgba(2, 6, 23, 0.5),
         0 0 26px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
         inset 0 0 22px color-mix(in srgb, var(--accent-primary-live) 12%, transparent) !important;
+    }
+    #passScreen .profile-summary::before {
+      opacity: 0.52 !important;
+      filter: blur(6px) saturate(1.3);
+    }
+    #passScreen .profile-summary::after {
+      opacity: 0.36 !important;
     }
   </style>
 </head>
@@ -11241,7 +11264,7 @@
       }
     }
 
-    async function sendVenueUpdatePushFallback({ title, body, source, link = "/#alertCard", dedupeKey = "" }) {
+    async function sendVenueUpdatePushFallback({ title, body, source, link = "/#alertCard", dedupeKey = "", dedupeWindowMs = 60000 }) {
       if (!functionsClient || SAFE_MODE) {
         return { ok: false, code: "functions-unavailable", message: "Functions unavailable" };
       }
@@ -11254,7 +11277,7 @@
           source: String(source || "staff-update"),
           link: String(link || "/#alertCard"),
           dedupeKey: String(dedupeKey || ""),
-          dedupeWindowMs: 12000
+          dedupeWindowMs: Number(dedupeWindowMs || 60000)
         });
         return { ok: true, data: (res?.data || {}) };
       } catch (err) {
@@ -12042,7 +12065,8 @@
               const pushResult = await sendVenueUpdatePushFallback({
                 title: `VIP Deal - ${venueName}`,
                 body: (detail || title || "A VIP deal just dropped.").slice(0, 160),
-                source: "staff-vip-deal"
+                source: "staff-vip-deal",
+                dedupeKey: `vip-deal:${venueId}`
               });
               showPushDispatchToast(pushResult);
               if (!useLocalCache && alertSuccess) {
@@ -12098,7 +12122,8 @@
               const pushResult = await sendVenueUpdatePushFallback({
                 title: `Tonight Alert - ${venueName}`,
                 body: `${title}${detail ? ` - ${detail}` : ""}`.slice(0, 160),
-                source: "staff-alert"
+                source: "staff-alert",
+                dedupeKey: `alert-create:${venueId}:${alertDoc.id}`
               });
               showPushDispatchToast(pushResult);
               if (!useLocalCache && alertSuccess) {
@@ -12558,7 +12583,16 @@
       return !!(authClaims?.ceo || authClaims?.admin);
     }
     function hasStaffClaim() {
-      return !!(authClaims?.staff || authClaims?.admin || authClaims?.ceo);
+      const user = firebaseAuth?.currentUser;
+      const uid = String(user?.uid || "");
+      const email = String(user?.email || "").toLowerCase();
+      return !!(
+        authClaims?.staff ||
+        authClaims?.admin ||
+        authClaims?.ceo ||
+        uid.startsWith("staff_") ||
+        email.startsWith("staff+")
+      );
     }
 
     function persistLocalPassCode(code) {
@@ -16291,7 +16325,8 @@ let onboardingIndex = 0;
 	            const pushResult = await sendVenueUpdatePushFallback({
 	              title: `VIP Deal - ${venueName}`,
 	              body: (detail || title || "A VIP deal just dropped.").slice(0, 160),
-	              source: "staff-vip-deal-inline"
+	              source: "staff-vip-deal-inline",
+	              dedupeKey: `vip-deal:${venueId}`
 	            });
 	            showPushDispatchToast(pushResult);
 	            if (!useLocalCache && vipDealSuccess) {
@@ -18259,7 +18294,8 @@ let onboardingIndex = 0;
           const pushResult = await sendVenueUpdatePushFallback({
             title: `Perks Updated - ${venueName}`,
             body: `${venueName} just updated this month's perks.`.slice(0, 160),
-            source: "staff-perks"
+            source: "staff-perks",
+            dedupeKey: `perk-update:${String(venueId || "").trim().toLowerCase()}`
           });
           showPushDispatchToast(pushResult);
         } else {
@@ -24254,25 +24290,30 @@ let onboardingIndex = 0;
     }
     if (staffPendingList) {
       staffPendingList.addEventListener("click", async (e) => {
-        const btn = e.target.closest("[data-pending-confirm]");
-        const row = e.target.closest("[data-pending-code]");
-        if (!row || !staffSession) return;
-        if ((row.dataset.pendingStatus || "") !== "pending") return;
-        const code = (btn?.dataset.pendingConfirm || row.dataset.pendingCode || "").toUpperCase();
-        if (!code) return;
-        const venueId = staffSession.venue;
-        const result = await verifyCode(code, venueId);
-        if (!result.success) {
-          verifyError.textContent = result.message;
-          return;
-        }
-        verifyError.textContent = "";
-        showNeonSuccess(verifySuccess, "Voucher confirmed.", 4600);
-        logStaffVerification(result.entry);
-        if (lastVerifiedLine) {
-          const ts = formatMST(result.entry.timestamp || Date.now());
-          lastVerifiedLine.textContent = `Last confirmed: ${result.entry.code} • ${ts}`;
-          lastVerifiedLine.style.display = "block";
+        try {
+          const btn = e.target.closest("[data-pending-confirm]");
+          const row = e.target.closest("[data-pending-code]");
+          if (!row || !staffSession) return;
+          if ((row.dataset.pendingStatus || "") !== "pending") return;
+          const code = (btn?.dataset.pendingConfirm || row.dataset.pendingCode || "").toUpperCase();
+          if (!code) return;
+          const venueId = staffSession.venue;
+          const result = await verifyCode(code, venueId);
+          if (!result.success) {
+            verifyError.textContent = result.message;
+            return;
+          }
+          verifyError.textContent = "";
+          showNeonSuccess(verifySuccess, "Voucher confirmed.", 4600);
+          logStaffVerification(result.entry);
+          if (lastVerifiedLine) {
+            const ts = formatMST(result.entry.timestamp || Date.now());
+            lastVerifiedLine.textContent = `Last confirmed: ${result.entry.code} • ${ts}`;
+            lastVerifiedLine.style.display = "block";
+          }
+        } catch (err) {
+          console.warn("Pending confirm failed", err);
+          verifyError.textContent = "Could not verify right now. Try again.";
         }
       });
     }
@@ -26237,6 +26278,22 @@ let onboardingIndex = 0;
         timestamp: toIso(payload.createdAt || payload.timestamp),
         verifiedAt: toIso(payload.verifiedAt || payload.createdAt || payload.timestamp),
       });
+      const applyVerifiedEntryToLocalLog = (updated = {}) => {
+        const codeKey = String(updated.code || "").toUpperCase();
+        if (!codeKey) return;
+        const idx = redemptionLog.findIndex(item => String(item?.code || "").toUpperCase() === codeKey);
+        if (idx >= 0) {
+          redemptionLog[idx] = { ...redemptionLog[idx], ...updated };
+        } else {
+          redemptionLog.unshift(updated);
+        }
+        if (staffSession?.venue) {
+          saveStaffRedemptionCache(staffSession.venue, redemptionLog);
+        }
+        renderStaffVenueLog();
+        renderStaffPendingQueue();
+        refreshMemberStats();
+      };
       const isVenueMismatch = (payload) => {
         if (!venueKey) return false;
         const requested = (payload.requestedVenue || "").toLowerCase();
@@ -26264,7 +26321,7 @@ let onboardingIndex = 0;
           return { success: false, message: err?.message || "Verification failed." };
         }
       };
-      const entry = redemptionLog.find(item => item.code.toUpperCase() === codeUpper);
+      const entry = redemptionLog.find(item => (item?.code || "").toUpperCase() === codeUpper);
       if (!entry) {
         if (dealCodes && dealCodes[codeUpper]) {
           const info = dealCodes[codeUpper];
@@ -26318,9 +26375,7 @@ let onboardingIndex = 0;
         if (isVenueMismatch(mapped)) {
           return { success: false, message: "This code is assigned to another venue." };
         }
-        if (!useCloudProfile()) {
-          addRedemptionLogEntry(mapped, { skipSync: true });
-        }
+        applyVerifiedEntryToLocalLog(mapped);
         return { success: true, entry: mapped };
       }
       if (isVenueMismatch(entry)) {
@@ -26333,13 +26388,9 @@ let onboardingIndex = 0;
       const verified = await callVerify();
       if (!verified.success) return verified;
       const mapped = mapEntry(verified.entry);
-      if (!useCloudProfile()) {
-        Object.assign(entry, mapped);
-        renderStaffVenueLog();
-        renderStaffPendingQueue();
-        refreshMemberStats();
-      }
-      return { success: true, entry };
+      Object.assign(entry, mapped);
+      applyVerifiedEntryToLocalLog(mapped);
+      return { success: true, entry: mapped };
     }
 
     async function verifyPassId(passId, venueId, options = {}) {
@@ -26478,6 +26529,7 @@ let onboardingIndex = 0;
 
     verifyForm.addEventListener("submit", async (e) => {
       e.preventDefault();
+      try {
         verifyError.textContent = "";
         verifySuccess.classList.remove("visible");
         const code = verifyCodeInput.value.trim();
@@ -26497,6 +26549,10 @@ let onboardingIndex = 0;
         }
         verifyCodeInput.value = "";
         if (verifyCodeInput) verifyCodeInput.focus();
+      } catch (err) {
+        console.warn("Verify form failed", err);
+        verifyError.textContent = "Could not verify right now. Try again.";
+      }
       });
 
     if (staffMessageForm) {
