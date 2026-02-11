@@ -1630,7 +1630,21 @@
       background: linear-gradient(135deg, rgba(7, 11, 24, 0.92), rgba(12, 30, 52, 0.95));
       overflow: hidden;
       border: 1px solid var(--accent-border-live, var(--border-soft));
-      box-shadow: var(--accent-shadow-live, 0 25px 55px rgba(0, 3, 15, 0.85));
+      box-shadow:
+        var(--accent-shadow-live, 0 25px 55px rgba(0, 3, 15, 0.85)),
+        inset 0 0 42px color-mix(in srgb, var(--accent-primary-live) 16%, transparent),
+        inset 0 0 84px color-mix(in srgb, var(--accent-secondary-live) 12%, transparent);
+    }
+    .pass-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(130% 120% at 20% 18%, color-mix(in srgb, var(--accent-primary-live) 26%, transparent), transparent 62%),
+        radial-gradient(120% 130% at 84% 86%, color-mix(in srgb, var(--accent-secondary-live) 20%, transparent), transparent 68%);
+      opacity: 0.82;
+      pointer-events: none;
+      z-index: 0;
     }
     .pass-card::after {
       content: "";
@@ -1638,11 +1652,15 @@
       inset: -40%;
       background: conic-gradient(from 90deg, color-mix(in srgb, var(--accent-primary-live) 55%, transparent), transparent 35%, color-mix(in srgb, var(--accent-secondary-live) 50%, transparent), transparent 70%);
       animation: slowSpin 14s linear infinite;
+      mix-blend-mode: screen;
+      filter: blur(8px);
+      opacity: 0.16;
       pointer-events: none;
+      z-index: 0;
     }
     .pass-inner {
       position: relative;
-      z-index: 1;
+      z-index: 2;
     }
     @keyframes slowSpin {
       0% { transform: rotate(0deg); }
@@ -6985,7 +7003,7 @@
         0 0 26px color-mix(in srgb, var(--accent-primary-live) 16%, transparent);
     }
     .pass-card::after {
-      opacity: 0.08;
+      opacity: 0.2;
       animation-duration: 24s;
     }
     .pass-header {
@@ -10888,6 +10906,7 @@
     const PUSH_TOKEN_UID_KEY = "pushTokenUid";
     const PUSH_PROMPT_KEY = "pushPromptShown";
     const PUSH_CLIENT_KEY_STORAGE = "pushClientKey";
+    const PUSH_LOGIN_ACTIVATION_KEY = "pushLoginActivationDone";
     let pushForegroundDedupKey = "";
     let pushForegroundDedupAt = 0;
     function getPushClientKey() {
@@ -11036,6 +11055,28 @@
       }
     }
 
+    function pushLoginActivationStorageKey(uid) {
+      return `${PUSH_LOGIN_ACTIVATION_KEY}:${uid || "unknown"}`;
+    }
+
+    async function activatePushForLoggedInUser() {
+      const uid = firebaseAuth?.currentUser?.uid || "";
+      if (!uid) return false;
+      const supported = await ensureMessagingClient();
+      if (!supported) return false;
+      if (isIOS && !isStandaloneMode()) return false;
+      const seenKey = pushLoginActivationStorageKey(uid);
+      const seen = localStorage.getItem(seenKey) === "1";
+      if (Notification.permission === "default" && !seen) {
+        localStorage.setItem(seenKey, "1");
+        await enablePushNotifications({ forcePrompt: true });
+      }
+      if (Notification.permission === "granted") {
+        return enablePushNotifications({ forcePrompt: false });
+      }
+      return false;
+    }
+
     function maybeShowNotificationsPrompt() {
       if (!isStandaloneMode()) return;
       if (localStorage.getItem(PUSH_PROMPT_KEY)) return;
@@ -11045,6 +11086,44 @@
         localStorage.setItem(PUSH_PROMPT_KEY, "1");
       }
     }
+
+    async function clearAppBadgeIfSupported() {
+      try {
+        if (typeof navigator !== "undefined" && typeof navigator.clearAppBadge === "function") {
+          await navigator.clearAppBadge();
+        }
+      } catch (_) {}
+      try {
+        const reg = await navigator.serviceWorker?.ready;
+        if (reg?.active) {
+          reg.active.postMessage({ type: "CLEAR_APP_BADGE" });
+        }
+      } catch (_) {}
+    }
+    let lastBadgeClearAt = 0;
+    function requestBadgeClear() {
+      const now = Date.now();
+      if ((now - lastBadgeClearAt) < 1200) return;
+      lastBadgeClearAt = now;
+      clearAppBadgeIfSupported().catch(() => {});
+    }
+    window.addEventListener("focus", () => {
+      requestBadgeClear();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        requestBadgeClear();
+      }
+    });
+    window.addEventListener("touchstart", () => {
+      requestBadgeClear();
+    }, { passive: true });
+    window.addEventListener("pointerdown", () => {
+      requestBadgeClear();
+    }, { passive: true });
+    window.addEventListener("keydown", () => {
+      requestBadgeClear();
+    });
 
     function updateDebugNotificationControls() {
       const shouldShow = DEBUG_MODE;
@@ -11160,6 +11239,63 @@
         console.warn("Test notification failed", err);
         showToast("Test notification failed.");
       }
+    }
+
+    async function sendVenueUpdatePushFallback({ title, body, source, link = "/#alertCard", dedupeKey = "" }) {
+      if (!functionsClient || SAFE_MODE) {
+        return { ok: false, code: "functions-unavailable", message: "Functions unavailable" };
+      }
+      try {
+        await firebaseAuth?.currentUser?.getIdToken?.(true);
+        const fn = httpsCallable(functionsClient, "pushBroadcastNow");
+        const res = await fn({
+          title: String(title || "FoCo Alert"),
+          body: String(body || ""),
+          source: String(source || "staff-update"),
+          link: String(link || "/#alertCard"),
+          dedupeKey: String(dedupeKey || ""),
+          dedupeWindowMs: 12000
+        });
+        return { ok: true, data: (res?.data || {}) };
+      } catch (err) {
+        console.warn("Venue push fallback failed", err);
+        const code = String(err?.code || err?.name || "unknown");
+        const message = String(err?.message || "Push request failed");
+        return { ok: false, code, message };
+      }
+    }
+    function showPushDispatchToast(pushResult, successMessage = "Sent push notifications to users.") {
+      const pushData = pushResult?.data || {};
+      const sent = Number(pushData.sent || 0);
+      const failed = Number(pushData.failed || 0);
+      const firstErrorCode = String(pushData.firstErrorCode || "");
+      if (sent > 0 && failed === 0) {
+        showToast(`${successMessage} (${sent})`, 2400);
+        return;
+      }
+      if (sent > 0 && failed > 0) {
+        const codeText = firstErrorCode ? ` (${firstErrorCode})` : "";
+        showToast(`Push partial: sent ${sent}, failed ${failed}${codeText}.`, 3200);
+        return;
+      }
+      if (pushData.skipped) {
+        showToast("Push already sent.", 2200);
+        return;
+      }
+      if (pushData.reason === "no_tokens") {
+        showToast("No registered notification devices found.", 2800);
+        return;
+      }
+      if (failed > 0) {
+        const codeText = firstErrorCode ? ` (${firstErrorCode})` : "";
+        showToast(`Push failed to all devices (${failed})${codeText}.`, 3200);
+        return;
+      }
+      if (!pushResult?.ok) {
+        showToast(`Push failed: ${pushResult?.code || "unknown"}`, 3200);
+        return;
+      }
+      showToast("Posted, but push dispatch status was empty.", 3000);
     }
     let staffMessagesUnsub = null;
     let ceoMessagesUnsub = null;
@@ -11470,6 +11606,9 @@
         } else {
           stopIdleTimer();
         }
+      }
+      if (name !== "landing" && name !== "auth" && name !== "maintenance") {
+        requestBadgeClear();
       }
     }
 
@@ -11855,6 +11994,10 @@
           if (alertError) alertError.textContent = "Enter a valid expiry date (YYYY-MM-DD HH:MM).";
           return;
         }
+        if (expiresDate.getTime() <= Date.now()) {
+          if (alertError) alertError.textContent = "Expiry must be in the future.";
+          return;
+        }
         const venueId = staffSession.venue;
         const useLocalCache = allowLocalCache();
 
@@ -11885,17 +12028,23 @@
             if (db) {
               if (!guardWriteAction("postVipDeal")) return;
               await ensureFirebaseUser();
-              await setDoc(doc(db, "deals", venueId), {
-                venueId,
-                venueName,
-                title,
-                detail,
-                meta: meta || `VIP · ${venueName}`,
-                expiresAt: Timestamp.fromDate(expiresDate),
-                updatedAt: serverTimestamp(),
-              });
+	              await setDoc(doc(db, "deals", venueId), {
+	                venueId,
+	                venueName,
+	                title,
+	                detail,
+	                meta: meta || `VIP · ${venueName}`,
+	                pushViaClient: true,
+	                expiresAt: Timestamp.fromDate(expiresDate),
+	                updatedAt: serverTimestamp(),
+	              });
               await refreshVipDeals();
-              showToast("Sent push notifications to users.", 2200);
+              const pushResult = await sendVenueUpdatePushFallback({
+                title: `VIP Deal - ${venueName}`,
+                body: (detail || title || "A VIP deal just dropped.").slice(0, 160),
+                source: "staff-vip-deal"
+              });
+              showPushDispatchToast(pushResult);
               if (!useLocalCache && alertSuccess) {
                 alertSuccess.textContent = "VIP deal published.";
                 alertSuccess.classList.add("visible");
@@ -11934,18 +12083,24 @@
               if (!guardWriteAction("postAlert")) return;
               await ensureFirebaseUser();
               const alertDoc = doc(collection(db, "alerts"));
-              await setDoc(alertDoc, {
-                venueId,
-                venueName,
-                title,
-                detail,
-                meta,
-                expiresAt: Timestamp.fromDate(expiresDate),
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              });
+	              await setDoc(alertDoc, {
+	                venueId,
+	                venueName,
+	                title,
+	                detail,
+	                meta,
+	                pushViaClient: true,
+	                expiresAt: Timestamp.fromDate(expiresDate),
+	                createdAt: serverTimestamp(),
+	                updatedAt: serverTimestamp(),
+	              });
               await refreshTonightAlerts();
-              showToast("Sent push notifications to users.", 2200);
+              const pushResult = await sendVenueUpdatePushFallback({
+                title: `Tonight Alert - ${venueName}`,
+                body: `${title}${detail ? ` - ${detail}` : ""}`.slice(0, 160),
+                source: "staff-alert"
+              });
+              showPushDispatchToast(pushResult);
               if (!useLocalCache && alertSuccess) {
                 alertSuccess.textContent = "Alert posted for members.";
                 alertSuccess.classList.add("visible");
@@ -15620,6 +15775,17 @@
       return baseAlerts;
     }
 
+    function formatAlertCountdown(diffMs) {
+      const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      if (hours > 0) {
+        return `${hours}h ${minutes.toString().padStart(2, "0")}m ${seconds.toString().padStart(2, "0")}s left`;
+      }
+      return `${minutes}m ${seconds.toString().padStart(2, "0")}s left`;
+    }
+
     function renderAlertsList() {
       if (!alertsList) return;
       const activeAlerts = getActiveAlertsForMember();
@@ -15640,9 +15806,7 @@
         if (alert.expiresAt) {
           const diff = alert.expiresAt - Date.now();
           if (diff > 0) {
-            const mins = Math.max(0, Math.floor(diff / 60000));
-            const secs = Math.max(0, Math.floor((diff % 60000) / 1000));
-            timer = `<span class="alert-timer">${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")} left</span>`;
+            timer = `<span class="alert-timer">${formatAlertCountdown(diff)}</span>`;
           }
         }
       return `
@@ -16113,21 +16277,27 @@ let onboardingIndex = 0;
         try {
           if (db) {
             if (!guardWriteAction("postVipDeal")) return;
-            await setDoc(doc(db, "deals", venueId), {
-              venueId,
-              venueName,
-              title,
-              detail,
-              meta,
-              expiresAt: Timestamp.fromDate(expiresDate),
-              updatedAt: serverTimestamp(),
-            });
-            await refreshVipDeals();
-            showToast("Sent push notifications to users.", 2200);
-            if (!useLocalCache && vipDealSuccess) {
-              vipDealSuccess.textContent = "Deal updated for VIP members.";
-              vipDealSuccess.classList.add("visible");
-              setTimeout(() => vipDealSuccess.classList.remove("visible"), 2000);
+	            await setDoc(doc(db, "deals", venueId), {
+	              venueId,
+	              venueName,
+	              title,
+	              detail,
+	              meta,
+	              pushViaClient: true,
+	              expiresAt: Timestamp.fromDate(expiresDate),
+	              updatedAt: serverTimestamp(),
+	            });
+	            await refreshVipDeals();
+	            const pushResult = await sendVenueUpdatePushFallback({
+	              title: `VIP Deal - ${venueName}`,
+	              body: (detail || title || "A VIP deal just dropped.").slice(0, 160),
+	              source: "staff-vip-deal-inline"
+	            });
+	            showPushDispatchToast(pushResult);
+	            if (!useLocalCache && vipDealSuccess) {
+	              vipDealSuccess.textContent = "Deal updated for VIP members.";
+	              vipDealSuccess.classList.add("visible");
+	              setTimeout(() => vipDealSuccess.classList.remove("visible"), 2000);
             }
           }
         } catch (err) {
@@ -18047,18 +18217,37 @@ let onboardingIndex = 0;
         await ensureFirebaseUser();
         const perksRef = collection(db, "venues", venueId, "perks");
         const existing = await getDocs(perksRef);
+        const existingMap = new Map();
+        existing.forEach((docSnap) => {
+          const raw = docSnap.data() || {};
+          existingMap.set(docSnap.id, {
+            label: String(raw.label || "").trim(),
+            standardQty: Number(raw.standardQty || 0),
+            vipQty: Number(raw.vipQty || 0)
+          });
+        });
         const keepIds = new Set(perks.map(item => item.id));
+        const hasAddedOrChangedPerk = perks.some((perk) => {
+          const prev = existingMap.get(perk.id);
+          if (!prev) return true;
+          return (
+            String(perk.label || "").trim() !== prev.label ||
+            Number(perk.standardQty || 0) !== prev.standardQty ||
+            Number(perk.vipQty || 0) !== prev.vipQty
+          );
+        });
         const batch = writeBatch(db);
         perks.forEach(perk => {
           const perkRef = doc(db, "venues", venueId, "perks", perk.id);
-          batch.set(perkRef, {
-            venueId,
-            venueName,
-            label: perk.label,
-            standardQty: perk.standardQty,
-            vipQty: perk.vipQty,
-            updatedAt: serverTimestamp()
-          }, { merge: true });
+	          batch.set(perkRef, {
+	            venueId,
+	            venueName,
+	            label: perk.label,
+	            standardQty: perk.standardQty,
+	            vipQty: perk.vipQty,
+	            pushViaClient: true,
+	            updatedAt: serverTimestamp()
+	          }, { merge: true });
         });
         existing.forEach(docSnap => {
           if (!keepIds.has(docSnap.id)) {
@@ -18066,7 +18255,16 @@ let onboardingIndex = 0;
           }
         });
         await batch.commit();
-        showToast("Sent push notifications to users.", 2200);
+        if (hasAddedOrChangedPerk) {
+          const pushResult = await sendVenueUpdatePushFallback({
+            title: `Perks Updated - ${venueName}`,
+            body: `${venueName} just updated this month's perks.`.slice(0, 160),
+            source: "staff-perks"
+          });
+          showPushDispatchToast(pushResult);
+        } else {
+          showToast("Perks saved.", 2200);
+        }
         if (staffPerksSuccess) {
           staffPerksSuccess.style.display = "block";
           setTimeout(() => {
@@ -24745,12 +24943,14 @@ let onboardingIndex = 0;
         }
         if (restoreStaffSessionIfPossible(user)) {
           attachRealtimeForCurrentContext("staff-restore");
+          requestBadgeClear();
           initialAuthResolved = true;
           return;
         }
         await handleAuthenticatedUser(user);
         attachRealtimeForCurrentContext("auth-change");
-        enablePushNotifications({ forcePrompt: false });
+        requestBadgeClear();
+        await activatePushForLoggedInUser();
         updateDebugNotificationControls();
         maybeShowNotificationsPrompt();
         initialAuthResolved = true;

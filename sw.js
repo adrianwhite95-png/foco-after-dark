@@ -12,12 +12,52 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
+let lastPushKey = "";
+let lastPushAt = 0;
+
+async function setAppBadgeValue(value = 1) {
+  try {
+    if (self.registration && typeof self.registration.setAppBadge === "function") {
+      await self.registration.setAppBadge(value);
+      return;
+    }
+  } catch (_) {}
+  try {
+    if (self.navigator && typeof self.navigator.setAppBadge === "function") {
+      await self.navigator.setAppBadge(value);
+    }
+  } catch (_) {}
+}
+
+async function clearAppBadgeValue() {
+  try {
+    if (self.registration && typeof self.registration.clearAppBadge === "function") {
+      await self.registration.clearAppBadge();
+      return;
+    }
+  } catch (_) {}
+  try {
+    if (self.navigator && typeof self.navigator.clearAppBadge === "function") {
+      await self.navigator.clearAppBadge();
+    }
+  } catch (_) {}
+}
+
 messaging.onBackgroundMessage((payload) => {
+  setAppBadgeValue(1).catch(() => {});
+  // If FCM already provides a notification payload, the browser can auto-display it.
+  // Avoid showing a second copy manually.
+  if (payload?.notification) return;
   const notice = payload?.notification || payload?.data || {};
   const title = notice.title || "FoCo After Dark";
   const body = notice.body || "New update from a venue.";
   const link = payload?.fcmOptions?.link || payload?.data?.link || notice.link || "/";
   const sentAt = payload?.data?.sentAt || String(Date.now());
+  const dedupeKey = `${sentAt}|${title}|${body}`;
+  const now = Date.now();
+  if (dedupeKey === lastPushKey && (now - lastPushAt) < 12000) return;
+  lastPushKey = dedupeKey;
+  lastPushAt = now;
   self.registration.showNotification(title, {
     body,
     icon: "/foco-logo.png",
@@ -29,6 +69,7 @@ messaging.onBackgroundMessage((payload) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  clearAppBadgeValue().catch(() => {});
   const target = event.notification?.data?.link || "/";
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
@@ -43,6 +84,16 @@ self.addEventListener("notificationclick", (event) => {
       }
     })
   );
+});
+
+self.addEventListener("message", (event) => {
+  const type = event?.data?.type;
+  if (type === "CLEAR_APP_BADGE") {
+    clearAppBadgeValue().catch(() => {});
+  } else if (type === "SET_APP_BADGE") {
+    const count = Number(event?.data?.count || 1);
+    setAppBadgeValue(Math.max(1, count)).catch(() => {});
+  }
 });
 
 const CACHE_VERSION = "foco-cache-v11";
