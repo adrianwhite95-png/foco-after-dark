@@ -1879,6 +1879,10 @@ exports.getPushDebugStatus = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
   const uid = context.auth.uid;
   const tokenSnap = await db.collection('pushTokens').doc(uid).collection('tokens').get();
+  const tokenSuffixes = tokenSnap.docs
+    .map(d => d.id)
+    .filter(Boolean)
+    .map(token => token.slice(-12));
   const debugSnap = await db.collection('pushDebug').doc(uid).get();
   const lastSentAt = debugSnap.exists && debugSnap.data().lastSentAt
     ? debugSnap.data().lastSentAt.toMillis()
@@ -1886,6 +1890,7 @@ exports.getPushDebugStatus = functions.https.onCall(async (data, context) => {
   const lastResult = debugSnap.exists ? (debugSnap.data().lastResult || null) : null;
   return {
     tokenCount: tokenSnap.size || 0,
+    tokenSuffixes,
     lastSentAt,
     lastResult
   };

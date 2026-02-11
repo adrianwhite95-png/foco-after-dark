@@ -9723,8 +9723,10 @@
                 <button type="button" class="btn btn-secondary" id="sendTestNotificationBtn" style="width:100%;display:none;">Send test notification</button>
                 <div class="small" id="ceoNotificationsStatus" style="color:#94a3b8;">Permission: unknown.</div>
                 <div class="small" id="ceoNotificationsToken" style="color:#94a3b8;">Token registered: unknown.</div>
+                <div class="small" id="ceoNotificationsDeviceToken" style="color:#94a3b8;">This device token: unknown.</div>
                 <div class="small" id="ceoNotificationsLastPush" style="color:#94a3b8;">Last push: —</div>
                 <div class="small" id="ceoNotificationsResult" style="color:#94a3b8;">Last result: —</div>
+                <button type="button" class="btn btn-secondary" id="registerThisDevicePushBtn" style="width:100%;">Register this device now</button>
               </div>
             </div>
             <div class="ceo-status-card">
@@ -10760,12 +10762,13 @@
       }
       return pushSupported;
     }
-    async function registerPushToken(token) {
+    async function registerPushToken(token, opts = {}) {
+      const force = !!opts.force;
       if (!token) return false;
       const currentUid = firebaseAuth?.currentUser?.uid || null;
       const cachedToken = localStorage.getItem(PUSH_TOKEN_KEY);
       const cachedUid = localStorage.getItem(PUSH_TOKEN_UID_KEY);
-      if (cachedToken === token && cachedUid === currentUid && currentUid) {
+      if (!force && cachedToken === token && cachedUid === currentUid && currentUid) {
         return true;
       }
       if (!currentUid) {
@@ -10852,21 +10855,48 @@
     async function refreshPushDebugStatus() {
       if (!ceoNotificationsStatus && !ceoNotificationsToken && !ceoNotificationsLastPush) return;
       const permissionState = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
-      let statusText = `Permission: ${permissionState}`;
+      const supported = await ensureMessagingClient();
+      let statusText = `Permission: ${permissionState} · SDK: ${supported ? "supported" : "unsupported"}`;
       if (isIOS) {
         statusText += isStandaloneMode() ? " · installed" : " · browser";
       }
       if (ceoNotificationsStatus) ceoNotificationsStatus.textContent = statusText;
       if (!functionsClient || SAFE_MODE || !firebaseAuth?.currentUser) return;
+      let deviceToken = "";
+      if (supported && permissionState === "granted") {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          deviceToken = await getToken(messagingClient, {
+            vapidKey: VAPID_PUBLIC_KEY,
+            serviceWorkerRegistration: registration
+          }) || "";
+        } catch (err) {
+          console.warn("Device token read failed", err);
+        }
+      }
       try {
         const fn = httpsCallable(functionsClient, "getPushDebugStatus");
         const res = await fn({});
         const data = res?.data || {};
         const tokenCount = Number(data.tokenCount || 0);
+        const tokenSuffixes = Array.isArray(data.tokenSuffixes) ? data.tokenSuffixes : [];
+        const deviceSuffix = deviceToken ? deviceToken.slice(-12) : "";
         if (ceoNotificationsToken) {
           ceoNotificationsToken.textContent = tokenCount > 0
             ? `Token registered: yes (${tokenCount})`
             : "Token registered: no";
+        }
+        if (ceoNotificationsDeviceToken) {
+          if (!supported) {
+            ceoNotificationsDeviceToken.textContent = "This device token: not supported on this browser.";
+          } else if (permissionState !== "granted") {
+            ceoNotificationsDeviceToken.textContent = "This device token: permission not granted.";
+          } else if (!deviceToken) {
+            ceoNotificationsDeviceToken.textContent = "This device token: unavailable.";
+          } else {
+            const matched = tokenSuffixes.includes(deviceSuffix);
+            ceoNotificationsDeviceToken.textContent = `This device token: …${deviceSuffix} ${matched ? "(registered)" : "(NOT on server)"}`;
+          }
         }
         const lastSentAt = data.lastSentAt;
         if (ceoNotificationsLastPush) {
@@ -10887,6 +10917,7 @@
       } catch (err) {
         console.warn("Push debug status failed", err);
         if (ceoNotificationsToken) ceoNotificationsToken.textContent = "Token registered: unknown.";
+        if (ceoNotificationsDeviceToken) ceoNotificationsDeviceToken.textContent = "This device token: unknown.";
         if (ceoNotificationsLastPush) ceoNotificationsLastPush.textContent = "Last push: —";
         if (ceoNotificationsResult) ceoNotificationsResult.textContent = "Last result: —";
       }
@@ -12512,8 +12543,10 @@
     const notificationsPromptStatus = document.getElementById("notificationsPromptStatus");
     const ceoNotificationsStatus = document.getElementById("ceoNotificationsStatus");
     const ceoNotificationsToken = document.getElementById("ceoNotificationsToken");
+    const ceoNotificationsDeviceToken = document.getElementById("ceoNotificationsDeviceToken");
     const ceoNotificationsLastPush = document.getElementById("ceoNotificationsLastPush");
     const ceoNotificationsResult = document.getElementById("ceoNotificationsResult");
+    const registerThisDevicePushBtn = document.getElementById("registerThisDevicePushBtn");
     function buildNightTaglinePool(seedList = [], leadIns = [], payoffs = [], targetCount = 120) {
       const pool = Array.isArray(seedList) ? [...seedList] : [];
       for (let i = 0; i < leadIns.length && pool.length < targetCount; i += 1) {
@@ -12871,6 +12904,32 @@
     if (enableNotificationsPromptBtn) {
       enableNotificationsPromptBtn.addEventListener("click", () => {
         enablePushNotifications({ forcePrompt: true });
+      });
+    }
+    if (registerThisDevicePushBtn) {
+      registerThisDevicePushBtn.addEventListener("click", async () => {
+        const supported = await ensureMessagingClient();
+        if (!supported) {
+          updateNotificationsStatus("Notifications not supported on this device.");
+          return;
+        }
+        if (Notification.permission !== "granted") {
+          const ok = await enablePushNotifications({ forcePrompt: true });
+          if (!ok) return;
+        }
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          const token = await getToken(messagingClient, {
+            vapidKey: VAPID_PUBLIC_KEY,
+            serviceWorkerRegistration: registration
+          });
+          const ok = await registerPushToken(token, { force: true });
+          showToast(ok ? "This device token was re-registered." : "Could not re-register this device token.");
+          refreshPushDebugStatus();
+        } catch (err) {
+          console.warn("Manual device token register failed", err);
+          showToast("Could not register this device token.");
+        }
       });
     }
     const achievementsNewPill = document.getElementById("achievementsNewPill");
