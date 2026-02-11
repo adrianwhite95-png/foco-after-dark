@@ -5000,6 +5000,47 @@
       padding: 14px 16px;
       box-shadow: 0 12px 30px rgba(0,0,0,0.35);
     }
+    .hero-point.flip-card {
+      padding: 0;
+      cursor: pointer;
+      perspective: 1100px;
+    }
+    .hero-point.flip-card .hero-point-inner {
+      position: relative;
+      width: 100%;
+      min-height: 92px;
+      transform-style: preserve-3d;
+      transition: transform 0.55s cubic-bezier(.2,.7,.2,1);
+    }
+    .hero-point.flip-card.is-flipped .hero-point-inner {
+      transform: rotateY(180deg);
+    }
+    .hero-point.flip-card .hero-point-face {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      backface-visibility: hidden;
+      padding: 14px 16px;
+    }
+    .hero-point.flip-card .hero-point-back {
+      transform: rotateY(180deg);
+    }
+    .hero-point-back-title {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent-primary-live);
+      margin-bottom: 6px;
+    }
+    .hero-point-icon.ghost {
+      opacity: 0.55;
+      box-shadow: none;
+      background: rgba(15,23,42,0.6);
+      color: var(--accent-primary-live);
+    }
     .hero-point strong {
       font-size: 14px;
       color: var(--text);
@@ -8598,25 +8639,58 @@
               The nightlife pass for Fort Collins. Redeem perks at local bars, track your nights out, and keep vouchers ready on your phone.
             </div>
       <div class="hero-highlight hero-animated">
-        <div class="hero-point neon-card">
-          <div class="hero-point-icon pulse">1</div>
-          <div>
-            <strong>Tonight’s perks</strong>
-            <p>See what each venue is offering right now and redeem in seconds.</p>
+        <div class="hero-point neon-card flip-card" role="button" tabindex="0">
+          <div class="hero-point-inner">
+            <div class="hero-point-face hero-point-front">
+              <div class="hero-point-icon pulse">1</div>
+              <div>
+                <strong>Tonight’s perks</strong>
+                <p>See what each venue is offering right now and redeem in seconds.</p>
+              </div>
+            </div>
+            <div class="hero-point-face hero-point-back">
+              <div class="hero-point-icon ghost">1</div>
+              <div>
+                <span class="hero-point-back-title">Perks update live</span>
+                <p>Perks are set monthly by venues and appear the moment they’re published.</p>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="hero-point neon-card">
-          <div class="hero-point-icon pulse">2</div>
-          <div>
-            <strong>Instant redemption</strong>
-            <p>Show your pass. Staff verifies live so your balance updates immediately.</p>
+        <div class="hero-point neon-card flip-card" role="button" tabindex="0">
+          <div class="hero-point-inner">
+            <div class="hero-point-face hero-point-front">
+              <div class="hero-point-icon pulse">2</div>
+              <div>
+                <strong>Instant redemption</strong>
+                <p>Show your pass. Staff verifies live so your balance updates immediately.</p>
+              </div>
+            </div>
+            <div class="hero-point-face hero-point-back">
+              <div class="hero-point-icon ghost">2</div>
+              <div>
+                <span class="hero-point-back-title">Verified & tracked</span>
+                <p>Every redemption syncs to your profile, tracking nights active and vouchers used.</p>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="hero-point neon-card">
-          <div class="hero-point-icon pulse">3</div>
-          <div>
-            <strong>Built with venues</strong>
-            <p>Perks are set by local bars each month with verified redemptions.</p>
+        <div class="hero-point neon-card flip-card" role="button" tabindex="0">
+          <div class="hero-point-inner">
+            <div class="hero-point-face hero-point-front">
+              <div class="hero-point-icon pulse">3</div>
+              <div>
+                <strong>Built with venues</strong>
+                <p>Perks are set by local bars each month with verified redemptions.</p>
+              </div>
+            </div>
+            <div class="hero-point-face hero-point-back">
+              <div class="hero-point-icon ghost">3</div>
+              <div>
+                <span class="hero-point-back-title">Venue controlled</span>
+                <p>Each bar controls perk quantities by tier, so offers stay fair and current.</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -24840,6 +24914,23 @@ let onboardingIndex = 0;
         toggleFeaturedCardFlip(e.target);
         e.preventDefault();
       }
+      });
+    }
+
+    const heroHighlight = document.querySelector(".hero-highlight");
+    if (heroHighlight) {
+      heroHighlight.addEventListener("click", (e) => {
+        const card = e.target.closest(".hero-point.flip-card");
+        if (!card) return;
+        card.classList.toggle("is-flipped");
+      });
+      heroHighlight.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          const card = e.target.closest(".hero-point.flip-card");
+          if (!card) return;
+          card.classList.toggle("is-flipped");
+          e.preventDefault();
+        }
       });
     }
 
