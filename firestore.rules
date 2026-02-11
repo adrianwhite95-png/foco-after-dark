@@ -28,6 +28,13 @@ service cloud.firestore {
       );
     }
 
+    function staffVenueMatches(venueId) {
+      return isStaff() && (
+        (request.auth.token.venue != null && request.auth.token.venue == venueId)
+        || request.auth.uid.matches('^staff_' + venueId + '$')
+      );
+    }
+
     function hasPrivilegedRole() {
       return isAdmin() || isCeo() || isStaff();
     }
@@ -235,13 +242,13 @@ service cloud.firestore {
         allow read: if true;
         allow create, update, delete: if isSignedIn() && (
           (isAdmin() || isCeo())
-          || (isStaff() && !isAppLocked() && (request.auth.token.venue == venueId || request.auth.token.venue == null))
+          || (staffVenueMatches(venueId) && !isAppLocked())
         );
       }
 
       match /redemptions/{redemptionId} {
         allow read: if isSignedIn() && (
-          isAdmin() || isCeo() || (isStaff() && (request.auth.token.venue == venueId || request.auth.token.venue == null))
+          isAdmin() || isCeo() || staffVenueMatches(venueId)
         );
         allow create, update, delete: if false;
       }
@@ -256,24 +263,63 @@ service cloud.firestore {
     // Tonight’s alerts (staff posts, everyone reads)
     match /alerts/{id} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn() && canWriteApp() && (
-        isAdmin() || isCeo() || (isStaff() && !isAppLocked())
+      allow create: if isSignedIn() && canWriteApp() && (
+        isAdmin() || isCeo()
+        || (
+          !isAppLocked()
+          && request.resource.data.venueId is string
+          && staffVenueMatches(request.resource.data.venueId)
+        )
+      );
+      allow update, delete: if isSignedIn() && canWriteApp() && (
+        isAdmin() || isCeo()
+        || (
+          !isAppLocked()
+          && resource.data.venueId is string
+          && staffVenueMatches(resource.data.venueId)
+        )
       );
     }
 
     // Shared deals (staff posts, everyone reads)
     match /deals/{id} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn() && canWriteApp() && (
-        isAdmin() || isCeo() || (isStaff() && !isAppLocked())
+      allow create: if isSignedIn() && canWriteApp() && (
+        isAdmin() || isCeo()
+        || (
+          !isAppLocked()
+          && request.resource.data.venueId is string
+          && staffVenueMatches(request.resource.data.venueId)
+        )
+      );
+      allow update, delete: if isSignedIn() && canWriteApp() && (
+        isAdmin() || isCeo()
+        || (
+          !isAppLocked()
+          && resource.data.venueId is string
+          && staffVenueMatches(resource.data.venueId)
+        )
       );
     }
 
     // VIP-only deals (staff posts, everyone reads)
     match /vipDeals/{id} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn() && canWriteApp() && (
-        isAdmin() || isCeo() || (isStaff() && !isAppLocked())
+      allow create: if isSignedIn() && canWriteApp() && (
+        isAdmin() || isCeo()
+        || (
+          !isAppLocked()
+          && request.resource.data.venueId is string
+          && staffVenueMatches(request.resource.data.venueId)
+        )
+      );
+      allow update, delete: if isSignedIn() && canWriteApp() && (
+        isAdmin() || isCeo()
+        || (
+          !isAppLocked()
+          && resource.data.venueId is string
+          && staffVenueMatches(resource.data.venueId)
+        )
       );
     }
 
@@ -281,7 +327,7 @@ service cloud.firestore {
     match /venuePerks/{venueId} {
       allow read: if true;
       allow create, update: if isSignedIn() && canWriteApp() && (
-        isAdmin() || isCeo() || (isStaff() && !isAppLocked() && request.auth.token.venue == venueId)
+        isAdmin() || isCeo() || (staffVenueMatches(venueId) && !isAppLocked())
       );
       allow delete: if (isAdmin() || isCeo()) && canWriteApp();
     }
@@ -335,8 +381,7 @@ service cloud.firestore {
         isCeo() ||
         (isStaff() && (
           request.auth.uid == resource.data.staffUid ||
-          request.auth.token.venue == resource.data.venueId ||
-          request.auth.token.venue == null
+          staffVenueMatches(resource.data.venueId)
         ))
       );
 
@@ -349,7 +394,7 @@ service cloud.firestore {
           (
             isStaff()
             && request.resource.data.staffUid == request.auth.uid
-            && (request.auth.token.venue == null || request.resource.data.venueId == request.auth.token.venue)
+            && staffVenueMatches(request.resource.data.venueId)
           )
           ||
           (
@@ -367,8 +412,7 @@ service cloud.firestore {
           (isStaff()
             && !isAppLocked()
             && (request.auth.uid == resource.data.staffUid
-              || request.auth.token.venue == resource.data.venueId
-              || request.auth.token.venue == null)
+              || staffVenueMatches(resource.data.venueId))
             && request.resource.data.diff(resource.data).changedKeys().hasOnly(["readByStaff", "readByStaffAt", "deletedByStaff"]))
         )
         && request.resource.data.venueId == resource.data.venueId

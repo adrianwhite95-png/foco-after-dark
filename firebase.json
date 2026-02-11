@@ -5,7 +5,25 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "functions/**",
+      "server/**",
+      "tests/**",
+      "docs/**",
+      "notes/**",
+      "scripts/**",
+      "backups/**",
+      "backup-*.tgz",
+      "backup-*.tar.gz",
+      "**/*.tgz",
+      "**/*.tar.gz",
+      "**/*.pdf",
+      "**/*.pptx",
+      "**/*.xlsx",
+      "**/*.docx",
+      ".github/**",
+      "firebase-debug.log",
+      "README.md"
     ],
     "rewrites": [
       {
