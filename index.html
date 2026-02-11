@@ -10155,7 +10155,24 @@
           <div style="color:#94a3b8;">Get venue alerts, perk drops, and updates without opening the app.</div>
           <button type="button" class="btn btn-primary" id="enableNotificationsBtn" style="width:100%;">Enable notifications</button>
           <div class="small" id="enableNotificationsStatus" style="color:#94a3b8;">Notifications are off.</div>
+          <button type="button" class="btn btn-secondary" id="sendTestNotificationBtn" style="width:100%;display:none;">Send test notification</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="notificationsPrompt">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Turn on notifications</div>
+        <button class="modal-close" id="notificationsPromptClose" type="button">Close</button>
+      </div>
+      <p style="font-size:13px;color:#cbd5f5;line-height:1.6;margin-top:6px;">
+        Stay in the loop when venues post alerts or perks. Notifications are the fastest way to catch drops.
+      </p>
+      <div class="modal-actions" style="margin-top:12px;flex-direction:column;gap:10px;">
+        <button type="button" class="btn btn-primary" id="enableNotificationsPromptBtn">Enable notifications</button>
+        <div class="small" id="notificationsPromptStatus" style="color:#94a3b8;">Notifications are off.</div>
       </div>
     </div>
   </div>
@@ -10676,12 +10693,16 @@
     let pushSupportChecked = false;
     const PUSH_TOKEN_KEY = "pushToken";
     const PUSH_TOKEN_UID_KEY = "pushTokenUid";
+    const PUSH_PROMPT_KEY = "pushPromptShown";
     function isStandaloneMode() {
       return window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
     }
     function updateNotificationsStatus(message) {
       if (enableNotificationsStatus) {
         enableNotificationsStatus.textContent = message;
+      }
+      if (notificationsPromptStatus) {
+        notificationsPromptStatus.textContent = message;
       }
     }
     async function ensureMessagingClient() {
@@ -10775,6 +10796,43 @@
         console.warn("Push enable failed", err);
         updateNotificationsStatus("Could not enable notifications.");
         return false;
+      }
+    }
+
+    function maybeShowNotificationsPrompt() {
+      if (!isStandaloneMode()) return;
+      if (localStorage.getItem(PUSH_PROMPT_KEY)) return;
+      if (Notification.permission === "granted") return;
+      if (notificationsPrompt) {
+        notificationsPrompt.classList.add("active");
+        localStorage.setItem(PUSH_PROMPT_KEY, "1");
+      }
+    }
+
+    function updateDebugNotificationControls() {
+      if (!sendTestNotificationBtn) return;
+      const shouldShow = DEBUG_MODE || isCeoAccount;
+      sendTestNotificationBtn.style.display = shouldShow ? "inline-flex" : "none";
+    }
+
+    async function sendTestNotification() {
+      if (!functionsClient || SAFE_MODE) return;
+      const uid = firebaseAuth?.currentUser?.uid;
+      if (!uid) {
+        showToast("Log in first to test notifications.");
+        return;
+      }
+      try {
+        const fn = httpsCallable(functionsClient, "sendPushToUser");
+        await fn({
+          uid,
+          title: "FoCo After Dark",
+          body: "Test notification delivered ✅"
+        });
+        showToast("Test notification sent.");
+      } catch (err) {
+        console.warn("Test notification failed", err);
+        showToast("Test notification failed.");
       }
     }
     let staffMessagesUnsub = null;
@@ -12362,6 +12420,11 @@
     const addToHomeClose = document.getElementById("addToHomeClose");
     const enableNotificationsBtn = document.getElementById("enableNotificationsBtn");
     const enableNotificationsStatus = document.getElementById("enableNotificationsStatus");
+    const sendTestNotificationBtn = document.getElementById("sendTestNotificationBtn");
+    const notificationsPrompt = document.getElementById("notificationsPrompt");
+    const notificationsPromptClose = document.getElementById("notificationsPromptClose");
+    const enableNotificationsPromptBtn = document.getElementById("enableNotificationsPromptBtn");
+    const notificationsPromptStatus = document.getElementById("notificationsPromptStatus");
     function buildNightTaglinePool(seedList = [], leadIns = [], payoffs = [], targetCount = 120) {
       const pool = Array.isArray(seedList) ? [...seedList] : [];
       for (let i = 0; i < leadIns.length && pool.length < targetCount; i += 1) {
@@ -12682,6 +12745,11 @@
         enablePushNotifications({ forcePrompt: true });
       });
     }
+    if (sendTestNotificationBtn) {
+      sendTestNotificationBtn.addEventListener("click", () => {
+        sendTestNotification();
+      });
+    }
     function closeAddToHomeOverlay() {
       if (addToHomeOverlay) {
         addToHomeOverlay.classList.remove("active");
@@ -12697,6 +12765,23 @@
         if (e.target === addToHomeOverlay) {
           closeAddToHomeOverlay();
         }
+      });
+    }
+    if (notificationsPromptClose) {
+      notificationsPromptClose.addEventListener("click", () => {
+        if (notificationsPrompt) notificationsPrompt.classList.remove("active");
+      });
+    }
+    if (notificationsPrompt) {
+      notificationsPrompt.addEventListener("click", (e) => {
+        if (e.target === notificationsPrompt) {
+          notificationsPrompt.classList.remove("active");
+        }
+      });
+    }
+    if (enableNotificationsPromptBtn) {
+      enableNotificationsPromptBtn.addEventListener("click", () => {
+        enablePushNotifications({ forcePrompt: true });
       });
     }
     const achievementsNewPill = document.getElementById("achievementsNewPill");
@@ -24122,6 +24207,8 @@ let onboardingIndex = 0;
             showScreen("landing");
             suppressLandingRedirectOnce = false;
           }
+          updateDebugNotificationControls();
+          maybeShowNotificationsPrompt();
           initialAuthResolved = true;
           return;
         }
@@ -24168,6 +24255,8 @@ let onboardingIndex = 0;
         await handleAuthenticatedUser(user);
         attachRealtimeForCurrentContext("auth-change");
         enablePushNotifications({ forcePrompt: false });
+        updateDebugNotificationControls();
+        maybeShowNotificationsPrompt();
         initialAuthResolved = true;
       });
     }
