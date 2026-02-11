@@ -5004,12 +5004,15 @@
       padding: 0;
       cursor: pointer;
       perspective: 1100px;
+      -webkit-perspective: 1100px;
+      overflow: hidden;
     }
     .hero-point.flip-card .hero-point-inner {
       position: relative;
       width: 100%;
       min-height: 92px;
       transform-style: preserve-3d;
+      -webkit-transform-style: preserve-3d;
       transition: transform 0.55s cubic-bezier(.2,.7,.2,1);
     }
     .hero-point.flip-card.is-flipped .hero-point-inner {
@@ -5022,10 +5025,16 @@
       gap: 12px;
       align-items: flex-start;
       backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
       padding: 14px 16px;
+    }
+    .hero-point.flip-card .hero-point-front {
+      transform: rotateY(0deg);
+      -webkit-transform: rotateY(0deg);
     }
     .hero-point.flip-card .hero-point-back {
       transform: rotateY(180deg);
+      -webkit-transform: rotateY(180deg);
     }
     .hero-point-back-title {
       display: block;
