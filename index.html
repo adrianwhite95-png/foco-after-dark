@@ -5954,6 +5954,13 @@
         padding: 16px 14px;
         border-radius: 18px;
       }
+      .profile-summary::after {
+        opacity: 0.92;
+        box-shadow:
+          0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 22%, transparent),
+          0 0 24px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
+          0 0 40px color-mix(in srgb, var(--accent-secondary-live) 16%, transparent);
+      }
       .profile-summary .user-row {
         align-items: flex-start;
         gap: 10px;
@@ -7043,9 +7050,32 @@
         linear-gradient(135deg, rgba(16, 18, 28, 0.94), rgba(12, 14, 24, 0.9));
       box-shadow:
         0 22px 48px rgba(2, 6, 18, 0.56),
+        0 0 34px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
+        0 0 58px color-mix(in srgb, var(--accent-secondary-live) 18%, transparent),
         inset 0 1px 0 rgba(255,255,255,0.035);
+      position: relative;
+      overflow: hidden;
     }
     .profile-summary::before { opacity: 0.38; }
+    .profile-summary::after {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 48%, rgba(148,163,184,0.22));
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
+        0 0 30px color-mix(in srgb, var(--accent-primary-live) 32%, transparent),
+        0 0 56px color-mix(in srgb, var(--accent-secondary-live) 22%, transparent);
+      opacity: 0.95;
+      pointer-events: none;
+      animation: profileCardGlow 4.8s ease-in-out infinite;
+      z-index: 0;
+    }
+    .profile-summary > * {
+      position: relative;
+      z-index: 1;
+    }
     .profile-summary .user-row { gap: 16px; }
     .avatar {
       width: 62px;
@@ -7087,6 +7117,16 @@
     }
     .avatar-flair {
       z-index: 4;
+    }
+    @keyframes profileCardGlow {
+      0%, 100% {
+        opacity: 0.86;
+        filter: saturate(0.95);
+      }
+      50% {
+        opacity: 1;
+        filter: saturate(1.08);
+      }
     }
     @keyframes avatarBadgeGlow {
       0%, 100% {
@@ -8871,11 +8911,11 @@
         </div>
         <div class="field">
         <label for="authEmail" id="authEmailLabel">Email</label>
-        <input id="authEmail" type="text" required />
+        <input id="authEmail" type="text" required autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" />
         </div>
         <div class="field">
           <label for="authPassword">Password</label>
-          <input id="authPassword" type="password" required minlength="6" />
+          <input id="authPassword" type="password" required minlength="6" autocapitalize="none" autocorrect="off" spellcheck="false" />
         </div>
         <div class="remember-row">
           <input type="checkbox" id="rememberMe" />
@@ -10666,6 +10706,7 @@
       setPersistence,
       browserLocalPersistence,
       browserSessionPersistence,
+      inMemoryPersistence,
       updateProfile,
       signOut,
       signInAnonymously,
@@ -10758,7 +10799,8 @@
 
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     const firebaseAuth = getAuth(app);
-    setPersistence(firebaseAuth, browserSessionPersistence).catch(() => {});
+    setPersistence(firebaseAuth, browserSessionPersistence)
+      .catch(() => setPersistence(firebaseAuth, inMemoryPersistence).catch(() => {}));
     const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|crios|android/i.test(navigator.userAgent);
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
       || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -11950,6 +11992,21 @@
         localStorage.removeItem(REMEMBER_EMAIL_KEY);
       }
     }
+    async function ensureAuthPersistence() {
+      try {
+        await setPersistence(firebaseAuth, browserSessionPersistence);
+        return "session";
+      } catch (err) {
+        console.warn("[auth] session persistence unavailable; using memory", err?.code || err?.message || err);
+        try {
+          await setPersistence(firebaseAuth, inMemoryPersistence);
+          return "memory";
+        } catch (fallbackErr) {
+          console.warn("[auth] memory persistence unavailable", fallbackErr?.code || fallbackErr?.message || fallbackErr);
+          return "default";
+        }
+      }
+    }
     function logAuthAttempt(email, context) {
       authAttemptCounter += 1;
       const safeEmail = (email || "").trim();
@@ -12022,7 +12079,7 @@
         beginAuthSubmit();
         const attemptId = logAuthAttempt(email, "ceo");
           try {
-            await setPersistence(firebaseAuth, browserSessionPersistence);
+            await ensureAuthPersistence();
             try {
               console.info("[auth] pre-signin", {
                 mode: "ceo",
@@ -12131,7 +12188,7 @@
       beginAuthSubmit();
       const attemptId = logAuthAttempt(email, authMode);
       try {
-        await setPersistence(firebaseAuth, browserSessionPersistence);
+        await ensureAuthPersistence();
         console.info("[auth] pre-signin", {
           mode: authMode,
           email,
@@ -12198,7 +12255,7 @@
       }
       try {
         const remember = !!(rememberMe && rememberMe.checked);
-        await setPersistence(firebaseAuth, browserSessionPersistence);
+        await ensureAuthPersistence();
         updateRememberedEmail(remember ? email : null);
         suppressLandingRedirectOnce = true;
         const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
