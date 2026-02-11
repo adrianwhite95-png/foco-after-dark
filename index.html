@@ -8743,6 +8743,34 @@
       50% { background-position: 100% 60%; }
       100% { background-position: 0% 40%; }
     }
+
+    /* Final profile pass glow pass: keep the entire card visibly lit, not only the badge */
+    #passScreen .pass-card {
+      background:
+        radial-gradient(140% 110% at 14% 12%, color-mix(in srgb, var(--accent-primary-live) 26%, transparent), transparent 62%),
+        radial-gradient(120% 100% at 86% 88%, color-mix(in srgb, var(--accent-secondary-live) 22%, transparent), transparent 58%),
+        linear-gradient(170deg, rgba(6, 12, 26, 0.92), rgba(4, 8, 20, 0.94)) !important;
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 44%, rgba(148, 163, 184, 0.24)),
+        0 20px 46px rgba(1, 4, 14, 0.72),
+        0 0 42px color-mix(in srgb, var(--accent-primary-live) 32%, transparent),
+        inset 0 0 36px color-mix(in srgb, var(--accent-primary-live) 22%, transparent),
+        inset 0 0 56px color-mix(in srgb, var(--accent-secondary-live) 18%, transparent) !important;
+    }
+    #passScreen .pass-card::before {
+      opacity: 0.62 !important;
+      filter: blur(8px) saturate(1.45);
+    }
+    #passScreen .pass-card::after {
+      opacity: 0.28 !important;
+    }
+    #passScreen .profile-summary {
+      background: color-mix(in srgb, var(--accent-primary-live) 9%, rgba(8, 14, 28, 0.66)) !important;
+      box-shadow:
+        0 14px 30px rgba(2, 6, 23, 0.5),
+        0 0 26px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
+        inset 0 0 22px color-mix(in srgb, var(--accent-primary-live) 12%, transparent) !important;
+    }
   </style>
 </head>
   <body>
@@ -11914,6 +11942,7 @@
                 meta,
                 expiresAt: Timestamp.fromDate(expiresDate),
                 createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
               });
               await refreshTonightAlerts();
               showToast("Sent push notifications to users.", 2200);

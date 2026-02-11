@@ -1964,8 +1964,23 @@ exports.getPushDebugStatus = functions.https.onCall(async (data, context) => {
   };
 });
 
-exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onCreate(async (snap) => {
-  const data = snap.data() || {};
+exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onWrite(async (change) => {
+  if (!change.after.exists) return null;
+  const after = change.after.data() || {};
+  const before = change.before.exists ? (change.before.data() || {}) : null;
+  if (before) {
+    const beforeUpdatedAt = before.updatedAt;
+    const afterUpdatedAt = after.updatedAt;
+    if (beforeUpdatedAt && afterUpdatedAt && typeof beforeUpdatedAt.isEqual === "function" && beforeUpdatedAt.isEqual(afterUpdatedAt)) {
+      return null;
+    }
+    const beforeSig = [before.title || "", before.detail || "", before.meta || "", toMillisSafe(before.expiresAt)];
+    const afterSig = [after.title || "", after.detail || "", after.meta || "", toMillisSafe(after.expiresAt)];
+    if (JSON.stringify(beforeSig) === JSON.stringify(afterSig)) {
+      return null;
+    }
+  }
+  const data = after;
   const venueName = getPushVenueName(data.venueId, data.venueName);
   const headline = (data.title || "Tonight's alert").toString().trim();
   const detail = (data.detail || "").toString().trim();
