@@ -10583,6 +10583,7 @@
     let ceoMessagesUnsub = null;
     let ceoMemberPreviewUnsub = null;
     let ceoMemberPreviewUid = null;
+    let ceoMemberPreviewPassCode = "";
     let closeOutReportsUnsub = null;
     let staffRedemptionUnsubs = [];
     let ceoRedemptionsUnsub = null;
@@ -13850,10 +13851,23 @@
     }
 
     function getMemberRedemptionEntries() {
-      const passCode = (currentPassCode || "").toUpperCase();
+      const passCode = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
       if (!passCode) return [];
       const log = Array.isArray(redemptionLog) ? redemptionLog : [];
-      return log.filter(entry => (entry.passId || "").toUpperCase() === passCode);
+      const local = log.filter(entry => (entry.passId || "").toUpperCase() === passCode);
+      if (!isCeoActive() || !ceoRedemptionsCache?.length) return local;
+      const ceoEntries = ceoRedemptionsCache.filter(entry => (entry.passId || "").toUpperCase() === passCode);
+      if (!ceoEntries.length) return local;
+      const byCode = {};
+      local.forEach(entry => {
+        const key = (entry.code || "").toUpperCase();
+        if (key) byCode[key] = entry;
+      });
+      ceoEntries.forEach(entry => {
+        const key = (entry.code || "").toUpperCase();
+        if (key) byCode[key] = entry;
+      });
+      return Object.values(byCode);
     }
 
     function perkSavings(key) {
@@ -21329,6 +21343,8 @@ let onboardingIndex = 0;
             renderCeoRedemptionLog();
             renderCeoVenueLog();
             updateCeoMetrics();
+            refreshMemberStats();
+            updateCeoMemberPreviewFromCache();
           });
         }, (err) => {
           if (isFailedPreconditionError(err)) {
@@ -24368,6 +24384,7 @@ let onboardingIndex = 0;
         ceoMemberPreviewUnsub = null;
       }
       ceoMemberPreviewUid = null;
+      ceoMemberPreviewPassCode = "";
       if (ceoMemberPreviewModal) ceoMemberPreviewModal.classList.remove("active");
     }
     function showCeoMemberVoucherGrantStatus(message, success = true) {
@@ -24436,6 +24453,36 @@ let onboardingIndex = 0;
     function isVerifiedRedemptionEntry(entry = {}) {
       return isCountedRedemptionEntry(entry);
     }
+    function updateCeoMemberPreviewStatsFromEntries(entries = []) {
+      if (!ceoMemberPreviewBody) return;
+      let redeemed = 0;
+      const nights = new Set();
+      entries.forEach(entry => {
+        if (!isVerifiedRedemptionEntry(entry)) return;
+        redeemed += 1;
+        const key = getCeoDateKey(getRedemptionEntryDate(entry));
+        if (key) nights.add(key);
+      });
+      updateCeoMemberPreviewStat("perksRedeemed", String(redeemed));
+      updateCeoMemberPreviewStat("nightsActive", String(nights.size));
+    }
+    function getCeoPreviewEntriesForPass(passCode, fallbackEntries = []) {
+      const code = (passCode || "").toUpperCase();
+      if (!code) return fallbackEntries || [];
+      if (!ceoRedemptionsCache?.length) return fallbackEntries || [];
+      const matches = ceoRedemptionsCache.filter(entry => (entry.passId || "").toUpperCase() === code);
+      if (!matches.length) return fallbackEntries || [];
+      const byCode = {};
+      (fallbackEntries || []).forEach(entry => {
+        const key = (entry.code || "").toUpperCase();
+        if (key) byCode[key] = entry;
+      });
+      matches.forEach(entry => {
+        const key = (entry.code || "").toUpperCase();
+        if (key) byCode[key] = entry;
+      });
+      return Object.values(byCode);
+    }
     function attachCeoMemberPreviewRedemptions(uid = "") {
       if (!db || !uid || !ceoMemberPreviewBody) return;
       if (ceoMemberPreviewUnsub) {
@@ -24450,22 +24497,21 @@ let onboardingIndex = 0;
         ceoMemberPreviewUnsub = subscribeSnapshot("ceoMemberPreviewRedemptions", ref, null, (snap) => {
           if (ceoMemberPreviewUid !== uid) return;
           const entries = snap.docs.map(docSnap => docSnap.data() || {});
-          let redeemed = 0;
-          const nights = new Set();
-          entries.forEach(entry => {
-            if (!isVerifiedRedemptionEntry(entry)) return;
-            redeemed += 1;
-            const key = getCeoDateKey(getRedemptionEntryDate(entry));
-            if (key) nights.add(key);
-          });
-          updateCeoMemberPreviewStat("perksRedeemed", String(redeemed));
-          updateCeoMemberPreviewStat("nightsActive", String(nights.size));
+          const merged = getCeoPreviewEntriesForPass(ceoMemberPreviewPassCode, entries);
+          updateCeoMemberPreviewStatsFromEntries(merged);
         }, (err) => {
           console.warn("CEO member preview redemptions failed", err);
         });
       } catch (err) {
         console.warn("CEO member preview redemptions failed", err);
       }
+    }
+    function updateCeoMemberPreviewFromCache() {
+      if (!ceoMemberPreviewUid || !ceoMemberPreviewPassCode) return;
+      if (!ceoRedemptionsCache?.length) return;
+      const merged = getCeoPreviewEntriesForPass(ceoMemberPreviewPassCode, []);
+      if (!merged.length) return;
+      updateCeoMemberPreviewStatsFromEntries(merged);
     }
     function openCeoMemberPreviewModal(uid = "") {
       if (!ceoMemberPreviewModal || !ceoMemberPreviewBody || !uid) return;
@@ -24509,6 +24555,7 @@ let onboardingIndex = 0;
         ceoMemberPreviewActions.dataset.uid = member.uid || "";
         ceoMemberPreviewActions.dataset.passCode = member.passCode || "";
       }
+      ceoMemberPreviewPassCode = (member.passCode || "").toUpperCase();
       if (ceoMemberVoucherAmount) {
         ceoMemberVoucherAmount.value = "1";
       }
@@ -24519,6 +24566,7 @@ let onboardingIndex = 0;
         </div>
       `).join("");
       attachCeoMemberPreviewRedemptions(uid);
+      updateCeoMemberPreviewFromCache();
       ceoMemberPreviewModal.classList.add("active");
     }
     function getFilteredCeoMembers() {
