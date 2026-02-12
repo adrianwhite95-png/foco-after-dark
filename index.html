@@ -17163,12 +17163,6 @@ let onboardingIndex = 0;
         memberProfile.perks = { tier: "free", remaining: getDefaultPerkState("free") };
         memberProfile.validUntil = "never";
         updateMemberProfile({ freeMembership: true, tier: "free", perks: memberProfile.perks, validUntil: "never" });
-      }
-      if (memberProfile.freeMembership) {
-        memberProfile.tier = "free";
-        memberProfile.perks = { tier: "free", remaining: getDefaultPerkState("free") };
-        memberProfile.validUntil = "never";
-        updateMemberProfile({ freeMembership: true, tier: "free", perks: memberProfile.perks, validUntil: "never" });
         if (allowLocalCache() && user.uid) localStorage.setItem(`membership_${user.uid}`, "free");
       }
       // If not marked free yet, double-check the shared freeMemberships doc by pass code
@@ -25092,6 +25086,7 @@ let onboardingIndex = 0;
     }
     function watchSettingsDoc() {
       if (!db || !authReady || !firebaseAuth.currentUser) return;
+      if (settingsUnsub) return;
       if (settingsPollTimer) {
         clearInterval(settingsPollTimer);
         settingsPollTimer = null;
@@ -25162,6 +25157,7 @@ let onboardingIndex = 0;
     }
     function watchAppStatsDoc() {
       if (!db || !currentUsersCount || !authReady || !firebaseAuth.currentUser) return;
+      if (appStatsUnsub) return;
       const ref = doc(db, "settings", "appStats");
       const unsub = subscribeSnapshot("appStats", ref, null, (snap) => {
         const data = snap.exists() ? snap.data() : {};
