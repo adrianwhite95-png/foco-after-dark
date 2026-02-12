@@ -1632,17 +1632,19 @@
       border: 1px solid var(--accent-border-live, var(--border-soft));
       box-shadow:
         var(--accent-shadow-live, 0 25px 55px rgba(0, 3, 15, 0.85)),
-        inset 0 0 42px color-mix(in srgb, var(--accent-primary-live) 16%, transparent),
-        inset 0 0 84px color-mix(in srgb, var(--accent-secondary-live) 12%, transparent);
+        inset 0 0 56px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
+        inset 0 0 120px color-mix(in srgb, var(--accent-secondary-live) 16%, transparent),
+        0 0 36px color-mix(in srgb, var(--accent-primary-live) 26%, transparent);
     }
     .pass-card::before {
       content: "";
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(130% 120% at 20% 18%, color-mix(in srgb, var(--accent-primary-live) 26%, transparent), transparent 62%),
-        radial-gradient(120% 130% at 84% 86%, color-mix(in srgb, var(--accent-secondary-live) 20%, transparent), transparent 68%);
-      opacity: 0.82;
+        radial-gradient(130% 120% at 20% 18%, color-mix(in srgb, var(--accent-primary-live) 34%, transparent), transparent 62%),
+        radial-gradient(120% 130% at 84% 86%, color-mix(in srgb, var(--accent-secondary-live) 24%, transparent), transparent 68%),
+        radial-gradient(95% 85% at 50% 50%, color-mix(in srgb, var(--accent-primary-live) 16%, transparent), transparent 72%);
+      opacity: 0.92;
       pointer-events: none;
       z-index: 0;
     }
@@ -11273,7 +11275,7 @@
       }
     }
 
-    async function sendVenueUpdatePushFallback({ title, body, source, link = "/#alertCard", dedupeKey = "", dedupeWindowMs = 60000 }) {
+    async function sendVenueUpdatePushFallback({ title, body, source, link = "/#alertCard", dedupeKey = "", dedupeWindowMs = 12000 }) {
       if (!functionsClient || SAFE_MODE) {
         return { ok: false, code: "functions-unavailable", message: "Functions unavailable" };
       }
@@ -18315,7 +18317,7 @@ let onboardingIndex = 0;
             title: `Perks Updated - ${venueName}`,
             body: `${venueName} just updated this month's perks.`.slice(0, 160),
             source: "staff-perks",
-            dedupeKey: `perk-update:${String(venueId || "").trim().toLowerCase()}`
+            dedupeKey: `perk-update:${String(venueId || "").trim().toLowerCase()}:${perks.map((perk) => `${String(perk.label || "").trim().toLowerCase()}:${Number(perk.standardQty || 0)}:${Number(perk.vipQty || 0)}`).sort().join("|")}`
           });
           showPushDispatchToast(pushResult);
         } else {

@@ -2181,6 +2181,8 @@ exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onW
   // Only notify for newly posted alerts (not edits/removals/expiry updates).
   if (!change.after.exists || change.before.exists) return null;
   const data = change.after.data() || {};
+  // Client-published alerts already dispatch push through callable fallback.
+  if (data.pushViaClient === true) return null;
   const expiresMs = toMillisSafe(data.expiresAt);
   if (expiresMs && expiresMs <= Date.now()) return null;
   const venueName = getPushVenueName(data.venueId, data.venueName);
@@ -2202,6 +2204,8 @@ exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onW
 exports.pushOnVipDeal = functions.firestore.document('deals/{venueId}').onWrite(async (change, context) => {
   if (!change.after.exists) return null;
   const after = change.after.data() || {};
+  // Client-published deals already dispatch push through callable fallback.
+  if (after.pushViaClient === true) return null;
   const before = change.before.exists ? (change.before.data() || {}) : null;
   const afterExpiresMs = toMillisSafe(after.expiresAt);
   // Do not notify when staff expires/removes a deal.
@@ -2264,6 +2268,8 @@ async function claimPerkUpdatePushWindow(venueId, windowMs = 2 * 60 * 1000) {
 exports.pushOnPerkUpdate = functions.firestore.document('venues/{venueId}/perks/{perkId}').onWrite(async (change, context) => {
   if (!change.after.exists) return null;
   const after = change.after.data() || {};
+  // Client-published perk updates already dispatch push through callable fallback.
+  if (after.pushViaClient === true) return null;
   const before = change.before.exists ? (change.before.data() || {}) : null;
   const afterSig = [
     String(after.label || "").trim(),
