@@ -4181,12 +4181,36 @@ exports.setAppLock = functions.runWith(appLockSecrets).https.onCall(async (data,
     const code = (data?.code || '').toString().trim();
     if (!code || code !== secret) throw new HttpsError('permission-denied', 'Invalid lock code');
     const appLocked = data?.locked === true;
-    await db.collection('settings').doc('app').set({
+    const appRef = db.collection('settings').doc('app');
+    const beforeSnap = await appRef.get();
+    const wasLocked = beforeSnap.exists ? beforeSnap.data()?.appLocked === true : false;
+
+    await appRef.set({
       appLocked,
       appLockedAt: admin.firestore.FieldValue.serverTimestamp(),
       appLockedBy: context.auth.uid
     }, { merge: true });
-    return { ok: true, appLocked };
+
+    let push = null;
+    if (wasLocked !== appLocked) {
+      const enteringMaintenance = appLocked === true;
+      try {
+        push = await sendPushToAll({
+          title: enteringMaintenance ? "FoCo After Dark Maintenance" : "FoCo After Dark",
+          body: enteringMaintenance
+            ? "FoCo After Dark is currently undergoing maintenance."
+            : "Maintenance complete. FoCo After Dark is back online.",
+          link: "/",
+          source: enteringMaintenance ? "maintenance-on" : "maintenance-off",
+          dedupeKey: `maintenance:${enteringMaintenance ? "on" : "off"}`,
+          dedupeWindowMs: 60000
+        });
+      } catch (pushErr) {
+        console.warn("setAppLock push failed", pushErr?.message || pushErr);
+      }
+    }
+
+    return { ok: true, appLocked, push };
   } catch (err) {
     console.warn("setAppLock failed", err);
     throw err instanceof HttpsError ? err : new HttpsError('internal', err?.message || 'Failed to update app lock');
