@@ -14795,6 +14795,19 @@
       return MEMBERSHIP_FEES[tier] || 0;
     }
 
+    const LOGIN_BONUS_WINDOW_MS = 12 * 60 * 60 * 1000;
+    const inFlightPointAwardKeys = new Set();
+    function normalizePointAwardKeyClient(raw = "") {
+      return String(raw || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9:_-]/g, "_")
+        .slice(0, 80);
+    }
+    function getLoginBonusWindowKey(epochMs = Date.now()) {
+      const ts = Number(epochMs);
+      if (!Number.isFinite(ts) || ts <= 0) return "";
+      return `login_12h:${Math.floor(ts / LOGIN_BONUS_WINDOW_MS)}`;
+    }
     function getMstDateKey(date = new Date()) {
       try {
         return new Intl.DateTimeFormat("en-CA", {
@@ -14834,17 +14847,22 @@
         maybeCelebrateAllAchievements();
         return;
       }
-      const todayKey = getMstDateKey(new Date());
+      const nowMs = Date.now();
+      const todayKey = getMstDateKey(new Date(nowMs));
       const lastKey = memberProfile.lastLoginDate || "";
       const previousLoginAt = memberProfile.lastLoginAt || null;
       const previousLoginDate = memberProfile.lastLoginDate || null;
+      const previousLoginBonusAt = Number(memberProfile.lastLoginBonusAt || 0);
+      const isLoginBonusDue = !Number.isFinite(previousLoginBonusAt) || previousLoginBonusAt <= 0 || (nowMs - previousLoginBonusAt) >= LOGIN_BONUS_WINDOW_MS;
+      const nextLoginBonusAt = isLoginBonusDue ? nowMs : previousLoginBonusAt;
+      const loginAwardKey = isLoginBonusDue ? getLoginBonusWindowKey(nowMs) : "";
       const loginCount = Number(memberProfile.loginCount || 0) + 1;
       const isNewLoginDay = !lastKey || lastKey !== todayKey;
       let activeDays = Number(memberProfile.activeDays || 0);
       if (isNewLoginDay) {
         activeDays += 1;
       }
-      const lastLoginAt = new Date().toISOString();
+      const lastLoginAt = new Date(nowMs).toISOString();
       const loginBonus = 20;
       memberProfile = {
         ...memberProfile,
@@ -14853,7 +14871,8 @@
         lastLoginDate: todayKey,
         lastLoginAt,
         lastCheckinAt: previousLoginAt,
-        lastCheckinDate: previousLoginDate
+        lastCheckinDate: previousLoginDate,
+        lastLoginBonusAt: nextLoginBonusAt
       };
       const passCode = (memberProfile.passCode || currentPassCode || "").toUpperCase();
       if (passCode) {
@@ -14865,7 +14884,8 @@
         lastLoginDate: todayKey,
         lastLoginAt,
         lastCheckinAt: previousLoginAt,
-        lastCheckinDate: previousLoginDate
+        lastCheckinDate: previousLoginDate,
+        lastLoginBonusAt: nextLoginBonusAt
       });
       updateMemberProfile({
         loginCount,
@@ -14873,10 +14893,11 @@
         lastLoginDate: todayKey,
         lastLoginAt,
         lastCheckinAt: previousLoginAt,
-        lastCheckinDate: previousLoginDate
+        lastCheckinDate: previousLoginDate,
+        lastLoginBonusAt: nextLoginBonusAt
       });
-      if (isNewLoginDay) {
-        addPoints(loginBonus, "Daily login bonus", { awardKey: `daily_login:${todayKey}` });
+      if (isLoginBonusDue) {
+        addPoints(loginBonus, "Daily login bonus", { awardKey: loginAwardKey || `daily_login:${todayKey}` });
       }
       updateLastCheckinUI();
       if (memberProfile?.pendingVoucherGrant) {
@@ -19639,46 +19660,63 @@ let onboardingIndex = 0;
     async function addPoints(points, reason = "", meta = {}) {
       const code = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
       if (!code || !Number.isFinite(points) || points <= 0) return;
-      if (useCloudProfile()) {
-        const serverResult = await awardPointsCloud(points, reason, meta);
-        if (serverResult && Number.isFinite(serverResult.points)) {
-          const awarded = serverResult.awarded !== false;
-          memberProfile = memberProfile || {};
-          memberProfile.points = serverResult.points;
-          if (serverResult.venuesVisited) {
-            memberProfile.venuesVisited = serverResult.venuesVisited;
-          } else if (meta.venue) {
-            memberProfile.venuesVisited = {
-              ...(memberProfile.venuesVisited || {}),
-              [String(meta.venue).toLowerCase()]: true
-            };
+      const awardKey = normalizePointAwardKeyClient(meta?.awardKey || "");
+      if (awardKey && inFlightPointAwardKeys.has(awardKey)) {
+        return { success: true, awarded: false, skipped: true, inFlight: true };
+      }
+      if (awardKey) inFlightPointAwardKeys.add(awardKey);
+      try {
+        if (useCloudProfile()) {
+          const serverResult = await awardPointsCloud(points, reason, { ...meta, awardKey });
+          if (serverResult && Number.isFinite(serverResult.points)) {
+            const awarded = serverResult.awarded !== false;
+            memberProfile = memberProfile || {};
+            memberProfile.points = serverResult.points;
+            if (serverResult.venuesVisited) {
+              memberProfile.venuesVisited = serverResult.venuesVisited;
+            } else if (meta.venue) {
+              memberProfile.venuesVisited = {
+                ...(memberProfile.venuesVisited || {}),
+                [String(meta.venue).toLowerCase()]: true
+              };
+            }
+            updatePointsUI();
+            if (awarded && reason) {
+              showToast(`+${points} pts · ${reason}`);
+            }
+            return serverResult;
           }
-          updatePointsUI();
-          if (awarded && reason) {
-            showToast(`+${points} pts · ${reason}`);
-          }
-          return serverResult;
+          return;
         }
-        return;
-      }
-      const ledger = loadPointsLedger();
-      const entry = ledger[code] || { points: 0, venues: {} };
-      entry.points += points;
-      if (meta.venue) {
-        entry.venues = entry.venues || {};
-        entry.venues[meta.venue.toLowerCase()] = true;
-      }
-      entry.username = preferredUsername();
-      entry.tier = currentMembershipTier || entry.tier || "standard";
-      entry.email = firebaseAuth.currentUser?.email || entry.email || "";
-      ledger[code] = entry;
-      savePointsLedger(ledger);
-      setMemberDirectoryEntry(code, { points: entry.points, venuesVisited: entry.venues, username: entry.username, name: memberProfile?.legalName || memberProfile?.name, tier: entry.tier, email: entry.email });
-      if (entry.username && entry.email) saveUsernameMapEntry(entry.username, entry.email);
-      persistMemberState({ tier: entry.tier });
-      updatePointsUI();
-      if (reason) {
-        showToast(`+${points} pts · ${reason}`);
+        const ledger = loadPointsLedger();
+        const entry = ledger[code] || { points: 0, venues: {} };
+        entry.pointAwardKeys = entry.pointAwardKeys || {};
+        if (awardKey && entry.pointAwardKeys[awardKey]) {
+          return { success: true, awarded: false, skipped: true };
+        }
+        entry.points += points;
+        if (meta.venue) {
+          entry.venues = entry.venues || {};
+          entry.venues[meta.venue.toLowerCase()] = true;
+        }
+        if (awardKey) {
+          entry.pointAwardKeys[awardKey] = Date.now();
+        }
+        entry.username = preferredUsername();
+        entry.tier = currentMembershipTier || entry.tier || "standard";
+        entry.email = firebaseAuth.currentUser?.email || entry.email || "";
+        ledger[code] = entry;
+        savePointsLedger(ledger);
+        setMemberDirectoryEntry(code, { points: entry.points, venuesVisited: entry.venues, username: entry.username, name: memberProfile?.legalName || memberProfile?.name, tier: entry.tier, email: entry.email });
+        if (entry.username && entry.email) saveUsernameMapEntry(entry.username, entry.email);
+        persistMemberState({ tier: entry.tier });
+        updatePointsUI();
+        if (reason) {
+          showToast(`+${points} pts · ${reason}`);
+        }
+        return { success: true, awarded: true, skipped: false, points: entry.points };
+      } finally {
+        if (awardKey) inFlightPointAwardKeys.delete(awardKey);
       }
     }
     function getPointsEntry(passId) {
