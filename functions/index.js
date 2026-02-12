@@ -4169,6 +4169,55 @@ exports.setLaunchMode = functions.https.onCall(async (data, context) => {
   }
 });
 
+// Maintenance mode toggle (CEO only). When enabled, clients should sign out and show maintenance screen.
+exports.setMaintenanceMode = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
+    const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
+    const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
+    if (!isCeoContext(context, requesterData)) throw new HttpsError('permission-denied', 'CEO only');
+
+    const appRef = db.collection('settings').doc('app');
+    const beforeSnap = await appRef.get();
+    const wasEnabled = beforeSnap.exists ? beforeSnap.data()?.maintenanceMode === true : false;
+    const enabled = data?.enabled === true;
+    const messageRaw = (data?.message || '').toString().trim();
+    const message = messageRaw || "FoCo After Dark is currently undergoing maintenance.";
+    const updates = {
+      maintenanceMode: enabled,
+      maintenanceMessage: message,
+      maintenanceUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      maintenanceUpdatedBy: context.auth.uid
+    };
+    if (!enabled) {
+      updates.maintenanceUntil = admin.firestore.FieldValue.delete();
+    }
+    await appRef.set(updates, { merge: true });
+
+    let push = null;
+    if (wasEnabled !== enabled) {
+      try {
+        push = await sendPushToAll({
+          title: enabled ? "FoCo After Dark Maintenance" : "FoCo After Dark",
+          body: enabled
+            ? "FoCo After Dark is currently undergoing maintenance."
+            : "Maintenance complete. FoCo After Dark is back online.",
+          link: "/",
+          source: enabled ? "maintenance-on" : "maintenance-off",
+          dedupeKey: `maintenance:${enabled ? "on" : "off"}`,
+          dedupeWindowMs: 60000
+        });
+      } catch (pushErr) {
+        console.warn("setMaintenanceMode push failed", pushErr?.message || pushErr);
+      }
+    }
+    return { ok: true, maintenanceMode: enabled, push };
+  } catch (err) {
+    console.warn("setMaintenanceMode failed", err);
+    throw err instanceof HttpsError ? err : new HttpsError('internal', err?.message || 'Failed to update maintenance mode');
+  }
+});
+
 // App lock toggle (CEO only) with passcode stored in Secret Manager
 exports.setAppLock = functions.runWith(appLockSecrets).https.onCall(async (data, context) => {
   try {

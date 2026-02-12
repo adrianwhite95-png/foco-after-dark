@@ -10020,6 +10020,15 @@
               </div>
               <button type="button" class="btn btn-danger" id="ceoAppLockToggle">Lock app</button>
             </div>
+            <div class="ceo-reset-card" id="ceoMaintenanceCard" style="display:none;">
+              <div style="flex:1;">
+                <strong>Maintenance mode</strong>
+                <div class="meta-note">Turns on the maintenance screen and signs out active users.</div>
+                <div class="meta-note">When active, users stay blocked until <code>settings/app/maintenanceMode</code> is set to <code>false</code>.</div>
+                <div id="ceoMaintenanceStatus" class="meta-note" style="margin-top:6px;font-size:12px;color:#cbd5f5;">Loading…</div>
+              </div>
+              <button type="button" class="btn btn-danger" id="ceoMaintenanceToggle">Enable maintenance</button>
+            </div>
           </div>
           <div class="beta-switcher beta-ui" id="ceoBetaSwitcher">
             <div class="beta-switcher-header">
@@ -11521,6 +11530,8 @@
     let appLockOverride = false;
     let appLockSignoutPending = false;
     let maintenanceModeActive = false;
+    let maintenanceSettingsCache = {};
+    let maintenanceSignoutInFlight = false;
     let maintenanceBootChecked = false;
     let maintenanceRetryInFlight = false;
     const PENDING_MEMBERSHIP_STORAGE_KEY = "pendingMembershipUser";
@@ -13539,6 +13550,9 @@
     const ceoAppLockCard = document.getElementById("ceoAppLockCard");
     const ceoAppLockStatus = document.getElementById("ceoAppLockStatus");
     const ceoAppLockToggle = document.getElementById("ceoAppLockToggle");
+    const ceoMaintenanceCard = document.getElementById("ceoMaintenanceCard");
+    const ceoMaintenanceStatus = document.getElementById("ceoMaintenanceStatus");
+    const ceoMaintenanceToggle = document.getElementById("ceoMaintenanceToggle");
     const ceoSystemHealthCard = document.getElementById("ceoSystemHealthCard");
     const ceoSystemHealth = document.getElementById("ceoSystemHealth");
     const confirmModal = document.getElementById("confirmModal");
@@ -24805,6 +24819,34 @@ let onboardingIndex = 0;
       }
     }
 
+    function applyMaintenanceModeState() {
+      if (ceoMaintenanceStatus) {
+        ceoMaintenanceStatus.textContent = maintenanceModeActive
+          ? "MAINTENANCE ACTIVE: users are signed out and blocked."
+          : "LIVE: maintenance mode is off.";
+      }
+      if (ceoMaintenanceToggle) {
+        ceoMaintenanceToggle.textContent = maintenanceModeActive ? "Disable maintenance" : "Enable maintenance";
+        ceoMaintenanceToggle.classList.toggle("btn-danger", !maintenanceModeActive);
+        ceoMaintenanceToggle.classList.toggle("btn-secondary", maintenanceModeActive);
+      }
+    }
+
+    async function enforceMaintenanceSignout() {
+      if (!maintenanceModeActive) return;
+      if (maintenanceSignoutInFlight) return;
+      const user = firebaseAuth?.currentUser;
+      if (!user) return;
+      maintenanceSignoutInFlight = true;
+      try {
+        await signOut(firebaseAuth);
+      } catch (err) {
+        console.warn("Maintenance sign-out failed", err);
+      } finally {
+        maintenanceSignoutInFlight = false;
+      }
+    }
+
     function isAppReadOnlyMode() {
       return appLocked === true && !hasCeoClaim() && !hasAdminClaim();
     }
@@ -24858,6 +24900,7 @@ let onboardingIndex = 0;
     }
     function renderMaintenanceScreen(data = {}) {
       maintenanceModeActive = true;
+      maintenanceSettingsCache = { ...(data || {}) };
       const msg = data.maintenanceMessage || "🍺 Keg is tapped — maintenance in progress.";
       const until = data.maintenanceUntil?.toDate ? data.maintenanceUntil.toDate() : (data.maintenanceUntil ? new Date(data.maintenanceUntil) : null);
       if (maintenanceMessage) maintenanceMessage.textContent = msg;
@@ -24867,10 +24910,13 @@ let onboardingIndex = 0;
           : "Please check back in a few minutes.";
       }
       setStatusBanner("");
+      applyMaintenanceModeState();
       showScreen("maintenance");
     }
     function clearMaintenanceScreen() {
       maintenanceModeActive = false;
+      maintenanceSettingsCache = {};
+      applyMaintenanceModeState();
       if (currentScreenName === "maintenance") {
         showScreen("landing");
       }
@@ -24940,6 +24986,12 @@ let onboardingIndex = 0;
           stopCloseOutReportsListener();
           resetRewardsProgressState();
           updateCeoPassUI();
+          if (maintenanceModeActive) {
+            renderMaintenanceScreen(maintenanceSettingsCache);
+            updateDebugNotificationControls();
+            initialAuthResolved = true;
+            return;
+          }
           if (loginForced) {
             suppressLandingRedirectOnce = true;
             renderLoginScreen();
@@ -24962,6 +25014,12 @@ let onboardingIndex = 0;
           localStorage.removeItem("staffSession");
           showScreen("landing");
           try { await firebaseAuth.signOut(); } catch (_) {}
+          initialAuthResolved = true;
+          return;
+        }
+        if (maintenanceModeActive) {
+          renderMaintenanceScreen(maintenanceSettingsCache);
+          await enforceMaintenanceSignout();
           initialAuthResolved = true;
           return;
         }
@@ -25008,9 +25066,12 @@ let onboardingIndex = 0;
       const data = await fetchAppSettingsOnce();
       if (data?.maintenanceMode === true) {
         renderMaintenanceScreen(data);
+        applyMaintenanceModeState();
         return;
       }
       maintenanceModeActive = false;
+      maintenanceSettingsCache = {};
+      applyMaintenanceModeState();
       if (data?.statusBannerEnabled && data?.statusBannerMessage) {
         setStatusBanner(data.statusBannerMessage);
       } else {
@@ -25027,15 +25088,25 @@ let onboardingIndex = 0;
       const ref = doc(db, "settings", "app");
       const unsub = subscribeSnapshot("settingsApp", ref, { includeMetadataChanges: true }, (snap) => {
         const data = snap.exists() ? snap.data() : {};
+        const nextMaintenance = data?.maintenanceMode === true;
+        maintenanceSettingsCache = { ...data };
+        if (nextMaintenance) {
+          renderMaintenanceScreen(data);
+          enforceMaintenanceSignout();
+        } else if (maintenanceModeActive) {
+          clearMaintenanceScreen();
+        }
         isLaunched = !!data.launched;
         appLocked = !!data.appLocked;
         appLockedAt = data.appLockedAt || null;
-        if (!maintenanceModeActive) {
+        if (!nextMaintenance) {
           if (data.statusBannerEnabled && data.statusBannerMessage) {
             setStatusBanner(data.statusBannerMessage);
           } else {
             setStatusBanner("");
           }
+        } else {
+          setStatusBanner("");
         }
         if (isLaunched && betaPassMode) {
           exitBetaPassMode();
@@ -25044,6 +25115,7 @@ let onboardingIndex = 0;
         refreshFeaturedVenuesData();
         applyLaunchModeUI();
         applyAppLockState();
+        applyMaintenanceModeState();
         const serverVersion = data.version || null;
         if (serverVersion && serverVersion !== BUILD_VERSION) {
           markUpdateAvailable("Update available — tap Reload.");
@@ -25218,6 +25290,55 @@ let onboardingIndex = 0;
         }
       });
     }
+
+    if (ceoMaintenanceToggle) {
+      ceoMaintenanceToggle.addEventListener("click", async () => {
+        if (!functionsClient) return;
+        if (!firebaseAuth?.currentUser) {
+          showToast("Sign in as CEO to change maintenance mode.");
+          return;
+        }
+        const enableMaintenance = !maintenanceModeActive;
+        const confirmed = await openConfirmModal({
+          title: enableMaintenance ? "Enable maintenance mode" : "Disable maintenance mode",
+          body: enableMaintenance
+            ? "This will sign out active users and show a maintenance screen until you turn it off."
+            : "This will reopen the app for all users.",
+          confirmText: enableMaintenance ? "MAINTENANCE" : "RESTORE",
+          confirmButtonText: enableMaintenance ? "Enable maintenance" : "Disable maintenance",
+          confirmButtonClass: enableMaintenance ? "btn-danger" : "btn-secondary"
+        });
+        if (!confirmed) return;
+
+        ceoMaintenanceToggle.disabled = true;
+        ceoMaintenanceToggle.textContent = "Updating…";
+        try {
+          await firebaseAuth.currentUser.getIdToken(true);
+          const fn = httpsCallable(functionsClient, "setMaintenanceMode");
+          const resp = await fn({
+            enabled: enableMaintenance,
+            message: enableMaintenance
+              ? "FoCo After Dark is currently undergoing maintenance."
+              : "Maintenance complete. FoCo After Dark is back online."
+          });
+          maintenanceModeActive = resp?.data?.maintenanceMode === true;
+          applyMaintenanceModeState();
+          showToast(maintenanceModeActive ? "Maintenance mode enabled." : "Maintenance mode disabled.");
+        } catch (err) {
+          console.warn("setMaintenanceMode failed", err);
+          const errCode = err?.code || err?.message || "";
+          if (errCode.includes("permission-denied") || errCode.includes("unauthenticated")) {
+            showToast("Only the CEO can change maintenance mode.");
+          } else {
+            showToast("Could not update maintenance mode.");
+          }
+        } finally {
+          ceoMaintenanceToggle.disabled = false;
+          applyMaintenanceModeState();
+        }
+      });
+    }
+
     if (ceoEmergencyUnlock) {
       ceoEmergencyUnlock.addEventListener("click", async () => {
         if (!functionsClient || !firebaseAuth?.currentUser) return;
@@ -27307,6 +27428,9 @@ let onboardingIndex = 0;
       }
       if (ceoAppLockCard) {
         ceoAppLockCard.style.display = isCeoAccount ? "" : "none";
+      }
+      if (ceoMaintenanceCard) {
+        ceoMaintenanceCard.style.display = isCeoAccount ? "" : "none";
       }
       if (ceoSystemHealthCard) {
         ceoSystemHealthCard.style.display = isCeoAccount ? "" : "none";
