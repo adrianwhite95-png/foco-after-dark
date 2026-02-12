@@ -1132,49 +1132,6 @@ exports.resolveUsernameToEmail = functions.https.onCall(async (data, context) =>
   return { email: null };
 });
 
-// Award points server-side to prevent client tampering.
-exports.awardPoints = functions.https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
-  const uid = context.auth.uid;
-  const delta = Number(data?.points || 0);
-  const reason = (data?.reason || "").toString().slice(0, 80);
-  const venue = (data?.venue || "").toString().trim().toLowerCase();
-  if (!Number.isFinite(delta) || delta <= 0 || delta > 50) {
-    throw new HttpsError("invalid-argument", "Invalid points amount.");
-  }
-  const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Denver' });
-  const ref = db.collection("members").doc(uid);
-  const result = await db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const memberData = snap.exists ? snap.data() : {};
-    const current = Number(memberData.points || 0);
-    let daily = Number(memberData.pointsDaily || 0);
-    let dailyDate = (memberData.pointsDailyDate || "").toString();
-    if (!dailyDate || dailyDate !== todayKey) {
-      daily = 0;
-      dailyDate = todayKey;
-    }
-    const dailyCap = 200;
-    if (daily + delta > dailyCap) {
-      throw new HttpsError("resource-exhausted", "Daily points limit reached.");
-    }
-    const next = current + delta;
-    const updates = {
-      points: next,
-      pointsDaily: daily + delta,
-      pointsDailyDate: dailyDate,
-      pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastPointsReason: reason || null
-    };
-    if (venue) {
-      updates[`venuesVisited.${venue}`] = true;
-    }
-    tx.set(ref, updates, { merge: true });
-    return { points: next, venuesVisited: venue ? { ...(memberData.venuesVisited || {}), [venue]: true } : (memberData.venuesVisited || {}) };
-  });
-  return result;
-});
-
 // Seed user profile and username directory on auth create
 exports.initUserProfile = functions.auth.user().onCreate(async (user) => {
   const uid = user.uid;
@@ -1648,29 +1605,73 @@ exports.reserveUsername = functions.https.onCall(async (data, context) => {
   });
 });
 
-// Server-side points adjust
+function normalizePointAwardKey(raw = "") {
+  return String(raw || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9:_-]/g, "_")
+    .slice(0, 80);
+}
+
+// Server-side points adjust with idempotency support for one-time awards.
 exports.awardPoints = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
-  const points = Number(data?.points || 0);
+  const points = Math.floor(Number(data?.points || 0));
   const reason = (data?.reason || 'adjustment').toString().slice(0, 120);
-  if (!Number.isFinite(points) || points === 0) throw new HttpsError('invalid-argument', 'points required');
+  const venue = String(data?.venue || "").trim().toLowerCase();
+  const awardKey = normalizePointAwardKey(data?.awardKey || "");
+  if (!Number.isFinite(points) || points <= 0 || points > 2000) {
+    throw new HttpsError('invalid-argument', 'points must be between 1 and 2000');
+  }
+
   const uid = context.auth.uid;
   const memberRef = db.collection('members').doc(uid);
+  let result = { success: true, awarded: false, skipped: true, points: 0, venuesVisited: {} };
+
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(memberRef);
     if (!snap.exists) throw new HttpsError('failed-precondition', 'Member missing');
-    const current = snap.data()?.points || 0;
-    const next = Math.max(0, current + points);
-    tx.set(memberRef, { points: next, pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    await db.collection('auditLogs').add({
-      action: 'awardPoints',
-      uid,
-      delta: points,
-      reason,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    const member = snap.data() || {};
+    const current = Math.max(0, Number(member.points || 0));
+    const venuesVisited = { ...(member.venuesVisited || {}) };
+    if (venue) {
+      venuesVisited[venue] = true;
+    }
+
+    const alreadyAwarded = awardKey ? Boolean(member.pointAwardKeys?.[awardKey]) : false;
+    const awarded = !alreadyAwarded;
+    const next = awarded ? (current + points) : current;
+    const updates = {
+      points: next,
+      pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    if (venue) {
+      updates[`venuesVisited.${venue}`] = true;
+    }
+    if (awarded) {
+      if (awardKey) {
+        updates[`pointAwardKeys.${awardKey}`] = admin.firestore.FieldValue.serverTimestamp();
+      }
+      updates.lastPointsReason = reason || null;
+    }
+    tx.set(memberRef, updates, { merge: true });
+    result = { success: true, awarded, skipped: !awarded, points: next, venuesVisited, awardKey: awardKey || null };
   });
-  return { success: true };
+
+  if (result.awarded) {
+    try {
+      await db.collection('auditLogs').add({
+        action: 'awardPoints',
+        uid,
+        delta: points,
+        reason,
+        awardKey: awardKey || null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (err) {
+      console.warn('awardPoints audit log failed', err?.message || err);
+    }
+  }
+  return result;
 });
 
 // Helpers for night wheel server-side

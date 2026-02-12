@@ -11596,6 +11596,9 @@
     }
 
     function showScreen(name) {
+      if (maintenanceModeActive && name !== "maintenance" && !canBypassMaintenance()) {
+        name = "maintenance";
+      }
       if (name === "pass" && requiresMembershipSelection()) {
         name = "membership";
       }
@@ -14834,8 +14837,9 @@
       const previousLoginAt = memberProfile.lastLoginAt || null;
       const previousLoginDate = memberProfile.lastLoginDate || null;
       const loginCount = Number(memberProfile.loginCount || 0) + 1;
+      const isNewLoginDay = !lastKey || lastKey !== todayKey;
       let activeDays = Number(memberProfile.activeDays || 0);
-      if (!lastKey || lastKey !== todayKey) {
+      if (isNewLoginDay) {
         activeDays += 1;
       }
       const lastLoginAt = new Date().toISOString();
@@ -14869,7 +14873,9 @@
         lastCheckinAt: previousLoginAt,
         lastCheckinDate: previousLoginDate
       });
-      addPoints(loginBonus, "Login bonus");
+      if (isNewLoginDay) {
+        addPoints(loginBonus, "Daily login bonus", { awardKey: `daily_login:${todayKey}` });
+      }
       updateLastCheckinUI();
       if (memberProfile?.pendingVoucherGrant) {
         showVoucherGrantNotice(memberProfile.pendingVoucherGrant);
@@ -15216,6 +15222,7 @@
       logRealtime("attachSkipped", "claims-not-ready");
       return;
     }
+    watchSettingsDoc();
     watchAppStatsDoc();
     const hasCeoAccess = hasCeoClaim();
     const hasStaffAccess = hasStaffClaim();
@@ -19624,7 +19631,8 @@ let onboardingIndex = 0;
         const resp = await fn({
           points,
           reason: reason || "",
-          venue: meta.venue || ""
+          venue: meta.venue || "",
+          awardKey: meta.awardKey || ""
         });
         return resp?.data || null;
       } catch (err) {
@@ -19636,31 +19644,24 @@ let onboardingIndex = 0;
       const code = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
       if (!code || !Number.isFinite(points) || points <= 0) return;
       if (useCloudProfile()) {
-        const current = Number(memberProfile?.points) || 0;
-        const next = current + points;
-        const prevVenues = { ...(memberProfile?.venuesVisited || {}) };
-        const venuesVisited = { ...(memberProfile?.venuesVisited || {}) };
-        if (meta.venue) {
-          venuesVisited[meta.venue.toLowerCase()] = true;
-        }
-        memberProfile = memberProfile || {};
-        memberProfile.points = next;
-        memberProfile.venuesVisited = venuesVisited;
-        updatePointsUI();
-        if (reason) {
-          showToast(`+${points} pts · ${reason}`);
-        }
         const serverResult = await awardPointsCloud(points, reason, meta);
         if (serverResult && Number.isFinite(serverResult.points)) {
+          const awarded = serverResult.awarded !== false;
+          memberProfile = memberProfile || {};
           memberProfile.points = serverResult.points;
           if (serverResult.venuesVisited) {
             memberProfile.venuesVisited = serverResult.venuesVisited;
+          } else if (meta.venue) {
+            memberProfile.venuesVisited = {
+              ...(memberProfile.venuesVisited || {}),
+              [String(meta.venue).toLowerCase()]: true
+            };
           }
           updatePointsUI();
-        } else {
-          memberProfile.points = current;
-          memberProfile.venuesVisited = prevVenues;
-          updatePointsUI();
+          if (awarded && reason) {
+            showToast(`+${points} pts · ${reason}`);
+          }
+          return serverResult;
         }
         return;
       }
@@ -22571,7 +22572,7 @@ let onboardingIndex = 0;
       const state = getAchievementStateForCurrentPass();
       if (!state.allCompletePending || state.allCompleteRewarded) return;
       if (!hasAllAchievementsUnlocked(state)) return;
-      addPoints(ALL_ACHIEVEMENTS_REWARD, "All achievements complete");
+      addPoints(ALL_ACHIEVEMENTS_REWARD, "All achievements complete", { awardKey: "achievement:all_complete" });
       setAchievementStateForCurrentPass({
         allCompletePending: false,
         allCompleteRewarded: true,
@@ -22633,7 +22634,7 @@ let onboardingIndex = 0;
       Object.entries(ACHIEVEMENT_POINTS).forEach(([id, points]) => {
         if (updates[id] && !entry[id]) {
           const label = ACHIEVEMENT_BY_ID[id]?.label || "Achievement";
-          addPoints(points, `Achievement: ${label}`);
+          addPoints(points, `Achievement: ${label}`, { awardKey: `achievement:${id}` });
         }
       });
       if (hasAllAchievementsUnlocked(updates)) {
@@ -24832,11 +24833,21 @@ let onboardingIndex = 0;
       }
     }
 
+    function canBypassMaintenance(userArg = firebaseAuth?.currentUser) {
+      const user = userArg || null;
+      const email = (user?.email || "").toLowerCase();
+      if (email === "ceo@gmail.com") return true;
+      if (hasCeoClaim() || hasAdminClaim()) return true;
+      if (isCeoAccount || ceoSession) return true;
+      return false;
+    }
+
     async function enforceMaintenanceSignout() {
       if (!maintenanceModeActive) return;
       if (maintenanceSignoutInFlight) return;
       const user = firebaseAuth?.currentUser;
       if (!user) return;
+      if (canBypassMaintenance(user)) return;
       maintenanceSignoutInFlight = true;
       try {
         await signOut(firebaseAuth);
@@ -25017,7 +25028,7 @@ let onboardingIndex = 0;
           initialAuthResolved = true;
           return;
         }
-        if (maintenanceModeActive) {
+        if (maintenanceModeActive && !canBypassMaintenance(user)) {
           renderMaintenanceScreen(maintenanceSettingsCache);
           await enforceMaintenanceSignout();
           initialAuthResolved = true;
@@ -25091,8 +25102,12 @@ let onboardingIndex = 0;
         const nextMaintenance = data?.maintenanceMode === true;
         maintenanceSettingsCache = { ...data };
         if (nextMaintenance) {
-          renderMaintenanceScreen(data);
-          enforceMaintenanceSignout();
+          if (canBypassMaintenance()) {
+            setStatusBanner("Maintenance mode active for users.");
+          } else {
+            renderMaintenanceScreen(data);
+            enforceMaintenanceSignout();
+          }
         } else if (maintenanceModeActive) {
           clearMaintenanceScreen();
         }
