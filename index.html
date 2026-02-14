@@ -540,29 +540,29 @@
       -webkit-font-smoothing: antialiased;
       text-rendering: optimizeLegibility;
     }
-    body.mobile-performance .btn-primary,
-    body.mobile-performance .global-footer,
-    body.mobile-performance .landing-wrapper .landing-strobe,
-    body.mobile-performance #landingTagline,
-    body.mobile-performance .pass-card::before,
-    body.mobile-performance .pass-card::after,
-    body.mobile-performance .radar-glow-bg,
-    body.mobile-performance .radar-grid-overlay,
-    body.mobile-performance .radar-swirl-layer,
-    body.mobile-performance .radar-sweep-layer,
-    body.mobile-performance .radar-streaks-layer span,
-    body.mobile-performance .radar-bursts-layer span,
-    body.mobile-performance .radar-ping-layer span,
-    body.mobile-performance .radar-particles-layer span {
+    body.mobile-performance:not(.ios) .btn-primary,
+    body.mobile-performance:not(.ios) .global-footer,
+    body.mobile-performance:not(.ios) .landing-wrapper .landing-strobe,
+    body.mobile-performance:not(.ios) #landingTagline,
+    body.mobile-performance:not(.ios) .pass-card::before,
+    body.mobile-performance:not(.ios) .pass-card::after,
+    body.mobile-performance:not(.ios) .radar-glow-bg,
+    body.mobile-performance:not(.ios) .radar-grid-overlay,
+    body.mobile-performance:not(.ios) .radar-swirl-layer,
+    body.mobile-performance:not(.ios) .radar-sweep-layer,
+    body.mobile-performance:not(.ios) .radar-streaks-layer span,
+    body.mobile-performance:not(.ios) .radar-bursts-layer span,
+    body.mobile-performance:not(.ios) .radar-ping-layer span,
+    body.mobile-performance:not(.ios) .radar-particles-layer span {
       animation: none !important;
     }
-    body.mobile-performance .screen {
+    body.mobile-performance:not(.ios) .screen {
       animation-duration: 0.08s !important;
     }
-    body.mobile-performance #cardParticles {
+    body.mobile-performance:not(.ios) #cardParticles {
       display: none !important;
     }
-    body.mobile-performance::before {
+    body.mobile-performance:not(.ios)::before {
       transform: none !important;
       transition: none !important;
     }
@@ -9194,7 +9194,7 @@
         box-shadow: 0 0 12px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
       }
     }
-    body.mobile-performance :where(
+    body.mobile-performance:not(.ios) :where(
       .screen,
       .pass-card,
       .card-hd,
@@ -9217,8 +9217,8 @@
       box-shadow: 0 5px 10px rgba(2, 6, 18, 0.3) !important;
       transition-duration: 100ms !important;
     }
-    body.mobile-performance #passScreen::before,
-    body.mobile-performance #staffPortalScreen::before {
+    body.mobile-performance:not(.ios) #passScreen::before,
+    body.mobile-performance:not(.ios) #staffPortalScreen::before {
       filter: blur(10px) !important;
       opacity: 0.22 !important;
       animation-duration: 26s !important;
@@ -9288,6 +9288,10 @@
       50% { box-shadow: 0 12px 25px rgba(2,8,23,0.55), 0 0 24px color-mix(in srgb, var(--accent-primary-live) 34%, transparent); }
       100% { box-shadow: 0 9px 20px rgba(2,8,23,0.45), 0 0 14px color-mix(in srgb, var(--accent-primary-live) 20%, transparent); }
     }
+    @keyframes memberFolderOpen {
+      0% { opacity: 0; transform: translateY(-6px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
     @keyframes tonightSweep {
       0% { transform: translateX(-42%); opacity: 0; }
       20% { opacity: 0.22; }
@@ -9298,6 +9302,16 @@
       0% { opacity: 0.72; transform: scale(0.45); }
       70% { opacity: 0.2; transform: scale(1); }
       100% { opacity: 0; transform: scale(1.18); }
+    }
+    @keyframes valueRadarCoreBeat {
+      0%, 100% {
+        transform: scale(0.96);
+        box-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary-live) 58%, transparent);
+      }
+      50% {
+        transform: scale(1.24);
+        box-shadow: 0 0 22px color-mix(in srgb, var(--accent-primary-live) 78%, transparent);
+      }
     }
     @keyframes valueStatFlash {
       0% {
@@ -9347,6 +9361,19 @@
     body.ios:not(.mobile-performance) #passScreen::after,
     body.ios:not(.mobile-performance) #staffPortalScreen::after {
       opacity: 0.34;
+    }
+    body.ios.mobile-performance #passScreen::after,
+    body.ios.mobile-performance #staffPortalScreen::after {
+      opacity: 0.3;
+      filter: blur(22px) saturate(1.2);
+      animation-duration: 18s, 5.8s;
+    }
+    body.ios #passScreen .member-hero::after {
+      opacity: 0.34;
+      animation-duration: 5.4s;
+    }
+    body.ios #passScreen .value-radar-core {
+      animation-duration: 1.2s;
     }
 
     #passScreen .profile-summary::before {
@@ -9486,19 +9513,81 @@
     #passScreen .member-command-deck {
       position: relative;
       margin: 12px 0 14px;
-      padding: 14px;
+      padding: 0;
       border-radius: 16px;
       border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, var(--border));
       background: linear-gradient(130deg, rgba(10, 16, 34, 0.9), rgba(8, 13, 28, 0.86));
       box-shadow: 0 12px 24px rgba(2, 8, 23, 0.34), inset 0 0 10px color-mix(in srgb, var(--accent-primary-live) 7%, transparent);
       backdrop-filter: blur(9px);
+      overflow: hidden;
+    }
+    #passScreen .member-command-deck summary {
+      list-style: none;
+    }
+    #passScreen .member-command-deck summary::-webkit-details-marker {
+      display: none;
+    }
+    #passScreen .member-command-folder-summary {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      background: linear-gradient(145deg, rgba(10, 16, 32, 0.86), rgba(8, 12, 24, 0.76));
+    }
+    #passScreen .member-command-folder-summary:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--accent-primary-live) 52%, #67e8f9);
+      outline-offset: -2px;
+    }
+    #passScreen .member-command-folder-left {
+      min-width: 0;
+    }
+    #passScreen .member-folder-caption {
+      color: #94a3b8;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #passScreen .member-folder-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    #passScreen .member-folder-caret {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      color: #dbeafe;
+      background: color-mix(in srgb, var(--accent-primary-live) 14%, rgba(15, 23, 42, 0.72));
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 42%, transparent);
+      font-size: 12px;
+      line-height: 1;
+      transition: transform 180ms ease;
+    }
+    #passScreen .member-command-deck[open] .member-folder-caret {
+      transform: rotate(180deg);
+    }
+    #passScreen .member-command-folder-body {
+      padding: 11px 14px 14px;
+      border-top: 1px solid color-mix(in srgb, var(--accent-primary-live) 22%, rgba(148, 163, 184, 0.24));
+    }
+    #passScreen .member-command-deck[open] .member-command-folder-body {
+      animation: memberFolderOpen 220ms cubic-bezier(0.2, 0.86, 0.2, 1) both;
     }
     #passScreen .member-command-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 6px;
+      margin-bottom: 0;
     }
     #passScreen .member-command-title {
       font-size: 14px;
@@ -9638,7 +9727,7 @@
       border: 1px solid color-mix(in srgb, var(--accent-primary-live) 50%, transparent);
       opacity: 0;
       transform: scale(0.45);
-      animation: valueRadarPulse 2.4s ease-out infinite;
+      animation: valueRadarPulse 1.95s ease-out infinite;
     }
     #passScreen .value-radar-ring.ring-2 { animation-delay: 0.8s; }
     #passScreen .value-radar-ring.ring-3 { animation-delay: 1.6s; }
@@ -9648,6 +9737,7 @@
       border-radius: 999px;
       background: linear-gradient(130deg, var(--accent-primary-live), var(--accent-secondary-live));
       box-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary-live) 55%, transparent);
+      animation: valueRadarCoreBeat 1.35s ease-in-out infinite;
     }
     #passScreen .value-live-title {
       color: #a5f3fc;
@@ -9732,12 +9822,12 @@
       #passScreen .member-action-matrix {
         grid-template-columns: 1fr;
       }
-      #passScreen .member-command-head {
-        flex-direction: column;
-        align-items: flex-start;
+      #passScreen .member-command-folder-summary {
+        flex-wrap: wrap;
       }
-      #passScreen .member-experience-tag {
-        width: auto;
+      #passScreen .member-folder-right {
+        width: 100%;
+        justify-content: space-between;
       }
       #passScreen .value-live-row {
         grid-template-columns: 1fr;
@@ -9753,23 +9843,23 @@
       }
     }
 
-    body.mobile-performance #passScreen .profile-summary::before,
-    body.mobile-performance #passScreen::after,
-    body.mobile-performance #staffPortalScreen::after,
-    body.mobile-performance #passScreen .member-hero::before,
-    body.mobile-performance #passScreen .pass-inner::before,
-    body.mobile-performance #staffPortalScreen .staff-form::before,
-    body.mobile-performance #staffPortalScreen .staff-form::after,
-    body.mobile-performance #staffPortalScreen .vip-deal-card::before,
-    body.mobile-performance #staffPortalScreen .vip-deal-card::after,
-    body.mobile-performance #staffPortalScreen .staff-more::before,
-    body.mobile-performance #staffPortalScreen .staff-more::after,
-    body.mobile-performance #staffPortalScreen .staff-ticker::before,
-    body.mobile-performance #staffPortalScreen .staff-ticker::after,
-    body.mobile-performance #passScreen .member-hero,
-    body.mobile-performance #passScreen .community-stat,
-    body.mobile-performance #passScreen .btn.btn-primary,
-    body.mobile-performance #staffPortalScreen .btn.btn-primary {
+    body.mobile-performance:not(.ios) #passScreen .profile-summary::before,
+    body.mobile-performance:not(.ios) #passScreen::after,
+    body.mobile-performance:not(.ios) #staffPortalScreen::after,
+    body.mobile-performance:not(.ios) #passScreen .member-hero::before,
+    body.mobile-performance:not(.ios) #passScreen .pass-inner::before,
+    body.mobile-performance:not(.ios) #staffPortalScreen .staff-form::before,
+    body.mobile-performance:not(.ios) #staffPortalScreen .staff-form::after,
+    body.mobile-performance:not(.ios) #staffPortalScreen .vip-deal-card::before,
+    body.mobile-performance:not(.ios) #staffPortalScreen .vip-deal-card::after,
+    body.mobile-performance:not(.ios) #staffPortalScreen .staff-more::before,
+    body.mobile-performance:not(.ios) #staffPortalScreen .staff-more::after,
+    body.mobile-performance:not(.ios) #staffPortalScreen .staff-ticker::before,
+    body.mobile-performance:not(.ios) #staffPortalScreen .staff-ticker::after,
+    body.mobile-performance:not(.ios) #passScreen .member-hero,
+    body.mobile-performance:not(.ios) #passScreen .community-stat,
+    body.mobile-performance:not(.ios) #passScreen .btn.btn-primary,
+    body.mobile-performance:not(.ios) #staffPortalScreen .btn.btn-primary {
       animation: none !important;
     }
 
@@ -10226,54 +10316,60 @@
           </div>
           <div class="pass-security-stripe" aria-hidden="true"></div>
 
-          <div class="member-command-deck card-hd no-tilt">
-            <div class="member-command-head">
-              <div>
+          <details class="member-command-deck card-hd no-tilt" id="memberCommandDeck">
+            <summary class="member-command-folder-summary">
+              <div class="member-command-folder-left">
                 <div class="micro-label">Member HQ</div>
                 <div class="member-command-title">Your Night Console</div>
+                <div class="member-folder-caption">Tap to open account controls</div>
               </div>
-              <span class="member-experience-tag" id="profileExperienceTag">Standard mode</span>
+              <div class="member-folder-right">
+                <span class="member-experience-tag" id="profileExperienceTag">Standard mode</span>
+                <span class="member-folder-caret" aria-hidden="true">▾</span>
+              </div>
+            </summary>
+            <div class="member-command-folder-body">
+              <div class="member-command-subline" id="memberCommandSubline">Account controls, membership status, and wallet sync.</div>
+              <div class="member-command-signals">
+                <div class="member-signal">
+                  <span>Live alerts</span>
+                  <strong id="memberSignalAlerts">0 live</strong>
+                </div>
+                <div class="member-signal">
+                  <span>Tonight focus</span>
+                  <strong id="memberSignalFocus">Ready to redeem</strong>
+                </div>
+              </div>
+              <div class="meta-row quick-strip elite-quick-strip">
+                <div class="meta-group" style="flex:1;">
+                  <div class="meta-label">Status</div>
+                  <div class="meta-value" id="quickStatus">Active</div>
+                </div>
+                <div class="meta-group" style="flex:1;">
+                  <div class="meta-label">Points</div>
+                  <div class="meta-value" id="quickPoints">0 pts</div>
+                </div>
+                <div class="meta-group" style="flex:1;">
+                  <div class="meta-label">Spins</div>
+                  <div class="meta-value" id="quickSpins">Spins left this month</div>
+                </div>
+              </div>
+              <div class="secondary-actions member-action-matrix" id="memberActionButtons">
+                <button type="button" class="btn review-btn" id="rewardsTrigger">
+                  Voucher rewards
+                </button>
+                <button type="button" class="btn btn-secondary" id="manageBillingBtn">
+                  Manage billing / card
+                </button>
+                <button type="button" class="btn support-btn" id="supportTrigger">
+                  Need help? Contact support
+                </button>
+                <button type="button" class="btn review-btn" id="leaveReviewBtn">
+                  Leave a review
+                </button>
+              </div>
             </div>
-            <div class="member-command-subline" id="memberCommandSubline">Account controls, membership status, and wallet sync.</div>
-            <div class="member-command-signals">
-              <div class="member-signal">
-                <span>Live alerts</span>
-                <strong id="memberSignalAlerts">0 live</strong>
-              </div>
-              <div class="member-signal">
-                <span>Tonight focus</span>
-                <strong id="memberSignalFocus">Ready to redeem</strong>
-              </div>
-            </div>
-            <div class="meta-row quick-strip elite-quick-strip">
-              <div class="meta-group" style="flex:1;">
-                <div class="meta-label">Status</div>
-                <div class="meta-value" id="quickStatus">Active</div>
-              </div>
-              <div class="meta-group" style="flex:1;">
-                <div class="meta-label">Points</div>
-                <div class="meta-value" id="quickPoints">0 pts</div>
-              </div>
-              <div class="meta-group" style="flex:1;">
-                <div class="meta-label">Spins</div>
-                <div class="meta-value" id="quickSpins">Spins left this month</div>
-              </div>
-            </div>
-            <div class="secondary-actions member-action-matrix" id="memberActionButtons">
-              <button type="button" class="btn review-btn" id="rewardsTrigger">
-                Voucher rewards
-              </button>
-              <button type="button" class="btn btn-secondary" id="manageBillingBtn">
-                Manage billing / card
-              </button>
-              <button type="button" class="btn support-btn" id="supportTrigger">
-                Need help? Contact support
-              </button>
-              <button type="button" class="btn review-btn" id="leaveReviewBtn">
-                Leave a review
-              </button>
-            </div>
-          </div>
+          </details>
 
           <div class="profile-top-grid">
             <div class="profile-main-col">
