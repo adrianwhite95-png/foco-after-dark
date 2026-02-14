@@ -25693,15 +25693,18 @@ let onboardingIndex = 0;
     let appliedServerVersion = "";
     let lastSeenServerVersion = "";
     let lastSeenIndexSignature = "";
+    let maintenanceReleaseSeenAtMs = 0;
     const FORCE_UPDATE_PENDING_KEY = "force_update_pending_version";
     const FORCE_UPDATE_APPLIED_VERSION_KEY = "force_update_applied_version";
     const FORCE_UPDATE_LAST_SEEN_VERSION_KEY = "force_update_last_seen_server_version";
     const FORCE_UPDATE_LAST_INDEX_SIG_KEY = "force_update_last_index_signature";
+    const MAINTENANCE_RELEASE_SEEN_KEY = "maintenance_release_seen_at_ms";
     function loadForcedUpdateVersion() {
       try {
         appliedServerVersion = (localStorage.getItem(FORCE_UPDATE_APPLIED_VERSION_KEY) || "").trim();
         lastSeenServerVersion = (localStorage.getItem(FORCE_UPDATE_LAST_SEEN_VERSION_KEY) || "").trim();
         lastSeenIndexSignature = (localStorage.getItem(FORCE_UPDATE_LAST_INDEX_SIG_KEY) || "").trim();
+        maintenanceReleaseSeenAtMs = Number(localStorage.getItem(MAINTENANCE_RELEASE_SEEN_KEY) || 0) || 0;
         if (!lastSeenServerVersion && appliedServerVersion) {
           lastSeenServerVersion = appliedServerVersion;
           localStorage.setItem(FORCE_UPDATE_LAST_SEEN_VERSION_KEY, lastSeenServerVersion);
@@ -25764,6 +25767,41 @@ let onboardingIndex = 0;
         hash |= 0;
       }
       return Math.abs(hash).toString(36);
+    }
+    function saveMaintenanceReleaseSeenAt(ms = 0) {
+      maintenanceReleaseSeenAtMs = Number(ms || 0) || 0;
+      try {
+        if (maintenanceReleaseSeenAtMs > 0) {
+          localStorage.setItem(MAINTENANCE_RELEASE_SEEN_KEY, String(maintenanceReleaseSeenAtMs));
+        } else {
+          localStorage.removeItem(MAINTENANCE_RELEASE_SEEN_KEY);
+        }
+      } catch (_) {}
+    }
+    function toMillis(value) {
+      if (!value) return 0;
+      if (typeof value?.toMillis === "function") return Number(value.toMillis()) || 0;
+      if (typeof value?.toDate === "function") return Number(value.toDate()?.getTime()) || 0;
+      const num = Number(value);
+      if (Number.isFinite(num) && num > 0) return num;
+      const dt = new Date(value);
+      const ms = Number(dt.getTime()) || 0;
+      return ms > 0 ? ms : 0;
+    }
+    function maybeForceUpdateAfterMaintenanceRelease(data = {}, previousMaintenance = false) {
+      const nextMaintenance = data?.maintenanceMode === true;
+      if (nextMaintenance) return;
+      if (!previousMaintenance) return;
+      if (canBypassMaintenance()) return;
+      const releaseMs = toMillis(data?.maintenanceUpdatedAt);
+      if (!releaseMs) return;
+      if (releaseMs <= maintenanceReleaseSeenAtMs) return;
+      const releaseVersion = `maint-${releaseMs}`;
+      markUpdateAvailable("Maintenance complete. Update required before continuing.", {
+        version: releaseVersion,
+        force: true
+      });
+      saveMaintenanceReleaseSeenAt(releaseMs);
     }
     function clearForcedUpdateRequirement() {
       requiredUpdateVersion = "";
@@ -26093,6 +26131,7 @@ let onboardingIndex = 0;
         applyMaintenanceModeState();
         handleServerVersionSeen(data?.version, "settings");
         checkVersionOnLaunch();
+        checkIndexSignatureOnLaunch();
         return;
       }
       maintenanceModeActive = false;
@@ -26117,6 +26156,7 @@ let onboardingIndex = 0;
       const ref = doc(db, "settings", "app");
       const unsub = subscribeSnapshot("settingsApp", ref, { includeMetadataChanges: true }, (snap) => {
         const data = snap.exists() ? snap.data() : {};
+        const previousMaintenance = maintenanceModeActive === true;
         const nextMaintenance = data?.maintenanceMode === true;
         maintenanceSettingsCache = { ...data };
         if (nextMaintenance) {
@@ -26153,6 +26193,7 @@ let onboardingIndex = 0;
         if (staffCloseoutStamp && staffSession?.venue) {
           updateStaffCloseoutStamp();
         }
+        maybeForceUpdateAfterMaintenanceRelease(data, previousMaintenance);
       });
       if (unsub) settingsUnsub = unsub;
     }
