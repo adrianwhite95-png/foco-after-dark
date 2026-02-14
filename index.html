@@ -8814,6 +8814,177 @@
     #passScreen .profile-summary::after {
       opacity: 0.36 !important;
     }
+
+    /* === iOS launch polish + CEO HQ mobile containment (visual-only) === */
+    @keyframes strobeDrift {
+      0% {
+        transform: translate3d(-10%, -6%, 0) scale(1.04);
+        opacity: 0.34;
+      }
+      50% {
+        transform: translate3d(8%, 7%, 0) scale(1.1);
+        opacity: 0.5;
+      }
+      100% {
+        transform: translate3d(-6%, 10%, 0) scale(1.06);
+        opacity: 0.36;
+      }
+    }
+    #passScreen::after,
+    #staffPortalScreen::after {
+      content: "";
+      position: absolute;
+      inset: -34%;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      filter: blur(28px) saturate(1.4);
+      z-index: 0;
+      animation: strobeDrift 8.2s ease-in-out infinite;
+    }
+    #passScreen::after {
+      background:
+        radial-gradient(circle at 16% 24%, color-mix(in srgb, var(--accent-primary-live) 36%, transparent), transparent 58%),
+        radial-gradient(circle at 85% 74%, color-mix(in srgb, var(--accent-secondary-live) 34%, transparent), transparent 56%);
+      opacity: 0.44;
+    }
+    #staffPortalScreen::after {
+      background:
+        radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--staff-primary, #7dd3fc) 34%, transparent), transparent 60%),
+        radial-gradient(circle at 82% 76%, color-mix(in srgb, var(--staff-secondary, #38bdf8) 32%, transparent), transparent 58%);
+      opacity: 0.36;
+    }
+
+    body.ios #app {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-x: clip;
+      padding-left: max(12px, env(safe-area-inset-left));
+      padding-right: max(12px, env(safe-area-inset-right));
+    }
+    body.ios #ceoPortalScreen {
+      border-radius: 20px;
+      padding: 14px;
+    }
+    body.ios .ceo-hq-shell {
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin: 6px auto 14px;
+      padding: 0;
+      max-width: 100%;
+    }
+    body.ios .ceo-hq-nav {
+      position: static;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      gap: 6px;
+      padding: 8px;
+      border-radius: 16px;
+    }
+    body.ios .ceo-nav-item {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+    body.ios .ceo-hq-panel {
+      max-width: 100%;
+      min-width: 0;
+      padding: 14px;
+      border-radius: 18px;
+    }
+    body.ios .ceo-panel-controls {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      align-items: stretch;
+    }
+    body.ios .ceo-panel-controls > * {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+    body.ios .ceo-hq-panel[data-ceo-panel="redemptions"] .ceo-hq-grid {
+      grid-template-columns: 1fr;
+    }
+    body.ios .ceo-hq-panel[data-ceo-panel="members"] .ceo-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      border-radius: 14px;
+    }
+    body.ios .ceo-hq-panel[data-ceo-panel="members"] .ceo-table {
+      min-width: 980px;
+      width: max-content;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    body.ios .ceo-hq-panel[data-ceo-panel="members"] .ceo-table th,
+    body.ios .ceo-hq-panel[data-ceo-panel="members"] .ceo-table td {
+      white-space: nowrap;
+    }
+    body.ios #ceoCloseOutList {
+      overflow-x: hidden;
+    }
+    body.ios .ceo-closeout-row .log-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: 6px 8px !important;
+    }
+    body.ios .ceo-closeout-row .log-meta > span {
+      white-space: normal;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(148,163,184,0.24);
+      border-radius: 999px;
+      padding: 3px 8px;
+    }
+
+    body.ios .pass-card {
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
+        0 0 24px color-mix(in srgb, var(--accent-primary-live) 22%, transparent),
+        0 0 56px color-mix(in srgb, var(--accent-secondary-live) 20%, transparent),
+        inset 0 0 38px color-mix(in srgb, var(--accent-primary-live) 10%, transparent);
+    }
+    body.ios #passScreen::before {
+      opacity: 0.56;
+      filter: blur(22px);
+    }
+    body.ios #passScreen::after {
+      opacity: 0.5;
+      filter: blur(30px) saturate(1.48);
+    }
+    body.ios #staffPortalScreen::before {
+      opacity: 0.44;
+    }
+    body.ios #staffPortalScreen::after {
+      opacity: 0.4;
+    }
+    body.ios .btn,
+    body.ios .nav-item,
+    body.ios .community-stat,
+    body.ios .featured-card {
+      transition-duration: 260ms;
+      transition-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+    body.ios .btn:active,
+    body.ios .nav-item:active,
+    body.ios .featured-card:active {
+      transform: translateY(1px) scale(0.992);
+    }
+    body.ios .community-stat:active {
+      transform: translateY(1px);
+      box-shadow: 0 0 0 1px rgba(148,163,184,0.28), 0 0 16px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+    }
+    @media (max-width: 520px) {
+      body.ios .ceo-panel-controls {
+        grid-template-columns: 1fr;
+      }
+      body.ios .ceo-hq-panel[data-ceo-panel="members"] .ceo-table {
+        min-width: 920px;
+      }
+    }
   </style>
 </head>
   <body>
