@@ -8247,17 +8247,42 @@
       text-transform: uppercase;
       letter-spacing: 0.12em;
     }
-    .secondary-actions .btn,
-    #memberActionButtons .btn {
+    .secondary-actions .btn {
       background: rgba(10, 14, 26, 0.85) !important;
       border: 1px solid rgba(255,255,255,0.16) !important;
       color: rgba(241,245,249,0.92) !important;
       box-shadow: none !important;
     }
-    .secondary-actions .btn:hover,
-    #memberActionButtons .btn:hover {
+    .secondary-actions .btn:hover {
       box-shadow: 0 0 14px rgba(34,211,238,0.18) !important;
       transform: translateY(-1px);
+    }
+    #memberActionButtons .btn {
+      background:
+        linear-gradient(
+          132deg,
+          color-mix(in srgb, var(--accent-primary-live) 34%, rgba(12, 18, 34, 0.92)),
+          color-mix(in srgb, var(--accent-secondary-live) 28%, rgba(9, 14, 28, 0.9))
+        ) !important;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 48%, rgba(255,255,255,0.16)) !important;
+      color: #f8fbff !important;
+      box-shadow:
+        0 12px 26px rgba(2, 6, 18, 0.45),
+        0 0 26px color-mix(in srgb, var(--accent-primary-live) 42%, transparent),
+        0 0 18px color-mix(in srgb, var(--accent-secondary-live) 32%, transparent),
+        inset 0 0 18px color-mix(in srgb, var(--accent-primary-live) 20%, transparent) !important;
+      text-shadow: 0 0 12px color-mix(in srgb, var(--accent-primary-live) 34%, transparent);
+    }
+    #memberActionButtons .btn:hover {
+      box-shadow:
+        0 14px 30px rgba(2, 6, 18, 0.52),
+        0 0 36px color-mix(in srgb, var(--accent-primary-live) 56%, transparent),
+        0 0 24px color-mix(in srgb, var(--accent-secondary-live) 40%, transparent),
+        inset 0 0 24px color-mix(in srgb, var(--accent-primary-live) 28%, transparent) !important;
+      transform: translateY(-1px) scale(1.01);
+    }
+    #memberActionButtons .btn:active {
+      transform: translateY(0) scale(0.99);
     }
     .pass-security-stripe {
       background:
