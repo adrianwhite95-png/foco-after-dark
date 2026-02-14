@@ -9596,6 +9596,15 @@
       color: #e2e8f0;
       font-weight: 700;
     }
+    #passScreen .member-command-title-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    #passScreen .member-command-title-row .pill-new {
+      margin-left: 0;
+    }
     #passScreen .member-command-subline {
       color: #94a3b8;
       font-size: 12px;
@@ -10320,7 +10329,10 @@
             <summary class="member-command-folder-summary">
               <div class="member-command-folder-left">
                 <div class="micro-label">Member HQ</div>
-                <div class="member-command-title">Your Night Console</div>
+                <div class="member-command-title-row">
+                  <div class="member-command-title">Your Night Console</div>
+                  <span id="memberCommandNewPill" class="pill-new">New</span>
+                </div>
                 <div class="member-folder-caption">Tap to open account controls</div>
               </div>
               <div class="member-folder-right">
@@ -12625,6 +12637,7 @@
     } catch (_) {}
     const REWARDS_KEY = "rewardsProgress";
     const BADGES_KEY = "foco_badges_v1";
+    const MEMBER_HQ_FEED_SEEN_KEY = "memberHqFeedSeen_v1";
     const DEAL_CODES_KEY = "dealCodesCache";
     const BG_KEY = "bgTheme";
     const ACHIEVEMENTS_KEY = "achievementsMap";
@@ -14741,6 +14754,8 @@
     const quickStatus = document.getElementById("quickStatus");
     const quickPoints = document.getElementById("quickPoints");
     const quickSpins = document.getElementById("quickSpins");
+    const memberCommandDeck = document.getElementById("memberCommandDeck");
+    const memberCommandNewPill = document.getElementById("memberCommandNewPill");
     const profileExperienceTag = document.getElementById("profileExperienceTag");
     const memberCommandSubline = document.getElementById("memberCommandSubline");
     const memberSignalAlerts = document.getElementById("memberSignalAlerts");
@@ -15199,6 +15214,22 @@
       { title: "Earn while you party", copy: "Spin the Night Wheel, leave reviews, and stack points all month long." }
     ];
     const ONBOARDING_STORAGE_KEY = "foco_onboarding_complete";
+    function loadMemberHqFeedSeenMap() {
+      if (!allowLocalCache()) return {};
+      try {
+        const parsed = JSON.parse(localStorage.getItem(MEMBER_HQ_FEED_SEEN_KEY) || "{}");
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (_) {
+        return {};
+      }
+    }
+    function saveMemberHqFeedSeenMap(map) {
+      memberHqFeedSeenMap = map && typeof map === "object" ? map : {};
+      if (!allowLocalCache()) return;
+      try {
+        localStorage.setItem(MEMBER_HQ_FEED_SEEN_KEY, JSON.stringify(memberHqFeedSeenMap));
+      } catch (_) {}
+    }
     function loadBadgeDirectory() {
       if (memberProfile?.badgeDirectory) return memberProfile.badgeDirectory;
       if (!allowLocalCache()) return {};
@@ -15223,6 +15254,7 @@
     let passBrandTaglineTicker = null;
     let pitchIndex = 0;
     let alertsRotationIndex = 0;
+    let memberHqFeedSeenMap = loadMemberHqFeedSeenMap();
     let badgeDirectory = loadBadgeDirectory();
     let achievementState = {};
     function loadAchievementState() {
@@ -16775,32 +16807,39 @@
     renderStaffVipDeal();
     refreshAlertsTicker();
   }
-  function applyAlertsSnapshot(snapshot) {
-    if (!snapshot) return;
-    const now = Date.now();
-    const changes = snapshot.docChanges ? snapshot.docChanges() : [];
-    if (!changes.length) return;
-    changes.forEach(change => {
-      const data = change.doc.data() || {};
-      const expiresAtMs = data.expiresAt?.toMillis
-        ? data.expiresAt.toMillis()
-        : (data.expiresAt ? new Date(data.expiresAt).getTime() : null);
-      if (change.type === "removed" || (expiresAtMs && expiresAtMs <= now)) {
-        alertsMap.delete(change.doc.id);
-        return;
-      }
-      const createdAtMs = data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now();
-      alertsMap.set(change.doc.id, {
-        id: change.doc.id,
-        venueId: data.venueId,
-        venueName: data.venueName || venuesInfo[data.venueId]?.name || "FoCo venue",
-        title: data.title || data.venueName || "FoCo alert",
-        detail: data.detail || "",
-        meta: data.meta || data.venueName || "",
-        expiresAt: expiresAtMs,
-        createdAt: createdAtMs,
+    function applyAlertsSnapshot(snapshot) {
+      if (!snapshot) return;
+      const now = Date.now();
+      const changes = snapshot.docChanges ? snapshot.docChanges() : [];
+      if (!changes.length) return;
+      changes.forEach(change => {
+        const data = change.doc.data() || {};
+        const previous = alertsMap.get(change.doc.id) || null;
+        const expiresAtMs = data.expiresAt?.toMillis
+          ? data.expiresAt.toMillis()
+          : (data.expiresAt ? new Date(data.expiresAt).getTime() : null);
+        if (change.type === "removed" || (expiresAtMs && expiresAtMs <= now)) {
+          alertsMap.delete(change.doc.id);
+          return;
+        }
+        const createdAtMs = data.createdAt?.toMillis
+          ? data.createdAt.toMillis()
+          : (data.createdAt ? new Date(data.createdAt).getTime() : (previous?.createdAt || 0));
+        const updatedAtMs = data.updatedAt?.toMillis
+          ? data.updatedAt.toMillis()
+          : (data.updatedAt ? new Date(data.updatedAt).getTime() : (previous?.updatedAt || createdAtMs));
+        alertsMap.set(change.doc.id, {
+          id: change.doc.id,
+          venueId: data.venueId,
+          venueName: data.venueName || venuesInfo[data.venueId]?.name || "FoCo venue",
+          title: data.title || data.venueName || "FoCo alert",
+          detail: data.detail || "",
+          meta: data.meta || data.venueName || "",
+          expiresAt: expiresAtMs,
+          createdAt: createdAtMs,
+          updatedAt: updatedAtMs,
+        });
       });
-    });
     const fetched = Array.from(alertsMap.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     tonightAlerts = fetched;
     alertsCache = [...fetched];
@@ -16808,27 +16847,36 @@
     renderStaffAlertPreview();
     renderStaffDealCodes();
   }
-  function applyVenuePerksSnapshot(snapshot) {
-    if (!snapshot) return;
-    const changes = snapshot.docChanges ? snapshot.docChanges() : [];
-    if (!changes.length) return;
-    changes.forEach(change => {
-      const data = change.doc.data() || {};
-      const venueId = data.venueId || change.doc.ref.parent?.parent?.id;
-      if (!venueId) return;
-      const key = `${venueId}:${change.doc.id}`;
-      if (change.type === "removed") {
-        venuePerksMap.delete(key);
-        return;
-      }
-      venuePerksMap.set(key, {
-        id: change.doc.id,
-        venueId,
-        label: data.label || data.title || "",
-        standardQty: data.standardQty ?? data.standard,
-        vipQty: data.vipQty ?? data.vip
+    function applyVenuePerksSnapshot(snapshot) {
+      if (!snapshot) return;
+      const changes = snapshot.docChanges ? snapshot.docChanges() : [];
+      if (!changes.length) return;
+      changes.forEach(change => {
+        const data = change.doc.data() || {};
+        const venueId = data.venueId || change.doc.ref.parent?.parent?.id;
+        if (!venueId) return;
+        const key = `${venueId}:${change.doc.id}`;
+        const previous = venuePerksMap.get(key) || null;
+        if (change.type === "removed") {
+          venuePerksMap.delete(key);
+          return;
+        }
+        const createdAtMs = data.createdAt?.toMillis
+          ? data.createdAt.toMillis()
+          : (data.createdAt ? new Date(data.createdAt).getTime() : (previous?.createdAt || 0));
+        const updatedAtMs = data.updatedAt?.toMillis
+          ? data.updatedAt.toMillis()
+          : (data.updatedAt ? new Date(data.updatedAt).getTime() : (previous?.updatedAt || createdAtMs));
+        venuePerksMap.set(key, {
+          id: change.doc.id,
+          venueId,
+          label: data.label || data.title || "",
+          standardQty: data.standardQty ?? data.standard,
+          vipQty: data.vipQty ?? data.vip,
+          createdAt: createdAtMs,
+          updatedAt: updatedAtMs
+        });
       });
-    });
     const nextCache = {};
     venuePerksMap.forEach((value) => {
       if (!nextCache[value.venueId]) nextCache[value.venueId] = [];
@@ -16839,6 +16887,7 @@
     });
     venuePerksCache = nextCache;
     refreshFeaturedVenuesData();
+    refreshMemberCommandNewBadge();
   }
   function attachGlobalRealtime() {
     if (!db) return;
@@ -17799,6 +17848,17 @@ let onboardingIndex = 0;
       await signOutToLanding();
     });
 
+    if (memberCommandDeck) {
+      memberCommandDeck.addEventListener("toggle", () => {
+        if (memberCommandDeck.open) markMemberFeedSeen();
+      });
+    }
+    if (alertsList) {
+      alertsList.addEventListener("click", () => {
+        markMemberFeedSeen();
+      });
+    }
+
     if (navMenuToggle) {
       navMenuToggle.addEventListener("click", () => toggleNavMenu());
     }
@@ -17849,6 +17909,7 @@ let onboardingIndex = 0;
               if (reviewBtn) reviewBtn.click();
               break;
             case "featuredVenues":
+              markMemberFeedSeen();
               showScreen("venues");
               break;
             case "membership":
@@ -21066,8 +21127,81 @@ let onboardingIndex = 0;
       updateMemberCommandSignals();
     }
 
+    function getFeedTimestampMs(value) {
+      if (!value) return 0;
+      if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+      if (typeof value === "string") {
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+      if (value instanceof Date) return value.getTime();
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (typeof value.seconds === "number") {
+        const nanos = typeof value.nanoseconds === "number" ? value.nanoseconds : 0;
+        return (value.seconds * 1000) + Math.floor(nanos / 1000000);
+      }
+      return 0;
+    }
+
+    function getLatestMemberFeedUpdateAt() {
+      let latest = 0;
+      const apply = (candidate) => {
+        const ms = getFeedTimestampMs(candidate);
+        if (ms > latest) latest = ms;
+      };
+      (tonightAlerts || []).forEach((alert) => {
+        if (!alert) return;
+        apply(alert.updatedAt);
+        apply(alert.createdAt);
+      });
+      Object.values(vipDealsCache || {}).forEach((deal) => {
+        if (!deal) return;
+        apply(deal.updatedAt);
+        apply(deal.createdAt);
+      });
+      Object.values(venuePerksCache || {}).forEach((venuePerks) => {
+        if (!Array.isArray(venuePerks)) return;
+        venuePerks.forEach((perk) => {
+          if (!perk) return;
+          apply(perk.updatedAt);
+          apply(perk.createdAt);
+        });
+      });
+      return latest;
+    }
+
+    function refreshMemberCommandNewBadge() {
+      if (!memberCommandNewPill) return;
+      const key = (currentPassCode || "").toUpperCase();
+      if (!key) {
+        memberCommandNewPill.classList.remove("active");
+        return;
+      }
+      const latest = getLatestMemberFeedUpdateAt();
+      const hasSeenMarker = Object.prototype.hasOwnProperty.call(memberHqFeedSeenMap, key);
+      if (!hasSeenMarker) {
+        if (latest > 0) {
+          memberHqFeedSeenMap[key] = latest;
+          saveMemberHqFeedSeenMap(memberHqFeedSeenMap);
+        }
+        memberCommandNewPill.classList.remove("active");
+        return;
+      }
+      const seenAt = Number(memberHqFeedSeenMap[key]) || 0;
+      memberCommandNewPill.classList.toggle("active", latest > seenAt);
+    }
+
+    function markMemberFeedSeen() {
+      const key = (currentPassCode || "").toUpperCase();
+      if (!key) return;
+      const latest = getLatestMemberFeedUpdateAt();
+      memberHqFeedSeenMap[key] = latest > 0 ? latest : Date.now();
+      saveMemberHqFeedSeenMap(memberHqFeedSeenMap);
+      refreshMemberCommandNewBadge();
+    }
+
     function updateMemberCommandSignals() {
-      if (!memberCommandSubline && !memberSignalAlerts && !memberSignalFocus) return;
+      if (!memberCommandSubline && !memberSignalAlerts && !memberSignalFocus && !memberCommandNewPill) return;
       let liveAlerts = 0;
       try {
         liveAlerts = typeof getActiveAlertsForMember === "function" ? getActiveAlertsForMember().length : 0;
@@ -21100,6 +21234,7 @@ let onboardingIndex = 0;
         else if (mode === "ceo") label = "Creator profile";
         memberCommandSubline.textContent = `${label} · Live sync ${navigator.onLine ? "on" : "offline"}.`;
       }
+      refreshMemberCommandNewBadge();
     }
 
     function updateLastCheckinUI() {
@@ -29085,6 +29220,7 @@ let onboardingIndex = 0;
     }
 
     function openRedeemModal() {
+      markMemberFeedSeen();
       if (redeemModal && redeemModal.parentElement !== document.body) {
         document.body.appendChild(redeemModal);
       }
