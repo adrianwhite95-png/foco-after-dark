@@ -25692,13 +25692,16 @@ let onboardingIndex = 0;
     let forceUpdateInFlight = false;
     let appliedServerVersion = "";
     let lastSeenServerVersion = "";
+    let lastSeenIndexSignature = "";
     const FORCE_UPDATE_PENDING_KEY = "force_update_pending_version";
     const FORCE_UPDATE_APPLIED_VERSION_KEY = "force_update_applied_version";
     const FORCE_UPDATE_LAST_SEEN_VERSION_KEY = "force_update_last_seen_server_version";
+    const FORCE_UPDATE_LAST_INDEX_SIG_KEY = "force_update_last_index_signature";
     function loadForcedUpdateVersion() {
       try {
         appliedServerVersion = (localStorage.getItem(FORCE_UPDATE_APPLIED_VERSION_KEY) || "").trim();
         lastSeenServerVersion = (localStorage.getItem(FORCE_UPDATE_LAST_SEEN_VERSION_KEY) || "").trim();
+        lastSeenIndexSignature = (localStorage.getItem(FORCE_UPDATE_LAST_INDEX_SIG_KEY) || "").trim();
         if (!lastSeenServerVersion && appliedServerVersion) {
           lastSeenServerVersion = appliedServerVersion;
           localStorage.setItem(FORCE_UPDATE_LAST_SEEN_VERSION_KEY, lastSeenServerVersion);
@@ -25741,6 +25744,26 @@ let onboardingIndex = 0;
           localStorage.removeItem(FORCE_UPDATE_LAST_SEEN_VERSION_KEY);
         }
       } catch (_) {}
+    }
+    function saveLastSeenIndexSignature(signature = "") {
+      const normalized = String(signature || "").trim();
+      lastSeenIndexSignature = normalized;
+      try {
+        if (normalized) {
+          localStorage.setItem(FORCE_UPDATE_LAST_INDEX_SIG_KEY, normalized);
+        } else {
+          localStorage.removeItem(FORCE_UPDATE_LAST_INDEX_SIG_KEY);
+        }
+      } catch (_) {}
+    }
+    function simpleTextHash(input = "") {
+      let hash = 0;
+      const str = String(input || "");
+      for (let i = 0; i < str.length; i += 1) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash).toString(36);
     }
     function clearForcedUpdateRequirement() {
       requiredUpdateVersion = "";
@@ -26179,6 +26202,34 @@ let onboardingIndex = 0;
         console.warn("Version check failed", err);
       }
     }
+    async function checkIndexSignatureOnLaunch() {
+      try {
+        const stamp = Date.now();
+        const resp = await fetch(`/index.html?v=${stamp}`, { cache: "no-store" });
+        if (!resp.ok) return;
+        const etag = (resp.headers.get("etag") || "").trim();
+        const lastModified = (resp.headers.get("last-modified") || "").trim();
+        let signature = etag || lastModified;
+        if (!signature) {
+          const html = await resp.text();
+          signature = `body:${simpleTextHash(html.slice(0, 12000))}:${html.length}`;
+        }
+        if (!signature) return;
+        if (!lastSeenIndexSignature) {
+          saveLastSeenIndexSignature(signature);
+          return;
+        }
+        if (signature !== lastSeenIndexSignature) {
+          markUpdateAvailable("A new app build is ready. Update is required.", {
+            version: `idx-${simpleTextHash(signature)}`,
+            force: true
+          });
+          saveLastSeenIndexSignature(signature);
+        }
+      } catch (err) {
+        console.warn("Index signature check failed", err);
+      }
+    }
 
     function refreshOnLaunch() {
       const now = Date.now();
@@ -26190,6 +26241,7 @@ let onboardingIndex = 0;
           .catch(() => {});
       }
       checkVersionOnLaunch();
+      checkIndexSignatureOnLaunch();
     }
 
     async function loadLaunchMode() {
