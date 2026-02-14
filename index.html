@@ -9251,6 +9251,263 @@
         transform: none;
       }
     }
+
+    /* === Member + Staff Motion Refresh (lightweight, visual only) === */
+    @keyframes profileAuraDrift {
+      0% { transform: rotate(-7deg) translate3d(-2%, -1%, 0); opacity: 0.42; }
+      50% { transform: rotate(-2deg) translate3d(2%, 1%, 0); opacity: 0.68; }
+      100% { transform: rotate(5deg) translate3d(4%, -1%, 0); opacity: 0.5; }
+    }
+    @keyframes panelSheenSweep {
+      0% { transform: translate3d(-135%, 0, 0) rotate(10deg); opacity: 0; }
+      20% { opacity: 0.2; }
+      55% { opacity: 0.28; }
+      100% { transform: translate3d(135%, 0, 0) rotate(10deg); opacity: 0; }
+    }
+    @keyframes cardFloatPulse {
+      0% { transform: translate3d(0, 0, 0); box-shadow: 0 14px 30px rgba(2,8,23,0.5); }
+      50% { transform: translate3d(0, -2px, 0); box-shadow: 0 18px 36px rgba(2,8,23,0.56); }
+      100% { transform: translate3d(0, 0, 0); box-shadow: 0 14px 30px rgba(2,8,23,0.5); }
+    }
+    @keyframes statMicroPulse {
+      0% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-1px) scale(1.01); }
+      100% { transform: translateY(0) scale(1); }
+    }
+    @keyframes portalCardIn {
+      0% { opacity: 0; transform: translateY(12px) scale(0.986); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes neonEdgePulse {
+      0% { opacity: 0.34; box-shadow: inset 0 0 18px color-mix(in srgb, var(--accent-primary-live) 18%, transparent); }
+      50% { opacity: 0.7; box-shadow: inset 0 0 26px color-mix(in srgb, var(--accent-primary-live) 30%, transparent), 0 0 22px color-mix(in srgb, var(--accent-secondary-live) 28%, transparent); }
+      100% { opacity: 0.4; box-shadow: inset 0 0 18px color-mix(in srgb, var(--accent-primary-live) 18%, transparent); }
+    }
+    @keyframes primaryBtnBreathe {
+      0% { box-shadow: 0 9px 20px rgba(2,8,23,0.45), 0 0 14px color-mix(in srgb, var(--accent-primary-live) 20%, transparent); }
+      50% { box-shadow: 0 12px 25px rgba(2,8,23,0.55), 0 0 24px color-mix(in srgb, var(--accent-primary-live) 34%, transparent); }
+      100% { box-shadow: 0 9px 20px rgba(2,8,23,0.45), 0 0 14px color-mix(in srgb, var(--accent-primary-live) 20%, transparent); }
+    }
+
+    #passScreen::after,
+    #staffPortalScreen::after {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      mix-blend-mode: screen;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.24;
+      filter: blur(24px) saturate(1.12);
+      animation: strobeSpin 24s linear infinite reverse, strobePulse 7.2s ease-in-out infinite;
+    }
+    #passScreen::after {
+      background:
+        radial-gradient(circle at 22% 28%, color-mix(in srgb, var(--accent-primary-live) 42%, transparent), transparent 48%),
+        radial-gradient(circle at 74% 72%, color-mix(in srgb, var(--accent-secondary-live) 38%, transparent), transparent 52%);
+    }
+    #staffPortalScreen::after {
+      background:
+        radial-gradient(circle at 24% 24%, color-mix(in srgb, var(--staff-primary) 44%, transparent), transparent 50%),
+        radial-gradient(circle at 76% 74%, color-mix(in srgb, var(--staff-secondary) 38%, transparent), transparent 54%);
+    }
+    body.ios:not(.mobile-performance) #passScreen::before {
+      opacity: 0.56;
+      filter: blur(16px) saturate(1.16);
+    }
+    body.ios:not(.mobile-performance) #staffPortalScreen::before {
+      opacity: 0.48;
+      filter: blur(15px) saturate(1.12);
+    }
+    body.ios:not(.mobile-performance) #passScreen::after,
+    body.ios:not(.mobile-performance) #staffPortalScreen::after {
+      opacity: 0.34;
+    }
+
+    #passScreen .profile-summary::before {
+      animation: profileAuraDrift 16s ease-in-out infinite alternate;
+      will-change: transform, opacity;
+    }
+    #passScreen .pass-card {
+      box-shadow:
+        0 24px 56px rgba(2, 6, 20, 0.66),
+        0 0 34px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
+        inset 0 0 56px color-mix(in srgb, var(--accent-primary-live) 16%, transparent);
+    }
+    #passScreen .pass-inner {
+      position: relative;
+      border-radius: calc(var(--pass-radius, 28px) - 6px);
+    }
+    #passScreen .pass-inner::before {
+      content: "";
+      position: absolute;
+      inset: -4px;
+      border-radius: inherit;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 36%, rgba(148,163,184,0.28));
+      pointer-events: none;
+      opacity: 0.5;
+      animation: neonEdgePulse 6.2s ease-in-out infinite;
+    }
+    #passScreen .member-hero {
+      position: relative;
+      overflow: hidden;
+      animation: cardFloatPulse 8.5s ease-in-out infinite;
+    }
+    #passScreen .member-hero::before {
+      content: "";
+      position: absolute;
+      top: -30%;
+      left: -45%;
+      width: 40%;
+      height: 170%;
+      background: linear-gradient(120deg, transparent, color-mix(in srgb, var(--accent-primary-live) 34%, rgba(255,255,255,0.22)), transparent);
+      filter: blur(3px);
+      pointer-events: none;
+      animation: panelSheenSweep 7.8s ease-in-out infinite;
+    }
+    #passScreen .community-stat {
+      will-change: transform;
+      animation: statMicroPulse 6.8s ease-in-out infinite;
+    }
+    #passScreen .community-stat:nth-child(2) { animation-delay: 0.45s; }
+    #passScreen .community-stat:nth-child(3) { animation-delay: 0.9s; }
+    #passScreen .community-stat:nth-child(4) { animation-delay: 1.35s; }
+    #passScreen .community-stat:nth-child(5) { animation-delay: 1.8s; }
+    #passScreen .community-stat:nth-child(6) { animation-delay: 2.25s; }
+
+    #staffPortalScreen .staff-form,
+    #staffPortalScreen .vip-deal-card,
+    #staffPortalScreen .staff-more,
+    #staffPortalScreen .staff-ticker {
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 16px 34px rgba(1, 6, 18, 0.56),
+        0 0 18px color-mix(in srgb, var(--staff-primary) 20%, transparent);
+    }
+    #staffPortalScreen .staff-form::before,
+    #staffPortalScreen .vip-deal-card::before,
+    #staffPortalScreen .staff-more::before,
+    #staffPortalScreen .staff-ticker::before {
+      content: "";
+      position: absolute;
+      top: -28%;
+      left: -42%;
+      width: 36%;
+      height: 165%;
+      background: linear-gradient(120deg, transparent, color-mix(in srgb, var(--staff-primary) 30%, rgba(255,255,255,0.2)), transparent);
+      filter: blur(3px);
+      pointer-events: none;
+      animation: panelSheenSweep 9s ease-in-out infinite;
+      opacity: 0.7;
+    }
+    #staffPortalScreen .staff-form::before { animation-delay: 0.2s; }
+    #staffPortalScreen .vip-deal-card::before { animation-delay: 1.2s; }
+    #staffPortalScreen .staff-more::before { animation-delay: 2s; }
+    #staffPortalScreen .staff-ticker::before { animation-delay: 2.8s; }
+    #staffPortalScreen .staff-form::after,
+    #staffPortalScreen .vip-deal-card::after,
+    #staffPortalScreen .staff-more::after,
+    #staffPortalScreen .staff-ticker::after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: inherit;
+      border: 1px solid color-mix(in srgb, var(--staff-primary) 30%, rgba(148,163,184,0.24));
+      pointer-events: none;
+      opacity: 0.45;
+      animation: neonEdgePulse 6.8s ease-in-out infinite;
+    }
+    #staffPortalScreen .staff-form::after { animation-delay: 0.3s; }
+    #staffPortalScreen .vip-deal-card::after { animation-delay: 0.9s; }
+    #staffPortalScreen .staff-more::after { animation-delay: 1.5s; }
+    #staffPortalScreen .staff-ticker::after { animation-delay: 2.1s; }
+
+    #passScreen .btn.btn-primary,
+    #staffPortalScreen .btn.btn-primary {
+      animation: primaryBtnBreathe 3.6s ease-in-out infinite;
+      transform-origin: center;
+    }
+    #passScreen .btn.btn-primary:hover,
+    #staffPortalScreen .btn.btn-primary:hover {
+      transform: translateY(-1px) scale(1.01);
+    }
+
+    #passScreen.screen-in .profile-summary,
+    #passScreen.screen-in .member-hero,
+    #passScreen.screen-in .alerts-card {
+      animation: portalCardIn 460ms cubic-bezier(0.22, 0.9, 0.34, 1) both;
+    }
+    #passScreen.screen-in .member-hero { animation-delay: 70ms; }
+    #passScreen.screen-in .alerts-card { animation-delay: 130ms; }
+
+    #staffPortalScreen.screen-in #verifyCard,
+    #staffPortalScreen.screen-in #staffRadar,
+    #staffPortalScreen.screen-in #staffPerksCard,
+    #staffPortalScreen.screen-in #alertCard,
+    #staffPortalScreen.screen-in #codesCard,
+    #staffPortalScreen.screen-in #staffMessageCard,
+    #staffPortalScreen.screen-in #staffMore {
+      animation: portalCardIn 500ms cubic-bezier(0.2, 0.88, 0.26, 1) both;
+    }
+    #staffPortalScreen.screen-in #staffRadar { animation-delay: 55ms; }
+    #staffPortalScreen.screen-in #staffPerksCard { animation-delay: 105ms; }
+    #staffPortalScreen.screen-in #alertCard { animation-delay: 155ms; }
+    #staffPortalScreen.screen-in #codesCard { animation-delay: 205ms; }
+    #staffPortalScreen.screen-in #staffMessageCard { animation-delay: 255ms; }
+    #staffPortalScreen.screen-in #staffMore { animation-delay: 305ms; }
+
+    body.mobile-performance #passScreen .profile-summary::before,
+    body.mobile-performance #passScreen::after,
+    body.mobile-performance #staffPortalScreen::after,
+    body.mobile-performance #passScreen .member-hero::before,
+    body.mobile-performance #passScreen .pass-inner::before,
+    body.mobile-performance #staffPortalScreen .staff-form::before,
+    body.mobile-performance #staffPortalScreen .staff-form::after,
+    body.mobile-performance #staffPortalScreen .vip-deal-card::before,
+    body.mobile-performance #staffPortalScreen .vip-deal-card::after,
+    body.mobile-performance #staffPortalScreen .staff-more::before,
+    body.mobile-performance #staffPortalScreen .staff-more::after,
+    body.mobile-performance #staffPortalScreen .staff-ticker::before,
+    body.mobile-performance #staffPortalScreen .staff-ticker::after,
+    body.mobile-performance #passScreen .member-hero,
+    body.mobile-performance #passScreen .community-stat,
+    body.mobile-performance #passScreen .btn.btn-primary,
+    body.mobile-performance #staffPortalScreen .btn.btn-primary {
+      animation: none !important;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #passScreen::after,
+      #staffPortalScreen::after,
+      #passScreen .profile-summary::before,
+      #passScreen .pass-inner::before,
+      #passScreen .member-hero,
+      #passScreen .member-hero::before,
+      #passScreen .community-stat,
+      #passScreen .btn.btn-primary,
+      #staffPortalScreen .staff-form::before,
+      #staffPortalScreen .staff-form::after,
+      #staffPortalScreen .vip-deal-card::before,
+      #staffPortalScreen .vip-deal-card::after,
+      #staffPortalScreen .staff-more::before,
+      #staffPortalScreen .staff-more::after,
+      #staffPortalScreen .staff-ticker::before,
+      #staffPortalScreen .staff-ticker::after,
+      #staffPortalScreen .btn.btn-primary,
+      #passScreen.screen-in .profile-summary,
+      #passScreen.screen-in .member-hero,
+      #passScreen.screen-in .alerts-card,
+      #staffPortalScreen.screen-in #verifyCard,
+      #staffPortalScreen.screen-in #staffRadar,
+      #staffPortalScreen.screen-in #staffPerksCard,
+      #staffPortalScreen.screen-in #alertCard,
+      #staffPortalScreen.screen-in #codesCard,
+      #staffPortalScreen.screen-in #staffMessageCard,
+      #staffPortalScreen.screen-in #staffMore {
+        animation: none !important;
+      }
+    }
   </style>
 </head>
   <body>
