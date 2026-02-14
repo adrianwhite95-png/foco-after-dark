@@ -26136,9 +26136,11 @@ let onboardingIndex = 0;
       if (unsub) appStatsUnsub = unsub;
     }
 
+    let lastVersionCheckAt = 0;
     async function checkVersionOnLaunch() {
       try {
-        const resp = await fetch(`/version.json`, { cache: "no-store" });
+        const stamp = Date.now();
+        const resp = await fetch(`/version.json?v=${stamp}`, { cache: "no-store" });
         if (!resp.ok) return;
         const data = await resp.json();
         handleServerVersionSeen(data?.version, "version_json");
@@ -26148,11 +26150,9 @@ let onboardingIndex = 0;
     }
 
     function refreshOnLaunch() {
-      const key = "launch_refresh_once";
-      try {
-        if (sessionStorage.getItem(key)) return;
-        sessionStorage.setItem(key, "1");
-      } catch (_) {}
+      const now = Date.now();
+      if ((now - lastVersionCheckAt) < 12000) return;
+      lastVersionCheckAt = now;
       if (navigator.serviceWorker?.getRegistration) {
         navigator.serviceWorker.getRegistration()
           .then(reg => reg?.update())

@@ -98,7 +98,7 @@ self.addEventListener("message", (event) => {
   }
 });
 
-const CACHE_VERSION = "foco-cache-v11";
+const CACHE_VERSION = "foco-cache-v12";
 const CORE_ASSETS = ["/", "/index.html", "/manifest.json", "/foco-logo.png"];
 
 self.addEventListener("install", (event) => {
@@ -122,6 +122,14 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) {
     // Don't intercept cross-origin requests (prevents opaque SW responses)
+    return;
+  }
+
+  // Always read deploy version fresh so forced-update logic can trigger reliably.
+  if (url.pathname === "/version.json") {
+    event.respondWith(
+      fetch(event.request, { cache: "no-store" }).catch(() => caches.match("/version.json"))
+    );
     return;
   }
 
