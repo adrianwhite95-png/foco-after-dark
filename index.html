@@ -9288,6 +9288,31 @@
       50% { box-shadow: 0 12px 25px rgba(2,8,23,0.55), 0 0 24px color-mix(in srgb, var(--accent-primary-live) 34%, transparent); }
       100% { box-shadow: 0 9px 20px rgba(2,8,23,0.45), 0 0 14px color-mix(in srgb, var(--accent-primary-live) 20%, transparent); }
     }
+    @keyframes tonightSweep {
+      0% { transform: translateX(-42%); opacity: 0; }
+      20% { opacity: 0.22; }
+      50% { opacity: 0.18; }
+      100% { transform: translateX(42%); opacity: 0; }
+    }
+    @keyframes valueRadarPulse {
+      0% { opacity: 0.72; transform: scale(0.45); }
+      70% { opacity: 0.2; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.18); }
+    }
+    @keyframes valueStatFlash {
+      0% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 8px 24px rgba(1, 4, 12, 0.65);
+      }
+      40% {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 12px 30px rgba(1, 4, 12, 0.7), 0 0 16px color-mix(in srgb, var(--accent-primary-live) 30%, transparent);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 8px 24px rgba(1, 4, 12, 0.65);
+      }
+    }
 
     #passScreen::after,
     #staffPortalScreen::after {
@@ -9464,8 +9489,8 @@
       padding: 14px;
       border-radius: 16px;
       border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, var(--border));
-      background: linear-gradient(130deg, rgba(10, 16, 34, 0.92), rgba(8, 13, 28, 0.88));
-      box-shadow: 0 14px 28px rgba(2, 8, 23, 0.36), inset 0 0 14px color-mix(in srgb, var(--accent-primary-live) 10%, transparent);
+      background: linear-gradient(130deg, rgba(10, 16, 34, 0.9), rgba(8, 13, 28, 0.86));
+      box-shadow: 0 12px 24px rgba(2, 8, 23, 0.34), inset 0 0 10px color-mix(in srgb, var(--accent-primary-live) 7%, transparent);
       backdrop-filter: blur(9px);
     }
     #passScreen .member-command-head {
@@ -9563,6 +9588,86 @@
     #passScreen .member-action-matrix .btn:hover {
       transform: translateY(-1px);
     }
+    #passScreen .member-hero {
+      position: relative;
+      overflow: hidden;
+      border-color: color-mix(in srgb, var(--accent-primary-live) 34%, var(--border));
+      background:
+        radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--accent-primary-live) 16%, transparent), transparent 46%),
+        radial-gradient(circle at 90% 100%, color-mix(in srgb, var(--accent-secondary-live) 14%, transparent), transparent 50%),
+        linear-gradient(155deg, rgba(8, 12, 26, 0.96), rgba(6, 10, 22, 0.9));
+    }
+    #passScreen .member-hero::after {
+      content: "";
+      position: absolute;
+      inset: -35% -20%;
+      background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--accent-primary-live) 30%, transparent), transparent 70%);
+      opacity: 0.24;
+      transform: translateX(-28%);
+      animation: tonightSweep 6.4s linear infinite;
+      pointer-events: none;
+    }
+    #passScreen .member-hero > * {
+      position: relative;
+      z-index: 1;
+    }
+    #passScreen .value-live-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 12px;
+      padding: 10px 11px;
+      border-radius: 13px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, var(--border));
+      background: rgba(7, 14, 30, 0.72);
+      box-shadow: inset 0 0 14px color-mix(in srgb, var(--accent-primary-live) 10%, transparent);
+    }
+    #passScreen .value-radar {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+    }
+    #passScreen .value-radar-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 50%, transparent);
+      opacity: 0;
+      transform: scale(0.45);
+      animation: valueRadarPulse 2.4s ease-out infinite;
+    }
+    #passScreen .value-radar-ring.ring-2 { animation-delay: 0.8s; }
+    #passScreen .value-radar-ring.ring-3 { animation-delay: 1.6s; }
+    #passScreen .value-radar-core {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: linear-gradient(130deg, var(--accent-primary-live), var(--accent-secondary-live));
+      box-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary-live) 55%, transparent);
+    }
+    #passScreen .value-live-title {
+      color: #a5f3fc;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+      font-weight: 700;
+    }
+    #passScreen .value-live-text {
+      color: #dbeafe;
+      font-size: 13px;
+      line-height: 1.3;
+    }
+    #passScreen .member-hero .community-stat {
+      transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+    }
+    #passScreen .member-hero .community-stat.stat-flash {
+      animation: valueStatFlash 540ms ease;
+    }
     #passScreen .profile-top-grid {
       align-items: start;
       gap: 14px;
@@ -9634,6 +9739,10 @@
       #passScreen .member-experience-tag {
         width: auto;
       }
+      #passScreen .value-live-row {
+        grid-template-columns: 1fr;
+        justify-items: start;
+      }
     }
     @media (max-width: 640px) {
       #passScreen .member-command-signals {
@@ -9671,6 +9780,8 @@
       #passScreen .pass-inner::before,
       #passScreen .member-hero,
       #passScreen .member-hero::before,
+      #passScreen .member-hero::after,
+      #passScreen .value-radar-ring,
       #passScreen .community-stat,
       #passScreen .btn.btn-primary,
       #staffPortalScreen .staff-form::before,
@@ -10123,7 +10234,7 @@
               </div>
               <span class="member-experience-tag" id="profileExperienceTag">Standard mode</span>
             </div>
-            <div class="member-command-subline" id="memberCommandSubline">Standard profile · Live sync on.</div>
+            <div class="member-command-subline" id="memberCommandSubline">Account controls, membership status, and wallet sync.</div>
             <div class="member-command-signals">
               <div class="member-signal">
                 <span>Live alerts</span>
@@ -10236,6 +10347,18 @@
             <div class="member-hero-header">
               <div class="member-hero-title">Tonight’s value</div>
               <div class="member-hero-sub">Your live pass balance + perks.</div>
+            </div>
+            <div class="value-live-row">
+              <div class="value-radar" aria-hidden="true">
+                <span class="value-radar-ring ring-1"></span>
+                <span class="value-radar-ring ring-2"></span>
+                <span class="value-radar-ring ring-3"></span>
+                <span class="value-radar-core"></span>
+              </div>
+              <div class="value-live-copy">
+                <div class="value-live-title">Live momentum</div>
+                <div class="value-live-text" id="valueLiveText">Scanning tonight's venue activity...</div>
+              </div>
             </div>
             <div class="community-stats" id="communityStats">
               <div class="community-stat">
@@ -14526,6 +14649,7 @@
     const memberCommandSubline = document.getElementById("memberCommandSubline");
     const memberSignalAlerts = document.getElementById("memberSignalAlerts");
     const memberSignalFocus = document.getElementById("memberSignalFocus");
+    const valueLiveText = document.getElementById("valueLiveText");
     const FRIENDS_DISABLED = true;
 
     async function updateStaffCloseoutStamp() {
@@ -15912,17 +16036,55 @@
       updatePulseBand({ total: 0, venuesVisited: 0, avg: 0 });
       updateLastCheckinUI();
       updateQuickStrip();
+      updateTonightValueLive({ total: 0, venuesVisited: 0, avg: 0 });
+    }
+
+    function updateStatCell(el, nextText) {
+      if (!el) return;
+      const next = String(nextText);
+      if (el.textContent === next) return;
+      el.textContent = next;
+      const card = el.closest(".community-stat");
+      if (!card) return;
+      card.classList.remove("stat-flash");
+      void card.offsetWidth;
+      card.classList.add("stat-flash");
+    }
+    function updateTonightValueLive(stats = {}) {
+      if (!valueLiveText) return;
+      let liveAlerts = 0;
+      try {
+        liveAlerts = typeof getActiveAlertsForMember === "function" ? getActiveAlertsForMember().length : 0;
+      } catch (_) {
+        liveAlerts = 0;
+      }
+      const total = Number(stats.total || 0);
+      const venues = Number(stats.venuesVisited || 0);
+      if (typeof isMembershipExpired === "function" && isMembershipExpired()) {
+        valueLiveText.textContent = "Membership expired. Update billing to keep redeeming tonight.";
+        return;
+      }
+      if (liveAlerts > 0) {
+        valueLiveText.textContent = `${liveAlerts} live alert${liveAlerts === 1 ? "" : "s"} active across venues.`;
+        return;
+      }
+      if (total > 0) {
+        valueLiveText.textContent = `${total} redeem${total === 1 ? "" : "s"} logged, ${venues} venue${venues === 1 ? "" : "s"} visited.`;
+        return;
+      }
+      valueLiveText.textContent = "No redemptions yet tonight. Pick a venue and start your streak.";
     }
 
     function applyStatsToUi({ total, venuesVisited, avg }) {
-      if (statRedemptions) statRedemptions.textContent = total.toString();
-      if (statVenuesVisited) statVenuesVisited.textContent = venuesVisited.toString();
-      if (statAvgSavings) statAvgSavings.textContent = `$${avg.toFixed(2)} avg`;
-      if (statLoginCount) statLoginCount.textContent = `${Number(memberProfile?.loginCount || 0)}`;
-      if (statActiveDays) statActiveDays.textContent = `${Number(memberProfile?.activeDays || 0)}`;
+      updateStatCell(statRedemptions, total.toString());
+      updateStatCell(statVenuesVisited, venuesVisited.toString());
+      updateStatCell(statAvgSavings, `$${avg.toFixed(2)} avg`);
+      updateStatCell(statLoginCount, `${Number(memberProfile?.loginCount || 0)}`);
+      updateStatCell(statActiveDays, `${Number(memberProfile?.activeDays || 0)}`);
       updatePulseBand({ total, venuesVisited, avg });
       updatePointsUI();
       updateQuickStrip();
+      updateTonightValueLive({ total, venuesVisited, avg });
       updateLastCheckinUI();
       updateVoucherBalanceUI();
       const codeForCache = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
@@ -16859,6 +17021,11 @@
       if (activeCount === 0) {
         stopAlertsCountdown();
         updateMemberCommandSignals();
+        const total = Number.parseInt((statRedemptions?.textContent || "0").replace(/[^\d-]/g, ""), 10) || 0;
+        const venues = Number.parseInt((statVenuesVisited?.textContent || "0").replace(/[^\d-]/g, ""), 10) || 0;
+        const avgRaw = (statAvgSavings?.textContent || "").replace(/[^\d.]/g, "");
+        const avg = Number.parseFloat(avgRaw) || 0;
+        updateTonightValueLive({ total, venuesVisited: venues, avg });
         return;
       }
       if (!window.__alertsCountdownHandle) {
@@ -16868,6 +17035,11 @@
         }, countdownMs);
       }
       updateMemberCommandSignals();
+      const total = Number.parseInt((statRedemptions?.textContent || "0").replace(/[^\d-]/g, ""), 10) || 0;
+      const venues = Number.parseInt((statVenuesVisited?.textContent || "0").replace(/[^\d-]/g, ""), 10) || 0;
+      const avgRaw = (statAvgSavings?.textContent || "").replace(/[^\d.]/g, "");
+      const avg = Number.parseFloat(avgRaw) || 0;
+      updateTonightValueLive({ total, venuesVisited: venues, avg });
     }
     function stopAlertsCountdown() {
       if (window.__alertsCountdownHandle) {
