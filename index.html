@@ -8985,6 +8985,160 @@
         min-width: 920px;
       }
     }
+
+    /* Mobile-safe CEO members layout (prevents off-screen clipping) */
+    @media (max-width: 860px) {
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="members"] .ceo-table-wrap {
+        overflow: visible !important;
+        border: none;
+        background: transparent;
+        padding: 0;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="members"] .ceo-table {
+        width: 100% !important;
+        min-width: 0 !important;
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="members"] .ceo-table thead {
+        display: none;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="members"] .ceo-table tbody {
+        display: grid;
+        gap: 10px;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="members"] .ceo-table tr {
+        display: block;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 14px;
+        background: rgba(8, 12, 24, 0.78);
+        box-shadow: 0 12px 24px rgba(2, 6, 18, 0.35);
+        padding: 8px 10px;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="members"] .ceo-table td {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr);
+        gap: 8px;
+        align-items: start;
+        width: 100%;
+        padding: 7px 0;
+        border-bottom: 1px dashed rgba(148, 163, 184, 0.2);
+        white-space: normal !important;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="members"] .ceo-table td:last-child {
+        border-bottom: 0;
+        padding-top: 10px;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="members"] .ceo-table td::before {
+        content: attr(data-label);
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #94a3b8;
+        font-weight: 700;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="members"] .ceo-table td:last-child::before {
+        display: none;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="members"] .ceo-table td:last-child > div {
+        width: 100%;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="members"] .ceo-table td:last-child .btn {
+        flex: 1 1 120px;
+      }
+    }
+
+    /* Global visual enhancement layer (no functional changes) */
+    :where(
+      .screen,
+      .pass-card,
+      .card-hd,
+      .staff-form,
+      .staff-radar,
+      .ceo-card,
+      .ceo-panel,
+      .ceo-hq-panel,
+      .ceo-reset-card,
+      .membership-card,
+      .payment-card,
+      .support-card,
+      .venues-card,
+      .vip-deal-card,
+      .alerts-card,
+      .modal-card,
+      .black-card
+    ) {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 18%, rgba(148, 163, 184, 0.32));
+      box-shadow:
+        0 14px 32px rgba(2, 6, 18, 0.5),
+        0 0 18px color-mix(in srgb, var(--accent-primary-live) 14%, transparent);
+    }
+    :where(
+      .card-hd,
+      .staff-form,
+      .staff-radar,
+      .ceo-card,
+      .ceo-panel,
+      .ceo-hq-panel,
+      .membership-card,
+      .payment-card,
+      .support-card,
+      .venues-card,
+      .vip-deal-card,
+      .alerts-card
+    ):hover {
+      transform: translateY(-1px);
+      box-shadow:
+        0 18px 38px rgba(2, 6, 18, 0.58),
+        0 0 24px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
+    }
+    .btn {
+      box-shadow: 0 8px 18px rgba(2, 6, 18, 0.4);
+    }
+    .btn.btn-primary {
+      box-shadow:
+        0 12px 24px rgba(2, 6, 18, 0.55),
+        0 0 18px color-mix(in srgb, var(--accent-primary-live) 28%, transparent);
+    }
+    .btn.btn-primary:hover {
+      box-shadow:
+        0 16px 30px rgba(2, 6, 18, 0.62),
+        0 0 24px color-mix(in srgb, var(--accent-primary-live) 38%, transparent),
+        0 0 18px color-mix(in srgb, var(--accent-secondary-live) 24%, transparent);
+    }
+    .btn.btn-secondary {
+      box-shadow:
+        0 10px 20px rgba(2, 6, 18, 0.45),
+        inset 0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    .btn.btn-secondary:hover {
+      box-shadow:
+        0 14px 26px rgba(2, 6, 18, 0.54),
+        0 0 14px color-mix(in srgb, var(--accent-primary-live) 18%, transparent);
+    }
+    .btn:active {
+      transform: translateY(1px) scale(0.993);
+    }
+    .nav-item:hover,
+    .accent-chip:hover,
+    .pill:hover,
+    .status-pill:hover {
+      box-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+    }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus,
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 52%, rgba(148, 163, 184, 0.35));
+      box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--accent-primary-live) 16%, transparent),
+        0 0 14px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
+    }
+    body.ios :where(.btn, .nav-item, .pill, .community-stat, .featured-card, .ceo-nav-item) {
+      -webkit-tap-highlight-color: rgba(34, 211, 238, 0.24);
+    }
   </style>
 </head>
   <body>
@@ -26032,17 +26186,17 @@ let onboardingIndex = 0;
         const statusClass = (m.statusKey === "paused" || m.statusKey === "past_due") ? "pill danger" : "pill ghost";
         return `
           <tr>
-            <td>
+            <td data-label="Member">
               <div style="font-weight:600;">${m.username}</div>
               <div style="font-size:11px;color:#94a3b8;">${m.passCode ? `Pass ${m.passCode}` : "—"}</div>
             </td>
-            <td>${m.uidShort}</td>
-            <td>${m.tier}</td>
-            <td><span class="${statusClass}">${m.statusLabel}</span></td>
-            <td>${m.gender}</td>
-            <td>${m.createdAtLabel}</td>
-            <td>${m.lastActiveLabel}</td>
-            <td>
+            <td data-label="UID">${m.uidShort}</td>
+            <td data-label="Tier">${m.tier}</td>
+            <td data-label="Status"><span class="${statusClass}">${m.statusLabel}</span></td>
+            <td data-label="Gender">${m.gender}</td>
+            <td data-label="Joined">${m.createdAtLabel}</td>
+            <td data-label="Last active">${m.lastActiveLabel}</td>
+            <td data-label="Actions">
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:11px;border-radius:10px;" data-member-uid="${m.uid}" data-member-paused="${m.paused ? "1" : "0"}">
                   ${m.paused ? "Unpause" : "Pause"}
