@@ -25691,11 +25691,18 @@ let onboardingIndex = 0;
     let requiredUpdateMessage = "";
     let forceUpdateInFlight = false;
     let appliedServerVersion = "";
+    let lastSeenServerVersion = "";
     const FORCE_UPDATE_PENDING_KEY = "force_update_pending_version";
     const FORCE_UPDATE_APPLIED_VERSION_KEY = "force_update_applied_version";
+    const FORCE_UPDATE_LAST_SEEN_VERSION_KEY = "force_update_last_seen_server_version";
     function loadForcedUpdateVersion() {
       try {
         appliedServerVersion = (localStorage.getItem(FORCE_UPDATE_APPLIED_VERSION_KEY) || "").trim();
+        lastSeenServerVersion = (localStorage.getItem(FORCE_UPDATE_LAST_SEEN_VERSION_KEY) || "").trim();
+        if (!lastSeenServerVersion && appliedServerVersion) {
+          lastSeenServerVersion = appliedServerVersion;
+          localStorage.setItem(FORCE_UPDATE_LAST_SEEN_VERSION_KEY, lastSeenServerVersion);
+        }
         const saved = localStorage.getItem(FORCE_UPDATE_PENDING_KEY) || "";
         if (saved && saved !== appliedServerVersion) {
           requiredUpdateVersion = saved;
@@ -25721,6 +25728,17 @@ let onboardingIndex = 0;
           localStorage.setItem(FORCE_UPDATE_PENDING_KEY, version);
         } else {
           localStorage.removeItem(FORCE_UPDATE_PENDING_KEY);
+        }
+      } catch (_) {}
+    }
+    function saveLastSeenServerVersion(version = "") {
+      const normalized = String(version || "").trim();
+      lastSeenServerVersion = normalized;
+      try {
+        if (normalized) {
+          localStorage.setItem(FORCE_UPDATE_LAST_SEEN_VERSION_KEY, normalized);
+        } else {
+          localStorage.removeItem(FORCE_UPDATE_LAST_SEEN_VERSION_KEY);
         }
       } catch (_) {}
     }
@@ -25841,18 +25859,31 @@ let onboardingIndex = 0;
       if (!serverVersion) return;
       const fromVersionJson = source === "version_json";
       const hasPendingRequired = !!(requiredUpdateVersion && requiredUpdateVersion !== appliedServerVersion);
-      if (hasPendingRequired && !fromVersionJson && serverVersion !== requiredUpdateVersion) {
+
+      // Only version.json drives forced update prompts.
+      if (!fromVersionJson) {
+        if (!appliedServerVersion) {
+          saveAppliedServerVersion(serverVersion);
+        }
         return;
       }
+
+      const hadSeenVersion = !!lastSeenServerVersion;
+      const changedSinceLastSeen = hadSeenVersion && serverVersion !== lastSeenServerVersion;
+      saveLastSeenServerVersion(serverVersion);
+
       if (!appliedServerVersion) {
         saveAppliedServerVersion(serverVersion);
         clearForcedUpdateRequirement();
         return;
       }
+
       if (serverVersion !== appliedServerVersion) {
-        if (!fromVersionJson) return;
         markUpdateAvailable("A new app build is ready. Update is required.", { version: serverVersion, force: true });
-      } else if (!hasPendingRequired) {
+        return;
+      }
+
+      if (!hasPendingRequired && !changedSinceLastSeen) {
         clearForcedUpdateRequirement();
       }
     }
