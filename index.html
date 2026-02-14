@@ -9170,6 +9170,16 @@
       opacity: 0.22 !important;
       animation-duration: 26s !important;
     }
+    body.ios.mobile-performance #passScreen::before {
+      filter: blur(14px) saturate(1.12) !important;
+      opacity: 0.38 !important;
+      animation-duration: 20s !important;
+    }
+    body.ios.mobile-performance #staffPortalScreen::before {
+      filter: blur(13px) saturate(1.08) !important;
+      opacity: 0.32 !important;
+      animation-duration: 21s !important;
+    }
     @media (hover: none) {
       :where(
         .card-hd,
@@ -20036,6 +20046,7 @@ let onboardingIndex = 0;
       const code = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
       if (!code || !Number.isFinite(points) || points <= 0) return;
       const awardKey = normalizePointAwardKeyClient(meta?.awardKey || "");
+      const requireCloud = !!meta?.requireCloud;
       if (awardKey && inFlightPointAwardKeys.has(awardKey)) {
         return { success: true, awarded: false, skipped: true, inFlight: true };
       }
@@ -20061,7 +20072,10 @@ let onboardingIndex = 0;
             }
             return serverResult;
           }
-          return;
+          return { success: false, awarded: false, skipped: true, deferred: true };
+        }
+        if (requireCloud) {
+          return { success: false, awarded: false, skipped: true, deferred: true };
         }
         const ledger = loadPointsLedger();
         const entry = ledger[code] || { points: 0, venues: {} };
@@ -22976,12 +22990,17 @@ let onboardingIndex = 0;
     function closeAchievementsCompleteModal() {
       if (achievementsCompleteModal) achievementsCompleteModal.classList.remove("active");
     }
-    function maybeCelebrateAllAchievements() {
+    async function maybeCelebrateAllAchievements() {
       if (!currentPassCode || !memberProfile) return;
+      if (!(useCloudProfile() && functionsClient && firebaseAuth?.currentUser)) return;
       const state = getAchievementStateForCurrentPass();
       if (!state.allCompletePending || state.allCompleteRewarded) return;
       if (!hasAllAchievementsUnlocked(state)) return;
-      addPoints(ALL_ACHIEVEMENTS_REWARD, "All achievements complete", { awardKey: "achievement:all_complete" });
+      const awardResult = await addPoints(ALL_ACHIEVEMENTS_REWARD, "All achievements complete", {
+        awardKey: "achievement:all_complete",
+        requireCloud: true
+      });
+      if (!awardResult || (awardResult.awarded !== true && awardResult.skipped !== true)) return;
       setAchievementStateForCurrentPass({
         allCompletePending: false,
         allCompleteRewarded: true,
@@ -23016,7 +23035,7 @@ let onboardingIndex = 0;
         </div>`;
       }).join("");
     }
-    function evaluateAchievements(entriesOverride) {
+    async function evaluateAchievements(entriesOverride) {
       if (!currentPassCode) return;
       const key = currentPassCode.toUpperCase();
       const entry = getAchievementStateForCurrentPass();
@@ -23040,12 +23059,26 @@ let onboardingIndex = 0;
       if (wheelSpins >= 1) updates.firstSpin = true;
       if (loadVibeState(key)) updates.vibeSet = true;
       if (verifiedCount >= 10) updates.perkRegular = true;
-      Object.entries(ACHIEVEMENT_POINTS).forEach(([id, points]) => {
-        if (updates[id] && !entry[id]) {
-          const label = ACHIEVEMENT_BY_ID[id]?.label || "Achievement";
-          addPoints(points, `Achievement: ${label}`, { awardKey: `achievement:${id}` });
+      const rewardUpdates = {};
+      const canGrantAchievementPoints = !!(useCloudProfile() && functionsClient && firebaseAuth?.currentUser);
+      for (const [id, points] of Object.entries(ACHIEVEMENT_POINTS)) {
+        if (!updates[id]) continue;
+        const rewardFlagKey = `${id}PointsRewarded`;
+        if (entry[rewardFlagKey]) continue;
+        if (!canGrantAchievementPoints) continue;
+        const label = ACHIEVEMENT_BY_ID[id]?.label || "Achievement";
+        const awardResult = await addPoints(points, `Achievement: ${label}`, {
+          awardKey: `achievement:${id}`,
+          requireCloud: true
+        });
+        if (awardResult && (awardResult.awarded === true || awardResult.skipped === true)) {
+          rewardUpdates[rewardFlagKey] = true;
+          rewardUpdates[`${id}PointsRewardedAt`] = new Date().toISOString();
         }
-      });
+      }
+      if (Object.keys(rewardUpdates).length) {
+        Object.assign(updates, rewardUpdates);
+      }
       if (hasAllAchievementsUnlocked(updates)) {
         if (!updates.allCompleteAt) {
           updates.allCompleteAt = new Date().toISOString();
