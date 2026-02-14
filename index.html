@@ -9897,6 +9897,55 @@
       animation: none !important;
     }
 
+    /* Global button glow pass */
+    :where(
+      button,
+      .btn,
+      .nav-toggle,
+      .nav-item,
+      .ceo-nav-item,
+      .accent-chip,
+      .pill-ghost,
+      .chip
+    ):not(:disabled):not([aria-disabled="true"]) {
+      box-shadow:
+        0 10px 24px rgba(2, 6, 18, 0.52),
+        0 0 22px color-mix(in srgb, var(--accent-primary-live) 45%, transparent),
+        0 0 34px color-mix(in srgb, var(--accent-secondary-live) 34%, transparent),
+        inset 0 0 16px color-mix(in srgb, var(--accent-primary-live) 16%, transparent) !important;
+      border-color: color-mix(in srgb, var(--accent-primary-live) 44%, rgba(255,255,255,0.18));
+      transition: transform 140ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+    :where(
+      button,
+      .btn,
+      .nav-toggle,
+      .nav-item,
+      .ceo-nav-item,
+      .accent-chip,
+      .pill-ghost,
+      .chip
+    ):not(:disabled):not([aria-disabled="true"]):hover {
+      box-shadow:
+        0 13px 30px rgba(2, 6, 18, 0.62),
+        0 0 30px color-mix(in srgb, var(--accent-primary-live) 62%, transparent),
+        0 0 46px color-mix(in srgb, var(--accent-secondary-live) 46%, transparent),
+        inset 0 0 20px color-mix(in srgb, var(--accent-primary-live) 24%, transparent) !important;
+      transform: translateY(-1px);
+    }
+    :where(
+      button,
+      .btn,
+      .nav-toggle,
+      .nav-item,
+      .ceo-nav-item,
+      .accent-chip,
+      .pill-ghost,
+      .chip
+    ):not(:disabled):not([aria-disabled="true"]):active {
+      transform: translateY(0) scale(0.99);
+    }
+
     @media (prefers-reduced-motion: reduce) {
       #passScreen::after,
       #staffPortalScreen::after,
