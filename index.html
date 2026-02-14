@@ -25579,17 +25579,23 @@ let onboardingIndex = 0;
       loadForcedUpdateVersion();
       showForcedUpdateModal();
     }
-    function handleServerVersionSeen(serverVersionRaw) {
+    function handleServerVersionSeen(serverVersionRaw, source = "unknown") {
       const serverVersion = String(serverVersionRaw || "").trim();
       if (!serverVersion) return;
+      const fromVersionJson = source === "version_json";
+      const hasPendingRequired = !!(requiredUpdateVersion && requiredUpdateVersion !== appliedServerVersion);
+      if (hasPendingRequired && !fromVersionJson && serverVersion !== requiredUpdateVersion) {
+        return;
+      }
       if (!appliedServerVersion) {
         saveAppliedServerVersion(serverVersion);
         clearForcedUpdateRequirement();
         return;
       }
       if (serverVersion !== appliedServerVersion) {
+        if (!fromVersionJson) return;
         markUpdateAvailable("A new app build is ready. Update is required.", { version: serverVersion, force: true });
-      } else {
+      } else if (!hasPendingRequired) {
         clearForcedUpdateRequirement();
       }
     }
@@ -25774,7 +25780,8 @@ let onboardingIndex = 0;
       if (data?.maintenanceMode === true) {
         renderMaintenanceScreen(data);
         applyMaintenanceModeState();
-        handleServerVersionSeen(data?.version);
+        handleServerVersionSeen(data?.version, "settings");
+        checkVersionOnLaunch();
         return;
       }
       maintenanceModeActive = false;
@@ -25785,7 +25792,7 @@ let onboardingIndex = 0;
       } else {
         setStatusBanner("");
       }
-      handleServerVersionSeen(data?.version);
+      handleServerVersionSeen(data?.version, "settings");
       refreshOnLaunch();
       startAuthListener();
     }
@@ -25831,7 +25838,7 @@ let onboardingIndex = 0;
         applyLaunchModeUI();
         applyAppLockState();
         applyMaintenanceModeState();
-        handleServerVersionSeen(data.version);
+        handleServerVersionSeen(data.version, "settings");
         if (staffCloseoutStamp && staffSession?.venue) {
           updateStaffCloseoutStamp();
         }
@@ -25878,7 +25885,7 @@ let onboardingIndex = 0;
         const resp = await fetch(`/version.json`, { cache: "no-store" });
         if (!resp.ok) return;
         const data = await resp.json();
-        handleServerVersionSeen(data?.version);
+        handleServerVersionSeen(data?.version, "version_json");
       } catch (err) {
         console.warn("Version check failed", err);
       }
@@ -28958,7 +28965,7 @@ let onboardingIndex = 0;
         renderMaintenanceScreen(data);
       } else {
         maintenanceModeActive = false;
-        handleServerVersionSeen(data?.version);
+        handleServerVersionSeen(data?.version, "settings");
         if (data?.statusBannerEnabled && data?.statusBannerMessage) {
           setStatusBanner(data.statusBannerMessage);
         } else {

@@ -34,6 +34,12 @@ jobs:
           create_credentials_file: true
           export_environment_variables: true
 
+      - name: Stamp deploy version
+        run: |
+          VERSION="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+          printf '{\n  "version": "%s"\n}\n' "$VERSION" > version.json
+          echo "Deploy version: $VERSION"
+
       - name: Deploy hosting, functions, rules, and indexes
         env:
           PROJECT_ID: foco-after-dark
