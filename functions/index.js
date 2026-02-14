@@ -1612,6 +1612,12 @@ function normalizePointAwardKey(raw = "") {
     .slice(0, 80);
 }
 
+function extractAchievementIdFromAwardKey(awardKey = "") {
+  const normalized = normalizePointAwardKey(awardKey);
+  if (!normalized.startsWith("achievement:")) return "";
+  return normalized.slice("achievement:".length);
+}
+
 // Server-side points adjust with idempotency support for one-time awards.
 exports.awardPoints = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
@@ -1619,6 +1625,7 @@ exports.awardPoints = functions.https.onCall(async (data, context) => {
   const reason = (data?.reason || 'adjustment').toString().slice(0, 120);
   const venue = String(data?.venue || "").trim().toLowerCase();
   const awardKey = normalizePointAwardKey(data?.awardKey || "");
+  const achievementId = extractAchievementIdFromAwardKey(awardKey);
   if (!Number.isFinite(points) || points <= 0 || points > 2000) {
     throw new HttpsError('invalid-argument', 'points must be between 1 and 2000');
   }
@@ -1638,7 +1645,11 @@ exports.awardPoints = functions.https.onCall(async (data, context) => {
     }
 
     const alreadyAwarded = awardKey ? Boolean(member.pointAwardKeys?.[awardKey]) : false;
-    const awarded = !alreadyAwarded;
+    const achievementAlreadyAwarded = achievementId
+      ? Boolean(member.achievementPointsAwarded?.[achievementId])
+      : false;
+    const wasAwarded = alreadyAwarded || achievementAlreadyAwarded;
+    const awarded = !wasAwarded;
     const next = awarded ? (current + points) : current;
     const updates = {
       points: next,
@@ -1650,6 +1661,9 @@ exports.awardPoints = functions.https.onCall(async (data, context) => {
     if (awarded) {
       if (awardKey) {
         updates[`pointAwardKeys.${awardKey}`] = admin.firestore.FieldValue.serverTimestamp();
+      }
+      if (achievementId) {
+        updates[`achievementPointsAwarded.${achievementId}`] = admin.firestore.FieldValue.serverTimestamp();
       }
       updates.lastPointsReason = reason || null;
     }
