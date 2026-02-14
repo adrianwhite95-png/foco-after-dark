@@ -9457,49 +9457,23 @@
     #staffPortalScreen.screen-in #staffMessageCard { animation-delay: 255ms; }
     #staffPortalScreen.screen-in #staffMore { animation-delay: 305ms; }
 
-    /* Elite profile refinement */
-    @keyframes memberDeckSweep {
-      0% { transform: translateX(-120%); opacity: 0; }
-      16% { opacity: 0.42; }
-      50% { opacity: 0.26; }
-      100% { transform: translateX(120%); opacity: 0; }
-    }
-    @keyframes premiumTagPulse {
-      0% { box-shadow: 0 0 0 rgba(34, 211, 238, 0); }
-      50% { box-shadow: 0 0 16px color-mix(in srgb, var(--accent-primary-live) 38%, transparent); }
-      100% { box-shadow: 0 0 0 rgba(34, 211, 238, 0); }
-    }
+    /* Member HQ v2: cleaner structure + tier polish */
     #passScreen .member-command-deck {
       position: relative;
       margin: 12px 0 14px;
-      border-radius: 18px;
-      overflow: hidden;
-      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 34%, var(--border));
-      background: linear-gradient(135deg, rgba(10, 16, 36, 0.92), rgba(10, 14, 30, 0.88));
-      box-shadow: 0 16px 30px rgba(2, 8, 23, 0.42), 0 0 24px color-mix(in srgb, var(--accent-primary-live) 18%, transparent);
-      backdrop-filter: blur(10px);
-    }
-    #passScreen .member-command-deck::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: -42%;
-      width: 42%;
-      background: linear-gradient(100deg, transparent 8%, color-mix(in srgb, var(--accent-primary-live) 45%, transparent), transparent 94%);
-      pointer-events: none;
-      z-index: 0;
-    }
-    #passScreen .member-command-deck > * {
-      position: relative;
-      z-index: 1;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, var(--border));
+      background: linear-gradient(130deg, rgba(10, 16, 34, 0.92), rgba(8, 13, 28, 0.88));
+      box-shadow: 0 14px 28px rgba(2, 8, 23, 0.36), inset 0 0 14px color-mix(in srgb, var(--accent-primary-live) 10%, transparent);
+      backdrop-filter: blur(9px);
     }
     #passScreen .member-command-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
     #passScreen .member-command-title {
       font-size: 14px;
@@ -9508,34 +9482,69 @@
       color: #e2e8f0;
       font-weight: 700;
     }
+    #passScreen .member-command-subline {
+      color: #94a3b8;
+      font-size: 12px;
+      line-height: 1.35;
+      margin-bottom: 10px;
+    }
     #passScreen .member-experience-tag {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 30px;
+      min-height: 28px;
       padding: 4px 10px;
       border-radius: 999px;
-      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 50%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 46%, transparent);
       color: color-mix(in srgb, var(--accent-primary-live) 88%, #dbeafe);
-      background: color-mix(in srgb, var(--accent-primary-live) 18%, rgba(15, 23, 42, 0.6));
+      background: color-mix(in srgb, var(--accent-primary-live) 16%, rgba(15, 23, 42, 0.7));
       font-size: 11px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       font-weight: 700;
       white-space: nowrap;
-      animation: premiumTagPulse 3.6s ease-in-out infinite;
+    }
+    #passScreen .member-command-signals {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    #passScreen .member-signal {
+      padding: 10px 11px;
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 20%, var(--border));
+      background: linear-gradient(145deg, rgba(10, 16, 32, 0.74), rgba(8, 12, 24, 0.7));
+      min-width: 0;
+    }
+    #passScreen .member-signal span {
+      display: block;
+      color: #94a3b8;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    #passScreen .member-signal strong {
+      display: block;
+      color: #dbeafe;
+      font-size: 13px;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     #passScreen .elite-quick-strip {
-      margin: 0 0 12px;
+      margin: 0 0 11px;
       gap: 8px;
     }
     #passScreen .elite-quick-strip .meta-group {
       min-width: 0;
-      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 24%, var(--border));
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 22%, var(--border));
       border-radius: 12px;
-      background: linear-gradient(140deg, rgba(9, 14, 30, 0.8), rgba(7, 11, 24, 0.72));
+      background: rgba(10, 16, 32, 0.7);
       padding: 10px;
-      box-shadow: inset 0 0 14px color-mix(in srgb, var(--accent-primary-live) 10%, transparent);
+      box-shadow: inset 0 0 10px color-mix(in srgb, var(--accent-primary-live) 8%, transparent);
     }
     #passScreen .member-action-matrix {
       display: grid;
@@ -9548,7 +9557,7 @@
       min-height: 44px;
       border-radius: 12px;
       font-size: 12px;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
     }
     #passScreen .member-action-matrix .btn:hover {
@@ -9564,8 +9573,8 @@
     }
     #passScreen .alerts-card {
       min-height: 100%;
-      border-color: color-mix(in srgb, var(--accent-primary-live) 25%, var(--border));
-      box-shadow: inset 0 0 18px color-mix(in srgb, var(--accent-primary-live) 10%, transparent);
+      border-color: color-mix(in srgb, var(--accent-primary-live) 24%, var(--border));
+      box-shadow: inset 0 0 14px color-mix(in srgb, var(--accent-primary-live) 8%, transparent);
     }
     #staffPortalScreen .staff-meta-row {
       flex-wrap: wrap;
@@ -9577,71 +9586,42 @@
     #staffPortalScreen .staff-form,
     #staffPortalScreen .vip-deal-card,
     #staffPortalScreen .staff-more {
-      border-radius: 18px;
+      border-radius: 16px;
       overflow: hidden;
-      border-color: color-mix(in srgb, var(--staff-primary, #7dd3fc) 35%, var(--border));
+      border-color: color-mix(in srgb, var(--staff-primary, #7dd3fc) 33%, var(--border));
     }
     #staffPortalScreen .staff-sticky-bar {
-      box-shadow: 0 12px 24px rgba(3, 8, 24, 0.42), inset 0 0 20px color-mix(in srgb, var(--staff-primary, #7dd3fc) 12%, transparent);
-      background: linear-gradient(130deg, rgba(9, 16, 34, 0.9), rgba(10, 14, 30, 0.84));
-    }
-    #staffPortalScreen .sticky-actions .chip.ghost {
-      transition: transform 160ms ease, box-shadow 180ms ease, border-color 180ms ease;
-    }
-    #staffPortalScreen .sticky-actions .chip.ghost:hover {
-      transform: translateY(-1px);
-      border-color: color-mix(in srgb, var(--staff-primary, #7dd3fc) 58%, var(--border));
-      box-shadow: 0 0 14px color-mix(in srgb, var(--staff-primary, #7dd3fc) 28%, transparent);
+      background: linear-gradient(130deg, rgba(10, 16, 34, 0.9), rgba(8, 12, 26, 0.84));
+      box-shadow: 0 10px 22px rgba(3, 8, 24, 0.4);
     }
     body[data-member-tier-mode="standard"] #passScreen .member-experience-tag {
       color: #bfdbfe;
-      border-color: rgba(148, 163, 184, 0.46);
-      background: rgba(15, 23, 42, 0.68);
-      animation: none;
+      border-color: rgba(148, 163, 184, 0.44);
+      background: rgba(15, 23, 42, 0.66);
     }
-    body[data-member-tier-mode="standard"] #passScreen .member-command-deck {
-      box-shadow: 0 14px 26px rgba(2, 8, 23, 0.35), inset 0 0 20px rgba(14, 23, 44, 0.35);
+    body[data-member-tier-mode="vip"] #passScreen .member-command-deck,
+    body[data-member-tier-mode="ceo_free"] #passScreen .member-command-deck,
+    body[data-member-tier-mode="ceo"] #passScreen .member-command-deck {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 44%, var(--border));
+      box-shadow: 0 18px 34px rgba(2, 8, 23, 0.42), inset 0 0 18px color-mix(in srgb, var(--accent-primary-live) 14%, transparent);
     }
-    body[data-member-tier-mode="standard"] #passScreen .member-command-deck::before {
-      opacity: 0.12;
-      animation: none;
-    }
-    body[data-member-tier-mode="vip"] #passScreen .member-command-deck::before,
-    body[data-member-tier-mode="ceo_free"] #passScreen .member-command-deck::before,
-    body[data-member-tier-mode="ceo"] #passScreen .member-command-deck::before {
-      animation: memberDeckSweep 7.2s linear infinite;
-    }
-    body[data-member-tier-mode="vip"] #passScreen .pass-card,
-    body[data-member-tier-mode="ceo_free"] #passScreen .pass-card,
-    body[data-member-tier-mode="ceo"] #passScreen .pass-card {
-      box-shadow:
-        0 26px 60px rgba(2, 6, 20, 0.7),
-        0 0 38px color-mix(in srgb, var(--accent-primary-live) 30%, transparent),
-        0 0 52px color-mix(in srgb, var(--accent-secondary-live) 22%, transparent),
-        inset 0 0 62px color-mix(in srgb, var(--accent-primary-live) 18%, transparent);
+    body[data-member-tier-mode="vip"] #passScreen .member-experience-tag {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 62%, transparent);
+      color: #dff9ff;
     }
     body[data-member-tier-mode="ceo_free"] #passScreen .member-experience-tag,
     body[data-member-tier-mode="ceo"] #passScreen .member-experience-tag {
-      color: #fef3c7;
+      color: #fde68a;
       border-color: color-mix(in srgb, #fbbf24 58%, transparent);
-      background: color-mix(in srgb, #fbbf24 22%, rgba(15, 23, 42, 0.72));
+      background: color-mix(in srgb, #fbbf24 20%, rgba(15, 23, 42, 0.72));
     }
-    body[data-member-tier-mode="ceo_free"] #passScreen::before,
-    body[data-member-tier-mode="ceo"] #passScreen::before {
-      background: conic-gradient(
-        from 0deg,
-        color-mix(in srgb, #fbbf24 36%, transparent) 0deg 22deg,
-        transparent 22deg 54deg,
-        color-mix(in srgb, var(--accent-primary-live) 32%, transparent) 54deg 82deg,
-        transparent 82deg 126deg,
-        color-mix(in srgb, #fbbf24 30%, transparent) 126deg 154deg,
-        transparent 154deg 212deg,
-        color-mix(in srgb, var(--accent-secondary-live) 28%, transparent) 212deg 242deg,
-        transparent 242deg 296deg,
-        color-mix(in srgb, #fbbf24 24%, transparent) 296deg 324deg,
-        transparent 324deg 360deg
-      );
-      opacity: 0.6;
+    body[data-member-tier-mode="ceo_free"] #passScreen .pass-card,
+    body[data-member-tier-mode="ceo"] #passScreen .pass-card {
+      box-shadow:
+        0 24px 56px rgba(2, 6, 20, 0.68),
+        0 0 36px color-mix(in srgb, #fbbf24 18%, transparent),
+        0 0 28px color-mix(in srgb, var(--accent-primary-live) 18%, transparent),
+        inset 0 0 56px color-mix(in srgb, var(--accent-primary-live) 16%, transparent);
     }
     @media (max-width: 860px) {
       #passScreen .member-action-matrix {
@@ -9653,6 +9633,14 @@
       }
       #passScreen .member-experience-tag {
         width: auto;
+      }
+    }
+    @media (max-width: 640px) {
+      #passScreen .member-command-signals {
+        grid-template-columns: 1fr;
+      }
+      #passScreen .member-signal strong {
+        white-space: normal;
       }
     }
 
@@ -9681,8 +9669,6 @@
       #staffPortalScreen::after,
       #passScreen .profile-summary::before,
       #passScreen .pass-inner::before,
-      #passScreen .member-command-deck::before,
-      #passScreen .member-experience-tag,
       #passScreen .member-hero,
       #passScreen .member-hero::before,
       #passScreen .community-stat,
@@ -10136,6 +10122,17 @@
                 <div class="member-command-title">Your Night Console</div>
               </div>
               <span class="member-experience-tag" id="profileExperienceTag">Standard mode</span>
+            </div>
+            <div class="member-command-subline" id="memberCommandSubline">Standard profile · Live sync on.</div>
+            <div class="member-command-signals">
+              <div class="member-signal">
+                <span>Live alerts</span>
+                <strong id="memberSignalAlerts">0 live</strong>
+              </div>
+              <div class="member-signal">
+                <span>Tonight focus</span>
+                <strong id="memberSignalFocus">Ready to redeem</strong>
+              </div>
             </div>
             <div class="meta-row quick-strip elite-quick-strip">
               <div class="meta-group" style="flex:1;">
@@ -14526,6 +14523,9 @@
     const quickPoints = document.getElementById("quickPoints");
     const quickSpins = document.getElementById("quickSpins");
     const profileExperienceTag = document.getElementById("profileExperienceTag");
+    const memberCommandSubline = document.getElementById("memberCommandSubline");
+    const memberSignalAlerts = document.getElementById("memberSignalAlerts");
+    const memberSignalFocus = document.getElementById("memberSignalFocus");
     const FRIENDS_DISABLED = true;
 
     async function updateStaffCloseoutStamp() {
@@ -16858,6 +16858,7 @@
       }
       if (activeCount === 0) {
         stopAlertsCountdown();
+        updateMemberCommandSignals();
         return;
       }
       if (!window.__alertsCountdownHandle) {
@@ -16866,6 +16867,7 @@
           renderAlertsList();
         }, countdownMs);
       }
+      updateMemberCommandSignals();
     }
     function stopAlertsCountdown() {
       if (window.__alertsCountdownHandle) {
@@ -20793,6 +20795,43 @@ let onboardingIndex = 0;
         quickPoints.textContent = `${points} pts`;
       }
       if (quickSpins && nightWheelRemaining) quickSpins.textContent = nightWheelRemaining.textContent || "Spins left";
+      updateMemberCommandSignals();
+    }
+
+    function updateMemberCommandSignals() {
+      if (!memberCommandSubline && !memberSignalAlerts && !memberSignalFocus) return;
+      let liveAlerts = 0;
+      try {
+        liveAlerts = typeof getActiveAlertsForMember === "function" ? getActiveAlertsForMember().length : 0;
+      } catch (_) {
+        liveAlerts = 0;
+      }
+      if (memberSignalAlerts) {
+        memberSignalAlerts.textContent = liveAlerts > 0 ? `${liveAlerts} live` : "No live alerts";
+      }
+      if (memberSignalFocus) {
+        const vouchersLeft = Number.parseInt((statVouchersLeft?.textContent || "").replace(/[^\d-]/g, ""), 10);
+        let focusText = "Ready to redeem";
+        if (typeof isMembershipExpired === "function" && isMembershipExpired()) {
+          focusText = "Update membership";
+        } else if (liveAlerts > 0) {
+          focusText = "Check tonight's alerts";
+        } else if (Number.isFinite(vouchersLeft) && vouchersLeft <= 0 && !isCeoActive() && !isFreeMember()) {
+          focusText = "Refill voucher balance";
+        } else {
+          const vibe = (document.getElementById("statTonightVibe")?.textContent || "").trim();
+          if (vibe) focusText = `${vibe} mode`;
+        }
+        memberSignalFocus.textContent = focusText;
+      }
+      if (memberCommandSubline) {
+        const mode = getProfileTierMode(currentMembershipTier || memberProfile?.tier || "standard");
+        let label = "Standard profile";
+        if (mode === "vip") label = "VIP profile";
+        else if (mode === "ceo_free") label = "Founder profile";
+        else if (mode === "ceo") label = "Creator profile";
+        memberCommandSubline.textContent = `${label} · Live sync ${navigator.onLine ? "on" : "offline"}.`;
+      }
     }
 
     function updateLastCheckinUI() {
