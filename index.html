@@ -13226,6 +13226,8 @@
         clearPassLoading();
         return;
       }
+      // Rehydrate achievement map from the just-loaded cloud profile.
+      achievementState = loadAchievementState();
       refreshRewardsProgressState();
 
       const email = (user.email || "").toLowerCase();
@@ -23118,7 +23120,8 @@ let onboardingIndex = 0;
       }).join("");
     }
     async function evaluateAchievements(entriesOverride) {
-      if (!currentPassCode) return;
+      const authUser = firebaseAuth?.currentUser;
+      if (!currentPassCode || !authUser || authUser.isAnonymous || !memberProfile || !useCloudProfile()) return;
       const key = currentPassCode.toUpperCase();
       const entry = getAchievementStateForCurrentPass();
       const loginCount = Number(memberProfile?.loginCount || 0);
@@ -23147,16 +23150,28 @@ let onboardingIndex = 0;
         const unlockedNow = !!updates[id] && !entry[id];
         if (!unlockedNow) continue;
         const rewardFlagKey = `${id}PointsRewarded`;
-        if (entry[rewardFlagKey]) continue;
+        const awardKey = `achievement:${id}`;
+        const rewardAlreadyApplied = !!entry[rewardFlagKey]
+          || !!memberProfile?.achievementPointsAwarded?.[id]
+          || !!memberProfile?.pointAwardKeys?.[awardKey];
+        if (rewardAlreadyApplied) continue;
         if (!canGrantAchievementPoints) continue;
         const label = ACHIEVEMENT_BY_ID[id]?.label || "Achievement";
         const awardResult = await addPoints(points, `Achievement: ${label}`, {
-          awardKey: `achievement:${id}`,
+          awardKey,
           requireCloud: true
         });
         if (awardResult && (awardResult.awarded === true || awardResult.skipped === true)) {
           rewardUpdates[rewardFlagKey] = true;
           rewardUpdates[`${id}PointsRewardedAt`] = new Date().toISOString();
+          memberProfile.achievementPointsAwarded = {
+            ...(memberProfile.achievementPointsAwarded || {}),
+            [id]: true
+          };
+          memberProfile.pointAwardKeys = {
+            ...(memberProfile.pointAwardKeys || {}),
+            [awardKey]: new Date().toISOString()
+          };
         }
       }
       if (Object.keys(rewardUpdates).length) {
@@ -25485,7 +25500,7 @@ let onboardingIndex = 0;
       updateAvailable = true;
       const version = String(options?.version || "").trim();
       const force = options?.force === true;
-      if (force && version && version !== BUILD_VERSION) {
+      if (force && version && version !== appliedServerVersion) {
         requiredUpdateVersion = version;
         requiredUpdateMessage = message || "";
         saveForcedUpdateVersion(requiredUpdateVersion);
