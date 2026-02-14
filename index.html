@@ -15228,6 +15228,14 @@
         const parsed = value.toDate();
         return Number.isNaN(parsed?.getTime?.()) ? null : parsed;
       }
+      if (typeof value === "object") {
+        const seconds = Number(value.seconds ?? value._seconds);
+        const nanos = Number(value.nanoseconds ?? value._nanoseconds ?? 0);
+        if (Number.isFinite(seconds)) {
+          const parsed = new Date((seconds * 1000) + Math.floor(nanos / 1e6));
+          return Number.isNaN(parsed.getTime()) ? null : parsed;
+        }
+      }
       const parsed = new Date(value);
       return Number.isNaN(parsed.getTime()) ? null : parsed;
     }
@@ -16070,15 +16078,15 @@
   const staffOnlyRealtimeLabels = new Set([
     "staffPerks",
     "staffRedemptions",
-    "staffMessages",
-    "closeOutReports"
+    "staffMessages"
   ]);
   const ceoOnlyRealtimeLabels = new Set([
     "ceoRedemptions",
     "ceoReviews",
     "ceoMessages",
     "ceoMembers",
-    "ceoHealth"
+    "ceoHealth",
+    "closeOutReports"
   ]);
   const pillHeartbeatLabels = new Set([
     "settingsApp"
@@ -24466,13 +24474,19 @@ let onboardingIndex = 0;
         if (range === "all") return true;
         const windowMs = windowMap[range];
         if (!windowMs) return true;
-        const ts = new Date(report.generatedAt).getTime();
+        const ts = toDateSafe(report.generatedAt)?.getTime() || 0;
+        if (!ts) return false;
         return (now - ts) <= windowMs;
       });
       if (!filtered.length) {
         ceoCloseOutList.innerHTML = '<p style="color:#94a3b8;">No reports for this filter.</p>';
         return;
       }
+      filtered.sort((a, b) => {
+        const aMs = toDateSafe(a.generatedAt)?.getTime() || 0;
+        const bMs = toDateSafe(b.generatedAt)?.getTime() || 0;
+        return bMs - aMs;
+      });
       ceoCloseOutList.innerHTML = filtered.map(report => {
         const when = formatMST(report.generatedAt);
         const venueName = report.venue === "all"
@@ -24707,7 +24721,8 @@ let onboardingIndex = 0;
         const reports = [];
         snap.forEach(docSnap => {
           const data = docSnap.data() || {};
-          const generatedAt = data.generatedAt?.toDate ? data.generatedAt.toDate().toISOString() : data.generatedAt;
+          const generatedAtDate = toDateSafe(data.generatedAt);
+          const generatedAt = generatedAtDate ? generatedAtDate.toISOString() : (data.generatedAt || new Date().toISOString());
           const venueName = data.venueName || (data.venue === "all"
             ? "All venues"
             : (venuesInfo[data.venue]?.name || data.venue || "Venue"));
