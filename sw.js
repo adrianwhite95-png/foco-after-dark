@@ -93,6 +93,8 @@ self.addEventListener("message", (event) => {
   } else if (type === "SET_APP_BADGE") {
     const count = Number(event?.data?.count || 1);
     setAppBadgeValue(Math.max(1, count)).catch(() => {});
+  } else if (type === "SKIP_WAITING") {
+    self.skipWaiting();
   }
 });
 

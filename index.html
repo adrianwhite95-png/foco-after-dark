@@ -3460,6 +3460,59 @@
       justify-content: flex-end;
       margin-top: 12px;
     }
+    .force-update-backdrop {
+      z-index: 3200;
+      backdrop-filter: blur(4px);
+      background: rgba(2, 6, 23, 0.88);
+    }
+    .force-update-card {
+      max-width: 420px;
+      border-color: color-mix(in srgb, var(--accent-primary-live) 42%, rgba(148, 163, 184, 0.4));
+      box-shadow:
+        0 18px 36px rgba(1, 4, 14, 0.72),
+        0 0 22px color-mix(in srgb, var(--accent-primary-live) 30%, transparent);
+    }
+    .force-update-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #f8fafc;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .force-update-copy {
+      color: #cbd5e1;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .force-update-track {
+      position: relative;
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .force-update-fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 6%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent-primary-live), var(--accent-secondary-live));
+      box-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary-live) 42%, transparent);
+      transition: width 180ms ease-out;
+    }
+    .force-update-status {
+      margin-top: 8px;
+      color: #93c5fd;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      min-height: 18px;
+    }
     .toggle-pill {
       display: grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
@@ -10753,6 +10806,20 @@
     Reconnecting…
   </div>
 
+  <div class="modal-backdrop force-update-backdrop" id="forceUpdateModal">
+    <div class="modal-card force-update-card">
+      <div class="force-update-title">Update required</div>
+      <div class="force-update-copy" id="forceUpdateCopy">
+        A new version is ready. Update now to keep FoCo After Dark in sync.
+      </div>
+      <div class="force-update-track">
+        <div class="force-update-fill" id="forceUpdateFill"></div>
+      </div>
+      <div class="force-update-status" id="forceUpdateStatus">Ready to update.</div>
+      <button type="button" class="btn btn-primary" id="forceUpdateBtn">Click here to update</button>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="addToHomeOverlay">
     <div class="modal-card">
       <div class="modal-header">
@@ -12017,7 +12084,7 @@
       } else {
         closeStaffGate();
       }
-      if (name === "landing") {
+      if (name !== "maintenance") {
         maybeApplyPendingRefresh();
       }
       if (name === "pass") {
@@ -13364,6 +13431,11 @@
     const notificationsPromptClose = document.getElementById("notificationsPromptClose");
     const enableNotificationsPromptBtn = document.getElementById("enableNotificationsPromptBtn");
     const notificationsPromptStatus = document.getElementById("notificationsPromptStatus");
+    const forceUpdateModal = document.getElementById("forceUpdateModal");
+    const forceUpdateCopy = document.getElementById("forceUpdateCopy");
+    const forceUpdateFill = document.getElementById("forceUpdateFill");
+    const forceUpdateStatus = document.getElementById("forceUpdateStatus");
+    const forceUpdateBtn = document.getElementById("forceUpdateBtn");
     const ceoNotificationsSummary = document.getElementById("ceoNotificationsSummary");
     const ceoPushDebugRows = document.getElementById("ceoPushDebugRows");
     const ceoNotificationsStatus = document.getElementById("ceoNotificationsStatus");
@@ -13696,6 +13768,11 @@
     if (sendTestNotificationBtn) {
       sendTestNotificationBtn.addEventListener("click", () => {
         sendTestNotification();
+      });
+    }
+    if (forceUpdateBtn) {
+      forceUpdateBtn.addEventListener("click", () => {
+        forceApplyUpdate();
       });
     }
     function closeAddToHomeOverlay() {
@@ -16999,6 +17076,11 @@ let onboardingIndex = 0;
           if (typeof showToast === "function") {
             showToast("Finish login first.", 1800);
           }
+          return;
+        }
+        if (requiredUpdateVersion && requiredUpdateVersion !== BUILD_VERSION) {
+          showForcedUpdateModal();
+          forceApplyUpdate();
           return;
         }
         window.location.reload();
@@ -25332,14 +25414,137 @@ let onboardingIndex = 0;
       }
     }
     let updateAvailable = false;
-    function markUpdateAvailable(message = "Update available — tap Reload.") {
+    let requiredUpdateVersion = "";
+    let requiredUpdateMessage = "";
+    let forceUpdateInFlight = false;
+    const FORCE_UPDATE_PENDING_KEY = "force_update_pending_version";
+    function loadForcedUpdateVersion() {
+      try {
+        const saved = localStorage.getItem(FORCE_UPDATE_PENDING_KEY) || "";
+        if (saved && saved !== BUILD_VERSION) {
+          requiredUpdateVersion = saved;
+        } else if (saved && saved === BUILD_VERSION) {
+          localStorage.removeItem(FORCE_UPDATE_PENDING_KEY);
+        }
+      } catch (_) {}
+    }
+    function saveForcedUpdateVersion(version = "") {
+      try {
+        if (version && version !== BUILD_VERSION) {
+          localStorage.setItem(FORCE_UPDATE_PENDING_KEY, version);
+        } else {
+          localStorage.removeItem(FORCE_UPDATE_PENDING_KEY);
+        }
+      } catch (_) {}
+    }
+    function clearForcedUpdateRequirement() {
+      requiredUpdateVersion = "";
+      requiredUpdateMessage = "";
+      saveForcedUpdateVersion("");
+      hideForcedUpdateModal();
+    }
+    function setForcedUpdateProgress(percent = 0, label = "") {
+      const clamped = Math.max(0, Math.min(100, Number(percent) || 0));
+      if (forceUpdateFill) forceUpdateFill.style.width = `${clamped}%`;
+      if (forceUpdateStatus && label) forceUpdateStatus.textContent = label;
+    }
+    function showForcedUpdateModal() {
+      if (!forceUpdateModal) return;
+      if (!requiredUpdateVersion || requiredUpdateVersion === BUILD_VERSION) return;
+      if (maintenanceModeActive && !canBypassMaintenance()) return;
+      if (forceUpdateCopy) {
+        const versionText = requiredUpdateVersion ? `v${requiredUpdateVersion}` : "latest";
+        forceUpdateCopy.textContent = requiredUpdateMessage || `A new app version (${versionText}) is ready. Update now to continue.`;
+      }
+      if (!forceUpdateInFlight) {
+        setForcedUpdateProgress(6, "Ready to update.");
+      }
+      forceUpdateModal.classList.add("active");
+    }
+    function hideForcedUpdateModal() {
+      if (forceUpdateModal) {
+        forceUpdateModal.classList.remove("active");
+      }
+    }
+    function markUpdateAvailable(message = "Update available — tap Reload.", options = {}) {
       updateAvailable = true;
+      const version = String(options?.version || "").trim();
+      const force = options?.force === true;
+      if (force && version && version !== BUILD_VERSION) {
+        requiredUpdateVersion = version;
+        requiredUpdateMessage = message || "";
+        saveForcedUpdateVersion(requiredUpdateVersion);
+        showForcedUpdateModal();
+      }
       if (typeof showToast === "function") {
-        showToast(message, 2400);
+        showToast(message, 2800);
+      }
+    }
+    function waitForControllerChange(timeoutMs = 4500) {
+      return new Promise((resolve) => {
+        if (!("serviceWorker" in navigator)) {
+          resolve(false);
+          return;
+        }
+        let done = false;
+        const finish = (value) => {
+          if (done) return;
+          done = true;
+          navigator.serviceWorker.removeEventListener("controllerchange", onChange);
+          clearTimeout(timer);
+          resolve(value);
+        };
+        const onChange = () => finish(true);
+        const timer = setTimeout(() => finish(false), Math.max(500, timeoutMs));
+        navigator.serviceWorker.addEventListener("controllerchange", onChange);
+      });
+    }
+    async function forceApplyUpdate() {
+      if (forceUpdateInFlight) return;
+      forceUpdateInFlight = true;
+      if (forceUpdateBtn) forceUpdateBtn.disabled = true;
+      try {
+        setForcedUpdateProgress(12, "Checking for latest build...");
+        let reg = null;
+        if ("serviceWorker" in navigator) {
+          reg = await navigator.serviceWorker.getRegistration();
+          if (!reg) {
+            reg = await navigator.serviceWorker.register("/sw.js");
+          }
+          await reg.update().catch(() => {});
+          setForcedUpdateProgress(44, "Downloading update...");
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: "SKIP_WAITING" });
+          }
+          const changed = await waitForControllerChange(5000);
+          setForcedUpdateProgress(changed ? 72 : 64, changed ? "Applying update..." : "Preparing refresh...");
+        }
+        if ("caches" in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((key) => caches.delete(key)));
+        }
+        setForcedUpdateProgress(90, "Reloading app...");
+        saveForcedUpdateVersion("");
+        requiredUpdateVersion = "";
+        requiredUpdateMessage = "";
+        setTimeout(() => {
+          const url = new URL(window.location.href);
+          url.searchParams.set("r", String(Date.now()));
+          window.location.href = `${url.pathname}${url.search}${url.hash}`;
+        }, 220);
+      } catch (err) {
+        console.warn("Force update failed", err);
+        setForcedUpdateProgress(8, "Update failed. Tap to retry.");
+        if (typeof showToast === "function") {
+          showToast("Update failed. Check connection and try again.", 3200);
+        }
+        forceUpdateInFlight = false;
+        if (forceUpdateBtn) forceUpdateBtn.disabled = false;
       }
     }
     function maybeApplyPendingRefresh() {
-      // Updates are user-initiated only; no auto-reload.
+      loadForcedUpdateVersion();
+      showForcedUpdateModal();
     }
     function setStatusBanner(message) {
       if (!statusBanner) return;
@@ -25354,6 +25559,7 @@ let onboardingIndex = 0;
     function renderMaintenanceScreen(data = {}) {
       maintenanceModeActive = true;
       maintenanceSettingsCache = { ...(data || {}) };
+      hideForcedUpdateModal();
       const msg = data.maintenanceMessage || "🍺 Keg is tapped — maintenance in progress.";
       const until = data.maintenanceUntil?.toDate ? data.maintenanceUntil.toDate() : (data.maintenanceUntil ? new Date(data.maintenanceUntil) : null);
       if (maintenanceMessage) maintenanceMessage.textContent = msg;
@@ -25370,6 +25576,7 @@ let onboardingIndex = 0;
       maintenanceModeActive = false;
       maintenanceSettingsCache = {};
       applyMaintenanceModeState();
+      maybeApplyPendingRefresh();
       if (currentScreenName === "maintenance") {
         showScreen("landing");
       }
@@ -25520,6 +25727,12 @@ let onboardingIndex = 0;
       if (data?.maintenanceMode === true) {
         renderMaintenanceScreen(data);
         applyMaintenanceModeState();
+        const serverVersion = (data?.version || "").toString();
+        if (serverVersion && serverVersion !== BUILD_VERSION) {
+          markUpdateAvailable("A new app build is ready. Update is required.", { version: serverVersion, force: true });
+        } else if (serverVersion && serverVersion === BUILD_VERSION) {
+          clearForcedUpdateRequirement();
+        }
         return;
       }
       maintenanceModeActive = false;
@@ -25530,6 +25743,13 @@ let onboardingIndex = 0;
       } else {
         setStatusBanner("");
       }
+      const serverVersion = (data?.version || "").toString();
+      if (serverVersion && serverVersion !== BUILD_VERSION) {
+        markUpdateAvailable("A new app build is ready. Update is required.", { version: serverVersion, force: true });
+      } else if (serverVersion && serverVersion === BUILD_VERSION) {
+        clearForcedUpdateRequirement();
+      }
+      refreshOnLaunch();
       startAuthListener();
     }
     function watchSettingsDoc() {
@@ -25576,7 +25796,9 @@ let onboardingIndex = 0;
         applyMaintenanceModeState();
         const serverVersion = data.version || null;
         if (serverVersion && serverVersion !== BUILD_VERSION) {
-          markUpdateAvailable("Update available — tap Reload.");
+          markUpdateAvailable("A new app build is ready. Update is required.", { version: serverVersion, force: true });
+        } else if (serverVersion && serverVersion === BUILD_VERSION) {
+          clearForcedUpdateRequirement();
         }
         if (staffCloseoutStamp && staffSession?.venue) {
           updateStaffCloseoutStamp();
@@ -25626,7 +25848,9 @@ let onboardingIndex = 0;
         const data = await resp.json();
         const serverVersion = (data?.version || "").toString();
         if (serverVersion && serverVersion !== BUILD_VERSION) {
-          markUpdateAvailable("Update available — tap Reload.");
+          markUpdateAvailable("A new app build is ready. Update is required.", { version: serverVersion, force: true });
+        } else if (serverVersion && serverVersion === BUILD_VERSION) {
+          clearForcedUpdateRequirement();
         }
       } catch (err) {
         console.warn("Version check failed", err);
@@ -28707,12 +28931,19 @@ let onboardingIndex = 0;
         renderMaintenanceScreen(data);
       } else {
         maintenanceModeActive = false;
+        const serverVersion = (data?.version || "").toString();
+        if (serverVersion && serverVersion !== BUILD_VERSION) {
+          markUpdateAvailable("A new app build is ready. Update is required.", { version: serverVersion, force: true });
+        } else if (serverVersion && serverVersion === BUILD_VERSION) {
+          clearForcedUpdateRequirement();
+        }
         if (data?.statusBannerEnabled && data?.statusBannerMessage) {
           setStatusBanner(data.statusBannerMessage);
         } else {
           setStatusBanner("");
         }
         clearMaintenanceScreen();
+        refreshOnLaunch();
         startAuthListener();
       }
       maintenanceRetryInFlight = false;
