@@ -543,6 +543,7 @@
     body.mobile-performance .btn-primary,
     body.mobile-performance .global-footer,
     body.mobile-performance .landing-wrapper .landing-strobe,
+    body.mobile-performance #landingTagline,
     body.mobile-performance .pass-card::before,
     body.mobile-performance .pass-card::after,
     body.mobile-performance .radar-glow-bg,
@@ -557,6 +558,13 @@
     }
     body.mobile-performance .screen {
       animation-duration: 0.08s !important;
+    }
+    body.mobile-performance #cardParticles {
+      display: none !important;
+    }
+    body.mobile-performance::before {
+      transform: none !important;
+      transition: none !important;
     }
     .btn-primary:hover {
       transform: translateY(-1px);
@@ -4978,10 +4986,38 @@
       --font-base: "Space Grotesk", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    * {
+    :where(
+      .btn,
+      .nav-item,
+      .ceo-nav-item,
+      .pill,
+      .accent-chip,
+      .chip,
+      .status-pill,
+      .community-stat,
+      .featured-card,
+      .card-hd,
+      .staff-form,
+      .ceo-panel,
+      .ceo-hq-panel,
+      input,
+      select,
+      textarea
+    ) {
+      transition-property: background-color, border-color, color, box-shadow, opacity;
+      transition-duration: 120ms;
+      transition-timing-function: ease-out;
+    }
+    :where(
+      .btn,
+      .nav-item,
+      .ceo-nav-item,
+      .featured-card,
+      .community-stat
+    ) {
       transition-property: background-color, border-color, color, box-shadow, transform, opacity;
-      transition-duration: 220ms;
-      transition-timing-function: ease;
+      transition-duration: 120ms;
+      transition-timing-function: ease-out;
     }
 
     body {
@@ -5422,23 +5458,31 @@
     #passScreen::before {
       background: conic-gradient(
         from 0deg,
-        color-mix(in srgb, var(--accent-primary-live) 40%, transparent),
-        transparent 20%,
-        color-mix(in srgb, var(--accent-secondary-live) 36%, transparent),
-        transparent 45%,
-        color-mix(in srgb, var(--accent-primary-live) 32%, transparent),
-        transparent 100%
+        color-mix(in srgb, var(--accent-primary-live) 42%, transparent) 0deg 24deg,
+        transparent 24deg 66deg,
+        color-mix(in srgb, var(--accent-secondary-live) 38%, transparent) 66deg 98deg,
+        transparent 98deg 146deg,
+        color-mix(in srgb, var(--accent-primary-live) 34%, transparent) 146deg 172deg,
+        transparent 172deg 232deg,
+        color-mix(in srgb, var(--accent-secondary-live) 30%, transparent) 232deg 254deg,
+        transparent 254deg 286deg,
+        color-mix(in srgb, var(--accent-primary-live) 30%, transparent) 286deg 304deg,
+        transparent 304deg 360deg
       );
     }
     #staffPortalScreen::before {
       background: conic-gradient(
         from 0deg,
-        color-mix(in srgb, var(--staff-primary, #7dd3fc) 40%, transparent),
-        transparent 20%,
-        color-mix(in srgb, var(--staff-secondary, #38bdf8) 36%, transparent),
-        transparent 45%,
-        color-mix(in srgb, var(--staff-primary, #7dd3fc) 32%, transparent),
-        transparent 100%
+        color-mix(in srgb, var(--staff-primary, #7dd3fc) 42%, transparent) 0deg 24deg,
+        transparent 24deg 66deg,
+        color-mix(in srgb, var(--staff-secondary, #38bdf8) 38%, transparent) 66deg 98deg,
+        transparent 98deg 146deg,
+        color-mix(in srgb, var(--staff-primary, #7dd3fc) 34%, transparent) 146deg 172deg,
+        transparent 172deg 232deg,
+        color-mix(in srgb, var(--staff-secondary, #38bdf8) 30%, transparent) 232deg 254deg,
+        transparent 254deg 286deg,
+        color-mix(in srgb, var(--staff-primary, #7dd3fc) 28%, transparent) 286deg 304deg,
+        transparent 304deg 360deg
       );
       opacity: 0.34;
     }
@@ -8816,44 +8860,6 @@
     }
 
     /* === iOS launch polish + CEO HQ mobile containment (visual-only) === */
-    @keyframes strobeDrift {
-      0% {
-        transform: translate3d(-10%, -6%, 0) scale(1.04);
-        opacity: 0.34;
-      }
-      50% {
-        transform: translate3d(8%, 7%, 0) scale(1.1);
-        opacity: 0.5;
-      }
-      100% {
-        transform: translate3d(-6%, 10%, 0) scale(1.06);
-        opacity: 0.36;
-      }
-    }
-    #passScreen::after,
-    #staffPortalScreen::after {
-      content: "";
-      position: absolute;
-      inset: -34%;
-      pointer-events: none;
-      mix-blend-mode: screen;
-      filter: blur(28px) saturate(1.4);
-      z-index: 0;
-      animation: strobeDrift 8.2s ease-in-out infinite;
-    }
-    #passScreen::after {
-      background:
-        radial-gradient(circle at 16% 24%, color-mix(in srgb, var(--accent-primary-live) 36%, transparent), transparent 58%),
-        radial-gradient(circle at 85% 74%, color-mix(in srgb, var(--accent-secondary-live) 34%, transparent), transparent 56%);
-      opacity: 0.44;
-    }
-    #staffPortalScreen::after {
-      background:
-        radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--staff-primary, #7dd3fc) 34%, transparent), transparent 60%),
-        radial-gradient(circle at 82% 76%, color-mix(in srgb, var(--staff-secondary, #38bdf8) 32%, transparent), transparent 58%);
-      opacity: 0.36;
-    }
-
     body.ios #app {
       width: 100%;
       max-width: 100%;
@@ -8940,27 +8946,6 @@
       padding: 3px 8px;
     }
 
-    body.ios .pass-card {
-      box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
-        0 0 24px color-mix(in srgb, var(--accent-primary-live) 22%, transparent),
-        0 0 56px color-mix(in srgb, var(--accent-secondary-live) 20%, transparent),
-        inset 0 0 38px color-mix(in srgb, var(--accent-primary-live) 10%, transparent);
-    }
-    body.ios #passScreen::before {
-      opacity: 0.56;
-      filter: blur(22px);
-    }
-    body.ios #passScreen::after {
-      opacity: 0.5;
-      filter: blur(30px) saturate(1.48);
-    }
-    body.ios #staffPortalScreen::before {
-      opacity: 0.44;
-    }
-    body.ios #staffPortalScreen::after {
-      opacity: 0.4;
-    }
     body.ios .btn,
     body.ios .nav-item,
     body.ios .community-stat,
@@ -9048,7 +9033,23 @@
       }
     }
 
-    /* Global visual enhancement layer (no functional changes) */
+    /* Global visual enhancement layer (visual only, tuned for mobile performance) */
+    .screen::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 12px;
+      right: 12px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent-primary-live) 52%, transparent), transparent);
+      opacity: 0.62;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .screen > * {
+      position: relative;
+      z-index: 2;
+    }
     :where(
       .screen,
       .pass-card,
@@ -9068,62 +9069,26 @@
       .modal-card,
       .black-card
     ) {
-      border-color: color-mix(in srgb, var(--accent-primary-live) 18%, rgba(148, 163, 184, 0.32));
+      border-color: color-mix(in srgb, var(--accent-primary-live) 20%, rgba(148, 163, 184, 0.32));
       box-shadow:
-        0 14px 32px rgba(2, 6, 18, 0.5),
-        0 0 18px color-mix(in srgb, var(--accent-primary-live) 14%, transparent);
-    }
-    :where(
-      .card-hd,
-      .staff-form,
-      .staff-radar,
-      .ceo-card,
-      .ceo-panel,
-      .ceo-hq-panel,
-      .membership-card,
-      .payment-card,
-      .support-card,
-      .venues-card,
-      .vip-deal-card,
-      .alerts-card
-    ):hover {
-      transform: translateY(-1px);
-      box-shadow:
-        0 18px 38px rgba(2, 6, 18, 0.58),
-        0 0 24px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
+        0 8px 18px rgba(2, 6, 18, 0.36),
+        0 0 8px color-mix(in srgb, var(--accent-primary-live) 11%, transparent);
     }
     .btn {
-      box-shadow: 0 8px 18px rgba(2, 6, 18, 0.4);
+      box-shadow: 0 5px 11px rgba(2, 6, 18, 0.32);
     }
     .btn.btn-primary {
       box-shadow:
-        0 12px 24px rgba(2, 6, 18, 0.55),
-        0 0 18px color-mix(in srgb, var(--accent-primary-live) 28%, transparent);
-    }
-    .btn.btn-primary:hover {
-      box-shadow:
-        0 16px 30px rgba(2, 6, 18, 0.62),
-        0 0 24px color-mix(in srgb, var(--accent-primary-live) 38%, transparent),
-        0 0 18px color-mix(in srgb, var(--accent-secondary-live) 24%, transparent);
+        0 7px 14px rgba(2, 6, 18, 0.38),
+        0 0 10px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
     }
     .btn.btn-secondary {
       box-shadow:
-        0 10px 20px rgba(2, 6, 18, 0.45),
+        0 6px 12px rgba(2, 6, 18, 0.3),
         inset 0 0 0 1px rgba(148, 163, 184, 0.12);
     }
-    .btn.btn-secondary:hover {
-      box-shadow:
-        0 14px 26px rgba(2, 6, 18, 0.54),
-        0 0 14px color-mix(in srgb, var(--accent-primary-live) 18%, transparent);
-    }
     .btn:active {
-      transform: translateY(1px) scale(0.993);
-    }
-    .nav-item:hover,
-    .accent-chip:hover,
-    .pill:hover,
-    .status-pill:hover {
-      box-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+      transform: translateY(1px) scale(0.994);
     }
     .field input:focus,
     .field select:focus,
@@ -9133,11 +9098,95 @@
     textarea:focus {
       border-color: color-mix(in srgb, var(--accent-primary-live) 52%, rgba(148, 163, 184, 0.35));
       box-shadow:
-        0 0 0 2px color-mix(in srgb, var(--accent-primary-live) 16%, transparent),
-        0 0 14px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
+        0 0 0 2px color-mix(in srgb, var(--accent-primary-live) 14%, transparent),
+        0 0 8px color-mix(in srgb, var(--accent-primary-live) 16%, transparent);
     }
     body.ios :where(.btn, .nav-item, .pill, .community-stat, .featured-card, .ceo-nav-item) {
       -webkit-tap-highlight-color: rgba(34, 211, 238, 0.24);
+    }
+    @media (hover: hover) {
+      :where(
+        .card-hd,
+        .staff-form,
+        .staff-radar,
+        .ceo-card,
+        .ceo-panel,
+        .ceo-hq-panel,
+        .membership-card,
+        .payment-card,
+        .support-card,
+        .venues-card,
+        .vip-deal-card,
+        .alerts-card
+      ):hover {
+        transform: translateY(-1px);
+        box-shadow:
+          0 11px 22px rgba(2, 6, 18, 0.42),
+          0 0 12px color-mix(in srgb, var(--accent-primary-live) 15%, transparent);
+      }
+      .btn.btn-primary:hover {
+        box-shadow:
+          0 9px 17px rgba(2, 6, 18, 0.43),
+          0 0 13px color-mix(in srgb, var(--accent-primary-live) 28%, transparent);
+      }
+      .btn.btn-secondary:hover {
+        box-shadow:
+          0 8px 15px rgba(2, 6, 18, 0.37),
+          0 0 9px color-mix(in srgb, var(--accent-primary-live) 15%, transparent);
+      }
+      .nav-item:hover,
+      .accent-chip:hover,
+      .pill:hover,
+      .status-pill:hover {
+        box-shadow: 0 0 12px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
+      }
+    }
+    body.mobile-performance :where(
+      .screen,
+      .pass-card,
+      .card-hd,
+      .staff-form,
+      .staff-radar,
+      .ceo-card,
+      .ceo-panel,
+      .ceo-hq-panel,
+      .ceo-reset-card,
+      .membership-card,
+      .payment-card,
+      .support-card,
+      .venues-card,
+      .vip-deal-card,
+      .alerts-card,
+      .modal-card,
+      .black-card,
+      .btn
+    ) {
+      box-shadow: 0 5px 10px rgba(2, 6, 18, 0.3) !important;
+      transition-duration: 100ms !important;
+    }
+    body.mobile-performance #passScreen::before,
+    body.mobile-performance #staffPortalScreen::before {
+      filter: blur(10px) !important;
+      opacity: 0.22 !important;
+      animation-duration: 26s !important;
+    }
+    @media (hover: none) {
+      :where(
+        .card-hd,
+        .staff-form,
+        .staff-radar,
+        .ceo-card,
+        .ceo-panel,
+        .ceo-hq-panel,
+        .membership-card,
+        .payment-card,
+        .support-card,
+        .venues-card,
+        .vip-deal-card,
+        .alerts-card
+      ):hover {
+        transform: none;
+      }
     }
   </style>
 </head>
@@ -13606,6 +13655,7 @@
     // Initialize particles only (no tilt/parallax)
     (function setupVisuals() {
       if (!canAnimate()) return;
+      if (LOW_PERF_MODE) return;
       try { initCardParticles(); } catch (e) { console.warn('particles failed', e); }
     })();
     window.addEventListener("beforeinstallprompt", (e) => {
