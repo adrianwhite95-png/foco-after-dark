@@ -21400,7 +21400,7 @@ let onboardingIndex = 0;
           focusText = "Refill voucher balance";
         } else {
           const vibe = (document.getElementById("statTonightVibe")?.textContent || "").trim();
-          if (vibe) focusText = `${vibe} mode`;
+          if (vibe) focusText = vibe;
         }
         memberSignalFocus.textContent = focusText;
       }
