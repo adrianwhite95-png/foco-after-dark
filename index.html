@@ -9946,6 +9946,101 @@
       transform: translateY(0) scale(0.99);
     }
 
+    /* Landing screen: brighter glow + more motion */
+    @keyframes landingPhotoDrift {
+      0% { transform: scale(1.06) translate3d(0, 0, 0); filter: brightness(0.56) saturate(1.08); }
+      50% { transform: scale(1.12) translate3d(-1.2%, -0.8%, 0); filter: brightness(0.62) saturate(1.18); }
+      100% { transform: scale(1.1) translate3d(1.1%, 0.9%, 0); filter: brightness(0.58) saturate(1.14); }
+    }
+    @keyframes landingLogoPulse {
+      0%, 100% {
+        opacity: 0.2;
+        filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent-primary-live) 52%, transparent));
+      }
+      50% {
+        opacity: 0.3;
+        filter: drop-shadow(0 0 30px color-mix(in srgb, var(--accent-primary-live) 66%, transparent))
+                drop-shadow(0 0 40px color-mix(in srgb, var(--accent-secondary-live) 46%, transparent));
+      }
+    }
+    @keyframes landingStrobeBurst {
+      0%, 100% { opacity: 0.36; transform: scale(0.96) rotate(0deg); }
+      50% { opacity: 0.78; transform: scale(1.08) rotate(12deg); }
+    }
+    @keyframes heroPanelPulse {
+      0%, 100% {
+        box-shadow: 0 20px 42px rgba(2, 6, 18, 0.58), 0 0 24px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+      }
+      50% {
+        box-shadow: 0 26px 56px rgba(2, 6, 18, 0.66), 0 0 40px color-mix(in srgb, var(--accent-primary-live) 38%, transparent), 0 0 24px color-mix(in srgb, var(--accent-secondary-live) 30%, transparent);
+      }
+    }
+    @keyframes landingCardFloat {
+      0%, 100% { transform: translateY(0); box-shadow: 0 16px 34px rgba(2, 6, 18, 0.52); }
+      50% { transform: translateY(-2px); box-shadow: 0 20px 40px rgba(2, 6, 18, 0.62), 0 0 18px color-mix(in srgb, var(--accent-primary-live) 22%, transparent); }
+    }
+    @keyframes landingFeaturePulse {
+      0%, 100% { box-shadow: 0 18px 34px rgba(2, 6, 18, 0.52); }
+      50% { box-shadow: 0 22px 42px rgba(2, 6, 18, 0.62), 0 0 26px color-mix(in srgb, var(--accent-primary-live) 24%, transparent); }
+    }
+    @keyframes landingCtaBlast {
+      0%, 100% {
+        box-shadow: 0 16px 36px rgba(2, 6, 18, 0.58), 0 0 28px color-mix(in srgb, var(--accent-primary-live) 36%, transparent), 0 0 18px color-mix(in srgb, var(--accent-secondary-live) 26%, transparent);
+      }
+      50% {
+        box-shadow: 0 20px 46px rgba(2, 6, 18, 0.68), 0 0 44px color-mix(in srgb, var(--accent-primary-live) 56%, transparent), 0 0 30px color-mix(in srgb, var(--accent-secondary-live) 44%, transparent);
+      }
+    }
+    #landingScreen.active .landing-bg img {
+      animation: landingPhotoDrift 16s ease-in-out infinite alternate;
+      will-change: transform, filter;
+    }
+    #landingScreen.active .landing-logo-overlay {
+      animation: landingLogoPulse 5.2s ease-in-out infinite;
+    }
+    #landingScreen.active .landing-wrapper .landing-strobe {
+      opacity: 0.72;
+      filter: blur(20px) saturate(1.18);
+      animation: strobeSpin 12s linear infinite, strobePulse 3.2s ease-in-out infinite;
+    }
+    #landingScreen.active .landing-wrapper .landing-strobe::before {
+      content: "";
+      position: absolute;
+      inset: -35%;
+      pointer-events: none;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 24% 26%, color-mix(in srgb, var(--accent-primary-live) 56%, transparent), transparent 44%),
+        radial-gradient(circle at 78% 70%, color-mix(in srgb, var(--accent-secondary-live) 48%, transparent), transparent 48%);
+      mix-blend-mode: screen;
+      animation: landingStrobeBurst 4.4s ease-in-out infinite;
+    }
+    #landingScreen.active .hero-highlight {
+      animation: heroPanelPulse 4.8s ease-in-out infinite;
+    }
+    #landingScreen.active .hero-point.neon-card {
+      animation: landingCardFloat 4s ease-in-out infinite;
+    }
+    #landingScreen.active .hero-point.neon-card:nth-child(2) { animation-delay: 0.55s; }
+    #landingScreen.active .hero-point.neon-card:nth-child(3) { animation-delay: 1.1s; }
+    #landingScreen.active .landing-feature-card {
+      animation: landingFeaturePulse 5.4s ease-in-out infinite;
+    }
+    #landingScreen.active .landing-feature-card:nth-child(2) { animation-delay: 0.65s; }
+    #landingScreen.active .landing-feature-card:nth-child(3) { animation-delay: 1.3s; }
+    #landingScreen.active #landingGetPassBtn,
+    #landingScreen.active #addToHomeBtn {
+      animation: landingCtaBlast 2.35s ease-in-out infinite;
+    }
+    body.mobile-performance:not(.ios) #landingScreen.active .landing-bg img,
+    body.mobile-performance:not(.ios) #landingScreen.active .landing-wrapper .landing-strobe::before,
+    body.mobile-performance:not(.ios) #landingScreen.active .hero-point.neon-card,
+    body.mobile-performance:not(.ios) #landingScreen.active .landing-feature-card,
+    body.mobile-performance:not(.ios) #landingScreen.active #landingGetPassBtn,
+    body.mobile-performance:not(.ios) #landingScreen.active #addToHomeBtn {
+      animation: none !important;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       #passScreen::after,
       #staffPortalScreen::after,
@@ -9966,6 +10061,15 @@
       #staffPortalScreen .staff-ticker::before,
       #staffPortalScreen .staff-ticker::after,
       #staffPortalScreen .btn.btn-primary,
+      #landingScreen.active .landing-bg img,
+      #landingScreen.active .landing-logo-overlay,
+      #landingScreen.active .landing-wrapper .landing-strobe,
+      #landingScreen.active .landing-wrapper .landing-strobe::before,
+      #landingScreen.active .hero-highlight,
+      #landingScreen.active .hero-point.neon-card,
+      #landingScreen.active .landing-feature-card,
+      #landingScreen.active #landingGetPassBtn,
+      #landingScreen.active #addToHomeBtn,
       #passScreen.screen-in .profile-summary,
       #passScreen.screen-in .member-hero,
       #passScreen.screen-in .alerts-card,
