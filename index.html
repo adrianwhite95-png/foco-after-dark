@@ -12146,6 +12146,7 @@
     } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-functions.js";
     import { getMessaging, getToken, onMessage, isSupported as messagingIsSupported } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-messaging.js";
+    import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app-check.js";
 
     // Your Firebase config from console
     const firebaseConfig = {
@@ -12157,6 +12158,10 @@
       appId: "1:962947086594:web:9c931c93a90992f4826a1b",
       measurementId: "G-FCLG1RNRYZ"
     };
+    // Optional App Check rollout key.
+    // Leave blank to keep current behavior; once set, callable hardening can be switched to "required"
+    // from Firestore: settings/security { appCheckMode: "required" }.
+    const APP_CHECK_SITE_KEY = "";
     // Firebase Cloud Messaging (Web Push) public key from Firebase Console.
     const VAPID_PUBLIC_KEY = "BD8Ve6ptu3H4-hXgGKzHT9SdwHtYUDgntZVL-wfOwryashloFBCsG9TLH-6pygusFHKWoNgDN6OhIBHcM8Vgugg";
     const params = new URLSearchParams(window.location.search);
@@ -12205,6 +12210,17 @@
     })();
 
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    let appCheckClient = null;
+    if (!SAFE_MODE && APP_CHECK_SITE_KEY) {
+      try {
+        appCheckClient = initializeAppCheck(app, {
+          provider: new ReCaptchaV3Provider(APP_CHECK_SITE_KEY),
+          isTokenAutoRefreshEnabled: true
+        });
+      } catch (err) {
+        console.warn("App Check init failed", err);
+      }
+    }
     const firebaseAuth = getAuth(app);
     setPersistence(firebaseAuth, browserSessionPersistence)
       .catch(() => setPersistence(firebaseAuth, inMemoryPersistence).catch(() => {}));

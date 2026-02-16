@@ -277,6 +277,55 @@ function readRequiredSecret(secretValue, secretName) {
   return value;
 }
 
+const SECURITY_SETTINGS_DOC = "settings/security";
+const SECURITY_CACHE_TTL_MS = 2 * 60 * 1000;
+let securitySettingsCache = { loadedAt: 0, data: {} };
+
+function normalizeAppCheckMode(modeRaw) {
+  const mode = String(modeRaw || "").trim().toLowerCase();
+  if (mode === "required") return "required";
+  if (mode === "off" || mode === "disabled") return "off";
+  return "optional";
+}
+
+async function getSecuritySettingsCached() {
+  const now = Date.now();
+  if (securitySettingsCache.loadedAt && (now - securitySettingsCache.loadedAt) < SECURITY_CACHE_TTL_MS) {
+    return securitySettingsCache.data || {};
+  }
+  try {
+    const snap = await db.doc(SECURITY_SETTINGS_DOC).get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    securitySettingsCache = { loadedAt: now, data };
+    return data;
+  } catch (err) {
+    console.warn("security settings read failed", err?.message || err);
+    return securitySettingsCache.data || {};
+  }
+}
+
+async function enforceCallableSecurity(context, opts = {}) {
+  const requireAuth = opts.requireAuth !== false;
+  if (requireAuth && !context?.auth) {
+    throw new HttpsError("unauthenticated", "Auth required");
+  }
+
+  const useSettings = opts.useSecuritySettings !== false;
+  const settings = useSettings ? await getSecuritySettingsCached() : {};
+  const mode = normalizeAppCheckMode(opts.appCheckMode || settings.appCheckMode || "optional");
+  if (mode === "required" && !context?.app) {
+    throw new HttpsError("failed-precondition", "App integrity check required.");
+  }
+
+  if (opts.rateLimit) {
+    if (context?.auth?.uid) {
+      await checkRateLimit(context.auth.uid, opts.rateLimit);
+    } else if (opts.publicRateLimit) {
+      await enforcePublicCallableRateLimit(context, opts.publicScope || "public", opts.publicRateLimit);
+    }
+  }
+}
+
 exports.generateCeoVoucher = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new HttpsError('unauthenticated', 'Authentication required');
@@ -782,9 +831,9 @@ function getVenuePerkUsageCountForWallet(entries = [], perkId = "", venueId = ""
 
 exports.createRedemption = functions.https.onCall(async (data, context) => {
   try {
-    if (!context.auth) {
-      throw new HttpsError("unauthenticated", "Sign in required.");
-    }
+    await enforceCallableSecurity(context, {
+      rateLimit: { maxPerMin: 8, maxPerDay: 500 }
+    });
     const passCode = String(data?.passCode || "").trim().toUpperCase();
     const venueId = String(data?.venueId || "").trim().toLowerCase();
     const perkId = String(data?.perkId || "").trim();
@@ -978,9 +1027,9 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
 });
 
 exports.verifyRedemption = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new HttpsError("unauthenticated", "Sign in required.");
-  }
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 20, maxPerDay: 1500 }
+  });
   const venueId = String(data?.venueId || "").trim().toLowerCase();
   const redemptionId = String(data?.redemptionId || "").trim().toUpperCase();
   const action = String(data?.action || "confirm").trim().toLowerCase();
@@ -1596,7 +1645,9 @@ exports.runCloseOutNow = functions.runWith(reportEmailSecrets).https.onCall(asyn
 
 // Atomic username reservation/update
 exports.reserveUsername = functions.https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 12, maxPerDay: 200 }
+  });
   const uid = context.auth.uid;
   const desired = (data && data.username ? String(data.username) : '').trim().toLowerCase();
   if (!desired || desired.length < 3 || desired.length > 10 || !/^[a-z0-9_]+$/.test(desired)) {
@@ -1635,7 +1686,9 @@ exports.reserveUsername = functions.https.onCall(async (data, context) => {
 });
 
 exports.ensureMemberPassCode = functions.https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 10, maxPerDay: 120 }
+  });
   const uid = context.auth.uid;
   const memberRef = db.collection("members").doc(uid);
   const memberSnap = await memberRef.get();
@@ -1678,7 +1731,9 @@ function extractAchievementIdFromAwardKey(awardKey = "") {
 
 // Server-side points adjust with idempotency support for one-time awards.
 exports.awardPoints = functions.https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 20, maxPerDay: 600 }
+  });
   const points = Math.floor(Number(data?.points || 0));
   const reason = (data?.reason || 'adjustment').toString().slice(0, 120);
   const venue = String(data?.venue || "").trim().toLowerCase();
@@ -1845,7 +1900,9 @@ exports.spinNightWheel = functions.https.onCall(async (data, context) => {
 
 // Push notifications: register token per user
 exports.registerPushToken = functions.https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 20, maxPerDay: 300 }
+  });
   const token = (data?.token || '').trim();
   const clientKey = (data?.clientKey || '').trim().slice(0, 120);
   if (!token) throw new HttpsError('invalid-argument', 'Token required');
@@ -2171,7 +2228,9 @@ async function sendPushToUid(uid, { title, body, link, source = "direct" } = {})
 
 // Push notifications: send to a user by uid
 exports.sendPushToUser = functions.https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 20, maxPerDay: 500 }
+  });
   const targetUid = data?.uid;
   const title = (data?.title || 'FoCo Alert').toString();
   const body = (data?.body || '').toString().slice(0, 200);
@@ -2194,7 +2253,9 @@ exports.sendPushToUser = functions.https.onCall(async (data, context) => {
 });
 
 exports.pushBroadcastNow = functions.https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 12, maxPerDay: 250 }
+  });
   const claims = context.auth.token || {};
   const uid = String(context.auth.uid || "");
   let allowed =
@@ -3805,7 +3866,12 @@ exports.recountMembers = functions.https.onCall(async (data, context) => {
 
 // Shared staff login: validates access code + passphrase, returns custom token per venue
 exports.getStaffLoginToken = functions.runWith(staffLoginSecrets).https.onCall(async (data, context) => {
-  await enforcePublicCallableRateLimit(context, "staffLogin", { limit: 25, windowMs: 10 * 60 * 1000 });
+  await enforceCallableSecurity(context, {
+    requireAuth: false,
+    rateLimit: true,
+    publicScope: "staffLogin",
+    publicRateLimit: { limit: 25, windowMs: 10 * 60 * 1000 }
+  });
   const expected = readRequiredSecret(process.env.STAFF_GATE_CODE, "STAFF_GATE_CODE").toLowerCase();
   const supplied = (data?.accessCode || "").toString().trim().toLowerCase();
   if (!supplied || supplied !== expected) throw new HttpsError('permission-denied', 'Invalid staff access code');
@@ -3882,7 +3948,12 @@ exports.getStaffLoginToken = functions.runWith(staffLoginSecrets).https.onCall(a
 // CEO login via shared passphrase: returns custom token with CEO claims.
 exports.getCeoLoginToken = functions.runWith(ceoLoginSecrets).https.onCall(async (data, context) => {
   try {
-    await enforcePublicCallableRateLimit(context, "ceoLogin", { limit: 15, windowMs: 10 * 60 * 1000 });
+    await enforceCallableSecurity(context, {
+      requireAuth: false,
+      rateLimit: true,
+      publicScope: "ceoLogin",
+      publicRateLimit: { limit: 15, windowMs: 10 * 60 * 1000 }
+    });
     const expected = readRequiredSecret(process.env.CEO_LOGIN_CODE, "CEO_LOGIN_CODE").toLowerCase();
     const supplied = (data?.code || "").toString().trim().toLowerCase();
     if (!supplied || supplied !== expected) {
@@ -3933,7 +4004,12 @@ exports.getCeoLoginToken = functions.runWith(ceoLoginSecrets).https.onCall(async
 
 // Shared beta demo login: returns a custom token for a single beta user
 exports.getBetaLoginToken = functions.runWith(betaLoginSecrets).https.onCall(async (data, context) => {
-  await enforcePublicCallableRateLimit(context, "betaLogin", { limit: 30, windowMs: 10 * 60 * 1000 });
+  await enforceCallableSecurity(context, {
+    requireAuth: false,
+    rateLimit: true,
+    publicScope: "betaLogin",
+    publicRateLimit: { limit: 30, windowMs: 10 * 60 * 1000 }
+  });
   const expected = readRequiredSecret(process.env.BETA_LOGIN_CODE, "BETA_LOGIN_CODE").toLowerCase();
   const supplied = (data?.code || "").toString().trim().toLowerCase();
   if (!supplied || supplied !== expected) throw new HttpsError('permission-denied', 'Invalid beta access code');
@@ -4216,9 +4292,9 @@ exports.getLaunchMode = functions.https.onCall(async (data, context) => {
 
 exports.setLaunchMode = functions.https.onCall(async (data, context) => {
   try {
-    if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
-    const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
-    const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
+    await enforceCallableSecurity(context, {
+      rateLimit: { maxPerMin: 10, maxPerDay: 120 }
+    });
     if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
     const launched = data?.launched === true;
     await db.collection('settings').doc('app').set({
@@ -4235,9 +4311,9 @@ exports.setLaunchMode = functions.https.onCall(async (data, context) => {
 // Maintenance mode toggle (CEO only). When enabled, clients should sign out and show maintenance screen.
 exports.setMaintenanceMode = functions.https.onCall(async (data, context) => {
   try {
-    if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
-    const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
-    const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
+    await enforceCallableSecurity(context, {
+      rateLimit: { maxPerMin: 10, maxPerDay: 120 }
+    });
     if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
 
     const appRef = db.collection('settings').doc('app');
@@ -4284,9 +4360,9 @@ exports.setMaintenanceMode = functions.https.onCall(async (data, context) => {
 // App lock toggle (CEO only) with passcode stored in Secret Manager
 exports.setAppLock = functions.runWith(appLockSecrets).https.onCall(async (data, context) => {
   try {
-    if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
-    const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
-    const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
+    await enforceCallableSecurity(context, {
+      rateLimit: { maxPerMin: 8, maxPerDay: 80 }
+    });
     if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
     const secret = (process.env.APP_LOCK_CODE || '').trim();
     if (!secret) throw new HttpsError('failed-precondition', 'App lock code not configured');
@@ -4330,8 +4406,14 @@ exports.setAppLock = functions.runWith(appLockSecrets).https.onCall(async (data,
 });
 
 // CEO access gate while app is locked (password stored in Secret Manager)
-exports.verifyCeoAccess = functions.runWith(ceoAccessSecrets).https.onCall(async (data) => {
+exports.verifyCeoAccess = functions.runWith(ceoAccessSecrets).https.onCall(async (data, context) => {
   try {
+    await enforceCallableSecurity(context, {
+      requireAuth: false,
+      rateLimit: true,
+      publicScope: "verifyCeoAccess",
+      publicRateLimit: { limit: 20, windowMs: 10 * 60 * 1000 }
+    });
     const secret = (process.env.CEO_ACCESS_PASSWORD || '').trim();
     if (!secret) throw new HttpsError('failed-precondition', 'CEO access password not configured');
     const code = (data?.code || '').toString().trim();
