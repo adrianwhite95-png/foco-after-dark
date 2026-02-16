@@ -68,6 +68,9 @@ node_modules/
 # Local backups (do not commit large archives)
 backups/
 backup-*.tar.gz
+notes/Backup-codes-*.txt
+notes/stripe_backup_code.txt
+*.pem
 
 # Firebase CLI local config (may contain tokens)
 functions/.config/

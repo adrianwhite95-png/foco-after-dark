@@ -10912,7 +10912,7 @@
         <button type="button" class="btn btn-primary" id="staffLoginSubmit">Log in</button>
       </form>
       <p class="small beta-ui" id="staffBetaHint" style="margin-top:10px;text-align:center;">
-        Beta access? Use venue code “beta” and passphrase “betastaff” (or “foco-beta”).
+        Beta access is invite-only. Use your provided venue code and passphrase.
       </p>
       <button type="button" class="btn btn-secondary back-btn" id="staffLoginBack" style="margin-top:12px;">
         Back to start
@@ -12244,14 +12244,12 @@
         disableNetwork(db).catch(() => {});
       } catch (_) {}
     });
-    const BETA_FALLBACK_EMAIL = "beta@focoafterdark.com";
-    const BETA_FALLBACK_CODE = "beta";
     let functionsClient = null;
     if (!SAFE_MODE) {
       try {
         functionsClient = getFunctions(app, "us-central1");
       } catch (err) {
-        // Functions client may not be available in older environments — fallback will be used.
+        // Functions client may not be available in older environments.
         console.warn('Functions client unavailable', err);
       }
     } else {
@@ -13634,55 +13632,6 @@
       }
       const remember = !!(rememberMe && rememberMe.checked);
 
-      if (isCeoCredentials(email, password)) {
-        beginAuthSubmit();
-        const attemptId = logAuthAttempt(email, "ceo");
-          try {
-            await ensureAuthPersistence();
-            try {
-              console.info("[auth] pre-signin", {
-                mode: "ceo",
-              email,
-              isAnonymous: !!firebaseAuth.currentUser?.isAnonymous,
-              authTransition,
-              authSubmitInFlight,
-              screen: currentScreenName
-            });
-              console.info("[auth] signInWithEmailAndPassword (ceo)", { attempt: attemptId });
-          const cred = await signInWithEmailAndPassword(firebaseAuth, email, password);
-          console.info("[auth] signed in", {
-            uid: cred?.user?.uid || null,
-            isAnonymous: !!cred?.user?.isAnonymous,
-            email: cred?.user?.email || null
-          });
-            } catch (err) {
-              if (err?.code === "auth/user-not-found") {
-                await createUserWithEmailAndPassword(firebaseAuth, email, password);
-                try {
-                  await updateProfile(firebaseAuth.currentUser, { displayName: "FoCo CEO" });
-                } catch (_) {}
-              } else {
-                throw err;
-              }
-            }
-            updateRememberedEmail(remember ? email : null);
-            forceShowLogin = false;
-            clearLoginHash();
-          } catch (err) {
-            console.warn("[auth] sign-in failed", {
-              code: err?.code,
-              message: err?.message,
-              emailEmpty: !email
-          });
-          const msg = formatAuthError(err);
-          authError.textContent = msg;
-          if (typeof showToast === "function") showToast(msg, 2600);
-        } finally {
-          resetAuthSubmitState();
-        }
-        return;
-      }
-
       if (authMode === "signup") {
         if (!firstName || !lastName) {
           const msg = "First and last name are required for verification.";
@@ -13742,6 +13691,49 @@
         } else {
           email = raw;
         }
+      }
+      if (authMode === "login" && email.trim().toLowerCase() === "ceo@gmail.com") {
+        beginAuthSubmit();
+        const attemptId = logAuthAttempt(email, "ceo");
+        try {
+          if (!functionsClient) {
+            throw new Error("Secure CEO login is unavailable right now.");
+          }
+          await ensureAuthPersistence();
+          console.info("[auth] ceo token login", {
+            attempt: attemptId,
+            email,
+            screen: currentScreenName
+          });
+          const fn = httpsCallable(functionsClient, "getCeoLoginToken");
+          const resp = await fn({ code: password });
+          const token = resp?.data?.token;
+          if (!token) {
+            throw new Error("Could not issue CEO login token.");
+          }
+          suppressLandingRedirectOnce = true;
+          const cred = await signInWithCustomToken(firebaseAuth, token);
+          console.info("[auth] ceo signed in", {
+            uid: cred?.user?.uid || null,
+            email: cred?.user?.email || null
+          });
+          updateRememberedEmail(remember ? email : null);
+          forceShowLogin = false;
+          clearLoginHash();
+        } catch (err) {
+          console.warn("[auth] ceo sign-in failed", {
+            code: err?.code,
+            message: err?.message
+          });
+          const msg = err?.code?.includes("permission-denied")
+            ? "Invalid CEO access code."
+            : (err?.message || "CEO login failed. Try again.");
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2600);
+        } finally {
+          resetAuthSubmitState();
+        }
+        return;
       }
 
       beginAuthSubmit();
@@ -13826,10 +13818,21 @@
           if (birthDateISO) profilePayload.birthDate = birthDateISO;
           if (fullName) profilePayload.legalName = fullName;
           if (gender) profilePayload.gender = gender;
-          if (username) profilePayload.username = username;
-          if (username) profilePayload.username = username;
           profilePayload.onboardingEligible = true;
           profilePayload.onboardingComplete = false;
+          let finalizedUsername = "";
+          if (username && email) {
+            const reserved = await reserveUsernameCloud(username);
+            if (reserved.ok) {
+              finalizedUsername = reserved.username;
+              saveUsernameMapEntry(finalizedUsername, email);
+            } else if (reserved.code?.includes("already-exists")) {
+              showToast("That username was just claimed. Choose another after signup.");
+            } else {
+              console.warn("Username reservation failed", reserved.message || reserved.code || "");
+            }
+          }
+          if (finalizedUsername) profilePayload.username = finalizedUsername;
           if (Object.keys(profilePayload).length) {
             if (db) {
               const memberRef = doc(db, "members", cred.user.uid);
@@ -13841,23 +13844,18 @@
               localStorage.setItem(`memberMeta_${cred.user.uid}`, JSON.stringify(profilePayload));
             }
           }
-      if (username && email) {
-        saveUsernameMapEntry(username, email);
-        if (db) {
-          const unameDoc = doc(db, "usernames", username.trim().toLowerCase());
-          if (guardWriteAction("signupUsername", "App is locked (read-only).", { silent: true })) {
-            await setDoc(unameDoc, {
-              email,
-              uid: cred.user.uid,
-              createdAt: serverTimestamp()
-            }, { merge: true });
-          }
-        }
-      }
       if (onboardingMembershipFlow) {
         localStorage.setItem(PENDING_MEMBERSHIP_STORAGE_KEY, cred.user.uid);
       }
       await handleAuthenticatedUser(cred.user);
+      if (!finalizedUsername && username) {
+        const retry = await reserveUsernameCloud(username);
+        if (retry.ok) {
+          finalizedUsername = retry.username;
+          if (email) saveUsernameMapEntry(finalizedUsername, email);
+          await updateMemberProfile({ username: finalizedUsername });
+        }
+      }
       forceShowLogin = false;
       clearLoginHash();
       if (onboardingMembershipFlow) {
@@ -17148,7 +17146,6 @@
             updateLastCheckinUI();
           } else if (guardWriteAction("seedMemberDoc", "App is locked (read-only).", { silent: true })) {
             const seed = {
-              passCode: (code || currentPassCode || "").toUpperCase(),
               memberSince: new Date().toISOString(),
               updatedAt: serverTimestamp()
             };
@@ -18365,6 +18362,33 @@ let onboardingIndex = 0;
       }
       return null;
     }
+    async function ensureMemberPassCodeCloud() {
+      if (!functionsClient || !firebaseAuth?.currentUser) return null;
+      try {
+        const fn = httpsCallable(functionsClient, "ensureMemberPassCode");
+        const resp = await fn({});
+        const code = String(resp?.data?.passCode || "").trim().toUpperCase();
+        return code || null;
+      } catch (err) {
+        console.warn("Pass code ensure failed", err);
+        return null;
+      }
+    }
+    async function reserveUsernameCloud(username) {
+      if (!functionsClient || !firebaseAuth?.currentUser) {
+        return { ok: false, code: "unavailable", message: "Functions unavailable" };
+      }
+      const desired = String(username || "").trim().toLowerCase();
+      if (!desired) return { ok: false, code: "invalid-argument", message: "Username required" };
+      try {
+        const fn = httpsCallable(functionsClient, "reserveUsername");
+        const resp = await fn({ username: desired });
+        const finalized = String(resp?.data?.username || desired).trim().toLowerCase();
+        return { ok: true, username: finalized };
+      } catch (err) {
+        return { ok: false, code: err?.code || "", message: err?.message || "Username reservation failed" };
+      }
+    }
     const BANNED_USER_WORDS = ["hate","kill","murder","bomb","terror","racist","nazi","kkk","lynch","violence","threat","harm","attack","shoot","slur"];
     function loadUsernameMap() {
       try {
@@ -18378,36 +18402,10 @@ let onboardingIndex = 0;
     }
     function saveUsernameMapEntry(username, email) {
       if (!username || !email) return;
-      if (blockedWriteLabels.has("usernames")) return;
       const map = loadUsernameMap();
       const key = username.trim().toLowerCase();
       map[key] = email;
       saveUsernameMap(map);
-      if (db && firebaseAuth?.currentUser) {
-        if (!guardWriteAction("saveUsernameMapEntry", "App is locked (read-only).", { silent: true })) {
-          return;
-        }
-        try {
-          const unameDoc = doc(db, "usernames", key);
-          setDoc(unameDoc, {
-            email,
-            uid: firebaseAuth.currentUser.uid,
-            updatedAt: serverTimestamp()
-          }, { merge: true }).catch(err => {
-            if (err?.code === "permission-denied") {
-              blockedWriteLabels.add("usernames");
-              return;
-            }
-            console.warn("Username map save failed", err);
-          });
-        } catch (err) {
-          if (err?.code === "permission-denied") {
-            blockedWriteLabels.add("usernames");
-            return;
-          }
-          console.warn("Username map save failed", err);
-        }
-      }
     }
     function lookupUsernameEmail(username) {
       if (!username) return null;
@@ -18437,8 +18435,8 @@ let onboardingIndex = 0;
     function validateUsername(name) {
       if (!name) return { ok: false, message: "Username required." };
       const trimmed = name.trim();
-      if (trimmed.length < 3 || trimmed.length > 10) return { ok: false, message: "Use 3-10 characters (spaces allowed)." };
-      if (!/^[A-Za-z0-9_ ]+$/.test(trimmed)) return { ok: false, message: "Only letters, numbers, underscore, and spaces allowed." };
+      if (trimmed.length < 3 || trimmed.length > 10) return { ok: false, message: "Use 3-10 characters." };
+      if (!/^[A-Za-z0-9_]+$/.test(trimmed)) return { ok: false, message: "Only letters, numbers, and underscore allowed." };
       const lower = trimmed.toLowerCase();
       if (BANNED_USER_WORDS.some(word => lower.includes(word))) {
         return { ok: false, message: "That username isn’t allowed." };
@@ -18564,7 +18562,6 @@ let onboardingIndex = 0;
           const displayName = user?.displayName?.trim() || "";
           const email = user?.email || "";
           if (!memberProfile.legalName && displayName) identityPatch.legalName = displayName;
-          if (!memberProfile.email && email) identityPatch.email = email;
           if (!memberProfile.username && email) identityPatch.username = email.split("@")[0];
           if (!memberProfile.memberSince) identityPatch.memberSince = new Date().toISOString();
           if (Object.keys(identityPatch).length) {
@@ -18581,16 +18578,22 @@ let onboardingIndex = 0;
           const username = email ? email.split("@")[0] : "";
           memberProfile = {
             tier: null,
-            passCode: generateRedemptionCode(),
             extraVouchers: { ...EXTRA_DEFAULTS },
             perks: { tier: "standard", remaining: getDefaultPerkState("standard") },
             memberSince: new Date().toISOString(),
             legalName: displayName || nameFromEmail(email),
-            email,
             username
           };
           try {
-            await setDoc(memberDocRef, memberProfile, { merge: true });
+            const createPayload = {
+              memberSince: memberProfile.memberSince,
+              legalName: memberProfile.legalName || "",
+              username: memberProfile.username || "",
+              onboardingEligible: true,
+              onboardingComplete: false,
+              updatedAt: serverTimestamp()
+            };
+            await setDoc(memberDocRef, createPayload, { merge: true });
           } catch (err) {
             console.warn("Failed to create member profile:", err);
           }
@@ -18665,8 +18668,8 @@ let onboardingIndex = 0;
         }
       }
       if (!memberProfile.passCode) {
-        memberProfile.passCode = generateRedemptionCode();
-        updateMemberProfile({ passCode: memberProfile.passCode });
+        const serverCode = await ensureMemberPassCodeCloud();
+        memberProfile.passCode = serverCode || generateRedemptionCode();
       }
       if (!memberProfile.name) {
         const fallbackName = user.displayName || nameFromEmail(user.email || "");
@@ -18709,6 +18712,49 @@ let onboardingIndex = 0;
         delete payload.pointsRedeemedTotal;
         delete payload.lastPointsRedemptionAt;
         delete payload.lastPointsRedemptionType;
+        delete payload.passCode;
+        delete payload.passId;
+        delete payload.email;
+        delete payload.ceo;
+        delete payload.admin;
+        delete payload.staff;
+        delete payload.role;
+        delete payload.venueId;
+        delete payload.venueName;
+        delete payload.freeMembership;
+        delete payload.tier;
+        delete payload.membershipTier;
+        delete payload.membershipOverride;
+        delete payload.membership_override;
+        delete payload.membershipTierOverride;
+        delete payload.override;
+        delete payload.validUntil;
+        delete payload.paymentStatus;
+        delete payload.membershipStatus;
+        delete payload.billing;
+        delete payload.billingProvider;
+        delete payload.stripeCustomerId;
+        delete payload.stripeSubscriptionId;
+        delete payload.defaultPaymentMethodId;
+        delete payload.cancelAtPeriodEnd;
+        delete payload.cancelRequestedAt;
+        delete payload.canceledAt;
+        delete payload.currentPeriodEnd;
+        delete payload.nextRenewal;
+        delete payload.lastCharge;
+        delete payload.lastChargeAt;
+        delete payload.lastPaidAt;
+        delete payload.lastPaymentAt;
+        delete payload.lastStripeEvent;
+        delete payload.lastStripeEventAt;
+        delete payload.lastInvoiceId;
+        delete payload.lastInvoiceStatus;
+        delete payload.lastInvoicePaid;
+        delete payload.paused;
+        delete payload.pausedAt;
+        delete payload.resumedAt;
+        delete payload.revoked;
+        delete payload.excludeFromLeaderboards;
         if (!Object.keys(payload).length) return;
         await setDoc(memberDocRef, payload, { merge: true });
         if (memberProfile?.passCode) {
@@ -20044,7 +20090,6 @@ let onboardingIndex = 0;
       if (payload.nightWheel && (payload.nightWheel.then || typeof payload.nightWheel.then === "function")) {
         delete payload.nightWheel;
       }
-      if (currentPassCode) payload.passCode = currentPassCode.toUpperCase();
       delete payload.points;
       delete payload.pointsUpdatedAt;
       delete payload.venuesVisited;
@@ -20057,6 +20102,49 @@ let onboardingIndex = 0;
       delete payload.pointsRedeemedTotal;
       delete payload.lastPointsRedemptionAt;
       delete payload.lastPointsRedemptionType;
+      delete payload.passCode;
+      delete payload.passId;
+      delete payload.email;
+      delete payload.ceo;
+      delete payload.admin;
+      delete payload.staff;
+      delete payload.role;
+      delete payload.venueId;
+      delete payload.venueName;
+      delete payload.freeMembership;
+      delete payload.tier;
+      delete payload.membershipTier;
+      delete payload.membershipOverride;
+      delete payload.membership_override;
+      delete payload.membershipTierOverride;
+      delete payload.override;
+      delete payload.validUntil;
+      delete payload.paymentStatus;
+      delete payload.membershipStatus;
+      delete payload.billing;
+      delete payload.billingProvider;
+      delete payload.stripeCustomerId;
+      delete payload.stripeSubscriptionId;
+      delete payload.defaultPaymentMethodId;
+      delete payload.cancelAtPeriodEnd;
+      delete payload.cancelRequestedAt;
+      delete payload.canceledAt;
+      delete payload.currentPeriodEnd;
+      delete payload.nextRenewal;
+      delete payload.lastCharge;
+      delete payload.lastChargeAt;
+      delete payload.lastPaidAt;
+      delete payload.lastPaymentAt;
+      delete payload.lastStripeEvent;
+      delete payload.lastStripeEventAt;
+      delete payload.lastInvoiceId;
+      delete payload.lastInvoiceStatus;
+      delete payload.lastInvoicePaid;
+      delete payload.paused;
+      delete payload.pausedAt;
+      delete payload.resumedAt;
+      delete payload.revoked;
+      delete payload.excludeFromLeaderboards;
       if (!Object.keys(payload).length) return;
       setDoc(doc(db, "members", uid), payload, { merge: true }).catch(err => console.warn("persistMemberState failed", err));
     }
@@ -20885,27 +20973,27 @@ let onboardingIndex = 0;
       return counts;
     }
     async function applyUsernameChange(code, finalName) {
+      const reserved = await reserveUsernameCloud(finalName);
+      if (!reserved.ok) {
+        if (reserved.code?.includes("already-exists")) {
+          throw new Error("Username already taken. Try another.");
+        }
+        throw new Error("Could not save username right now.");
+      }
+      const committedName = reserved.username || finalName;
       const changeCounts = recordUsernameChange(code);
       const updates = {
-        username: finalName,
+        username: committedName,
         usernameChangedAt: new Date().toISOString()
       };
       if (changeCounts) updates.usernameChangeCounts = changeCounts;
       memberProfile = { ...(memberProfile || {}), ...updates };
-      if (userUsername) userUsername.textContent = `@${finalName}`;
-      if (userMiniDisplay) userMiniDisplay.textContent = `@${finalName}`;
-      setMemberDirectoryEntry(code, { username: finalName, email: firebaseAuth.currentUser?.email || "" });
+      if (userUsername) userUsername.textContent = `@${committedName}`;
+      if (userMiniDisplay) userMiniDisplay.textContent = `@${committedName}`;
+      setMemberDirectoryEntry(code, { username: committedName, email: firebaseAuth.currentUser?.email || "" });
       setPointsForPass(code, getPointsForPass(code));
       if (firebaseAuth.currentUser?.email) {
-        saveUsernameMapEntry(finalName, firebaseAuth.currentUser.email);
-        if (db) {
-          const unameDoc = doc(db, "usernames", finalName.trim().toLowerCase());
-          setDoc(unameDoc, {
-            email: firebaseAuth.currentUser.email,
-            uid: firebaseAuth.currentUser.uid || "",
-            updatedAt: serverTimestamp()
-          }, { merge: true }).catch(err => console.warn("Username map save failed", err));
-        }
+        saveUsernameMapEntry(committedName, firebaseAuth.currentUser.email);
       }
       updatePointsUI();
       evaluateAchievements();
@@ -20930,7 +21018,12 @@ let onboardingIndex = 0;
         if (usernameEditError) usernameEditError.textContent = "Username already taken. Try another.";
         return;
       }
-      await applyUsernameChange(code, finalName);
+      try {
+        await applyUsernameChange(code, finalName);
+      } catch (err) {
+        if (usernameEditError) usernameEditError.textContent = err?.message || "Could not update username.";
+        return;
+      }
       closeUsernameModal();
       showToast("Username updated.");
     }
@@ -22807,9 +22900,6 @@ let onboardingIndex = 0;
         }
       }
       currentPassCode = generateRedemptionCode();
-      if (memberProfile && user) {
-        updateMemberProfile({ passCode: currentPassCode });
-      }
       if (betaPassMode) {
         localStorage.setItem("passcode_beta", currentPassCode);
       } else if (user && allowLocalCache()) {
@@ -25434,7 +25524,6 @@ let onboardingIndex = 0;
     let staffGateVerified = false;
     let staffGateCodeValue = "";
     let staffGateResumeLogin = false;
-    const STAFF_GATE_CODE = "foco2026";
 
     function openStaffGate() {
       if (!staffGateOverlay) return;
@@ -25461,11 +25550,7 @@ let onboardingIndex = 0;
         if (staffGateError) staffGateError.textContent = "Enter the staff access code.";
         return;
       }
-      if (entered.toLowerCase() !== STAFF_GATE_CODE) {
-        if (staffGateError) staffGateError.textContent = "Incorrect access code. Try again.";
-        return;
-      }
-      staffGateCodeValue = STAFF_GATE_CODE;
+      staffGateCodeValue = entered;
       staffGateVerified = true;
       closeStaffGate();
       if (staffGateResumeLogin) {
@@ -25656,7 +25741,6 @@ let onboardingIndex = 0;
       }
       let venueId = resolveVenueId(venue);
       let token = null;
-      let fallbackEmail = null;
       try {
         const fn = httpsCallable(functionsClient, "getStaffLoginToken");
         const resp = await fn({
@@ -25667,8 +25751,7 @@ let onboardingIndex = 0;
         const data = resp?.data || {};
         token = data.token || null;
         venueId = data.venueId || venueId || venue;
-        fallbackEmail = data.fallback && data.email ? data.email : null;
-        if (!token && !fallbackEmail) throw new Error("Staff login is unavailable.");
+        if (!token) throw new Error("Staff login is unavailable.");
       } catch (err) {
         console.warn("getStaffLoginToken failed", err);
         const code = err?.code || "";
@@ -25685,26 +25768,14 @@ let onboardingIndex = 0;
       }
       pendingStaffVenueId = venueId;
       suppressLandingRedirectOnce = true;
-      if (fallbackEmail) {
-        try {
-          await signInWithEmailAndPassword(firebaseAuth, fallbackEmail, pass);
-          console.info("[staff] auth ok (email)");
-          showToast("Staff auth verified.", 1400);
-        } catch (err) {
-          console.warn("Staff fallback sign-in failed", err);
-          staffLoginError.textContent = "Staff auth failed. Try again.";
-          return;
-        }
-      } else {
-        try {
-          await signInWithCustomToken(firebaseAuth, token);
-          console.info("[staff] auth ok (token)");
-          showToast("Staff auth verified.", 1400);
-        } catch (err) {
-          console.warn("Staff token sign-in failed", err);
-          staffLoginError.textContent = "Staff auth failed. Try again.";
-          return;
-        }
+      try {
+        await signInWithCustomToken(firebaseAuth, token);
+        console.info("[staff] auth ok (token)");
+        showToast("Staff auth verified.", 1400);
+      } catch (err) {
+        console.warn("Staff token sign-in failed", err);
+        staffLoginError.textContent = "Staff auth failed. Try again.";
+        return;
       }
       const result = applyStaffSession(venueId);
       if (!result.success) {
@@ -26018,9 +26089,6 @@ let onboardingIndex = 0;
         voucherStepPayment.style.display = "none";
         voucherStepPacks.style.display = "block";
       });
-    }
-    function isCeoCredentials(email, password) {
-      return email.trim().toLowerCase() === "ceo@gmail.com" && password.trim().toUpperCase() === "CEOCEO";
     }
     function enterCeoPortal() {
       ceoSession = true;
@@ -29147,7 +29215,8 @@ let onboardingIndex = 0;
       resetPaymentForm();
       resetSupportForm();
       if (!functionsClient) {
-        console.warn("Functions unavailable, using beta fallback.");
+        showToast("Beta login is unavailable right now.");
+        return;
       }
       const code = prompt("Enter beta access code");
       if (code === null) return;
@@ -29156,68 +29225,22 @@ let onboardingIndex = 0;
         showToast("Enter the beta access code.");
         return;
       }
-      const normalized = trimmed.toLowerCase();
-      const fallbackPassword = `${normalized}${normalized}`;
       showToast("Connecting beta demo…");
       try {
-        if (functionsClient) {
-          const fn = httpsCallable(functionsClient, "getBetaLoginToken");
-          const resp = await fn({ code: trimmed });
-          const token = resp?.data?.token;
-          if (token) {
-            suppressLandingRedirectOnce = true;
-            await signInWithCustomToken(firebaseAuth, token);
-            try {
-              await waitForAuthReady();
-              await firebaseAuth.currentUser?.getIdToken(true);
-            } catch (_) {}
-            return;
-          }
-        }
-        throw new Error("Beta login unavailable.");
-      } catch (err) {
-        if (normalized !== BETA_FALLBACK_CODE) {
-          console.warn("Beta login failed", err);
-          showToast("Beta login failed. Check code and try again.");
-          return;
-        }
+        const fn = httpsCallable(functionsClient, "getBetaLoginToken");
+        const resp = await fn({ code: trimmed });
+        const token = resp?.data?.token;
+        if (!token) throw new Error("Beta login unavailable.");
+        suppressLandingRedirectOnce = true;
+        await signInWithCustomToken(firebaseAuth, token);
         try {
-          if (firebaseAuth.currentUser) {
-            await signOut(firebaseAuth);
-          }
-          try {
-            suppressLandingRedirectOnce = true;
-            await signInWithEmailAndPassword(firebaseAuth, BETA_FALLBACK_EMAIL, fallbackPassword);
-            try {
-              await waitForAuthReady();
-              await firebaseAuth.currentUser?.getIdToken(true);
-            } catch (_) {}
-            return;
-          } catch (primaryErr) {
-            if (primaryErr?.code === "auth/wrong-password" || primaryErr?.code === "auth/invalid-credential") {
-              suppressLandingRedirectOnce = true;
-              await signInWithEmailAndPassword(firebaseAuth, BETA_FALLBACK_EMAIL, normalized);
-              try {
-                await waitForAuthReady();
-                await firebaseAuth.currentUser?.getIdToken(true);
-              } catch (_) {}
-              return;
-            }
-            if (primaryErr?.code === "auth/user-not-found") {
-              suppressLandingRedirectOnce = true;
-              await createUserWithEmailAndPassword(firebaseAuth, BETA_FALLBACK_EMAIL, fallbackPassword);
-              try {
-                await waitForAuthReady();
-                await firebaseAuth.currentUser?.getIdToken(true);
-              } catch (_) {}
-              return;
-            }
-            throw primaryErr;
-          }
-        } catch (fallbackErr) {
-          console.warn("Beta login fallback failed", fallbackErr);
-          showToast("Beta login failed. Check code and try again.");
-        }
+          await waitForAuthReady();
+          await firebaseAuth.currentUser?.getIdToken(true);
+        } catch (_) {}
+        return;
+      } catch (err) {
+        console.warn("Beta login failed", err);
+        showToast("Beta login failed. Check code and try again.");
       }
     }
 

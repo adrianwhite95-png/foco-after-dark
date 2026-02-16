@@ -257,6 +257,26 @@ async function enforceLookupRateLimit({ key, limit = 30, windowMs = 10 * 60 * 10
   });
 }
 
+function getPublicRateLimitKey(context, scope = "generic") {
+  const ip = getRequestIp(context) || "unknown";
+  return `public_${scope}_${hashLookupKey(ip)}`;
+}
+
+async function enforcePublicCallableRateLimit(context, scope, opts = {}) {
+  const limit = opts.limit || 20;
+  const windowMs = opts.windowMs || (10 * 60 * 1000);
+  const key = getPublicRateLimitKey(context, scope);
+  await enforceLookupRateLimit({ key, limit, windowMs });
+}
+
+function readRequiredSecret(secretValue, secretName) {
+  const value = (secretValue || "").toString().trim();
+  if (!value) {
+    throw new HttpsError("failed-precondition", `${secretName} is not configured`);
+  }
+  return value;
+}
+
 exports.generateCeoVoucher = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new HttpsError('unauthenticated', 'Authentication required');
@@ -1566,7 +1586,7 @@ exports.runCloseOutNow = functions.runWith(reportEmailSecrets).https.onCall(asyn
     const snap = await db.collection('members').doc(uid).get();
     requesterData = snap.exists ? (snap.data() || {}) : {};
   } catch (_) {}
-  if (!isCeoContext(context, requesterData)) {
+  if (!isCeoContext(context)) {
     throw new HttpsError('permission-denied', 'CEO only');
   }
   await runNightlyCloseOutCore('manualCloseOut');
@@ -1579,7 +1599,7 @@ exports.reserveUsername = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
   const uid = context.auth.uid;
   const desired = (data && data.username ? String(data.username) : '').trim().toLowerCase();
-  if (!desired || desired.length < 3 || desired.length > 10 || !/^[a-z0-9_ ]+$/.test(desired)) {
+  if (!desired || desired.length < 3 || desired.length > 10 || !/^[a-z0-9_]+$/.test(desired)) {
     throw new HttpsError('invalid-argument', 'Invalid username format');
   }
   const memberRef = db.collection('members').doc(uid);
@@ -1594,15 +1614,53 @@ exports.reserveUsername = functions.https.onCall(async (data, context) => {
       throw new HttpsError('failed-precondition', 'Member profile missing');
     }
     const member = memberSnap.data() || {};
+    const currentUsername = String(member.username || "").trim().toLowerCase();
+    if (currentUsername && currentUsername !== desired) {
+      const oldRef = db.collection("usernames").doc(currentUsername);
+      const oldSnap = await tx.get(oldRef);
+      if (oldSnap.exists && oldSnap.data()?.uid === uid) {
+        tx.delete(oldRef);
+      }
+    }
     tx.set(memberRef, { username: desired, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     tx.set(unameRef, {
       uid,
       email: member.email || context.auth.token.email || '',
       passCode: (member.passCode || '').toUpperCase(),
+      createdAt: existingUname.exists ? (existingUname.data()?.createdAt || admin.firestore.FieldValue.serverTimestamp()) : admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     return { success: true, username: desired };
   });
+});
+
+exports.ensureMemberPassCode = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  const uid = context.auth.uid;
+  const memberRef = db.collection("members").doc(uid);
+  const memberSnap = await memberRef.get();
+  if (!memberSnap.exists) {
+    throw new HttpsError("failed-precondition", "Member profile missing");
+  }
+  const memberData = memberSnap.data() || {};
+  let passCode = String(memberData.passCode || "").trim().toUpperCase();
+  if (!passCode) {
+    passCode = await ensureUniquePassCode();
+    await memberRef.set({
+      passCode,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  }
+
+  await db.collection("passes").doc(passCode).set({
+    uid,
+    passCode,
+    tier: memberData.tier || memberData.membershipTier || "standard",
+    status: memberData.revoked ? "revoked" : "active",
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  return { passCode };
 });
 
 function normalizePointAwardKey(raw = "") {
@@ -2640,27 +2698,23 @@ exports.redeemPoints = functions.runWith(stripeSecrets).https.onCall(async (data
   throw new HttpsError("invalid-argument", "Unknown redemption type.");
 });
 
-function isCeoContext(context, profileData) {
-  const email = (context?.auth?.token?.email || "").toLowerCase();
-  const pass = (profileData?.passCode || "").toUpperCase();
+function isCeoContext(context) {
+  if (!context?.auth) return false;
+  const email = (context.auth.token?.email || "").toLowerCase();
   return (
-    context?.auth?.token?.ceo === true ||
-    email === "ceo@gmail.com" ||
-    pass === CEO_PASS_ID ||
-    profileData?.ceo === true
+    context.auth.token?.ceo === true ||
+    context.auth.token?.admin === true ||
+    context.auth.uid === CEO_UID ||
+    email === CEO_EMAIL
   );
 }
 
 function isCeoMemberDoc(data = {}, uid = "") {
-  const pass = (data.passCode || "").toUpperCase();
   const email = (data.email || "").toLowerCase();
-  const override = (data.membershipOverride || data.override || "").toString().toUpperCase();
   return (
     data.ceo === true ||
     uid === CEO_UID ||
-    pass === CEO_PASS_ID ||
-    email === CEO_EMAIL ||
-    override.includes("CEO")
+    email === CEO_EMAIL
   );
 }
 
@@ -3639,8 +3693,8 @@ exports.setMemberPaused = functions.https.onCall(async (data, context) => {
   const targetRef = db.collection('members').doc(targetUid);
   const targetSnap = await targetRef.get();
   const targetData = targetSnap.exists ? targetSnap.data() : {};
-  if (!isCeoContext(context, targetData)) throw new HttpsError('permission-denied', 'CEO only');
-  if (targetData.ceo === true || (targetData.passCode || '').toUpperCase() === CEO_PASS_ID) {
+  if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
+  if (isCeoMemberDoc(targetData, targetUid)) {
     throw new HttpsError('failed-precondition', 'Cannot pause CEO');
   }
   const update = {
@@ -3662,7 +3716,7 @@ exports.getMembersSummary = functions.https.onCall(async (data, context) => {
     if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
     const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
     const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
-    if (!isCeoContext(context, requesterData)) throw new HttpsError('permission-denied', 'CEO only');
+    if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
 
     const limit = Math.min(parseInt(data?.limit || "1000", 10) || 1000, 5000);
     let membersSnap;
@@ -3719,7 +3773,7 @@ exports.recountMembers = functions.https.onCall(async (data, context) => {
     if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
     const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
     const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
-    if (!isCeoContext(context, requesterData)) throw new HttpsError('permission-denied', 'CEO only');
+    if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
 
     let total = 0;
     let nextPageToken = undefined;
@@ -3750,8 +3804,9 @@ exports.recountMembers = functions.https.onCall(async (data, context) => {
 });
 
 // Shared staff login: validates access code + passphrase, returns custom token per venue
-exports.getStaffLoginToken = functions.runWith(staffLoginSecrets).https.onCall(async (data) => {
-  const expected = (process.env.STAFF_GATE_CODE || "foco2026").toString().trim().toLowerCase();
+exports.getStaffLoginToken = functions.runWith(staffLoginSecrets).https.onCall(async (data, context) => {
+  await enforcePublicCallableRateLimit(context, "staffLogin", { limit: 25, windowMs: 10 * 60 * 1000 });
+  const expected = readRequiredSecret(process.env.STAFF_GATE_CODE, "STAFF_GATE_CODE").toLowerCase();
   const supplied = (data?.accessCode || "").toString().trim().toLowerCase();
   if (!supplied || supplied !== expected) throw new HttpsError('permission-denied', 'Invalid staff access code');
 
@@ -3764,18 +3819,16 @@ exports.getStaffLoginToken = functions.runWith(staffLoginSecrets).https.onCall(a
   const passNorm = passphrase.trim().toLowerCase();
   const loginCode = getStaffVenueLoginCode(venueId).toLowerCase();
   const expectedPass = `foco-${loginCode}`.toLowerCase();
-  const legacyPass = loginCode;
-  const betaLegacyPass = "betastaff";
   if (isBeta) {
     const appSnap = await db.collection('settings').doc('app').get();
     const launched = appSnap.exists ? !!appSnap.data().launched : false;
     if (launched) throw new HttpsError('permission-denied', 'Beta access is disabled in live mode');
-    if (passNorm !== expectedPass && passNorm !== betaLegacyPass && passNorm !== legacyPass) {
+    if (passNorm !== expectedPass) {
       throw new HttpsError('permission-denied', 'Invalid passphrase');
     }
   } else {
     if (!STAFF_VENUES[venueId]) throw new HttpsError('not-found', 'Unknown venue');
-    if (passNorm !== expectedPass && passNorm !== legacyPass) {
+    if (passNorm !== expectedPass) {
       throw new HttpsError('permission-denied', 'Invalid passphrase');
     }
   }
@@ -3798,11 +3851,11 @@ exports.getStaffLoginToken = functions.runWith(staffLoginSecrets).https.onCall(a
     }
   }
   try {
-    await admin.auth().updateUser(uid, { password: expectedPass });
+    await admin.auth().setCustomUserClaims(uid, { staff: true, venue: venueId, beta: isBeta });
   } catch (err) {
-    console.warn("Staff password update skipped:", err?.message || err);
+    console.warn("Staff claims update failed:", err?.message || err);
+    throw new HttpsError("internal", "Staff login unavailable right now");
   }
-  await admin.auth().setCustomUserClaims(uid, { staff: true, venue: venueId, beta: isBeta });
 
   await db.collection("members").doc(uid).set({
     staff: true,
@@ -3819,17 +3872,18 @@ exports.getStaffLoginToken = functions.runWith(staffLoginSecrets).https.onCall(a
 
   try {
     const token = await admin.auth().createCustomToken(uid, { staff: true, venue: venueId });
-    return { token, venueId, venueName, fallback: false };
+    return { token, venueId, venueName };
   } catch (err) {
-    console.warn("Staff custom token failed, falling back to password login:", err?.message || err);
-    return { fallback: true, venueId, venueName, email: staffEmail };
+    console.warn("Staff custom token failed:", err?.message || err);
+    throw new HttpsError("internal", "Staff login unavailable right now");
   }
 });
 
 // CEO login via shared passphrase: returns custom token with CEO claims.
-exports.getCeoLoginToken = functions.runWith(ceoLoginSecrets).https.onCall(async (data) => {
+exports.getCeoLoginToken = functions.runWith(ceoLoginSecrets).https.onCall(async (data, context) => {
   try {
-    const expected = (process.env.CEO_LOGIN_CODE || "ceoceo").toString().trim().toLowerCase();
+    await enforcePublicCallableRateLimit(context, "ceoLogin", { limit: 15, windowMs: 10 * 60 * 1000 });
+    const expected = readRequiredSecret(process.env.CEO_LOGIN_CODE, "CEO_LOGIN_CODE").toLowerCase();
     const supplied = (data?.code || "").toString().trim().toLowerCase();
     if (!supplied || supplied !== expected) {
       throw new HttpsError('permission-denied', 'Invalid CEO access code');
@@ -3856,12 +3910,6 @@ exports.getCeoLoginToken = functions.runWith(ceoLoginSecrets).https.onCall(async
       }
     }
 
-    try {
-      await admin.auth().updateUser(uid, { password: expected });
-    } catch (err) {
-      console.warn("CEO password update skipped:", err?.message || err);
-    }
-
     await admin.auth().setCustomUserClaims(uid, { ceo: true, admin: true });
 
     await db.collection("members").doc(uid).set({
@@ -3884,11 +3932,11 @@ exports.getCeoLoginToken = functions.runWith(ceoLoginSecrets).https.onCall(async
 });
 
 // Shared beta demo login: returns a custom token for a single beta user
-exports.getBetaLoginToken = functions.runWith(betaLoginSecrets).https.onCall(async (data) => {
-  const expected = (process.env.BETA_LOGIN_CODE || "beta").toString().trim().toLowerCase();
+exports.getBetaLoginToken = functions.runWith(betaLoginSecrets).https.onCall(async (data, context) => {
+  await enforcePublicCallableRateLimit(context, "betaLogin", { limit: 30, windowMs: 10 * 60 * 1000 });
+  const expected = readRequiredSecret(process.env.BETA_LOGIN_CODE, "BETA_LOGIN_CODE").toLowerCase();
   const supplied = (data?.code || "").toString().trim().toLowerCase();
   if (!supplied || supplied !== expected) throw new HttpsError('permission-denied', 'Invalid beta access code');
-  const fallbackPassword = `${expected}${expected}`;
 
   let userRecord = null;
   let betaUid = BETA_UID;
@@ -3917,11 +3965,6 @@ exports.getBetaLoginToken = functions.runWith(betaLoginSecrets).https.onCall(asy
   }
   if (userRecord?.disabled) {
     await admin.auth().updateUser(userRecord.uid, { disabled: false });
-  }
-  try {
-    await admin.auth().updateUser(betaUid, { password: fallbackPassword });
-  } catch (err) {
-    console.warn("Beta password update skipped:", err?.message || err);
   }
 
   const memberRef = db.collection("members").doc(betaUid);
@@ -3957,7 +4000,7 @@ exports.purgeAnonymousUsers = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
   const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
   const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
-  if (!isCeoContext(context, requesterData)) throw new HttpsError('permission-denied', 'CEO only');
+  if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
 
   const limit = Math.min(parseInt(data?.limit || "1000", 10) || 1000, 1000);
   const dryRun = data?.dryRun === true;
@@ -3970,7 +4013,7 @@ exports.resetBetaData = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
   const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
   const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
-  if (!isCeoContext(context, requesterData)) throw new HttpsError('permission-denied', 'CEO only');
+  if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
 
   const selections = data?.selections || {};
   const dryRun = data?.dryRun === true;
@@ -4099,11 +4142,10 @@ exports.resetBetaData = functions.https.onCall(async (data, context) => {
 exports.cancelMembership = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
   const uid = context.auth.uid;
-  const email = (context.auth.token.email || '').toLowerCase();
   const ref = db.collection('members').doc(uid);
   const snap = await ref.get();
   const docData = snap.exists ? snap.data() : {};
-  const isCeo = docData.ceo === true || email === 'ceo@gmail.com' || (docData.passCode || '').toUpperCase() === CEO_PASS_ID;
+  const isCeo = isCeoMemberDoc(docData, uid) || isCeoContext(context);
   if (isCeo) throw new HttpsError('failed-precondition', 'CEO account cannot be canceled.');
 
   const wipe = data?.wipe === true;
@@ -4162,7 +4204,7 @@ exports.getLaunchMode = functions.https.onCall(async (data, context) => {
     if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
     const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
     const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
-    if (!isCeoContext(context, requesterData)) throw new HttpsError('permission-denied', 'CEO only');
+    if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
     const snap = await db.collection('settings').doc('app').get();
     const launched = snap.exists ? !!snap.data().launched : false;
     return { launched };
@@ -4177,7 +4219,7 @@ exports.setLaunchMode = functions.https.onCall(async (data, context) => {
     if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
     const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
     const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
-    if (!isCeoContext(context, requesterData)) throw new HttpsError('permission-denied', 'CEO only');
+    if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
     const launched = data?.launched === true;
     await db.collection('settings').doc('app').set({
       launched,
@@ -4196,7 +4238,7 @@ exports.setMaintenanceMode = functions.https.onCall(async (data, context) => {
     if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
     const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
     const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
-    if (!isCeoContext(context, requesterData)) throw new HttpsError('permission-denied', 'CEO only');
+    if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
 
     const appRef = db.collection('settings').doc('app');
     const beforeSnap = await appRef.get();
@@ -4245,7 +4287,7 @@ exports.setAppLock = functions.runWith(appLockSecrets).https.onCall(async (data,
     if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
     const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
     const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
-    if (!isCeoContext(context, requesterData)) throw new HttpsError('permission-denied', 'CEO only');
+    if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
     const secret = (process.env.APP_LOCK_CODE || '').trim();
     if (!secret) throw new HttpsError('failed-precondition', 'App lock code not configured');
     const code = (data?.code || '').toString().trim();
@@ -4335,21 +4377,19 @@ exports.processRenewals = functions.runWith({ secrets: ["STRIPE_SECRET"] }).pubs
 
 exports.ceoChat = functions.runWith({ secrets: ["OPENAI_API_KEY"] }).https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
-  const email = (context.auth.token.email || '').toLowerCase();
   const uid = context.auth.uid;
-  let isCeo = context.auth.token.ceo === true || email === 'ceo@gmail.com';
+  let isCeo = isCeoContext(context);
   if (!isCeo && uid) {
     try {
       const snap = await db.collection('members').doc(uid).get();
       const data = snap.exists ? snap.data() : {};
-      const pass = (data.passCode || "").toUpperCase();
-      if (data.ceo === true || pass === CEO_PASS_ID) {
+      if (isCeoMemberDoc(data, uid)) {
         isCeo = true;
       }
     } catch (_) {}
   }
   if (!isCeo) throw new HttpsError('permission-denied', 'CEO only');
-  const liveKey = process.env.OPENAI_API_KEY || openAiKey;
+  const liveKey = process.env.OPENAI_API_KEY;
   if (!liveKey) throw new HttpsError('failed-precondition', 'OpenAI not configured');
   const prompt = (data?.prompt || '').toString().trim();
   if (!prompt) throw new HttpsError('invalid-argument', 'Prompt required');

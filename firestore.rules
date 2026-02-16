@@ -92,6 +92,16 @@ service cloud.firestore {
         "override",
         "tier",
         "membershipTier",
+        "uid",
+        "passCode",
+        "passId",
+        "email",
+        "emailLower",
+        "emailVerified",
+        "role",
+        "venueId",
+        "venueName",
+        "excludeFromLeaderboards",
         "validUntil",
         "paymentStatus",
         "membershipStatus",
@@ -147,6 +157,16 @@ service cloud.firestore {
         "override",
         "tier",
         "membershipTier",
+        "uid",
+        "passCode",
+        "passId",
+        "email",
+        "emailLower",
+        "emailVerified",
+        "role",
+        "venueId",
+        "venueName",
+        "excludeFromLeaderboards",
         "validUntil",
         "paymentStatus",
         "membershipStatus",
@@ -334,7 +354,7 @@ service cloud.firestore {
 
     // Member profiles (readable to authenticated users; writes limited)
     match /members/{uid} {
-      allow read: if isSignedIn() && (isOwner(uid) || hasPrivilegedRole());
+      allow read: if isSignedIn() && (isOwner(uid) || isAdmin() || isCeo());
       allow create: if isSignedIn() && isOwner(uid) && ownerMemberCreateAllowed();
       allow update: if isSignedIn() && (
         (isAdmin() || isCeo())
@@ -344,12 +364,12 @@ service cloud.firestore {
     }
 
     match /members/{uid}/redemptions/{redemptionId} {
-      allow read: if isSignedIn() && (isOwner(uid) || hasPrivilegedRole());
+      allow read: if isSignedIn() && (isOwner(uid) || isAdmin() || isCeo());
       allow create, update, delete: if false;
     }
 
     match /members/{uid}/pointsRedemptions/{redemptionId} {
-      allow read: if isSignedIn() && (isOwner(uid) || hasPrivilegedRole());
+      allow read: if isSignedIn() && (isOwner(uid) || isAdmin() || isCeo());
       allow create, update, delete: if false;
     }
 
@@ -361,8 +381,12 @@ service cloud.firestore {
 
     // Username directory for login-by-username
     match /usernames/{name} {
-      allow read: if isSignedIn() && (request.auth.uid == resource.data.uid || hasPrivilegedRole());
-      allow create, update: if request.auth != null
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.uid || isAdmin() || isCeo());
+      allow create: if isSignedIn()
+        && !exists(/databases/$(database)/documents/usernames/$(name))
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.uid == request.auth.uid
         && request.resource.data.uid == request.auth.uid;
       allow delete: if isAdmin() || isCeo();
     }
@@ -370,7 +394,7 @@ service cloud.firestore {
     // CEO free memberships — lookup by passCode, readable by authed users, writeable only by privileged roles
     match /freeMemberships/{passCode} {
       allow read: if isSignedIn();
-      allow create, update, delete: if hasPrivilegedRole() && canWriteApp();
+      allow create, update, delete: if (isAdmin() || isCeo()) && canWriteApp();
     }
 
     // Staff → CEO direct messages (per-venue)
