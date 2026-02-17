@@ -11965,7 +11965,7 @@
                 <span class="status-badge muted">Offline</span>
               </div>
             </div>
-            <div class="ceo-status-card">
+            <div class="ceo-status-card" id="ceoNotificationsCard">
               <strong>Notifications</strong>
               <div class="meta-note">Push diagnostics are hidden in production.</div>
               <div class="small" id="ceoNotificationsSummary" style="margin-top:10px;color:#94a3b8;">Append <code>?debug=1</code> to view push debug controls.</div>
@@ -13313,13 +13313,16 @@
 
     function updateDebugNotificationControls() {
       const shouldShow = DEBUG_MODE;
-      if (ceoPushDebugRows) {
-        ceoPushDebugRows.style.display = shouldShow ? "flex" : "none";
-      }
-      if (ceoNotificationsSummary) {
-        ceoNotificationsSummary.style.display = shouldShow ? "none" : "block";
+      if (ceoNotificationsCard) {
+        ceoNotificationsCard.style.display = shouldShow ? "" : "none";
       }
       if (!shouldShow) return;
+      if (ceoPushDebugRows) {
+        ceoPushDebugRows.style.display = "flex";
+      }
+      if (ceoNotificationsSummary) {
+        ceoNotificationsSummary.style.display = "none";
+      }
       refreshPushDebugStatus();
     }
 
@@ -15131,6 +15134,7 @@
     const forceUpdateFill = document.getElementById("forceUpdateFill");
     const forceUpdateStatus = document.getElementById("forceUpdateStatus");
     const forceUpdateBtn = document.getElementById("forceUpdateBtn");
+    const ceoNotificationsCard = document.getElementById("ceoNotificationsCard");
     const ceoNotificationsSummary = document.getElementById("ceoNotificationsSummary");
     const ceoPushDebugRows = document.getElementById("ceoPushDebugRows");
     const ceoNotificationsStatus = document.getElementById("ceoNotificationsStatus");
