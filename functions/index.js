@@ -116,6 +116,11 @@ const betaLoginRunConfig = { ...betaLoginSecrets, serviceAccount: tokenIssuerSer
 admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
+const PUSH_STALE_ERROR_CODES = new Set([
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-registration-token",
+  "messaging/invalid-argument"
+]);
 
 function getReportTransporter() {
   const user = process.env.REPORTS_SMTP_USER;
@@ -1042,16 +1047,15 @@ exports.checkInAlert = functions.https.onCall(async (data, context) => {
   }
 
   const alertRef = db.collection("alerts").doc(alertId);
-  const checkinRef = alertRef.collection("checkins").doc(uid);
-  const memberCheckinRef = db.collection("members").doc(uid).collection("alertCheckins").doc(alertId);
+  const memberRef = db.collection("members").doc(uid);
+  const memberCheckinRef = memberRef.collection("alertCheckins").doc(alertId);
   const now = admin.firestore.Timestamp.now();
   const serverNow = admin.firestore.FieldValue.serverTimestamp();
 
   const result = await db.runTransaction(async (tx) => {
-    const [alertSnap, checkinSnap, memberSnap] = await Promise.all([
+    const [alertSnap, memberSnap] = await Promise.all([
       tx.get(alertRef),
-      tx.get(checkinRef),
-      tx.get(db.collection("members").doc(uid))
+      tx.get(memberRef)
     ]);
     if (!alertSnap.exists) {
       throw new HttpsError("not-found", "Alert not found.");
@@ -1064,8 +1068,34 @@ exports.checkInAlert = functions.https.onCall(async (data, context) => {
       throw new HttpsError("failed-precondition", "Alert expired.");
     }
 
+    const memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
+    const memberPassCode = String(
+      memberData.passCode ||
+      memberData.passId ||
+      passCodeInput ||
+      ""
+    ).trim().toUpperCase();
+    const checkinDocId = String(
+      memberPassCode ? `pass_${memberPassCode}` : `uid_${uid}`
+    ).replace(/[\/\s]+/g, "_");
+    const checkinRef = alertRef.collection("checkins").doc(checkinDocId);
+    const legacyUidRef = alertRef.collection("checkins").doc(uid);
+
+    const [primaryCheckinSnap, legacyCheckinSnap, existingPassCodeSnap] = await Promise.all([
+      tx.get(checkinRef),
+      legacyUidRef.path === checkinRef.path ? Promise.resolve(null) : tx.get(legacyUidRef),
+      memberPassCode
+        ? tx.get(alertRef.collection("checkins").where("passCode", "==", memberPassCode).limit(1))
+        : Promise.resolve(null)
+    ]);
+
     const currentCount = Math.max(0, Number(alertData.checkInCount || 0));
-    if (checkinSnap.exists) {
+    const alreadyCheckedIn = Boolean(
+      primaryCheckinSnap?.exists ||
+      legacyCheckinSnap?.exists ||
+      (existingPassCodeSnap && !existingPassCodeSnap.empty)
+    );
+    if (alreadyCheckedIn) {
       return {
         alreadyCheckedIn: true,
         checkInCount: currentCount,
@@ -1073,8 +1103,6 @@ exports.checkInAlert = functions.https.onCall(async (data, context) => {
       };
     }
 
-    const memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
-    const memberPassCode = String(memberData.passCode || passCodeInput || "").toUpperCase();
     const venueId = String(alertData.venueId || "").toLowerCase();
     const venueName = String(alertData.venueName || "").trim();
     const nextCount = currentCount + 1;
@@ -1085,6 +1113,7 @@ exports.checkInAlert = functions.https.onCall(async (data, context) => {
       venueId,
       venueName,
       passCode: memberPassCode || null,
+      checkinKey: checkinDocId,
       checkedInAt: serverNow,
       expiresAt: alertData.expiresAt || null
     }, { merge: true });
@@ -1093,6 +1122,7 @@ exports.checkInAlert = functions.https.onCall(async (data, context) => {
       venueId,
       venueName,
       passCode: memberPassCode || null,
+      checkinKey: checkinDocId,
       checkedInAt: serverNow,
       expiresAt: alertData.expiresAt || null
     }, { merge: true });
@@ -1117,6 +1147,73 @@ exports.checkInAlert = functions.https.onCall(async (data, context) => {
     alreadyCheckedIn: !!result.alreadyCheckedIn,
     checkInCount: Math.max(0, Number(result.checkInCount || 0)),
     checkedInAt: now
+  };
+});
+
+exports.getMemberAlertCheckins = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 20, maxPerDay: 800 }
+  });
+  const uid = String(context?.auth?.uid || "").trim();
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Auth required.");
+  }
+  const passCodeInput = String(data?.passCode || "").trim().toUpperCase();
+  const memberSnap = await db.collection("members").doc(uid).get();
+  const memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
+  const passCode = String(
+    memberData.passCode ||
+    memberData.passId ||
+    passCodeInput ||
+    ""
+  ).trim().toUpperCase();
+
+  const nowMs = Date.now();
+  const alertIds = new Set();
+  const memberCheckinsSnap = await db
+    .collection("members")
+    .doc(uid)
+    .collection("alertCheckins")
+    .limit(500)
+    .get();
+  if (!memberCheckinsSnap.empty) {
+    memberCheckinsSnap.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const expiresMs = toMillisSafe(data.expiresAt);
+      if (expiresMs && expiresMs <= nowMs) return;
+      const alertId = String(data.alertId || docSnap.id || "").trim();
+      if (alertId) alertIds.add(alertId);
+    });
+  }
+
+  // Legacy backfill fallback (older check-in docs before member subcollection).
+  if (alertIds.size === 0) {
+    const legacyQueries = [];
+    if (passCode) {
+      legacyQueries.push(db.collectionGroup("checkins").where("passCode", "==", passCode).limit(400).get());
+    }
+    legacyQueries.push(db.collectionGroup("checkins").where("uid", "==", uid).limit(400).get());
+    const snaps = await Promise.all(legacyQueries);
+    for (const snap of snaps) {
+      if (!snap || snap.empty) continue;
+      snap.docs.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        const expiresMs = toMillisSafe(data.expiresAt);
+        if (expiresMs && expiresMs <= nowMs) return;
+        const resolvedAlertId = String(
+          data.alertId ||
+          docSnap.ref?.parent?.parent?.id ||
+          ""
+        ).trim();
+        if (resolvedAlertId) alertIds.add(resolvedAlertId);
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    passCode: passCode || null,
+    alertIds: Array.from(alertIds)
   };
 });
 
@@ -2010,11 +2107,17 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
   }
   const uid = context.auth.uid;
   // Keep each device token bound to only one user at a time.
-  const existing = await db.collectionGroup('tokens').where('token', '==', token).get();
-  if (!existing.empty) {
+  const [existingByField, existingByDocId] = await Promise.all([
+    db.collectionGroup('tokens').where('token', '==', token).get(),
+    db.collectionGroup('tokens').where(admin.firestore.FieldPath.documentId(), '==', token).get()
+  ]);
+  const existingMap = new Map();
+  existingByField.docs.forEach((docSnap) => existingMap.set(docSnap.ref.path, docSnap));
+  existingByDocId.docs.forEach((docSnap) => existingMap.set(docSnap.ref.path, docSnap));
+  if (existingMap.size) {
     const cleanup = db.batch();
-    existing.docs.forEach((docSnap) => {
-      const ownerUid = docSnap.get('uid');
+    existingMap.forEach((docSnap) => {
+      const ownerUid = String(docSnap.get('uid') || "").trim();
       if (ownerUid && ownerUid !== uid) {
         cleanup.delete(docSnap.ref);
       }
@@ -2069,26 +2172,77 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
+exports.registerPushTokenPublic = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    requireAuth: false,
+    publicRateLimit: { limit: 60, windowMs: 10 * 60 * 1000 },
+    publicScope: "push-register",
+  });
+  const token = String(data?.token || "").trim();
+  const clientKey = String(data?.clientKey || "").trim().slice(0, 120);
+  if (!isLikelyPushToken(token)) {
+    throw new HttpsError("invalid-argument", "Invalid token");
+  }
+  const bucketRef = db.collection("pushTokensPublic").doc("global").collection("tokens");
+  if (clientKey) {
+    const stale = await bucketRef.where("clientKey", "==", clientKey).get();
+    if (!stale.empty) {
+      const batch = db.batch();
+      stale.docs.forEach((docSnap) => {
+        if (docSnap.id !== token) batch.delete(docSnap.ref);
+      });
+      await batch.commit();
+    }
+  }
+  await bucketRef.doc(token).set({
+    token,
+    uid: null,
+    clientKey: clientKey || null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+  return { success: true };
+});
+
+function getTokenFromPushDoc(docSnap) {
+  const data = docSnap.data ? (docSnap.data() || {}) : {};
+  const value = String(data.token || docSnap.id || "").trim();
+  return isLikelyPushToken(value) ? value : "";
+}
+
+function isLikelyPushToken(token) {
+  const value = String(token || "").trim();
+  if (!value) return false;
+  if (value.length < 80) return false;
+  if (/\s/.test(value)) return false;
+  return true;
+}
+
+function getMessagingErrorCode(err) {
+  return String(
+    err?.code ||
+    err?.errorInfo?.code ||
+    err?.details?.code ||
+    "unknown"
+  ).trim();
+}
+
 async function getAllPushTokens() {
   const snap = await db.collectionGroup('tokens').get();
   const byClientKey = new Map();
   const byUidWithoutClientKey = new Map();
-  const fallbackNoUid = new Set();
   snap.docs.forEach((docSnap) => {
-    const token = docSnap.id;
+    const token = getTokenFromPushDoc(docSnap);
     if (!token) return;
     const data = docSnap.data() || {};
     const clientKey = String(data.clientKey || "").trim();
     const uid = String(data.uid || "").trim();
+    if (!uid) return;
     const updatedMs = toMillisSafe(data.updatedAt || data.createdAt);
     if (!clientKey) {
-      if (uid) {
-        const prev = byUidWithoutClientKey.get(uid);
-        if (!prev || updatedMs >= prev.updatedMs) {
-          byUidWithoutClientKey.set(uid, { token, updatedMs });
-        }
-      } else {
-        fallbackNoUid.add(token);
+      const prev = byUidWithoutClientKey.get(uid);
+      if (!prev || updatedMs >= prev.updatedMs) {
+        byUidWithoutClientKey.set(uid, { token, updatedMs });
       }
       return;
     }
@@ -2099,7 +2253,60 @@ async function getAllPushTokens() {
   });
   const uniqueClientTokens = Array.from(byClientKey.values()).map(item => item.token);
   const uniqueLegacyTokens = Array.from(byUidWithoutClientKey.values()).map(item => item.token);
-  return Array.from(new Set([...uniqueClientTokens, ...uniqueLegacyTokens, ...fallbackNoUid]));
+  return Array.from(new Set([...uniqueClientTokens, ...uniqueLegacyTokens]));
+}
+
+async function getPublicPushTokens() {
+  const snap = await db.collection("pushTokensPublic").doc("global").collection("tokens").get();
+  if (snap.empty) return [];
+  const byClientKey = new Map();
+  const noClient = new Set();
+  snap.docs.forEach((docSnap) => {
+    const token = getTokenFromPushDoc(docSnap);
+    if (!token) return;
+    const data = docSnap.data() || {};
+    const clientKey = String(data.clientKey || "").trim();
+    const updatedMs = toMillisSafe(data.updatedAt || data.createdAt);
+    if (!clientKey) {
+      noClient.add(token);
+      return;
+    }
+    const prev = byClientKey.get(clientKey);
+    if (!prev || updatedMs >= prev.updatedMs) {
+      byClientKey.set(clientKey, { token, updatedMs });
+    }
+  });
+  const keyed = Array.from(byClientKey.values()).map((entry) => entry.token);
+  return Array.from(new Set([...keyed, ...Array.from(noClient)]));
+}
+
+async function getUserPushTokens(uid) {
+  const targetUid = String(uid || "").trim();
+  if (!targetUid) return [];
+  const tokenSnap = await db.collection('pushTokens').doc(targetUid).collection('tokens').get();
+  if (tokenSnap.empty) return [];
+  const byClientKey = new Map();
+  let latestLegacy = null;
+  tokenSnap.docs.forEach((docSnap) => {
+    const token = getTokenFromPushDoc(docSnap);
+    if (!token) return;
+    const data = docSnap.data() || {};
+    const clientKey = String(data.clientKey || "").trim();
+    const updatedMs = toMillisSafe(data.updatedAt || data.createdAt);
+    if (clientKey) {
+      const prev = byClientKey.get(clientKey);
+      if (!prev || updatedMs >= prev.updatedMs) {
+        byClientKey.set(clientKey, { token, updatedMs });
+      }
+      return;
+    }
+    if (!latestLegacy || updatedMs >= latestLegacy.updatedMs) {
+      latestLegacy = { token, updatedMs };
+    }
+  });
+  const tokens = Array.from(byClientKey.values()).map((entry) => entry.token);
+  if (latestLegacy?.token) tokens.push(latestLegacy.token);
+  return Array.from(new Set(tokens));
 }
 
 function chunkTokens(tokens, size = 500) {
@@ -2116,6 +2323,10 @@ function toMillisSafe(value) {
   if (value instanceof Date) return value.getTime();
   const parsed = new Date(value).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isStalePushError(code) {
+  return PUSH_STALE_ERROR_CODES.has(String(code || "").trim());
 }
 
 function getPushVenueName(venueId, fallbackName = "") {
@@ -2136,16 +2347,28 @@ function normalizePushLink(link) {
   return `https://foco-after-dark.web.app/${raw.replace(/^\/+/, "")}`;
 }
 
-async function cleanupInvalidPushToken(token) {
-  if (!token) return;
+async function cleanupInvalidPushToken(token, opts = {}) {
+  const normalizedToken = String(token || "").trim();
+  if (!normalizedToken) return;
+  const uidHint = String(opts.uid || "").trim();
   try {
-    const existing = await db.collectionGroup("tokens").where("token", "==", token).get();
-    if (existing.empty) return;
+    const refs = new Map();
+    if (uidHint) {
+      const directRef = db.collection("pushTokens").doc(uidHint).collection("tokens").doc(normalizedToken);
+      refs.set(directRef.path, directRef);
+    }
+    const [existingByField, existingByDocId] = await Promise.all([
+      db.collectionGroup("tokens").where("token", "==", normalizedToken).get(),
+      db.collectionGroup("tokens").where(admin.firestore.FieldPath.documentId(), "==", normalizedToken).get()
+    ]);
+    existingByField.docs.forEach((docSnap) => refs.set(docSnap.ref.path, docSnap.ref));
+    existingByDocId.docs.forEach((docSnap) => refs.set(docSnap.ref.path, docSnap.ref));
+    if (!refs.size) return;
     const batch = db.batch();
-    existing.docs.forEach(docSnap => batch.delete(docSnap.ref));
+    refs.forEach((ref) => batch.delete(ref));
     await batch.commit();
   } catch (err) {
-    console.warn("push cleanup failed", token.slice(-8), err?.message || err);
+    console.warn("push cleanup failed", normalizedToken.slice(-8), err?.message || err);
   }
 }
 
@@ -2181,15 +2404,21 @@ async function sendPushToAll({ title, body, link, source = "system", dedupeKey =
     if (!canSend) return { success: true, skipped: true, reason: "deduped", sent: 0, failed: 0 };
   }
   const safeLink = normalizePushLink(link);
-  const tokens = await getAllPushTokens();
+  const [privateTokens, publicTokens] = await Promise.all([
+    getAllPushTokens(),
+    getPublicPushTokens()
+  ]);
+  const tokens = Array.from(new Set([...(privateTokens || []), ...(publicTokens || [])])).filter(isLikelyPushToken);
   if (!tokens.length) return { success: false, reason: 'no_tokens' };
   const batches = chunkTokens(tokens, 500);
   let sent = 0;
-  let failed = 0;
+  let failedRaw = 0;
+  let staleFailureCount = 0;
   const sentAt = String(Date.now());
   const invalidTokens = new Set();
   const errorCodes = {};
   let firstErrorCode = null;
+  let firstHardErrorCode = null;
   for (const batch of batches) {
     const message = {
       data: {
@@ -2203,37 +2432,44 @@ async function sendPushToAll({ title, body, link, source = "system", dedupeKey =
           Urgency: "high",
           TTL: "2419200"
         },
-        notification: {
-          title,
-          body,
-          icon: "https://foco-after-dark.web.app/foco-logo.png",
-          badge: "https://foco-after-dark.web.app/foco-logo.png",
-          tag: `foco-${sentAt}`
-        },
         fcmOptions: safeLink ? { link: safeLink } : undefined
       },
       tokens: batch
     };
-    const res = await messaging.sendEachForMulticast(message);
+    let res = null;
+    try {
+      res = await messaging.sendEachForMulticast(message);
+    } catch (err) {
+      const code = getMessagingErrorCode(err);
+      failedRaw += batch.length;
+      errorCodes[code] = (errorCodes[code] || 0) + batch.length;
+      if (!firstErrorCode) firstErrorCode = code;
+      if (!isStalePushError(code) && !firstHardErrorCode) firstHardErrorCode = code;
+      if (code === "messaging/registration-token-not-registered") {
+        batch.forEach((badToken) => {
+          if (badToken) invalidTokens.add(badToken);
+        });
+      }
+      continue;
+    }
     sent += res.successCount || 0;
-    failed += res.failureCount || 0;
+    failedRaw += res.failureCount || 0;
     res.responses.forEach((response, idx) => {
       if (response?.success) return;
       const code = response?.error?.code || "";
       if (code) {
         errorCodes[code] = (errorCodes[code] || 0) + 1;
         if (!firstErrorCode) firstErrorCode = code;
+        if (!isStalePushError(code) && !firstHardErrorCode) firstHardErrorCode = code;
       }
-      if (
-        code === "messaging/registration-token-not-registered" ||
-        code === "messaging/invalid-registration-token" ||
-        code === "messaging/invalid-argument"
-      ) {
+      if (isStalePushError(code)) {
+        staleFailureCount += 1;
         const badToken = batch[idx];
         if (badToken) invalidTokens.add(badToken);
       }
     });
   }
+  const failed = Math.max(0, failedRaw - staleFailureCount);
   if (invalidTokens.size) {
     await Promise.all(Array.from(invalidTokens).map(token => cleanupInvalidPushToken(token)));
   }
@@ -2244,19 +2480,30 @@ async function sendPushToAll({ title, body, link, source = "system", dedupeKey =
     link: String(link || "").slice(0, 220),
     tokenCount: tokens.length,
     sent,
+    failedRaw,
+    staleFailures: staleFailureCount,
     failed,
-    firstErrorCode: firstErrorCode || null,
+    firstErrorCode: firstHardErrorCode || firstErrorCode || null,
     errorCodes,
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   }).catch(() => {});
-  return { success: true, sent, failed, firstErrorCode, errorCodes };
+  return {
+    success: true,
+    sent,
+    failed,
+    failedRaw,
+    staleFailures: staleFailureCount,
+    cleaned: invalidTokens.size,
+    firstErrorCode: firstHardErrorCode || null,
+    firstRawErrorCode: firstErrorCode || null,
+    errorCodes
+  };
 }
 
 async function sendPushToUid(uid, { title, body, link, source = "direct" } = {}) {
   const targetUid = String(uid || "").trim();
   if (!targetUid) return { success: false, reason: "missing_uid", sent: 0, failed: 0 };
-  const tokenSnap = await db.collection('pushTokens').doc(targetUid).collection('tokens').get();
-  const tokens = tokenSnap.docs.map((d) => d.id).filter(Boolean);
+  const tokens = (await getUserPushTokens(targetUid)).filter(isLikelyPushToken);
   if (!tokens.length) return { success: false, reason: 'no_tokens', sent: 0, failed: 0 };
   const safeLink = normalizePushLink((link || '').toString());
   const sentAt = String(Date.now());
@@ -2272,37 +2519,63 @@ async function sendPushToUid(uid, { title, body, link, source = "direct" } = {})
         Urgency: "high",
         TTL: "2419200"
       },
-      notification: {
-        title: String(title || ''),
-        body: String(body || ''),
-        icon: "https://foco-after-dark.web.app/foco-logo.png",
-        badge: "https://foco-after-dark.web.app/foco-logo.png",
-        tag: `foco-${sentAt}`
-      },
       fcmOptions: safeLink ? { link: safeLink } : undefined
     },
     tokens
   };
-  const res = await messaging.sendEachForMulticast(message);
+  let res = null;
+  try {
+    res = await messaging.sendEachForMulticast(message);
+  } catch (err) {
+    const code = getMessagingErrorCode(err);
+    await db.collection("pushAudit").add({
+      source,
+      uid: targetUid,
+      title: String(title || "").slice(0, 120),
+      body: String(body || "").slice(0, 220),
+      link: String(link || "").slice(0, 220),
+      tokenCount: tokens.length,
+      sent: 0,
+      failedRaw: tokens.length,
+      staleFailures: 0,
+      failed: tokens.length,
+      firstErrorCode: code,
+      errorCodes: { [code]: tokens.length },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    }).catch(() => {});
+    return {
+      success: false,
+      reason: "send_failed",
+      sent: 0,
+      failed: tokens.length,
+      failedRaw: tokens.length,
+      staleFailures: 0,
+      cleaned: 0,
+      firstErrorCode: code,
+      firstRawErrorCode: code
+    };
+  }
   const invalidTokens = [];
   const errorCodes = {};
   let firstErrorCode = null;
+  let firstHardErrorCode = null;
+  let staleFailureCount = 0;
   res.responses.forEach((r, idx) => {
     if (r?.success) return;
     const code = r?.error?.code || "unknown";
     errorCodes[code] = (errorCodes[code] || 0) + 1;
     if (!firstErrorCode) firstErrorCode = code;
-    if (
-      code === "messaging/registration-token-not-registered" ||
-      code === "messaging/invalid-registration-token" ||
-      code === "messaging/invalid-argument"
-    ) {
+    if (!isStalePushError(code) && !firstHardErrorCode) firstHardErrorCode = code;
+    if (isStalePushError(code)) {
+      staleFailureCount += 1;
       const badToken = tokens[idx];
       if (badToken) invalidTokens.push(badToken);
     }
   });
+  const failedRaw = res.failureCount || 0;
+  const failed = Math.max(0, failedRaw - staleFailureCount);
   if (invalidTokens.length) {
-    await Promise.all(invalidTokens.map((token) => cleanupInvalidPushToken(token)));
+    await Promise.all(invalidTokens.map((token) => cleanupInvalidPushToken(token, { uid: targetUid })));
   }
   await db.collection("pushAudit").add({
     source,
@@ -2312,16 +2585,22 @@ async function sendPushToUid(uid, { title, body, link, source = "direct" } = {})
     link: String(link || "").slice(0, 220),
     tokenCount: tokens.length,
     sent: res.successCount || 0,
-    failed: res.failureCount || 0,
-    firstErrorCode: firstErrorCode || null,
+    failedRaw,
+    staleFailures: staleFailureCount,
+    failed,
+    firstErrorCode: firstHardErrorCode || firstErrorCode || null,
     errorCodes,
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   }).catch(() => {});
   return {
     success: true,
     sent: res.successCount || 0,
-    failed: res.failureCount || 0,
-    firstErrorCode
+    failed,
+    failedRaw,
+    staleFailures: staleFailureCount,
+    cleaned: invalidTokens.length,
+    firstErrorCode: firstHardErrorCode || null,
+    firstRawErrorCode: firstErrorCode || null
   };
 }
 
@@ -2373,36 +2652,44 @@ exports.pushBroadcastNow = functions.https.onCall(async (data, context) => {
   }
   if (!allowed) throw new HttpsError("permission-denied", "Staff/CEO only");
   const title = String(data?.title || "FoCo Alert").trim().slice(0, 80);
-  const body = String(data?.body || "").trim().slice(0, 160);
-  if (!body) throw new HttpsError("invalid-argument", "body required");
+  const body = String(data?.body || "").trim().slice(0, 160) || "New update from FoCo After Dark.";
   const link = String(data?.link || "/").trim().slice(0, 220);
   const source = String(data?.source || "manual").trim().slice(0, 60);
-  return sendPushToAll({
-    title,
-    body,
-    link,
-    source,
-    dedupeKey: String(data?.dedupeKey || "").trim().slice(0, 240),
-    dedupeWindowMs: Number(data?.dedupeWindowMs || 10000) || 10000,
-    force: data?.force === true
-  });
+  try {
+    return await sendPushToAll({
+      title,
+      body,
+      link,
+      source,
+      dedupeKey: String(data?.dedupeKey || "").trim().slice(0, 240),
+      dedupeWindowMs: Number(data?.dedupeWindowMs || 10000) || 10000,
+      force: data?.force === true
+    });
+  } catch (err) {
+    const code = getMessagingErrorCode(err);
+    console.error("pushBroadcastNow failed", code, err?.message || err);
+    return {
+      success: false,
+      reason: "dispatch_error",
+      sent: 0,
+      failed: 0,
+      firstErrorCode: code
+    };
+  }
 });
 
 exports.getPushDebugStatus = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
   const uid = context.auth.uid;
-  const tokenSnap = await db.collection('pushTokens').doc(uid).collection('tokens').get();
-  const tokenSuffixes = tokenSnap.docs
-    .map(d => d.id)
-    .filter(Boolean)
-    .map(token => token.slice(-12));
+  const tokens = await getUserPushTokens(uid);
+  const tokenSuffixes = tokens.map((token) => token.slice(-12));
   const debugSnap = await db.collection('pushDebug').doc(uid).get();
   const lastSentAt = debugSnap.exists && debugSnap.data().lastSentAt
     ? debugSnap.data().lastSentAt.toMillis()
     : null;
   const lastResult = debugSnap.exists ? (debugSnap.data().lastResult || null) : null;
   return {
-    tokenCount: tokenSnap.size || 0,
+    tokenCount: tokens.length || 0,
     tokenSuffixes,
     lastSentAt,
     lastResult
@@ -2413,8 +2700,6 @@ exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onW
   // Only notify for newly posted alerts (not edits/removals/expiry updates).
   if (!change.after.exists || change.before.exists) return null;
   const data = change.after.data() || {};
-  // Client-published alerts already dispatch push through callable fallback.
-  if (data.pushViaClient === true) return null;
   const expiresMs = toMillisSafe(data.expiresAt);
   if (expiresMs && expiresMs <= Date.now()) return null;
   const venueName = getPushVenueName(data.venueId, data.venueName);
@@ -2436,8 +2721,6 @@ exports.pushOnAlertCreate = functions.firestore.document('alerts/{alertId}').onW
 exports.pushOnVipDeal = functions.firestore.document('deals/{venueId}').onWrite(async (change, context) => {
   if (!change.after.exists) return null;
   const after = change.after.data() || {};
-  // Client-published deals already dispatch push through callable fallback.
-  if (after.pushViaClient === true) return null;
   const before = change.before.exists ? (change.before.data() || {}) : null;
   const afterExpiresMs = toMillisSafe(after.expiresAt);
   // Do not notify when staff expires/removes a deal.
@@ -2500,8 +2783,6 @@ async function claimPerkUpdatePushWindow(venueId, windowMs = 2 * 60 * 1000) {
 exports.pushOnPerkUpdate = functions.firestore.document('venues/{venueId}/perks/{perkId}').onWrite(async (change, context) => {
   if (!change.after.exists) return null;
   const after = change.after.data() || {};
-  // Client-published perk updates already dispatch push through callable fallback.
-  if (after.pushViaClient === true) return null;
   const before = change.before.exists ? (change.before.data() || {}) : null;
   const afterSig = [
     String(after.label || "").trim(),

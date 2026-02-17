@@ -45,9 +45,6 @@ async function clearAppBadgeValue() {
 
 messaging.onBackgroundMessage((payload) => {
   setAppBadgeValue(1).catch(() => {});
-  // If FCM already provides a notification payload, the browser can auto-display it.
-  // Avoid showing a second copy manually.
-  if (payload?.notification) return;
   const notice = payload?.notification || payload?.data || {};
   const title = notice.title || "FoCo After Dark";
   const body = notice.body || "New update from a venue.";
@@ -98,7 +95,7 @@ self.addEventListener("message", (event) => {
   }
 });
 
-const CACHE_VERSION = "foco-cache-v12";
+const CACHE_VERSION = "foco-cache-v13";
 const CORE_ASSETS = ["/", "/index.html", "/manifest.json", "/foco-logo.png"];
 
 self.addEventListener("install", (event) => {

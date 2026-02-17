@@ -298,6 +298,170 @@
       pointer-events: none;
       z-index: 0;
     }
+    .club-atmosphere {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+      mix-blend-mode: screen;
+      opacity: 0.84;
+      filter: saturate(1.12);
+    }
+    .club-rig {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(1120px, 100vw);
+      height: 130px;
+      display: flex;
+      justify-content: space-evenly;
+      align-items: flex-start;
+      pointer-events: none;
+    }
+    .club-fixture {
+      position: relative;
+      width: 42px;
+      height: 24px;
+      margin-top: 8px;
+      border-radius: 12px 12px 18px 18px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.88));
+      box-shadow: 0 6px 12px rgba(2, 6, 23, 0.65), 0 0 24px var(--fixture-glow, rgba(34, 211, 238, 0.48));
+      animation: fixturePulse 4.8s ease-in-out infinite;
+    }
+    .club-fixture::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -9px;
+      width: 18px;
+      height: 10px;
+      transform: translateX(-50%);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(148, 163, 184, 0.45), rgba(51, 65, 85, 0.7));
+    }
+    .club-fixture::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -16px;
+      width: 16px;
+      height: 16px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      border: 1px solid rgba(125, 211, 252, 0.56);
+      background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95), var(--fixture-core, rgba(34, 211, 238, 0.62)) 48%, rgba(15, 23, 42, 0.95));
+      box-shadow: 0 0 18px var(--fixture-glow, rgba(34, 211, 238, 0.52));
+    }
+    .club-fixture:nth-child(1),
+    .club-fixture:nth-child(5) {
+      --fixture-core: rgba(34, 211, 238, 0.72);
+      --fixture-glow: rgba(34, 211, 238, 0.54);
+      animation-delay: -0.9s;
+    }
+    .club-fixture:nth-child(2),
+    .club-fixture:nth-child(4) {
+      --fixture-core: rgba(168, 85, 247, 0.7);
+      --fixture-glow: rgba(168, 85, 247, 0.46);
+      animation-delay: -1.6s;
+    }
+    .club-fixture:nth-child(3) {
+      --fixture-core: rgba(244, 114, 182, 0.76);
+      --fixture-glow: rgba(244, 114, 182, 0.52);
+      animation-delay: -2.2s;
+    }
+    .club-beams {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .club-beam {
+      position: absolute;
+      top: 26px;
+      width: min(34vw, 360px);
+      min-width: 170px;
+      height: 78vh;
+      transform-origin: 50% 0%;
+      clip-path: polygon(48% 0, 52% 0, 100% 100%, 0 100%);
+      filter: blur(1.2px);
+      opacity: 0.58;
+      animation: beamSweep 11s cubic-bezier(0.37, 0, 0.63, 1) infinite alternate, beamPulse 4.4s ease-in-out infinite;
+    }
+    .club-beam.b1 {
+      left: -6vw;
+      background: linear-gradient(180deg, rgba(34, 211, 238, 0.38), rgba(34, 211, 238, 0.08) 45%, rgba(34, 211, 238, 0) 100%);
+      animation-delay: -2.1s;
+    }
+    .club-beam.b2 {
+      left: 14vw;
+      background: linear-gradient(180deg, rgba(244, 114, 182, 0.35), rgba(244, 114, 182, 0.08) 44%, rgba(244, 114, 182, 0) 100%);
+      animation-delay: -4.6s;
+      animation-duration: 12.8s, 4.8s;
+    }
+    .club-beam.b3 {
+      left: 38vw;
+      background: linear-gradient(180deg, rgba(125, 211, 252, 0.38), rgba(125, 211, 252, 0.08) 46%, rgba(125, 211, 252, 0) 100%);
+      animation-delay: -1.3s;
+      animation-duration: 10.7s, 4.1s;
+    }
+    .club-beam.b4 {
+      right: 16vw;
+      background: linear-gradient(180deg, rgba(168, 85, 247, 0.34), rgba(168, 85, 247, 0.07) 45%, rgba(168, 85, 247, 0) 100%);
+      animation-delay: -5.2s;
+      animation-duration: 13.4s, 5.2s;
+    }
+    .club-beam.b5 {
+      right: -8vw;
+      background: linear-gradient(180deg, rgba(34, 197, 94, 0.28), rgba(34, 197, 94, 0.06) 48%, rgba(34, 197, 94, 0) 100%);
+      animation-delay: -3.2s;
+      animation-duration: 11.9s, 4.6s;
+    }
+    .club-haze {
+      position: absolute;
+      left: -22%;
+      right: -22%;
+      bottom: -14%;
+      height: 44vh;
+      background:
+        radial-gradient(ellipse at 25% 75%, rgba(34, 211, 238, 0.2), transparent 58%),
+        radial-gradient(ellipse at 72% 78%, rgba(244, 114, 182, 0.18), transparent 60%),
+        radial-gradient(ellipse at 50% 95%, rgba(148, 163, 184, 0.14), transparent 66%);
+      opacity: 0.52;
+      filter: blur(14px);
+      animation: hazeDrift 18s ease-in-out infinite alternate;
+    }
+    @keyframes beamSweep {
+      0% { transform: rotate(-14deg) scaleX(0.94); }
+      50% { transform: rotate(4deg) scaleX(1.02); }
+      100% { transform: rotate(17deg) scaleX(0.95); }
+    }
+    @keyframes beamPulse {
+      0%, 100% { opacity: 0.42; }
+      50% { opacity: 0.72; }
+    }
+    @keyframes fixturePulse {
+      0%, 100% { filter: brightness(0.95); }
+      50% { filter: brightness(1.16); }
+    }
+    @keyframes hazeDrift {
+      0% { transform: translate3d(-2%, 0, 0) scale(1); }
+      100% { transform: translate3d(2%, -1.2%, 0) scale(1.04); }
+    }
+    @media (max-width: 900px) {
+      .club-rig { height: 108px; }
+      .club-fixture { transform: scale(0.9); }
+      .club-beam {
+        top: 22px;
+        min-width: 130px;
+        height: 72vh;
+        opacity: 0.5;
+      }
+      .club-haze { opacity: 0.44; }
+    }
+    body.ios .club-atmosphere { opacity: 0.9; }
+    body.ios.mobile-performance .club-beam { opacity: 0.44; }
     #app {
       width: 100vw;
       max-width: 100vw;
@@ -533,6 +697,14 @@
         animation: none !important;
         transition: none !important;
       }
+      .club-atmosphere,
+      .club-fixture,
+      .club-beam,
+      .club-haze {
+        animation: none !important;
+      }
+      .club-beam { display: none !important; }
+      .club-atmosphere { opacity: 0.32; }
       .btn-primary:hover, .btn-primary:active { transform: none !important; box-shadow: none !important; }
       .ceo-issued-item.pop { transform: none !important; box-shadow: none !important; }
     }
@@ -560,6 +732,9 @@
       animation-duration: 0.08s !important;
     }
     body.mobile-performance:not(.ios) #cardParticles {
+      display: none !important;
+    }
+    body.mobile-performance:not(.ios) .club-atmosphere {
       display: none !important;
     }
     body.mobile-performance:not(.ios)::before {
@@ -1139,6 +1314,8 @@
       letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--accent-magenta);
+      display: inline-flex;
+      align-items: center;
     }
     .alerts-card ul {
       list-style: none;
@@ -1251,6 +1428,14 @@
       cursor: default;
       transform: none;
       box-shadow: 0 6px 14px rgba(8, 47, 73, 0.35);
+    }
+    .alert-checkin-btn.is-checked,
+    .alert-checkin-btn.is-checked[disabled] {
+      opacity: 1;
+      border-color: rgba(74, 222, 128, 0.75);
+      background: linear-gradient(135deg, rgba(22, 163, 74, 0.38), rgba(34, 197, 94, 0.28));
+      color: #bbf7d0;
+      box-shadow: 0 10px 22px rgba(20, 83, 45, 0.55), 0 0 26px rgba(74, 222, 128, 0.42);
     }
     .alert-checkin-count {
       font-size: 10px;
@@ -2617,6 +2802,10 @@
       letter-spacing: 0.08em;
       cursor: pointer;
     }
+    .nav-item .pill-new {
+      margin-left: 8px;
+      vertical-align: middle;
+    }
     .nav-item:hover {
       background: rgba(255,255,255,0.05);
       color: var(--text);
@@ -3887,6 +4076,10 @@
       color: #fef3c7;
       margin-bottom: 10px;
       text-align: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
     }
     .featured-grid {
       display: grid;
@@ -4849,6 +5042,33 @@
       0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0.9; }
       80% { transform: translate(-50%, -50%) scale(2.6); opacity: 0.1; }
       100% { transform: translate(-50%, -50%) scale(2.8); opacity: 0; }
+    }
+    .staff-radar.traction-hit .radar-display {
+      transform: scale(1.015);
+      transition: transform 180ms ease;
+      box-shadow:
+        0 16px 30px rgba(0,0,0,0.48),
+        0 0 calc(30px + var(--radar-traction-gain, 1) * 6px) rgba(45, 212, 191, 0.6),
+        inset 0 0 calc(20px + var(--radar-traction-gain, 1) * 3px) rgba(34, 211, 238, 0.24);
+    }
+    .staff-radar.traction-hit .radar-display::before {
+      animation: radarTractionFlash 900ms ease-out 1;
+    }
+    .staff-radar.traction-hit .radar-display::after {
+      animation: staffRadarGlow 9s linear infinite, radarTractionHalo 900ms ease-out 1;
+    }
+    .staff-radar.traction-hit .radar-pings span {
+      animation-duration: 1.15s !important;
+    }
+    @keyframes radarTractionFlash {
+      0% { opacity: 0.28; transform: scale(0.96); }
+      40% { opacity: 0.78; transform: scale(1.04); }
+      100% { opacity: 0.35; transform: scale(1); }
+    }
+    @keyframes radarTractionHalo {
+      0% { opacity: 0.36; filter: blur(10px); }
+      45% { opacity: 0.9; filter: blur(5px); }
+      100% { opacity: 0.36; filter: blur(16px); }
     }
     .staff-ticker {
       margin-top: 14px;
@@ -7834,6 +8054,8 @@
       letter-spacing: 0.18em;
       text-transform: uppercase;
       color: color-mix(in srgb, var(--accent-primary-live) 72%, #f8fafc);
+      display: inline-flex;
+      align-items: center;
     }
     .alerts-card ul { display: grid; gap: 8px; }
     .alerts-card li {
@@ -9368,6 +9590,10 @@
       55% { opacity: 0.28; }
       100% { transform: translate3d(135%, 0, 0) rotate(10deg); opacity: 0; }
     }
+    @keyframes grainDrift {
+      0% { background-position: center, center, 0 0; }
+      100% { background-position: center, center, 260px 140px; }
+    }
     @keyframes cardFloatPulse {
       0% { transform: translate3d(0, 0, 0); box-shadow: 0 14px 30px rgba(2,8,23,0.5); }
       50% { transform: translate3d(0, -2px, 0); box-shadow: 0 18px 36px rgba(2,8,23,0.56); }
@@ -9507,7 +9733,13 @@
     #passScreen .member-hero {
       position: relative;
       overflow: hidden;
-      animation: cardFloatPulse 8.5s ease-in-out infinite;
+      background-image:
+        radial-gradient(circle at 16% 18%, color-mix(in srgb, var(--accent-primary-live) 20%, transparent), transparent 48%),
+        radial-gradient(circle at 84% 78%, color-mix(in srgb, var(--accent-secondary-live) 18%, transparent), transparent 52%),
+        repeating-linear-gradient(115deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 6px);
+      background-size: 100% 100%, 100% 100%, 260px 260px;
+      background-position: center, center, 0 0;
+      animation: cardFloatPulse 8.5s ease-in-out infinite, grainDrift 14s linear infinite;
     }
     #passScreen .member-hero::before {
       content: "";
@@ -9537,9 +9769,16 @@
     #staffPortalScreen .staff-ticker {
       position: relative;
       overflow: hidden;
+      background-image:
+        radial-gradient(circle at 18% 20%, color-mix(in srgb, var(--staff-primary) 14%, transparent), transparent 50%),
+        radial-gradient(circle at 82% 80%, color-mix(in srgb, var(--staff-secondary) 13%, transparent), transparent 55%),
+        repeating-linear-gradient(110deg, rgba(255,255,255,0.014) 0 1px, transparent 1px 7px);
+      background-size: 100% 100%, 100% 100%, 280px 280px;
+      background-position: center, center, 0 0;
       box-shadow:
         0 16px 34px rgba(1, 6, 18, 0.56),
         0 0 18px color-mix(in srgb, var(--staff-primary) 20%, transparent);
+      animation: cardFloatPulse 8.5s ease-in-out infinite, grainDrift 16s linear infinite;
     }
     #staffPortalScreen .staff-form::before,
     #staffPortalScreen .vip-deal-card::before,
@@ -9901,6 +10140,12 @@
     #staffPortalScreen .staff-sticky-bar {
       background: linear-gradient(130deg, rgba(10, 16, 34, 0.9), rgba(8, 12, 26, 0.84));
       box-shadow: 0 10px 22px rgba(3, 8, 24, 0.4);
+    }
+    #verifyCard,
+    #alertCard,
+    #codesCard,
+    #staffMore {
+      scroll-margin-top: 132px;
     }
     body[data-member-tier-mode="standard"] #passScreen .member-experience-tag {
       color: #bfdbfe;
@@ -10420,6 +10665,74 @@
         0 0 20px color-mix(in srgb, var(--accent-primary-live) 26%, transparent),
         0 0 34px color-mix(in srgb, var(--accent-secondary-live) 16%, transparent);
     }
+    body.ios.mobile-performance .club-atmosphere {
+      opacity: 0.46 !important;
+      filter: none !important;
+      mix-blend-mode: normal;
+    }
+    body.ios.mobile-performance .club-beams {
+      display: none !important;
+    }
+    body.ios.mobile-performance .club-fixture,
+    body.ios.mobile-performance .club-haze {
+      animation: none !important;
+    }
+    body.ios.mobile-performance .club-haze {
+      opacity: 0.24;
+      filter: blur(8px);
+    }
+    body.ios.mobile-performance #landingScreen.active .landing-wrapper .landing-strobe {
+      animation: strobeSpin 34s linear infinite !important;
+      filter: blur(10px) saturate(1.02) !important;
+      opacity: 0.16 !important;
+      mix-blend-mode: normal;
+    }
+    body.ios.mobile-performance #landingScreen.active .landing-wrapper .landing-strobe::before {
+      display: none !important;
+    }
+    body.ios.mobile-performance #landingScreen .hero-point,
+    body.ios.mobile-performance #landingScreen .landing-feature-card,
+    body.ios.mobile-performance #passScreen.active .pass-card,
+    body.ios.mobile-performance #staffPortalScreen.active .staff-board > *,
+    body.ios.mobile-performance #ceoPortalScreen.active .ceo-hq-panel.active,
+    body.ios.mobile-performance :is(.btn-primary, #landingGetPassBtn, #addToHomeBtn, #redeemTrigger, #staffSavePerksBtn) {
+      animation: none !important;
+    }
+    body.ios.mobile-performance :is(
+      .pass-card,
+      .member-hero,
+      .profile-summary,
+      .alerts-card,
+      .member-command-deck,
+      .night-wheel,
+      .points-total-card,
+      .vip-deal-card,
+      .staff-form,
+      .staff-radar,
+      .staff-more,
+      .ceo-hq-panel,
+      .ceo-panel,
+      .ceo-status-card,
+      .ceo-kpi-card,
+      .ceo-reset-card,
+      .ceo-hq-nav,
+      .modal-card,
+      .tier-card,
+      .landing-feature-card,
+      .hero-point,
+      .nav-menu
+    ) {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      box-shadow: 0 9px 18px rgba(1, 8, 22, 0.44) !important;
+    }
+    body.ios.mobile-performance :is(.btn, .nav-toggle, .nav-item, .chip, .pill-ghost, .accent-chip, .status-pill) {
+      box-shadow:
+        0 6px 14px rgba(1, 7, 20, 0.36),
+        0 0 12px color-mix(in srgb, var(--accent-primary-live) 16%, transparent) !important;
+      transition-duration: 120ms !important;
+      will-change: auto;
+    }
 
     @media (hover: none) and (pointer: coarse) {
       :is(
@@ -10486,6 +10799,23 @@
   </style>
 </head>
   <body>
+      <div class="club-atmosphere" aria-hidden="true">
+        <div class="club-rig">
+          <span class="club-fixture"></span>
+          <span class="club-fixture"></span>
+          <span class="club-fixture"></span>
+          <span class="club-fixture"></span>
+          <span class="club-fixture"></span>
+        </div>
+        <div class="club-beams">
+          <span class="club-beam b1"></span>
+          <span class="club-beam b2"></span>
+          <span class="club-beam b3"></span>
+          <span class="club-beam b4"></span>
+          <span class="club-beam b5"></span>
+        </div>
+        <div class="club-haze"></div>
+      </div>
       <div class="realtime-pill" id="realtimeStatusPill" data-state="syncing">Syncing</div>
       <div id="statusBanner" class="status-banner" style="display:none;"></div>
       <div id="app">
@@ -10664,6 +10994,10 @@
         <p class="small" style="text-align:left;margin:-2px 0 16px;">
           <span id="forgotPasswordLink" class="linkish" role="button" tabindex="0">Forgot your password?</span>
         </p>
+        <div class="field" style="margin-top:-4px;">
+          <button type="button" class="btn btn-secondary" id="authEnableNotificationsBtn" style="width:100%;">Turn on notifications</button>
+          <p class="small" id="authNotificationsStatus" style="margin-top:6px;text-align:left;color:#94a3b8;">Recommended: enable notifications for live alerts and perk updates.</p>
+        </div>
         <div class="field signup-only" id="birthDateField">
           <label for="birthDate">Birthdate (21+ required)</label>
           <input id="birthDate" type="date" />
@@ -10843,7 +11177,7 @@
             <button type="button" class="nav-toggle" id="navMenuToggle">Menu ▾</button>
             <div class="nav-menu" id="navMenu">
             <button class="nav-item" data-nav="rewards" id="navRewardsItem">Voucher rewards</button>
-            <button class="nav-item" data-nav="featuredVenues">Featured venues</button>
+            <button class="nav-item" data-nav="featuredVenues">Featured venues <span id="navFeaturedNewPill" class="pill-new">New</span></button>
             <button class="nav-item" data-nav="membership">Upgrade / Downgrade membership</button>
             <button class="nav-item" data-nav="support">Need help? Contact support</button>
             <button class="nav-item" data-nav="review">Leave a review</button>
@@ -11010,7 +11344,7 @@
             </div>
             <div class="profile-side-col">
               <div class="alerts-card">
-                <h4>Tonight’s alerts</h4>
+                <h4>Tonight’s alerts <span id="alertsNewPill" class="pill-new">New</span></h4>
                 <ul id="alertsList">
                   <li>
                     <strong>Social Underground</strong>
@@ -11239,7 +11573,7 @@
     </div>
         <div class="venues-card card-hd no-tilt smooth-enter">
       <div class="featured-venues" id="featuredVenues">
-        <h4>Featured venues</h4>
+        <h4>Featured venues <span id="featuredVenuesNewPill" class="pill-new">New</span></h4>
         <div class="featured-grid" id="featuredVenuesGrid"></div>
       </div>
       <button class="btn btn-secondary back-btn" id="venuesBackBtn">Back to pass</button>
@@ -12679,6 +13013,9 @@
     const PUSH_LOGIN_ACTIVATION_KEY = "pushLoginActivationDone";
     let pushForegroundDedupKey = "";
     let pushForegroundDedupAt = 0;
+    let pushAutoSyncInFlight = false;
+    let pushAutoSyncAt = 0;
+    let pushAutoSyncTimers = [];
     function getPushClientKey() {
       try {
         const existing = localStorage.getItem(PUSH_CLIENT_KEY_STORAGE);
@@ -12699,6 +13036,9 @@
       }
       if (notificationsPromptStatus) {
         notificationsPromptStatus.textContent = message;
+      }
+      if (authNotificationsStatus) {
+        authNotificationsStatus.textContent = message;
       }
       if (ceoNotificationsStatus) {
         ceoNotificationsStatus.textContent = message;
@@ -12766,6 +13106,14 @@
       if (!currentUid) {
         localStorage.setItem(PUSH_TOKEN_KEY, token);
         localStorage.removeItem(PUSH_TOKEN_UID_KEY);
+        if (functionsClient && !SAFE_MODE) {
+          try {
+            const fnPublic = httpsCallable(functionsClient, "registerPushTokenPublic");
+            await fnPublic({ token, clientKey: getPushClientKey() });
+          } catch (err) {
+            console.warn("Public push token registration failed", err);
+          }
+        }
         return true;
       }
       if (!functionsClient || SAFE_MODE) return false;
@@ -12811,11 +13159,12 @@
       }
       try {
         const registration = await navigator.serviceWorker.ready;
+        try { await registration.update(); } catch (_) {}
         const token = await getToken(messagingClient, {
           vapidKey: VAPID_PUBLIC_KEY,
           serviceWorkerRegistration: registration
         });
-        const ok = await registerPushToken(token);
+        const ok = await registerPushToken(token, { force: true });
         updateNotificationsStatus(ok ? "Notifications enabled." : "Notifications on, token pending.");
         return ok;
       } catch (err) {
@@ -12839,13 +13188,72 @@
       const seen = localStorage.getItem(seenKey) === "1";
       if (Notification.permission === "default" && !seen) {
         localStorage.setItem(seenKey, "1");
-        await enablePushNotifications({ forcePrompt: true });
+        const prompted = await enablePushNotifications({ forcePrompt: true });
+        if (prompted) schedulePushTokenAutoSync("first-permission", true);
       }
       if (Notification.permission === "granted") {
-        return enablePushNotifications({ forcePrompt: false });
+        const synced = await enablePushNotifications({ forcePrompt: false });
+        if (!synced) schedulePushTokenAutoSync("activate-fallback", true);
+        else maybeSchedulePushAutoSync("activate-confirm", false);
+        return synced;
       }
       return false;
     }
+    function clearPushAutoSyncTimers() {
+      if (!pushAutoSyncTimers.length) return;
+      pushAutoSyncTimers.forEach((id) => {
+        try { clearTimeout(id); } catch (_) {}
+      });
+      pushAutoSyncTimers = [];
+    }
+    function maybeSchedulePushAutoSync(reason = "auto", withRetry = true) {
+      if (typeof Notification === "undefined") return;
+      if (!firebaseAuth?.currentUser?.uid) return;
+      if (Notification.permission !== "granted") return;
+      if (isIOS && !isStandaloneMode()) return;
+      schedulePushTokenAutoSync(reason, withRetry);
+    }
+    async function syncPushTokenNow(reason = "auto-sync") {
+      if (pushAutoSyncInFlight) return false;
+      const uid = firebaseAuth?.currentUser?.uid || "";
+      if (!uid) return false;
+      if (Notification.permission !== "granted") return false;
+      if (isIOS && !isStandaloneMode()) return false;
+      const now = Date.now();
+      if ((now - pushAutoSyncAt) < 1200) return true;
+      pushAutoSyncInFlight = true;
+      try {
+        const ok = await enablePushNotifications({ forcePrompt: false });
+        if (ok) pushAutoSyncAt = Date.now();
+        else console.warn("push auto-sync pending", reason);
+        return ok;
+      } catch (err) {
+        console.warn("push auto-sync failed", reason, err);
+        return false;
+      } finally {
+        pushAutoSyncInFlight = false;
+      }
+    }
+    function schedulePushTokenAutoSync(reason = "schedule", withRetry = false) {
+      clearPushAutoSyncTimers();
+      const delays = withRetry ? [0, 1500, 5000, 12000] : [0];
+      pushAutoSyncTimers = delays.map((delay) => (
+        setTimeout(() => { syncPushTokenNow(reason); }, delay)
+      ));
+    }
+    let pushRefreshTick = null;
+    function startPushTokenHeartbeat() {
+      if (pushRefreshTick) return;
+      pushRefreshTick = setInterval(async () => {
+        try {
+          if (!firebaseAuth?.currentUser?.uid) return;
+          if (Notification.permission !== "granted") return;
+          if (isIOS && !isStandaloneMode()) return;
+          await syncPushTokenNow("heartbeat");
+        } catch (_) {}
+      }, 3 * 60 * 1000);
+    }
+    startPushTokenHeartbeat();
 
     function maybeShowNotificationsPrompt() {
       if (!isStandaloneMode()) return;
@@ -12879,11 +13287,19 @@
     }
     window.addEventListener("focus", () => {
       requestBadgeClear();
+      maybeSchedulePushAutoSync("focus", false);
     });
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
         requestBadgeClear();
+        maybeSchedulePushAutoSync("visible", false);
       }
+    });
+    window.addEventListener("pageshow", () => {
+      maybeSchedulePushAutoSync("pageshow", true);
+    });
+    window.addEventListener("online", () => {
+      maybeSchedulePushAutoSync("online", true);
     });
     window.addEventListener("touchstart", () => {
       requestBadgeClear();
@@ -13365,6 +13781,7 @@
       if (name === "auth") {
         applyRememberedEmailToForm();
         resetAuthSubmitState();
+        refreshAuthNotificationStatusLine();
       }
       if (name === "staffLogin") {
         openStaffGate();
@@ -13384,6 +13801,10 @@
           stopIdleTimer();
         } else if (name === "ceoPortal" || name === "venues") {
           startIdleTimer();
+          if (name === "venues") {
+            markLiveFeedSeen("featured");
+            markMemberFeedSeen();
+          }
           // Reveal portal contents with smooth staggered animation
           revealPortal(name);
         } else {
@@ -13464,6 +13885,22 @@
         forceLoginScreen();
       });
     }
+    function scrollToSectionTarget(target) {
+      if (!target) return;
+      const isDetails = target.tagName === "DETAILS";
+      if (isDetails) target.open = true;
+      const preferredTarget = isDetails ? (target.querySelector("summary") || target) : target;
+      const stickyBar = document.querySelector("#staffPortalScreen .staff-sticky-bar");
+      const stickyOffset = (stickyBar?.getBoundingClientRect?.().height || 0) + 24;
+      const top = Math.max(
+        0,
+        window.pageYOffset + preferredTarget.getBoundingClientRect().top - stickyOffset
+      );
+      window.scrollTo({
+        top,
+        behavior: isIOS ? "auto" : "smooth"
+      });
+    }
     // Sticky staff shortcuts
     document.querySelectorAll("[data-scroll]").forEach(btn => {
       btn.addEventListener("click", (e) => {
@@ -13471,10 +13908,7 @@
         const targetId = btn.dataset.scroll;
         const target = targetId ? document.getElementById(targetId) : null;
         if (target) {
-          if (target.tagName === "DETAILS") {
-            target.open = true;
-          }
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          scrollToSectionTarget(target);
         }
       });
     });
@@ -13489,6 +13923,8 @@
     const authEmailLabel = document.getElementById("authEmailLabel");
     const authEmail = document.getElementById("authEmail");
     const authPassword = document.getElementById("authPassword");
+    const authEnableNotificationsBtn = document.getElementById("authEnableNotificationsBtn");
+    const authNotificationsStatus = document.getElementById("authNotificationsStatus");
     const rememberMe = document.getElementById("rememberMe");
     const firstNameInput = document.getElementById("firstName");
     const lastNameInput = document.getElementById("lastName");
@@ -13573,7 +14009,19 @@
         updateAuthModeText();
       });
     }
+    function refreshAuthNotificationStatusLine() {
+      if (!authNotificationsStatus) return;
+      const permission = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
+      if (permission === "granted") {
+        authNotificationsStatus.textContent = "Notifications enabled for this device.";
+      } else if (permission === "denied") {
+        authNotificationsStatus.textContent = "Notifications blocked in browser settings.";
+      } else {
+        authNotificationsStatus.textContent = "Recommended: enable notifications for live alerts and perk updates.";
+      }
+    }
     updateAuthModeText();
+    refreshAuthNotificationStatusLine();
 
     function showSignupConfirmModal() {
       if (signupConfirmModal) signupConfirmModal.classList.add("active");
@@ -13782,58 +14230,38 @@
           return;
         }
         const venueId = staffSession.venue;
-        const useLocalCache = allowLocalCache();
+        if (!db) {
+          if (alertError) alertError.textContent = "Cloud sync unavailable. Alert not posted.";
+          return;
+        }
 
         if (audience === "vip") {
           // VIP-only path (previously vipDealForm)
-          const localDeal = {
-            venueId,
-            venueName,
-            title,
-            detail,
-            meta: meta || `VIP · ${venueName}`,
-            expiresAt: expiresDate.toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          if (useLocalCache) {
-            vipDealsCache[venueId] = localDeal;
-            saveVipDealsToStorage(vipDealsCache);
-            renderVipDealForMember();
-            renderStaffVipDeal();
-            refreshAlertsTicker();
+          try {
+            if (!guardWriteAction("postVipDeal")) return;
+            await ensureFirebaseUser();
+            await setDoc(doc(db, "deals", venueId), {
+              venueId,
+              venueName,
+              title,
+              detail,
+              meta: meta || `VIP · ${venueName}`,
+              expiresAt: Timestamp.fromDate(expiresDate),
+              updatedAt: serverTimestamp(),
+            });
+            const pushResult = await sendVenueUpdatePushFallback({
+              title: `VIP Deal - ${venueName}`,
+              body: (detail || title || "A VIP deal just dropped.").slice(0, 160),
+              source: "staff-vip-deal",
+              dedupeKey: `vip-deal:${venueId}`,
+              dedupeWindowMs: 60000
+            });
+            showPushDispatchToast(pushResult, "VIP deal published. Push sent.");
+            await refreshVipDeals();
             if (alertSuccess) {
               alertSuccess.textContent = "VIP deal published.";
               alertSuccess.classList.add("visible");
               setTimeout(() => alertSuccess.classList.remove("visible"), 2500);
-            }
-          }
-          try {
-            if (db) {
-              if (!guardWriteAction("postVipDeal")) return;
-              await ensureFirebaseUser();
-	              await setDoc(doc(db, "deals", venueId), {
-	                venueId,
-	                venueName,
-	                title,
-	                detail,
-	                meta: meta || `VIP · ${venueName}`,
-	                pushViaClient: true,
-	                expiresAt: Timestamp.fromDate(expiresDate),
-	                updatedAt: serverTimestamp(),
-	              });
-              await refreshVipDeals();
-              const pushResult = await sendVenueUpdatePushFallback({
-                title: `VIP Deal - ${venueName}`,
-                body: (detail || title || "A VIP deal just dropped.").slice(0, 160),
-                source: "staff-vip-deal",
-                dedupeKey: `vip-deal:${venueId}`
-              });
-              showPushDispatchToast(pushResult);
-              if (!useLocalCache && alertSuccess) {
-                alertSuccess.textContent = "VIP deal published.";
-                alertSuccess.classList.add("visible");
-                setTimeout(() => alertSuccess.classList.remove("visible"), 2500);
-              }
             }
           } catch (err) {
             console.error("Failed to publish VIP deal", err);
@@ -13841,60 +14269,37 @@
           }
         } else {
           // All members alert path
-          if (useLocalCache) {
-            const provisionalAlert = {
-              id: `local-${Date.now()}`,
+          try {
+            if (!guardWriteAction("postAlert")) return;
+            await ensureFirebaseUser();
+            const alertDoc = doc(collection(db, "alerts"));
+            await setDoc(alertDoc, {
               venueId,
               venueName,
               title,
               detail,
               meta,
-              expiresAt: expiresDate.getTime(),
-              createdAt: Date.now(),
-            };
-            tonightAlerts = [provisionalAlert, ...tonightAlerts];
-            saveAlertsToStorage(tonightAlerts);
-            refreshAlertsTicker();
-            renderStaffAlertPreview();
+              expiresAt: Timestamp.fromDate(expiresDate),
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+            const pushResult = await sendVenueUpdatePushFallback({
+              title: `Tonight Alert - ${venueName}`,
+              body: `${title}${detail ? ` - ${detail}` : ""}`.slice(0, 160),
+              source: "staff-alert",
+              dedupeKey: `alert-create:${venueId}:${alertDoc.id}`,
+              dedupeWindowMs: 60000
+            });
+            showPushDispatchToast(pushResult, "Alert posted. Push sent.");
+            await refreshTonightAlerts();
             if (alertSuccess) {
               alertSuccess.textContent = "Alert posted for members.";
               alertSuccess.classList.add("visible");
               setTimeout(() => alertSuccess.classList.remove("visible"), 2500);
             }
-          }
-          try {
-            if (db) {
-              if (!guardWriteAction("postAlert")) return;
-              await ensureFirebaseUser();
-              const alertDoc = doc(collection(db, "alerts"));
-	              await setDoc(alertDoc, {
-	                venueId,
-	                venueName,
-	                title,
-	                detail,
-	                meta,
-	                pushViaClient: true,
-	                expiresAt: Timestamp.fromDate(expiresDate),
-	                createdAt: serverTimestamp(),
-	                updatedAt: serverTimestamp(),
-	              });
-              await refreshTonightAlerts();
-              const pushResult = await sendVenueUpdatePushFallback({
-                title: `Tonight Alert - ${venueName}`,
-                body: `${title}${detail ? ` - ${detail}` : ""}`.slice(0, 160),
-                source: "staff-alert",
-                dedupeKey: `alert-create:${venueId}:${alertDoc.id}`
-              });
-              showPushDispatchToast(pushResult);
-              if (!useLocalCache && alertSuccess) {
-                alertSuccess.textContent = "Alert posted for members.";
-                alertSuccess.classList.add("visible");
-                setTimeout(() => alertSuccess.classList.remove("visible"), 2500);
-              }
-            }
           } catch (err) {
-            console.error("Failed to post alert (using local only):", err);
-            if (alertError) alertError.textContent = "Posted locally. Cloud sync blocked.";
+            console.error("Failed to post alert:", err);
+            if (alertError) alertError.textContent = "Could not post alert. Try again.";
           }
         }
 
@@ -15099,6 +15504,19 @@
         enablePushNotifications({ forcePrompt: true });
       });
     }
+    if (authEnableNotificationsBtn) {
+      authEnableNotificationsBtn.addEventListener("click", async () => {
+        const ok = await enablePushNotifications({ forcePrompt: true });
+        if (ok) {
+          updateNotificationsStatus("Notifications enabled for this device.");
+          maybeSchedulePushAutoSync("auth-notification-optin", true);
+        } else if (Notification.permission === "granted") {
+          updateNotificationsStatus("Notifications enabled. Device sync pending.");
+        } else {
+          updateNotificationsStatus("Notifications are off.");
+        }
+      });
+    }
     if (registerThisDevicePushBtn) {
       registerThisDevicePushBtn.addEventListener("click", async () => {
         const supported = await ensureMessagingClient();
@@ -15394,6 +15812,7 @@
       }
     }
     const navRewardsItem = document.getElementById("navRewardsItem");
+    const navFeaturedNewPill = document.getElementById("navFeaturedNewPill");
     const manageBillingBtn = document.getElementById("manageBillingBtn");
     const aboutModal = document.getElementById("aboutModal");
     const navAboutItem = document.getElementById("navAboutItem");
@@ -15502,8 +15921,12 @@
     const kpiScans = document.getElementById("kpiScans");
     const kpiAlerts = document.getElementById("kpiAlerts");
     const kpiVip = document.getElementById("kpiVip");
+    const staffRadarCheckinTotals = new Map();
+    let staffRadarTractionTimer = null;
     const staffAccentSelect = document.getElementById("staffAccentSelect");
     const alertsList = document.getElementById("alertsList");
+    const alertsNewPill = document.getElementById("alertsNewPill");
+    const featuredVenuesNewPill = document.getElementById("featuredVenuesNewPill");
     const chargeSavedCardBtn = document.getElementById("chargeSavedCardBtn");
     const receiptOverlay = document.getElementById("receiptOverlay");
     const receiptSummary = document.getElementById("receiptSummary");
@@ -15571,30 +15994,76 @@
       }
     }
     function getAlertCheckinsCacheKey(passCode) {
+      const uid = String(firebaseAuth?.currentUser?.uid || "").trim();
+      if (uid) return `${ALERT_CHECKINS_CACHE_PREFIX}uid_${uid}`;
       const code = (passCode || currentPassCode || memberProfile?.passCode || "").toUpperCase();
       if (!code) return "";
       return `${ALERT_CHECKINS_CACHE_PREFIX}${code}`;
     }
     function loadAlertCheckinsCache(passCode) {
-      const key = getAlertCheckinsCacheKey(passCode);
-      if (!key || !allowLocalCache()) return new Set();
-      try {
-        const parsed = JSON.parse(localStorage.getItem(key) || "[]");
-        if (!Array.isArray(parsed)) return new Set();
-        return new Set(parsed.filter(Boolean));
-      } catch (_) {
-        return new Set();
-      }
+      if (!allowLocalCache()) return new Set();
+      const merged = new Set();
+      const uidKey = String(firebaseAuth?.currentUser?.uid || "").trim()
+        ? `${ALERT_CHECKINS_CACHE_PREFIX}uid_${String(firebaseAuth?.currentUser?.uid || "").trim()}`
+        : "";
+      const passKey = (() => {
+        const code = (passCode || currentPassCode || memberProfile?.passCode || "").toUpperCase();
+        return code ? `${ALERT_CHECKINS_CACHE_PREFIX}${code}` : "";
+      })();
+      [uidKey, passKey].filter(Boolean).forEach((key) => {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+          if (!Array.isArray(parsed)) return;
+          parsed.forEach((id) => {
+            const value = String(id || "").trim();
+            if (value) merged.add(value);
+          });
+        } catch (_) {}
+      });
+      return merged;
     }
     function saveAlertCheckinsCache(passCode, idsSet) {
+      if (!allowLocalCache()) return;
+      const ids = Array.from(idsSet || []).map((id) => String(id || "").trim()).filter(Boolean);
       const key = getAlertCheckinsCacheKey(passCode);
-      if (!key || !allowLocalCache()) return;
+      const legacyCode = (passCode || currentPassCode || memberProfile?.passCode || "").toUpperCase();
+      const legacyKey = legacyCode ? `${ALERT_CHECKINS_CACHE_PREFIX}${legacyCode}` : "";
       try {
-        localStorage.setItem(key, JSON.stringify(Array.from(idsSet || [])));
+        if (key) localStorage.setItem(key, JSON.stringify(ids));
+        if (legacyKey && legacyKey !== key) localStorage.setItem(legacyKey, JSON.stringify(ids));
       } catch (_) {}
     }
     function hydrateAlertCheckinsFromCache(passCode) {
       memberAlertCheckins = loadAlertCheckinsCache(passCode);
+    }
+    let alertCheckinsCloudSyncAt = 0;
+    let alertCheckinsCloudSyncPass = "";
+    let alertCheckinsCloudSyncPromise = null;
+    async function syncAlertCheckinsFromCloud(passCode, options = {}) {
+      const force = options?.force === true;
+      const code = String(passCode || currentPassCode || memberProfile?.passCode || "").trim().toUpperCase();
+      if (!code || !functionsClient || SAFE_MODE || !firebaseAuth.currentUser) return;
+      if (alertCheckinsCloudSyncPromise) return alertCheckinsCloudSyncPromise;
+      const now = Date.now();
+      if (!force && alertCheckinsCloudSyncPass === code && (now - alertCheckinsCloudSyncAt) < 20000) return;
+      alertCheckinsCloudSyncPromise = (async () => {
+        try {
+          const fn = httpsCallable(functionsClient, "getMemberAlertCheckins");
+          const resp = await fn({ passCode: code });
+          const data = resp?.data || {};
+          const ids = Array.isArray(data.alertIds) ? data.alertIds.map((id) => String(id || "").trim()).filter(Boolean) : [];
+          memberAlertCheckins = new Set([...(memberAlertCheckins || new Set()), ...ids]);
+          saveAlertCheckinsCache(code, memberAlertCheckins);
+          alertCheckinsCloudSyncPass = code;
+          alertCheckinsCloudSyncAt = Date.now();
+          refreshAlertsTicker();
+        } catch (err) {
+          console.warn("Failed to sync alert check-ins", err);
+        } finally {
+          alertCheckinsCloudSyncPromise = null;
+        }
+      })();
+      return alertCheckinsCloudSyncPromise;
     }
     function loadVipDealsFromStorage() {
       if (!allowLocalCache()) return {};
@@ -16037,6 +16506,7 @@
       renderFeaturedVenuesGrid();
       renderPassFeaturedGrid();
       setHeroSlideActive(0);
+      refreshLiveNewBadges();
     }
     function setHeroSlideActive(index) {
       if (!heroCarousel || !featuredVenuesData.length) return;
@@ -17657,6 +18127,30 @@
         } catch (err) {
           console.warn("Member realtime listener failed", err);
         }
+        try {
+          const checkinsRef = collection(db, "members", uid, "alertCheckins");
+          const unsub = subscribeSnapshot("memberAlertCheckins", checkinsRef, null, (snap) => {
+            if (!snap) return;
+            const next = new Set();
+            const now = Date.now();
+            snap.docs.forEach((docSnap) => {
+              const data = docSnap.data() || {};
+              const alertId = String(data.alertId || docSnap.id || "").trim();
+              if (!alertId) return;
+              const expiresAt = data.expiresAt?.toMillis
+                ? data.expiresAt.toMillis()
+                : (data.expiresAt ? new Date(data.expiresAt).getTime() : null);
+              if (expiresAt && expiresAt <= now) return;
+              next.add(alertId);
+            });
+            memberAlertCheckins = next;
+            saveAlertCheckinsCache(currentPassCode, memberAlertCheckins);
+            refreshAlertsTicker();
+          });
+          if (unsub) passRealtimeUnsubs.push(unsub);
+        } catch (err) {
+          console.warn("Member alert check-ins listener failed", err);
+        }
       }
       if (options.minimal) return;
       if (code && uid) {
@@ -17994,6 +18488,7 @@
           alertsCache = [...tonightAlerts];
         }
         refreshAlertsTicker();
+        syncAlertCheckinsFromCloud(passCode, { force: true });
         showToast(data.alreadyCheckedIn ? "Already checked in." : "Checked in. Venue sees you live.");
       } catch (err) {
         memberAlertCheckins.delete(id);
@@ -18412,58 +18907,39 @@ let onboardingIndex = 0;
           return;
         }
         const venueId = staffSession.venue;
-        const useLocalCache = allowLocalCache();
-        const localDeal = {
-          venueId,
-          venueName,
-          title,
-          detail,
-          meta,
-          expiresAt: expiresDate.toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        if (useLocalCache) {
-          vipDealsCache[venueId] = localDeal;
-          saveVipDealsToStorage(vipDealsCache);
-          renderVipDealForMember();
-          renderStaffVipDeal();
-          refreshAlertsTicker();
+        if (!db) {
+          if (vipDealError) vipDealError.textContent = "Cloud sync unavailable. Deal not saved.";
+          return;
         }
         vipDealTitle.value = "";
         vipDealDetail.value = "";
         if (vipDealMeta) vipDealMeta.value = "";
         vipDealExpires.value = "";
-        if (useLocalCache && vipDealSuccess) {
-          vipDealSuccess.textContent = "Deal updated for VIP members.";
-          vipDealSuccess.classList.add("visible");
-          setTimeout(() => vipDealSuccess.classList.remove("visible"), 2000);
-        }
         try {
-          if (db) {
-            if (!guardWriteAction("postVipDeal")) return;
-	            await setDoc(doc(db, "deals", venueId), {
-	              venueId,
-	              venueName,
-	              title,
-	              detail,
-	              meta,
-	              pushViaClient: true,
-	              expiresAt: Timestamp.fromDate(expiresDate),
-	              updatedAt: serverTimestamp(),
-	            });
-	            await refreshVipDeals();
-	            const pushResult = await sendVenueUpdatePushFallback({
-	              title: `VIP Deal - ${venueName}`,
-	              body: (detail || title || "A VIP deal just dropped.").slice(0, 160),
-	              source: "staff-vip-deal-inline",
-	              dedupeKey: `vip-deal:${venueId}`
-	            });
-	            showPushDispatchToast(pushResult);
-	            if (!useLocalCache && vipDealSuccess) {
-	              vipDealSuccess.textContent = "Deal updated for VIP members.";
-	              vipDealSuccess.classList.add("visible");
-	              setTimeout(() => vipDealSuccess.classList.remove("visible"), 2000);
-            }
+          if (!guardWriteAction("postVipDeal")) return;
+          await ensureFirebaseUser();
+          await setDoc(doc(db, "deals", venueId), {
+            venueId,
+            venueName,
+            title,
+            detail,
+            meta,
+            expiresAt: Timestamp.fromDate(expiresDate),
+            updatedAt: serverTimestamp(),
+          });
+          const pushResult = await sendVenueUpdatePushFallback({
+            title: `VIP Deal - ${venueName}`,
+            body: (detail || title || "A VIP deal just dropped.").slice(0, 160),
+            source: "staff-vip-deal-inline",
+            dedupeKey: `vip-deal:${venueId}`,
+            dedupeWindowMs: 60000
+          });
+          showPushDispatchToast(pushResult, "Deal updated and push sent.");
+          await refreshVipDeals();
+          if (vipDealSuccess) {
+            vipDealSuccess.textContent = "Deal updated for VIP members.";
+            vipDealSuccess.classList.add("visible");
+            setTimeout(() => vipDealSuccess.classList.remove("visible"), 2000);
           }
         } catch (err) {
           console.error("Failed to publish VIP deal", err);
@@ -18587,6 +19063,8 @@ let onboardingIndex = 0;
       memberDocRef = null;
       currentPassCode = null;
       memberAlertCheckins = new Set();
+      alertCheckinsCloudSyncAt = 0;
+      alertCheckinsCloudSyncPass = "";
       document.body.classList.remove("ceo-active");
       applyAccentTheme("cyan");
       applyBackgroundTheme("default");
@@ -18660,6 +19138,9 @@ let onboardingIndex = 0;
       memberProfile = null;
       memberDocRef = null;
       currentPassCode = null;
+      memberAlertCheckins = new Set();
+      alertCheckinsCloudSyncAt = 0;
+      alertCheckinsCloudSyncPass = "";
       document.body.classList.remove("ceo-active");
       clearPendingMembershipFlagForUser(currentUid);
       applyRememberedEmailToForm();
@@ -18683,10 +19164,13 @@ let onboardingIndex = 0;
         if (checkInBtn) {
           event.preventDefault();
           event.stopPropagation();
+          markLiveFeedSeen("alerts");
+          markMemberFeedSeen();
           const alertId = checkInBtn.getAttribute("data-alert-checkin");
           submitAlertCheckIn(alertId);
           return;
         }
+        markLiveFeedSeen("alerts");
         markMemberFeedSeen();
       });
     }
@@ -18741,6 +19225,7 @@ let onboardingIndex = 0;
               if (reviewBtn) reviewBtn.click();
               break;
             case "featuredVenues":
+              markLiveFeedSeen("featured");
               markMemberFeedSeen();
               showScreen("venues");
               break;
@@ -19560,6 +20045,8 @@ let onboardingIndex = 0;
     if (venuesTrigger) {
       venuesTrigger.addEventListener("click", () => {
         closeVenueDetail();
+        markLiveFeedSeen("featured");
+        markMemberFeedSeen();
         showScreen("venues");
       });
     }
@@ -20440,13 +20927,11 @@ let onboardingIndex = 0;
       if (!perks) return;
       const venueId = staffSession.venue;
       const venueName = venuesInfo[venueId]?.name || venueId;
-      venuePerksCache[venueId] = perks;
-      renderRedemptionOptions();
-      refreshFeaturedVenuesData();
       if (!db) {
-        if (staffPerksSuccess) staffPerksSuccess.style.display = "block";
+        if (staffPerksError) staffPerksError.textContent = "Cloud sync unavailable. Perks not saved.";
         return;
       }
+      const previousVenuePerks = Array.isArray(venuePerksCache[venueId]) ? [...venuePerksCache[venueId]] : [];
       try {
         await ensureFirebaseUser();
         const perksRef = collection(db, "venues", venueId, "perks");
@@ -20479,7 +20964,6 @@ let onboardingIndex = 0;
 	            label: perk.label,
 	            standardQty: perk.standardQty,
 	            vipQty: perk.vipQty,
-	            pushViaClient: true,
 	            updatedAt: serverTimestamp()
 	          }, { merge: true });
         });
@@ -20489,14 +20973,18 @@ let onboardingIndex = 0;
           }
         });
         await batch.commit();
+        venuePerksCache[venueId] = perks;
+        renderRedemptionOptions();
+        refreshFeaturedVenuesData();
         if (hasAddedOrChangedPerk) {
           const pushResult = await sendVenueUpdatePushFallback({
             title: `Perks Updated - ${venueName}`,
             body: `${venueName} just updated this month's perks.`.slice(0, 160),
             source: "staff-perks",
-            dedupeKey: `perk-update:${String(venueId || "").trim().toLowerCase()}:${perks.map((perk) => `${String(perk.label || "").trim().toLowerCase()}:${Number(perk.standardQty || 0)}:${Number(perk.vipQty || 0)}`).sort().join("|")}`
+            dedupeKey: `perk-update:${String(venueId || "").trim().toLowerCase()}`,
+            dedupeWindowMs: 60000
           });
-          showPushDispatchToast(pushResult);
+          showPushDispatchToast(pushResult, "Perks saved and push sent.");
         } else {
           showToast("Perks saved.", 2200);
         }
@@ -20507,6 +20995,9 @@ let onboardingIndex = 0;
           }, 2000);
         }
       } catch (err) {
+        venuePerksCache[venueId] = previousVenuePerks;
+        renderRedemptionOptions();
+        refreshFeaturedVenuesData();
         console.warn("Failed to save venue perks", err);
         if (staffPerksError) staffPerksError.textContent = "Could not save perks. Try again.";
       }
@@ -22099,6 +22590,88 @@ let onboardingIndex = 0;
       });
       return latest;
     }
+    function getLatestAlertsUpdateAt() {
+      let latest = 0;
+      const apply = (candidate) => {
+        const ms = getFeedTimestampMs(candidate);
+        if (ms > latest) latest = ms;
+      };
+      (tonightAlerts || []).forEach((alert) => {
+        if (!alert) return;
+        apply(alert.updatedAt);
+        apply(alert.createdAt);
+      });
+      return latest;
+    }
+    function getLatestFeaturedPerksUpdateAt() {
+      let latest = 0;
+      const apply = (candidate) => {
+        const ms = getFeedTimestampMs(candidate);
+        if (ms > latest) latest = ms;
+      };
+      Object.values(venuePerksCache || {}).forEach((venuePerks) => {
+        if (!Array.isArray(venuePerks)) return;
+        venuePerks.forEach((perk) => {
+          if (!perk) return;
+          const standardQty = Number(perk.standardQty || 0);
+          const vipQty = Number(perk.vipQty || 0);
+          if (standardQty <= 0 && vipQty <= 0) return;
+          apply(perk.updatedAt);
+          apply(perk.createdAt);
+        });
+      });
+      return latest;
+    }
+    function getFeedSeenKey(scope = "member_hq") {
+      const passCode = (currentPassCode || "").toUpperCase();
+      if (!passCode) return "";
+      if (scope === "member_hq") return passCode;
+      return `${passCode}::${scope}`;
+    }
+    function refreshLiveNewBadges() {
+      const hasTargets = alertsNewPill || featuredVenuesNewPill || navFeaturedNewPill;
+      if (!hasTargets) return;
+      const passCode = (currentPassCode || "").toUpperCase();
+      if (!passCode) {
+        if (alertsNewPill) alertsNewPill.classList.remove("active");
+        if (featuredVenuesNewPill) featuredVenuesNewPill.classList.remove("active");
+        if (navFeaturedNewPill) navFeaturedNewPill.classList.remove("active");
+        return;
+      }
+      let didSeed = false;
+      const syncBadge = (scope, latest, nodes = []) => {
+        const key = getFeedSeenKey(scope);
+        const targets = nodes.filter(Boolean);
+        if (!key || !targets.length || latest <= 0) {
+          targets.forEach((node) => node.classList.remove("active"));
+          return;
+        }
+        const hasSeenMarker = Object.prototype.hasOwnProperty.call(memberHqFeedSeenMap, key);
+        if (!hasSeenMarker) {
+          memberHqFeedSeenMap[key] = latest;
+          didSeed = true;
+          targets.forEach((node) => node.classList.remove("active"));
+          return;
+        }
+        const seenAt = Number(memberHqFeedSeenMap[key]) || 0;
+        const isNew = latest > seenAt;
+        targets.forEach((node) => node.classList.toggle("active", isNew));
+      };
+      syncBadge("alerts", getLatestAlertsUpdateAt(), [alertsNewPill]);
+      syncBadge("featured", getLatestFeaturedPerksUpdateAt(), [featuredVenuesNewPill, navFeaturedNewPill]);
+      if (didSeed) saveMemberHqFeedSeenMap(memberHqFeedSeenMap);
+    }
+    function markLiveFeedSeen(scope = "member_hq") {
+      const key = getFeedSeenKey(scope);
+      if (!key) return;
+      let latest = 0;
+      if (scope === "alerts") latest = getLatestAlertsUpdateAt();
+      else if (scope === "featured") latest = getLatestFeaturedPerksUpdateAt();
+      else latest = getLatestMemberFeedUpdateAt();
+      memberHqFeedSeenMap[key] = latest > 0 ? latest : Date.now();
+      saveMemberHqFeedSeenMap(memberHqFeedSeenMap);
+      refreshLiveNewBadges();
+    }
 
     function refreshMemberCommandNewBadge() {
       if (!memberCommandNewPill) return;
@@ -22131,7 +22704,9 @@ let onboardingIndex = 0;
     }
 
     function updateMemberCommandSignals() {
-      if (!memberCommandSubline && !memberSignalAlerts && !memberSignalFocus && !memberCommandNewPill) return;
+      const hasMemberSignals = !!(memberCommandSubline || memberSignalAlerts || memberSignalFocus || memberCommandNewPill);
+      const hasLiveBadges = !!(alertsNewPill || featuredVenuesNewPill || navFeaturedNewPill);
+      if (!hasMemberSignals && !hasLiveBadges) return;
       let liveAlerts = 0;
       try {
         liveAlerts = typeof getActiveAlertsForMember === "function" ? getActiveAlertsForMember().length : 0;
@@ -22164,7 +22739,8 @@ let onboardingIndex = 0;
         else if (mode === "ceo") label = "Creator profile";
         memberCommandSubline.textContent = `${label} · Live sync ${navigator.onLine ? "on" : "offline"}.`;
       }
-      refreshMemberCommandNewBadge();
+      if (memberCommandNewPill) refreshMemberCommandNewBadge();
+      if (hasLiveBadges) refreshLiveNewBadges();
     }
 
     function updateLastCheckinUI() {
@@ -23707,6 +24283,7 @@ let onboardingIndex = 0;
     function updatePassCodeDisplay() {
       ensurePassCode();
       hydrateAlertCheckinsFromCache(currentPassCode);
+      syncAlertCheckinsFromCloud(currentPassCode);
       syncPendingForCurrentPass();
       if (passCodeText && currentPassCode) {
         passCodeText.textContent = `Pass ID: ${currentPassCode}`;
@@ -24097,6 +24674,20 @@ let onboardingIndex = 0;
       const val = Math.sin(seed) * 10000;
       return val - Math.floor(val);
     }
+    function triggerStaffRadarTraction(gain = 1) {
+      if (!staffRadarEl) return;
+      const safeGain = Math.max(1, Math.min(8, Number(gain) || 1));
+      staffRadarEl.style.setProperty("--radar-traction-gain", safeGain.toString());
+      staffRadarEl.classList.remove("traction-hit");
+      void staffRadarEl.offsetWidth;
+      staffRadarEl.classList.add("traction-hit");
+      if (staffRadarTractionTimer) {
+        clearTimeout(staffRadarTractionTimer);
+      }
+      staffRadarTractionTimer = setTimeout(() => {
+        if (staffRadarEl) staffRadarEl.classList.remove("traction-hit");
+      }, 980);
+    }
 
     const STAFF_SHIFT_PREFIX = "staffShiftStart_";
     const STAFF_REDEMPTION_CACHE_PREFIX = "staffRedemptions_";
@@ -24240,6 +24831,11 @@ let onboardingIndex = 0;
     function updateStaffRadar() {
       if (!staffRadarCount && !staffRadarMood && !radarPings && !radarList) return;
       if (!staffSession) {
+        if (staffRadarEl) staffRadarEl.classList.remove("traction-hit");
+        if (staffRadarTractionTimer) {
+          clearTimeout(staffRadarTractionTimer);
+          staffRadarTractionTimer = null;
+        }
         if (staffRadarCount) staffRadarCount.textContent = "Radar idle";
         if (staffRadarMood) staffRadarMood.textContent = "Log in to monitor floor";
         if (radarPings) radarPings.innerHTML = "";
@@ -24258,10 +24854,45 @@ let onboardingIndex = 0;
         return now - ts <= 60 * 60 * 1000;
       }).sort((a, b) => new Date(b.timestamp || b.createdAt || 0) - new Date(a.timestamp || a.createdAt || 0));
       const hot = recent.filter(entry => now - new Date(entry.timestamp || now).getTime() <= 7 * 60 * 1000);
-        if (staffRadarCount) staffRadarCount.textContent = `${recent.length} scans · last hour`;
-        if (staffRadarMood) staffRadarMood.textContent = radarStatusLabel(recent.length, hot.length);
-      const intensity = Math.max(0.18, Math.min(1, (recent.length + hot.length * 1.4) / 12));
-      const power = Math.max(0.12, Math.min(1, (recent.length + hot.length * 0.5) / 10));
+      const activeAlertsForVenue = tonightAlerts.filter((alert) => {
+        if ((alert.venueId || "").toLowerCase() !== venueId) return false;
+        if (alert.expiresAt && Number(alert.expiresAt) <= now) return false;
+        return true;
+      });
+      const checkInTotal = activeAlertsForVenue.reduce((sum, alert) => (
+        sum + Math.max(0, Number(alert.checkInCount || 0))
+      ), 0);
+      const recentCheckInSignals = activeAlertsForVenue.reduce((sum, alert) => {
+        const count = Math.max(0, Number(alert.checkInCount || 0));
+        if (!count) return sum;
+        const updatedMs = Number(alert.updatedAt || alert.createdAt || 0);
+        if (!updatedMs || (now - updatedMs) > (10 * 60 * 1000)) return sum;
+        return sum + Math.min(4, count);
+      }, 0);
+      const previousCheckins = staffRadarCheckinTotals.has(venueId) ? Number(staffRadarCheckinTotals.get(venueId) || 0) : null;
+      staffRadarCheckinTotals.set(venueId, checkInTotal);
+      if (previousCheckins !== null && checkInTotal > previousCheckins) {
+        triggerStaffRadarTraction(checkInTotal - previousCheckins);
+      }
+      if (staffRadarCount) {
+        staffRadarCount.textContent = checkInTotal > 0
+          ? `${recent.length} scans · ${checkInTotal} check-ins`
+          : `${recent.length} scans · last hour`;
+      }
+      if (staffRadarMood) {
+        const baseMood = radarStatusLabel(recent.length, hot.length);
+        if (checkInTotal <= 0) {
+          staffRadarMood.textContent = baseMood;
+        } else if (recentCheckInSignals > 0) {
+          staffRadarMood.textContent = `${baseMood} · traction climbing`;
+        } else {
+          staffRadarMood.textContent = `${baseMood} · check-ins active`;
+        }
+      }
+      const checkInEnergy = Math.min(1, (checkInTotal + recentCheckInSignals * 1.25) / 16);
+      const intensity = Math.max(0.18, Math.min(1, ((recent.length + hot.length * 1.4) / 12) + checkInEnergy * 0.55));
+      const power = Math.max(0.12, Math.min(1, ((recent.length + hot.length * 0.5) / 10) + checkInEnergy * 0.45));
+      const hasTraffic = recent.length > 0 || checkInTotal > 0;
       if (staffRadarEl) {
         const hue = Math.max(160, Math.min(205, 185 - power * 25));
         const sweepOpacity = 0.45 + power * 0.45;
@@ -24280,23 +24911,30 @@ let onboardingIndex = 0;
         staffRadarEl.style.boxShadow = `0 24px 50px rgba(0,0,0,0.5), 0 0 ${24 + power * 26}px rgba(103,232,249,${0.25 + power * 0.35})`;
       }
       if (radarPings) {
-        radarPings.innerHTML = recent.slice(0, 8).map((entry, idx) => {
-          const seed = (new Date(entry.timestamp || now).getTime() + idx * 97) % 360;
-          const radius = 18 + (idx * 7);
+        const fallbackPings = activeAlertsForVenue
+          .filter((alert) => Math.max(0, Number(alert.checkInCount || 0)) > 0)
+          .slice(0, 8);
+        const pingSource = recent.length ? recent.slice(0, 8) : fallbackPings;
+        radarPings.innerHTML = pingSource.map((entry, idx) => {
+          const ts = entry.timestamp || entry.updatedAt || entry.createdAt || now;
+          const seed = (new Date(ts).getTime() + idx * 97) % 360;
+          const weight = Math.max(1, Number(entry.checkInCount || 1));
+          const radius = 18 + (idx * 7) + Math.min(16, weight * 1.3);
           const left = 50 + Math.cos(seed * Math.PI / 180) * radius;
           const top = 50 + Math.sin(seed * Math.PI / 180) * radius;
           const delay = (idx * 0.14).toFixed(2);
-          const glow = Math.min(0.95, 0.45 + (recent.length * 0.04) + power * 0.2);
+          const glow = Math.min(0.95, 0.45 + (recent.length * 0.04) + checkInEnergy * 0.24 + power * 0.2);
           return `<span style="left:${left}%;top:${top}%;animation-delay:${delay}s;opacity:${glow};"></span>`;
         }).join("");
       }
       if (radarParticles) {
-        if (!recent.length) {
+        if (!hasTraffic) {
           radarParticles.innerHTML = "";
         } else {
-          const particleCount = Math.min(24, Math.max(6, Math.round(6 + recent.length * 1.6 + hot.length)));
+          const particleCount = Math.min(26, Math.max(6, Math.round(6 + recent.length * 1.6 + hot.length + checkInEnergy * 8)));
           radarParticles.innerHTML = Array.from({ length: particleCount }).map((_, idx) => {
-            const seed = (recent[idx]?.timestamp ? new Date(recent[idx].timestamp).getTime() : now) + idx * 61;
+            const seedSource = recent[idx] || activeAlertsForVenue[idx % Math.max(1, activeAlertsForVenue.length)] || {};
+            const seed = (seedSource.timestamp ? new Date(seedSource.timestamp).getTime() : Number(seedSource.updatedAt || seedSource.createdAt || now)) + idx * 61;
             const left = 10 + seededRandom(seed) * 80;
             const top = 10 + seededRandom(seed + 2) * 80;
             const driftX = (seededRandom(seed + 3) - 0.5) * (30 + intensity * 60);
@@ -24310,10 +24948,10 @@ let onboardingIndex = 0;
         }
       }
       if (radarStreaks) {
-        if (!recent.length) {
+        if (!hasTraffic) {
           radarStreaks.innerHTML = "";
         } else {
-          const streakCount = Math.min(10, Math.max(0, Math.round(intensity * 8)));
+          const streakCount = Math.min(12, Math.max(0, Math.round(intensity * 8 + checkInEnergy * 2)));
           radarStreaks.innerHTML = Array.from({ length: streakCount }).map((_, idx) => {
             const seed = now + idx * 83;
             const left = 10 + seededRandom(seed) * 80;
@@ -24328,12 +24966,13 @@ let onboardingIndex = 0;
         }
       }
       if (radarBursts) {
-        if (!recent.length) {
+        if (!hasTraffic) {
           radarBursts.innerHTML = "";
         } else {
-          const burstCount = Math.min(6, Math.max(0, Math.round(intensity * 5)));
+          const burstCount = Math.min(8, Math.max(0, Math.round(intensity * 5 + checkInEnergy * 2)));
           radarBursts.innerHTML = Array.from({ length: burstCount }).map((_, idx) => {
-            const seed = (recent[idx]?.timestamp ? new Date(recent[idx].timestamp).getTime() : now) + idx * 73;
+            const seedSource = recent[idx] || activeAlertsForVenue[idx % Math.max(1, activeAlertsForVenue.length)] || {};
+            const seed = (seedSource.timestamp ? new Date(seedSource.timestamp).getTime() : Number(seedSource.updatedAt || seedSource.createdAt || now)) + idx * 73;
             const left = 20 + seededRandom(seed) * 60;
             const top = 20 + seededRandom(seed + 2) * 60;
             const size = 16 + seededRandom(seed + 3) * (24 + intensity * 30);
@@ -24345,8 +24984,14 @@ let onboardingIndex = 0;
         }
       }
       if (radarList) {
-        if (!recent.length) {
+        if (!recent.length && checkInTotal <= 0) {
           radarList.innerHTML = '<span class="radar-empty">No scans in last hour.</span>';
+        } else if (!recent.length && checkInTotal > 0) {
+          radarList.innerHTML = activeAlertsForVenue.slice(0, 6).map((alert) => {
+            const users = Math.max(0, Number(alert.checkInCount || 0));
+            const title = String(alert.title || "Tonight alert").trim();
+            return `<span class="radar-chip"><strong>${users}</strong>${users === 1 ? "user" : "users"} checked in • ${title}</span>`;
+          }).join("");
         } else {
           radarList.innerHTML = recent.slice(0, 6).map(entry => {
             const time = formatTimeLabel(entry.timestamp || now);
@@ -27638,6 +28283,7 @@ let onboardingIndex = 0;
           return;
         }
         if (!user) {
+          clearPushAutoSyncTimers();
           forceLogoutOnReload = false;
           clearLoginSessionFlag(previousUid);
           if (authTransition || authSubmitInFlight) {
@@ -27648,6 +28294,9 @@ let onboardingIndex = 0;
           memberProfile = null;
           memberDocRef = null;
           currentPassCode = null;
+          memberAlertCheckins = new Set();
+          alertCheckinsCloudSyncAt = 0;
+          alertCheckinsCloudSyncPass = "";
           ceoSession = false;
           isCeoAccount = false;
           document.body.classList.remove("ceo-active");
@@ -28691,10 +29340,20 @@ let onboardingIndex = 0;
 
     if (featuredVenuesGrid) {
       featuredVenuesGrid.addEventListener("click", (e) => {
+        const card = e.target.closest(".featured-card");
+        if (card) {
+          markLiveFeedSeen("featured");
+          markMemberFeedSeen();
+        }
         toggleFeaturedCardFlip(e.target);
       });
       featuredVenuesGrid.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
+        const card = e.target.closest(".featured-card");
+        if (card) {
+          markLiveFeedSeen("featured");
+          markMemberFeedSeen();
+        }
         toggleFeaturedCardFlip(e.target);
         e.preventDefault();
       }
@@ -28702,10 +29361,20 @@ let onboardingIndex = 0;
     }
     if (passFeaturedGrid) {
       passFeaturedGrid.addEventListener("click", (e) => {
+        const card = e.target.closest(".featured-card");
+        if (card) {
+          markLiveFeedSeen("featured");
+          markMemberFeedSeen();
+        }
         toggleFeaturedCardFlip(e.target);
       });
       passFeaturedGrid.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
+        const card = e.target.closest(".featured-card");
+        if (card) {
+          markLiveFeedSeen("featured");
+          markMemberFeedSeen();
+        }
         toggleFeaturedCardFlip(e.target);
         e.preventDefault();
       }
