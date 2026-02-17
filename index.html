@@ -10088,6 +10088,322 @@
         animation: none !important;
       }
     }
+
+    /* Futuristic global visual pass: nightlife neon, cleaner depth, lighter motion */
+    :root {
+      --fut-surface-a: rgba(6, 14, 34, 0.86);
+      --fut-surface-b: rgba(10, 18, 42, 0.82);
+      --fut-border-soft: color-mix(in srgb, var(--accent-primary-live) 40%, rgba(148, 163, 184, 0.45));
+      --fut-border-strong: color-mix(in srgb, var(--accent-primary-live) 60%, var(--accent-secondary-live) 30%);
+      --fut-glow-soft: color-mix(in srgb, var(--accent-primary-live) 38%, transparent);
+      --fut-glow-strong: color-mix(in srgb, var(--accent-primary-live) 54%, var(--accent-secondary-live) 24%);
+      --fut-shadow:
+        0 22px 60px rgba(1, 6, 20, 0.66),
+        0 0 30px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
+        0 0 58px color-mix(in srgb, var(--accent-secondary-live) 16%, transparent);
+      --fut-shadow-press:
+        0 18px 42px rgba(2, 8, 22, 0.6),
+        0 0 26px color-mix(in srgb, var(--accent-primary-live) 20%, transparent);
+    }
+    @keyframes futAmbientShift {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.5; }
+      50% { transform: translate3d(0, -1.8%, 0) scale(1.02); opacity: 0.78; }
+    }
+    @keyframes futBeamSweep {
+      0% { transform: translate3d(-24%, 16%, 0) rotate(-8deg); opacity: 0.16; }
+      50% { transform: translate3d(8%, -8%, 0) rotate(6deg); opacity: 0.34; }
+      100% { transform: translate3d(24%, 14%, 0) rotate(12deg); opacity: 0.22; }
+    }
+    @keyframes futCardPulse {
+      0%, 100% { box-shadow: var(--fut-shadow); }
+      50% {
+        box-shadow:
+          0 28px 76px rgba(1, 8, 24, 0.72),
+          0 0 40px color-mix(in srgb, var(--accent-primary-live) 34%, transparent),
+          0 0 68px color-mix(in srgb, var(--accent-secondary-live) 24%, transparent);
+      }
+    }
+    @keyframes futButtonAura {
+      0%, 100% {
+        box-shadow:
+          0 12px 28px rgba(1, 7, 22, 0.48),
+          0 0 20px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
+      }
+      50% {
+        box-shadow:
+          0 16px 34px rgba(1, 9, 24, 0.58),
+          0 0 30px color-mix(in srgb, var(--accent-primary-live) 34%, transparent),
+          0 0 42px color-mix(in srgb, var(--accent-secondary-live) 20%, transparent);
+      }
+    }
+    @keyframes futFloatSlow {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
+    }
+    body::before {
+      inset: -12%;
+      background:
+        radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--accent-primary-live) 20%, transparent), transparent 48%),
+        radial-gradient(circle at 85% 12%, color-mix(in srgb, var(--accent-secondary-live) 18%, transparent), transparent 52%),
+        radial-gradient(circle at 50% 88%, rgba(59, 130, 246, 0.16), transparent 58%);
+      animation: futAmbientShift 16s ease-in-out infinite;
+      pointer-events: none;
+      z-index: -3;
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: -35% -15%;
+      background:
+        linear-gradient(122deg, transparent 30%, color-mix(in srgb, var(--accent-primary-live) 14%, transparent) 48%, transparent 66%),
+        linear-gradient(62deg, transparent 34%, color-mix(in srgb, var(--accent-secondary-live) 12%, transparent) 52%, transparent 70%);
+      mix-blend-mode: screen;
+      filter: blur(44px);
+      opacity: 0.28;
+      animation: futBeamSweep 20s ease-in-out infinite alternate;
+      pointer-events: none;
+      z-index: -2;
+    }
+    :is(
+      .pass-card,
+      .member-hero,
+      .profile-summary,
+      .alerts-card,
+      .member-command-deck,
+      .night-wheel,
+      .points-total-card,
+      .vip-deal-card,
+      .staff-form,
+      .staff-radar,
+      .staff-more,
+      .ceo-hq-panel,
+      .ceo-panel,
+      .ceo-status-card,
+      .ceo-kpi-card,
+      .ceo-reset-card,
+      .ceo-hq-nav,
+      .modal-card,
+      .tier-card,
+      .landing-feature-card,
+      .hero-point
+    ) {
+      border: 1px solid var(--fut-border-soft);
+      background:
+        linear-gradient(160deg, var(--fut-surface-a) 0%, var(--fut-surface-b) 62%, rgba(7, 12, 28, 0.82) 100%);
+      box-shadow: var(--fut-shadow);
+      transition: transform 260ms ease, box-shadow 260ms ease, border-color 260ms ease, background 260ms ease;
+      overflow: clip;
+    }
+    :is(
+      .pass-card,
+      .member-hero,
+      .profile-summary,
+      .alerts-card,
+      .member-command-deck,
+      .night-wheel,
+      .points-total-card,
+      .vip-deal-card,
+      .staff-form,
+      .staff-radar,
+      .staff-more,
+      .ceo-hq-panel,
+      .ceo-panel,
+      .ceo-status-card,
+      .ceo-kpi-card,
+      .ceo-reset-card,
+      .ceo-hq-nav,
+      .modal-card,
+      .tier-card,
+      .landing-feature-card,
+      .hero-point
+    ):hover {
+      border-color: var(--fut-border-strong);
+      box-shadow:
+        0 26px 70px rgba(1, 8, 22, 0.72),
+        0 0 40px color-mix(in srgb, var(--accent-primary-live) 30%, transparent),
+        0 0 58px color-mix(in srgb, var(--accent-secondary-live) 20%, transparent);
+      transform: translateY(-1px);
+    }
+    #passScreen.active .pass-card,
+    #staffPortalScreen.active .staff-board > *,
+    #ceoPortalScreen.active .ceo-hq-panel.active {
+      animation: futCardPulse 7s ease-in-out infinite;
+    }
+    #passScreen .member-hero,
+    #staffPortalScreen .staff-radar,
+    #ceoPortalScreen .ceo-hq-panel.active {
+      position: relative;
+      isolation: isolate;
+    }
+    #passScreen .member-hero::after,
+    #staffPortalScreen .staff-radar::after,
+    #ceoPortalScreen .ceo-hq-panel.active::after {
+      content: "";
+      position: absolute;
+      inset: auto 8% -34% 8%;
+      height: 44%;
+      background: radial-gradient(circle at center, color-mix(in srgb, var(--accent-primary-live) 28%, transparent), transparent 72%);
+      filter: blur(24px);
+      opacity: 0.45;
+      pointer-events: none;
+      z-index: -1;
+    }
+    :is(.btn, .nav-toggle, .nav-item, .chip, .pill-ghost, .accent-chip, .status-pill) {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 38%, rgba(148, 163, 184, 0.28));
+      box-shadow:
+        0 10px 22px rgba(1, 7, 20, 0.46),
+        0 0 18px color-mix(in srgb, var(--accent-primary-live) 18%, transparent);
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+      will-change: transform, box-shadow;
+    }
+    :is(.btn-primary, #landingGetPassBtn, #addToHomeBtn, #redeemTrigger, #staffSavePerksBtn) {
+      animation: futButtonAura 3.4s ease-in-out infinite;
+    }
+    :is(.btn, .nav-toggle, .nav-item, .chip, .pill-ghost, .accent-chip, .status-pill):not(:disabled):hover {
+      transform: translateY(-1px);
+      border-color: var(--fut-border-strong);
+      box-shadow:
+        0 14px 30px rgba(2, 8, 24, 0.56),
+        0 0 28px color-mix(in srgb, var(--accent-primary-live) 28%, transparent),
+        0 0 40px color-mix(in srgb, var(--accent-secondary-live) 18%, transparent);
+    }
+    :is(.btn, .nav-toggle, .nav-item, .chip, .pill-ghost, .accent-chip, .status-pill):active {
+      transform: translateY(0) scale(0.992);
+      box-shadow: var(--fut-shadow-press);
+    }
+    #landingScreen .brand-logo-img,
+    #passScreen .brand-logo-img.small,
+    #staffPortalScreen .venue-chip,
+    #ceoPortalScreen .ceo-hq-brand {
+      filter:
+        drop-shadow(0 0 20px color-mix(in srgb, var(--accent-primary-live) 45%, transparent))
+        drop-shadow(0 0 34px color-mix(in srgb, var(--accent-secondary-live) 24%, transparent));
+    }
+    #landingScreen .hero-highlight {
+      background:
+        linear-gradient(145deg, rgba(5, 16, 42, 0.88), rgba(13, 22, 55, 0.8)),
+        radial-gradient(circle at 10% 20%, color-mix(in srgb, var(--accent-primary-live) 20%, transparent), transparent 48%);
+      border: 1px solid var(--fut-border-soft);
+      box-shadow: var(--fut-shadow);
+    }
+    #landingScreen .hero-point,
+    #landingScreen .landing-feature-card {
+      animation: futFloatSlow 5.6s ease-in-out infinite;
+    }
+    #landingScreen .hero-point:nth-child(2),
+    #landingScreen .landing-feature-card:nth-child(2) {
+      animation-delay: 0.6s;
+    }
+    #landingScreen .hero-point:nth-child(3),
+    #landingScreen .landing-feature-card:nth-child(3) {
+      animation-delay: 1.2s;
+    }
+    .realtime-pill,
+    .pill-new,
+    .status-badge.live {
+      box-shadow:
+        0 8px 18px rgba(2, 8, 24, 0.5),
+        0 0 18px color-mix(in srgb, var(--accent-primary-live) 34%, transparent);
+      border-color: color-mix(in srgb, var(--accent-primary-live) 44%, rgba(148, 163, 184, 0.34));
+    }
+    #passScreen .community-stat strong,
+    #ceoPortalScreen .ceo-kpi-card strong,
+    #staffPortalScreen .staff-pending-count,
+    #staffPortalScreen .radar-count {
+      text-shadow:
+        0 0 14px color-mix(in srgb, var(--accent-primary-live) 34%, transparent),
+        0 0 26px color-mix(in srgb, var(--accent-secondary-live) 20%, transparent);
+    }
+    #passScreen .pulse-band,
+    #staffPortalScreen .staff-radar .radar-display,
+    #ceoPortalScreen .ceo-status-card {
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 40%, rgba(148, 163, 184, 0.34));
+      box-shadow:
+        0 18px 44px rgba(2, 8, 24, 0.6),
+        0 0 30px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+    }
+    #passScreen .pulse-band::before,
+    #staffPortalScreen .staff-radar .radar-display::before {
+      opacity: 0.8;
+    }
+    #passScreen .pass-card,
+    #staffPortalScreen .staff-form,
+    #ceoPortalScreen .ceo-hq-panel.active {
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    #passScreen .profile-summary .avatar,
+    #staffPortalScreen .venue-chip,
+    #ceoPortalScreen .ceo-kpi-card {
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 38%, rgba(148, 163, 184, 0.2)),
+        0 0 20px color-mix(in srgb, var(--accent-primary-live) 26%, transparent),
+        0 0 34px color-mix(in srgb, var(--accent-secondary-live) 16%, transparent);
+    }
+
+    @media (hover: none) and (pointer: coarse) {
+      :is(
+        .pass-card,
+        .member-hero,
+        .profile-summary,
+        .alerts-card,
+        .member-command-deck,
+        .night-wheel,
+        .points-total-card,
+        .vip-deal-card,
+        .staff-form,
+        .staff-radar,
+        .staff-more,
+        .ceo-hq-panel,
+        .ceo-panel,
+        .ceo-status-card,
+        .ceo-kpi-card,
+        .ceo-reset-card,
+        .ceo-hq-nav,
+        .modal-card,
+        .tier-card,
+        .landing-feature-card,
+        .hero-point
+      ):hover {
+        transform: none;
+        box-shadow: var(--fut-shadow);
+      }
+      :is(.btn-primary, #landingGetPassBtn, #addToHomeBtn, #redeemTrigger, #staffSavePerksBtn) {
+        animation-duration: 4.4s;
+      }
+      #landingScreen .hero-point,
+      #landingScreen .landing-feature-card {
+        animation-duration: 7.2s;
+      }
+    }
+    @supports (-webkit-touch-callout: none) {
+      body::after {
+        filter: blur(34px);
+        opacity: 0.2;
+      }
+      :is(.pass-card, .member-hero, .staff-form, .staff-radar, .ceo-hq-panel, .ceo-panel, .ceo-status-card, .ceo-kpi-card, .ceo-reset-card) {
+        backdrop-filter: blur(9px) saturate(1.1);
+        -webkit-backdrop-filter: blur(9px) saturate(1.1);
+      }
+      #passScreen.active .pass-card,
+      #staffPortalScreen.active .staff-board > *,
+      #ceoPortalScreen.active .ceo-hq-panel.active {
+        animation-duration: 8.4s;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body::before,
+      body::after,
+      #passScreen.active .pass-card,
+      #staffPortalScreen.active .staff-board > *,
+      #ceoPortalScreen.active .ceo-hq-panel.active,
+      #landingScreen .hero-point,
+      #landingScreen .landing-feature-card,
+      :is(.btn-primary, #landingGetPassBtn, #addToHomeBtn, #redeemTrigger, #staffSavePerksBtn) {
+        animation: none !important;
+      }
+    }
   </style>
 </head>
   <body>
