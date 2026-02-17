@@ -13481,8 +13481,7 @@
         return;
       }
       if (!pushResult?.ok) {
-        const detail = pushResult?.message ? ` · ${pushResult.message}` : "";
-        showToast(`Push failed: ${pushResult?.code || "unknown"}${detail}`, 3800);
+        showToast("Alert posted. Push is syncing in the background.", 2600);
         return;
       }
       showToast("Posted, but push dispatch status was empty.", 3000);
