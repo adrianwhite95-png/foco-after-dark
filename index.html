@@ -4216,6 +4216,40 @@
     .vibe-blacking { background: linear-gradient(120deg, rgba(15, 23, 42, 0.8), rgba(124, 58, 237, 0.25)); border-color: rgba(124, 58, 237, 0.4); color: #c7d2fe; }
     .vibe-social { background: linear-gradient(120deg, rgba(34, 211, 238, 0.2), rgba(34, 197, 94, 0.18)); border-color: rgba(34, 211, 238, 0.45); }
     .vibe-casual { background: linear-gradient(120deg, rgba(251, 191, 36, 0.2), rgba(56, 189, 248, 0.16)); border-color: rgba(251, 191, 36, 0.4); color: #fef9c3; }
+    .vibe-custom { background: linear-gradient(120deg, rgba(45, 212, 191, 0.2), rgba(59, 130, 246, 0.18)); border-color: rgba(45, 212, 191, 0.45); }
+    .vibe-custom-wrap {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+    .vibe-custom-wrap.active {
+      display: flex;
+    }
+    .vibe-custom-wrap input {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.88);
+      color: #e2e8f0;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 11px;
+      line-height: 1.2;
+    }
+    .vibe-custom-wrap input:focus {
+      outline: none;
+      border-color: rgba(45, 212, 191, 0.65);
+      box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.35), 0 0 12px rgba(45, 212, 191, 0.22);
+    }
+    .vibe-custom-save {
+      white-space: nowrap;
+      min-width: 52px;
+      background: linear-gradient(120deg, rgba(45, 212, 191, 0.9), rgba(59, 130, 246, 0.55));
+      border-color: rgba(45, 212, 191, 0.7);
+      color: #041322;
+      font-weight: 700;
+    }
     .featured-card {
       text-align: left;
       position: relative;
@@ -6496,6 +6530,14 @@
         width: 100%;
         min-width: 0;
         text-align: center;
+      }
+      .vibe-custom-wrap {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .vibe-custom-save {
+        width: 100%;
       }
       .staff-meta-row,
       .staff-perks-actions,
@@ -11442,6 +11484,11 @@
                   <button type="button" class="vibe-btn vibe-blacking" data-vibe="blacking">Blacking Out</button>
                   <button type="button" class="vibe-btn vibe-social" data-vibe="social">Social</button>
                   <button type="button" class="vibe-btn vibe-casual" data-vibe="casual">Casual</button>
+                  <button type="button" class="vibe-btn vibe-custom" data-vibe="custom">Custom</button>
+                </div>
+                <div class="vibe-custom-wrap" id="customVibeWrap" aria-live="polite">
+                  <input id="customVibeInput" type="text" maxlength="28" placeholder="Type your vibe..." />
+                  <button type="button" class="vibe-btn vibe-custom-save" id="customVibeSave">Set</button>
                 </div>
               </div>
             </div>
@@ -13962,7 +14009,7 @@
     const usernameSave = document.getElementById("usernameSave");
     const venueStars = document.getElementById("venueStars");
     const venueDetailRating = document.getElementById("venueDetailRating");
-    const vibeButtons = document.querySelectorAll(".vibe-btn");
+    const vibeButtons = document.querySelectorAll(".vibe-btn[data-vibe]");
     const alertAudience = document.getElementById("alertAudience");
     const alertMetaInput = document.getElementById("alertMeta");
     const alertExpiresInput = document.getElementById("alertExpires");
@@ -15885,6 +15932,9 @@
     const pulseSparks = document.getElementById("pulseSparks");
     const pulseStreaks = document.getElementById("pulseStreaks");
     const pulseBursts = document.getElementById("pulseBursts");
+    const customVibeWrap = document.getElementById("customVibeWrap");
+    const customVibeInput = document.getElementById("customVibeInput");
+    const customVibeSave = document.getElementById("customVibeSave");
     const staffRadarCount = document.getElementById("staffRadarCount");
     const staffRadarMood = document.getElementById("staffRadarMood");
     const radarPings = document.getElementById("radarPings");
@@ -17400,7 +17450,8 @@
           flirty: { factor: 1.15 },
           blacking: { factor: 1.6 },
           social: { factor: 1.3 },
-          casual: { factor: 0.75 }
+          casual: { factor: 0.75 },
+          custom: { factor: 1.2 }
         };
         const vibeName = window.currentVibe || "social";
         const vibeConfig = (palette[vibeName] || palette.social || { factor: 1 });
@@ -17550,6 +17601,8 @@
             passId: (data.passCode || data.passId || passCode).toUpperCase(),
             venue: data.venueId || data.venue || null,
             requestedVenue: data.requestedVenue || null,
+            vibeLabel: data.vibeLabel || null,
+            vibeKey: data.vibeKey || null,
             ceo: !!data.ceo,
             status: data.status || "pending",
             timestamp: toIso(data.createdAt || data.timestamp),
@@ -18095,7 +18148,10 @@
               }
               if (mergedPass) setMemberDirectoryEntry(mergedPass, memberProfile);
               if (data.accent) applyAccentTheme(data.accent);
-              if (data.vibe) applyVibeStyle(data.vibe);
+              if (typeof data.customVibeText === "string") {
+                currentCustomVibeText = sanitizeCustomVibeText(data.customVibeText);
+              }
+              if (data.vibe) applyVibeStyle(data.vibe, { customText: currentCustomVibeText });
               if (data.freeMembership) {
                 memberProfile.freeMembership = true;
                 applyMembershipToPass("free");
@@ -18184,6 +18240,8 @@
                 passId: (data.passCode || data.passId || code).toUpperCase(),
                 venue: data.venueId || data.venue || null,
                 requestedVenue: data.requestedVenue || null,
+                vibeLabel: data.vibeLabel || null,
+                vibeKey: data.vibeKey || null,
                 ceo: !!data.ceo,
                 status: data.status || "pending",
                 timestamp: toIso(data.createdAt || data.timestamp),
@@ -21219,6 +21277,7 @@ let onboardingIndex = 0;
     const VENUE_RATINGS_KEY = "venueRatings";
     const VENUE_USER_RATINGS_KEY = "venueUserRatings";
     const VIBE_KEY = "vibeState";
+    const VIBE_CUSTOM_KEY = "vibeCustomState";
     const APP_VERSION = "v6";
     const PENDING_REDEMPTION_TIMEOUT_MS = 60 * 60 * 1000;
     function membershipSelected() {
@@ -21305,13 +21364,43 @@ let onboardingIndex = 0;
         return {};
       }
     }
+    function loadCustomVibeMap() {
+      if (!allowLocalCache()) return {};
+      try {
+        return JSON.parse(localStorage.getItem(VIBE_CUSTOM_KEY) || "{}");
+      } catch (err) {
+        return {};
+      }
+    }
+    function sanitizeCustomVibeText(value = "") {
+      return String(value || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 28);
+    }
+    function getVibeDisplayLabel(vibeName = currentVibe) {
+      if (vibeName === "blacking") return "Blacking Out";
+      if (vibeName === "custom") return currentCustomVibeText || "Custom";
+      return vibeName ? vibeName[0].toUpperCase() + vibeName.slice(1) : "Social";
+    }
+    function syncCustomVibeUI() {
+      const customActive = currentVibe === "custom";
+      if (customVibeWrap) customVibeWrap.classList.toggle("active", customActive);
+      if (customVibeInput && customActive) {
+        if (currentCustomVibeText && customVibeInput.value !== currentCustomVibeText) {
+          customVibeInput.value = currentCustomVibeText;
+        }
+      }
+    }
     var VIBES = {
       flirty: { primary: "#f472b6", secondary: "#8b5cf6", glow: "rgba(244,114,182,0.45)", factor: 1.15 },
       blacking: { primary: "#0ea5e9", secondary: "#7c3aed", glow: "rgba(124,58,237,0.45)", factor: 1.6 },
       social: { primary: "#22d3ee", secondary: "#22c55e", glow: "rgba(34,211,238,0.38)", factor: 1.3 },
-      casual: { primary: "#fbbf24", secondary: "#38bdf8", glow: "rgba(251,191,36,0.30)", factor: 0.75 }
+      casual: { primary: "#fbbf24", secondary: "#38bdf8", glow: "rgba(251,191,36,0.30)", factor: 0.75 },
+      custom: { primary: "#2dd4bf", secondary: "#3b82f6", glow: "rgba(45,212,191,0.42)", factor: 1.2 }
     };
     var currentVibe = "social";
+    let currentCustomVibeText = "";
     const POINT_RULES = {
       redemption: { default: 10 },
       review: 25,
@@ -21846,6 +21935,19 @@ let onboardingIndex = 0;
       }
       persistMemberState({ vibe });
     }
+    function saveCustomVibeState(code, customText) {
+      const clean = sanitizeCustomVibeText(customText);
+      if (!code) return clean;
+      setMemberDirectoryEntry(code, { customVibeText: clean || null });
+      if (allowLocalCache()) {
+        const all = loadCustomVibeMap();
+        if (clean) all[code] = clean;
+        else delete all[code];
+        localStorage.setItem(VIBE_CUSTOM_KEY, JSON.stringify(all));
+      }
+      persistMemberState({ customVibeText: clean || null });
+      return clean;
+    }
     function loadVibeState(code) {
       if (!code) return null;
       if (memberProfile?.vibe) return memberProfile.vibe;
@@ -21855,9 +21957,24 @@ let onboardingIndex = 0;
       const directory = loadMemberDirectory();
       return (directory[code] || {}).vibe || null;
     }
-    function applyVibeStyle(vibeName) {
-      const vibe = VIBES[vibeName] || VIBES.social;
-      currentVibe = vibeName || "social";
+    function loadCustomVibeState(code) {
+      const fromProfile = sanitizeCustomVibeText(memberProfile?.customVibeText || "");
+      if (fromProfile) return fromProfile;
+      if (!code || !allowLocalCache()) return "";
+      const all = loadCustomVibeMap();
+      if (all[code]) return sanitizeCustomVibeText(all[code]);
+      const directory = loadMemberDirectory();
+      return sanitizeCustomVibeText((directory[code] || {}).customVibeText || "");
+    }
+    function applyVibeStyle(vibeName, options = {}) {
+      const nextVibe = typeof vibeName === "string" ? vibeName.toLowerCase() : "social";
+      const resolvedVibe = VIBES[nextVibe] ? nextVibe : "social";
+      const vibe = VIBES[resolvedVibe] || VIBES.social;
+      currentVibe = resolvedVibe;
+      const incomingCustom = sanitizeCustomVibeText(options.customText);
+      if (resolvedVibe === "custom" && incomingCustom) {
+        currentCustomVibeText = incomingCustom;
+      }
       if (pulseBand) {
         pulseBand.style.setProperty("--vibe-primary", vibe.primary);
         pulseBand.style.setProperty("--vibe-secondary", vibe.secondary);
@@ -21866,21 +21983,43 @@ let onboardingIndex = 0;
       if (vibeButtons && vibeButtons.length) {
         vibeButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.vibe === currentVibe));
       }
+      syncCustomVibeUI();
+      const displayLabel = getVibeDisplayLabel(currentVibe);
       if (pulsePrimary) {
-        pulsePrimary.textContent = `Vibe: ${currentVibe === "blacking" ? "Blacking Out" : currentVibe[0].toUpperCase() + currentVibe.slice(1)}`;
+        pulsePrimary.textContent = `Vibe: ${displayLabel}`;
       }
       const vibeStat = document.getElementById("statTonightVibe");
       if (vibeStat) {
-        vibeStat.textContent = currentVibe === "blacking"
-          ? "Blacking Out"
-          : currentVibe[0].toUpperCase() + currentVibe.slice(1);
+        vibeStat.textContent = displayLabel;
       }
     }
-    function setVibe(vibeName) {
+    function setVibe(vibeName, options = {}) {
       const code = (currentPassCode || "").toUpperCase();
-      applyVibeStyle(vibeName);
-      saveVibeState(code, vibeName);
-      if (memberProfile) memberProfile.vibe = vibeName;
+      const nextVibe = typeof vibeName === "string" ? vibeName.toLowerCase() : "social";
+      if (nextVibe === "custom") {
+        const customText = sanitizeCustomVibeText(options.customText ?? customVibeInput?.value ?? currentCustomVibeText);
+        if (!customText) {
+          if (customVibeWrap) customVibeWrap.classList.add("active");
+          if (customVibeInput) {
+            customVibeInput.focus();
+            customVibeInput.select();
+          }
+          showToast("Type your custom vibe, then tap Set.");
+          return;
+        }
+        currentCustomVibeText = customText;
+        applyVibeStyle("custom", { customText });
+        saveVibeState(code, "custom");
+        saveCustomVibeState(code, customText);
+        if (memberProfile) {
+          memberProfile.vibe = "custom";
+          memberProfile.customVibeText = customText;
+        }
+      } else {
+        applyVibeStyle(nextVibe);
+        saveVibeState(code, nextVibe);
+        if (memberProfile) memberProfile.vibe = nextVibe;
+      }
       updatePulseBand();
     }
     function setRadarGraffiti(name) {
@@ -21955,8 +22094,9 @@ let onboardingIndex = 0;
     }
     function loadVibeForCurrentPass() {
       const code = (currentPassCode || "").toUpperCase();
+      currentCustomVibeText = loadCustomVibeState(code);
       const saved = (allowLocalCache() ? loadVibeState(code) : null) || memberProfile?.vibe || "social";
-      applyVibeStyle(saved);
+      applyVibeStyle(saved, { customText: currentCustomVibeText });
     }
     function updateNightWheelUI() {
       if (!nightWheelRemaining || !nightWheelResult) return;
@@ -23144,8 +23284,34 @@ let onboardingIndex = 0;
       vibeButtons.forEach(btn => {
         btn.addEventListener("click", () => {
           const vibe = btn.dataset.vibe || "social";
+          if (vibe === "custom") {
+            const customText = sanitizeCustomVibeText(customVibeInput?.value || currentCustomVibeText);
+            if (!customText) {
+              if (customVibeWrap) customVibeWrap.classList.add("active");
+              if (customVibeInput) {
+                customVibeInput.focus();
+                customVibeInput.select();
+              }
+              return;
+            }
+            setVibe("custom", { customText });
+            return;
+          }
           setVibe(vibe);
         });
+      });
+    }
+    if (customVibeSave) {
+      customVibeSave.addEventListener("click", () => {
+        setVibe("custom", { customText: customVibeInput?.value || "" });
+      });
+    }
+    if (customVibeInput) {
+      customVibeInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          setVibe("custom", { customText: customVibeInput.value || "" });
+        }
       });
     }
     if (usernameClose) usernameClose.addEventListener("click", closeUsernameModal);
@@ -24175,6 +24341,8 @@ let onboardingIndex = 0;
           passId: (data.passCode || data.passId || "").toUpperCase(),
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
+          vibeLabel: data.vibeLabel || null,
+          vibeKey: data.vibeKey || null,
           ceo: !!data.ceo,
           tier: data.tier || null,
           status: data.status || "pending",
@@ -24743,15 +24911,17 @@ let onboardingIndex = 0;
       if (!entry) return;
       const venueId = (entry.requestedVenue || entry.venue || "").toLowerCase();
       if (!venueId) return;
-      const normalized = {
-        ...entry,
-        code: (entry.code || "").toUpperCase(),
-        passId: (entry.passId || "").toUpperCase(),
-        requestedVenue: entry.requestedVenue ? entry.requestedVenue.toLowerCase() : null,
-        venue: entry.venue ? entry.venue.toLowerCase() : null,
-        status: (entry.status || "pending").toLowerCase(),
-        timestamp: entry.timestamp || new Date().toISOString()
-      };
+        const normalized = {
+          ...entry,
+          code: (entry.code || "").toUpperCase(),
+          passId: (entry.passId || "").toUpperCase(),
+          requestedVenue: entry.requestedVenue ? entry.requestedVenue.toLowerCase() : null,
+          venue: entry.venue ? entry.venue.toLowerCase() : null,
+          vibeLabel: sanitizeCustomVibeText(entry.vibeLabel || entry.vibe || ""),
+          vibeKey: (entry.vibeKey || "").toLowerCase() || null,
+          status: (entry.status || "pending").toLowerCase(),
+          timestamp: entry.timestamp || new Date().toISOString()
+        };
       if (!normalized.code) return;
       const cached = loadStaffRedemptionCache(venueId);
       const byCode = {};
@@ -24777,6 +24947,15 @@ let onboardingIndex = 0;
       const passId = (entry.passId || "").toUpperCase();
       const tier = String(entry.tier || "").toLowerCase();
       return entry.ceo === true || passId === CEO_PASS_ID || tier === "ceo";
+    }
+    function getEntryVibeLabel(entry = {}) {
+      const direct = sanitizeCustomVibeText(entry.vibeLabel || entry.vibe || "");
+      if (direct) return direct;
+      const key = String(entry.vibeKey || "").toLowerCase();
+      if (!key) return "";
+      if (key === "blacking") return "Blacking Out";
+      if (key === "custom") return "Custom";
+      return key[0].toUpperCase() + key.slice(1);
     }
     function renderStaffPendingQueue() {
       if (!staffPendingList || !staffPendingCount) return;
@@ -24816,12 +24995,14 @@ let onboardingIndex = 0;
         const statusClass = isPending ? "pending" : "verified";
         const perkLabel = entry.venuePerkLabel || entry.perk || entry.perkKey || "Perk";
         const venueName = entry.requestedVenue ? getVenueDisplayName(entry.requestedVenue) : getVenueDisplayName(entry.venue);
+        const vibeLabel = getEntryVibeLabel(entry);
+        const vibeMeta = vibeLabel ? ` · Tonight's vibe: ${vibeLabel}` : "";
         const creatorBadge = isCreatorRedemption(entry) ? '<span class="creator-pill">Creator</span>' : "";
         return `
           <div class="staff-pending-row" data-pending-code="${entry.code}" data-pending-status="${statusLabel}">
             <div class="staff-pending-meta">
               <div><strong>${entry.code}</strong> · Pass ID: ${entry.passId || "—"} ${creatorBadge}</div>
-              <div class="staff-pending-sub">${perkLabel}${venueName ? ` · ${venueName}` : ""}</div>
+              <div class="staff-pending-sub">${perkLabel}${venueName ? ` · ${venueName}` : ""}${vibeMeta}</div>
             </div>
             <div class="staff-pending-actions">
               <span class="status-pill-sm ${statusClass}">${statusLabel}</span>
@@ -25420,6 +25601,8 @@ let onboardingIndex = 0;
               passId: (data.passCode || data.passId || "").toUpperCase(),
               venue: data.venueId || data.venue || null,
               requestedVenue: data.requestedVenue || null,
+              vibeLabel: data.vibeLabel || null,
+              vibeKey: data.vibeKey || null,
               ceo: !!data.ceo,
               status: data.status || "pending",
               timestamp: toIso(data.createdAt || data.timestamp),
@@ -26085,6 +26268,8 @@ let onboardingIndex = 0;
         member: entry.member || null,
         venue: entry.venue || null,
         requestedVenue: entry.requestedVenue || null,
+        vibeLabel: sanitizeCustomVibeText(entry.vibeLabel || ""),
+        vibeKey: (entry.vibeKey || "").toLowerCase() || null,
         ceo: !!entry.ceo,
         status: entry.status || "pending",
         timestamp: entry.timestamp ? toTimestamp(entry.timestamp) : serverTimestamp(),
@@ -26124,6 +26309,8 @@ let onboardingIndex = 0;
           member: data.member || "FoCo member",
           venue: data.venue || null,
           requestedVenue: data.requestedVenue || null,
+          vibeLabel: data.vibeLabel || null,
+          vibeKey: data.vibeKey || null,
           ceo: !!data.ceo,
           tier: data.tier || null,
           status: data.status || "pending",
@@ -29782,6 +29969,8 @@ let onboardingIndex = 0;
         passId: (payload.passCode || payload.passId || "").toUpperCase(),
         venue: payload.venueId || payload.venue || null,
         requestedVenue: payload.requestedVenue || null,
+        vibeLabel: payload.vibeLabel || null,
+        vibeKey: payload.vibeKey || null,
         ceo: !!payload.ceo,
         status: payload.status || "pending",
         timestamp: toIso(payload.createdAt || payload.timestamp),
@@ -30458,6 +30647,8 @@ let onboardingIndex = 0;
           member: data.memberName || data.member || passUserName?.textContent || "FoCo member",
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
+          vibeLabel: data.vibeLabel || null,
+          vibeKey: data.vibeKey || null,
           ceo: !!data.ceo,
           status: data.status || "pending",
           timestamp: toIso(data.createdAt || data.timestamp),
@@ -30956,12 +31147,18 @@ let onboardingIndex = 0;
         return;
       }
       const rewardLabel = selectedPerkId === "reward_shot" ? "Reward: shot perk" : perkLabel;
+      const vibeLabel = sanitizeCustomVibeText(
+        document.getElementById("statTonightVibe")?.textContent || getVibeDisplayLabel(currentVibe)
+      );
+      const vibeKey = String(currentVibe || "social").toLowerCase();
       if (DEBUG_MODE) {
         console.info("[createRedemption] payload", {
           passCode: activePassId ? "set" : "",
           venueId: requestedVenue,
           perkId,
           perkLabel: rewardLabel,
+          vibeLabel,
+          vibeKey,
           uid: authUser?.uid || null
         });
       }
@@ -30973,7 +31170,9 @@ let onboardingIndex = 0;
           venueId: requestedVenue,
           perkId,
           perkLabel: rewardLabel,
-          perkKey: selectedPerkId === "reward_shot" ? "reward_shot" : "venue_perk"
+          perkKey: selectedPerkId === "reward_shot" ? "reward_shot" : "venue_perk",
+          vibeLabel,
+          vibeKey
         });
         payload = resp?.data?.redemption || null;
       } catch (err) {
@@ -31011,6 +31210,8 @@ let onboardingIndex = 0;
         venuePerkLabel: payload?.perkLabel || selectedPerkLabel || null,
         passId: (payload?.passCode || activePassId).toUpperCase(),
         requestedVenue: requestedVenue ? requestedVenue.toLowerCase() : null,
+        vibeLabel: payload?.vibeLabel || vibeLabel || null,
+        vibeKey: payload?.vibeKey || vibeKey || null,
         status: payload?.status || "pending",
         timestamp: payload?.createdAt?.toDate
           ? payload.createdAt.toDate().toISOString()

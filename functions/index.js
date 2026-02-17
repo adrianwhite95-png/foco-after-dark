@@ -868,6 +868,12 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
     const perkId = String(data?.perkId || "").trim();
     const perkLabel = String(data?.perkLabel || "").trim();
     const perkKey = String(data?.perkKey || "venue_perk").trim();
+    const vibeLabelInput = String(data?.vibeLabel || "").trim();
+    const vibeLabel = vibeLabelInput ? vibeLabelInput.slice(0, 28) : null;
+    const vibeKeyInput = String(data?.vibeKey || "").trim().toLowerCase();
+    const vibeKey = ["flirty", "blacking", "social", "casual", "custom"].includes(vibeKeyInput)
+      ? vibeKeyInput
+      : null;
     const missingFields = [];
     if (!passCode) missingFields.push("passCode");
     if (!venueId) missingFields.push("venueId");
@@ -1007,6 +1013,8 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
             perkId,
             perkKey,
             perkLabel: perkLabel || perkData.label || "Perk",
+            vibeLabel,
+            vibeKey,
             status: "pending",
             expiresAt,
             createdAt: serverNow,
