@@ -108,6 +108,10 @@ const staffLoginSecrets = { secrets: ["STAFF_GATE_CODE"] };
 const ceoLoginSecrets = { secrets: ["CEO_LOGIN_CODE"] };
 const appLockSecrets = { secrets: ["APP_LOCK_CODE"] };
 const ceoAccessSecrets = { secrets: ["CEO_ACCESS_PASSWORD"] };
+const tokenIssuerServiceAccount = "foco-after-dark@appspot.gserviceaccount.com";
+const staffLoginRunConfig = { ...staffLoginSecrets, serviceAccount: tokenIssuerServiceAccount };
+const ceoLoginRunConfig = { ...ceoLoginSecrets, serviceAccount: tokenIssuerServiceAccount };
+const betaLoginRunConfig = { ...betaLoginSecrets, serviceAccount: tokenIssuerServiceAccount };
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -1026,6 +1030,96 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
   }
 });
 
+exports.checkInAlert = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 20, maxPerDay: 800 }
+  });
+  const uid = String(context?.auth?.uid || "");
+  const alertId = String(data?.alertId || "").trim();
+  const passCodeInput = String(data?.passCode || "").trim().toUpperCase();
+  if (!uid || !alertId) {
+    throw new HttpsError("invalid-argument", "Missing alertId.");
+  }
+
+  const alertRef = db.collection("alerts").doc(alertId);
+  const checkinRef = alertRef.collection("checkins").doc(uid);
+  const memberCheckinRef = db.collection("members").doc(uid).collection("alertCheckins").doc(alertId);
+  const now = admin.firestore.Timestamp.now();
+  const serverNow = admin.firestore.FieldValue.serverTimestamp();
+
+  const result = await db.runTransaction(async (tx) => {
+    const [alertSnap, checkinSnap, memberSnap] = await Promise.all([
+      tx.get(alertRef),
+      tx.get(checkinRef),
+      tx.get(db.collection("members").doc(uid))
+    ]);
+    if (!alertSnap.exists) {
+      throw new HttpsError("not-found", "Alert not found.");
+    }
+    const alertData = alertSnap.data() || {};
+    const expiresAtMs = alertData.expiresAt?.toMillis
+      ? alertData.expiresAt.toMillis()
+      : (alertData.expiresAt ? new Date(alertData.expiresAt).getTime() : null);
+    if (expiresAtMs && expiresAtMs <= Date.now()) {
+      throw new HttpsError("failed-precondition", "Alert expired.");
+    }
+
+    const currentCount = Math.max(0, Number(alertData.checkInCount || 0));
+    if (checkinSnap.exists) {
+      return {
+        alreadyCheckedIn: true,
+        checkInCount: currentCount,
+        alertId
+      };
+    }
+
+    const memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
+    const memberPassCode = String(memberData.passCode || passCodeInput || "").toUpperCase();
+    const venueId = String(alertData.venueId || "").toLowerCase();
+    const venueName = String(alertData.venueName || "").trim();
+    const nextCount = currentCount + 1;
+
+    tx.set(checkinRef, {
+      uid,
+      alertId,
+      venueId,
+      venueName,
+      passCode: memberPassCode || null,
+      checkedInAt: serverNow,
+      expiresAt: alertData.expiresAt || null
+    }, { merge: true });
+    tx.set(memberCheckinRef, {
+      alertId,
+      venueId,
+      venueName,
+      passCode: memberPassCode || null,
+      checkedInAt: serverNow,
+      expiresAt: alertData.expiresAt || null
+    }, { merge: true });
+    tx.set(alertRef, {
+      checkInCount: nextCount,
+      lastCheckInAt: serverNow,
+      updatedAt: serverNow
+    }, { merge: true });
+    tx.set(db.collection("members").doc(uid), {
+      lastAlertCheckInAt: serverNow
+    }, { merge: true });
+    return {
+      alreadyCheckedIn: false,
+      checkInCount: nextCount,
+      alertId
+    };
+  });
+
+  return {
+    ok: true,
+    alertId: result.alertId,
+    alreadyCheckedIn: !!result.alreadyCheckedIn,
+    checkInCount: Math.max(0, Number(result.checkInCount || 0)),
+    checkedInAt: now
+  };
+});
+
 exports.verifyRedemption = functions.https.onCall(async (data, context) => {
   await enforceCallableSecurity(context, {
     rateLimit: { maxPerMin: 20, maxPerDay: 1500 }
@@ -1147,11 +1241,16 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
       if (memberSnap && memberSnap.exists) {
         const memberData = memberSnap.data() || {};
         const remaining = memberData.perksRemaining;
-        if (remaining && typeof remaining.tokens === "number" && nextStatus === "verified") {
-          tx.update(memberRef, { "perksRemaining.tokens": Math.max(0, remaining.tokens - 1), lastVerifiedAt: serverNow, updatedAt: serverNow });
-        } else if (nextStatus === "verified") {
-          tx.set(memberRef, { lastVerifiedAt: serverNow, updatedAt: serverNow }, { merge: true });
+        const memberUpdates = { updatedAt: serverNow };
+        if (nextStatus === "verified") {
+          memberUpdates.lastVerifiedAt = serverNow;
+          memberUpdates.totalRedemptions = admin.firestore.FieldValue.increment(1);
+          memberUpdates[`venuesVisited.${venueId}`] = true;
+          if (remaining && typeof remaining.tokens === "number") {
+            memberUpdates["perksRemaining.tokens"] = Math.max(0, remaining.tokens - 1);
+          }
         }
+        tx.set(memberRef, memberUpdates, { merge: true });
       }
     }
     const returnUpdates = {
@@ -3865,7 +3964,7 @@ exports.recountMembers = functions.https.onCall(async (data, context) => {
 });
 
 // Shared staff login: validates access code + passphrase, returns custom token per venue
-exports.getStaffLoginToken = functions.runWith(staffLoginSecrets).https.onCall(async (data, context) => {
+exports.getStaffLoginToken = functions.runWith(staffLoginRunConfig).https.onCall(async (data, context) => {
   await enforceCallableSecurity(context, {
     requireAuth: false,
     rateLimit: true,
@@ -3946,7 +4045,7 @@ exports.getStaffLoginToken = functions.runWith(staffLoginSecrets).https.onCall(a
 });
 
 // CEO login via shared passphrase: returns custom token with CEO claims.
-exports.getCeoLoginToken = functions.runWith(ceoLoginSecrets).https.onCall(async (data, context) => {
+exports.getCeoLoginToken = functions.runWith(ceoLoginRunConfig).https.onCall(async (data, context) => {
   try {
     await enforceCallableSecurity(context, {
       requireAuth: false,
@@ -4003,7 +4102,7 @@ exports.getCeoLoginToken = functions.runWith(ceoLoginSecrets).https.onCall(async
 });
 
 // Shared beta demo login: returns a custom token for a single beta user
-exports.getBetaLoginToken = functions.runWith(betaLoginSecrets).https.onCall(async (data, context) => {
+exports.getBetaLoginToken = functions.runWith(betaLoginRunConfig).https.onCall(async (data, context) => {
   await enforceCallableSecurity(context, {
     requireAuth: false,
     rateLimit: true,

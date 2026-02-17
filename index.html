@@ -1177,13 +1177,86 @@
       text-transform: uppercase;
     }
     .alert-timer {
-      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      padding: 6px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      background: linear-gradient(135deg, rgba(30, 8, 26, 0.78), rgba(46, 9, 36, 0.68));
+      box-shadow: 0 0 20px rgba(244, 63, 94, 0.3), inset 0 0 12px rgba(244, 63, 94, 0.22);
+    }
+    .alert-timer-label {
+      font-size: 10px;
       font-weight: 700;
+      letter-spacing: 0.16em;
+      color: #fda4af;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .alert-timer-chip {
+      min-width: 40px;
+      padding: 4px 7px;
+      border-radius: 10px;
+      border: 1px solid rgba(248, 113, 113, 0.45);
+      background: linear-gradient(150deg, rgba(127, 29, 29, 0.58), rgba(159, 18, 57, 0.48));
+      color: #ffe4e6;
+      font-size: 12px;
+      font-weight: 800;
       letter-spacing: 0.08em;
-      color: #f43f5e;
-      text-shadow: 0 0 8px rgba(244, 63, 94, 0.8);
-      display: inline-block;
-      margin-top: 4px;
+      text-align: center;
+      line-height: 1;
+      text-shadow: 0 0 8px rgba(251, 113, 133, 0.75);
+    }
+    .alert-rush-copy {
+      margin-top: 5px;
+      font-size: 10px;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: #fb7185;
+      text-shadow: 0 0 10px rgba(244, 63, 94, 0.45);
+    }
+    .alert-actions {
+      margin-top: 7px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .alert-checkin-btn {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(34, 211, 238, 0.45);
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(59, 130, 246, 0.22));
+      color: #67e8f9;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      font-weight: 800;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(8, 47, 73, 0.45), 0 0 20px rgba(34, 211, 238, 0.28);
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, opacity 160ms ease;
+    }
+    .alert-checkin-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(103, 232, 249, 0.75);
+      box-shadow: 0 10px 22px rgba(8, 47, 73, 0.6), 0 0 28px rgba(34, 211, 238, 0.38);
+    }
+    .alert-checkin-btn:active {
+      transform: translateY(0) scale(0.98);
+    }
+    .alert-checkin-btn[disabled] {
+      opacity: 0.65;
+      cursor: default;
+      transform: none;
+      box-shadow: 0 6px 14px rgba(8, 47, 73, 0.35);
+    }
+    .alert-checkin-count {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #93c5fd;
     }
     .hero-point-icon {
       width: 32px;
@@ -4185,6 +4258,12 @@
       margin: 0 0 12px;
       color: #cbd5f5;
       font-size: 13px;
+    }
+    #staffLoginScreen .staff-form {
+      display: none;
+    }
+    #staffLoginScreen.gate-verified .staff-form {
+      display: block;
     }
     .venue-detail-card {
       width: 100%;
@@ -13291,6 +13370,7 @@
         openStaffGate();
       } else {
         closeStaffGate();
+        if (screens.staffLogin) screens.staffLogin.classList.remove("gate-verified");
       }
       if (name !== "maintenance") {
         maybeApplyPendingRefresh();
@@ -15490,6 +15570,32 @@
         // ignore
       }
     }
+    function getAlertCheckinsCacheKey(passCode) {
+      const code = (passCode || currentPassCode || memberProfile?.passCode || "").toUpperCase();
+      if (!code) return "";
+      return `${ALERT_CHECKINS_CACHE_PREFIX}${code}`;
+    }
+    function loadAlertCheckinsCache(passCode) {
+      const key = getAlertCheckinsCacheKey(passCode);
+      if (!key || !allowLocalCache()) return new Set();
+      try {
+        const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+        if (!Array.isArray(parsed)) return new Set();
+        return new Set(parsed.filter(Boolean));
+      } catch (_) {
+        return new Set();
+      }
+    }
+    function saveAlertCheckinsCache(passCode, idsSet) {
+      const key = getAlertCheckinsCacheKey(passCode);
+      if (!key || !allowLocalCache()) return;
+      try {
+        localStorage.setItem(key, JSON.stringify(Array.from(idsSet || [])));
+      } catch (_) {}
+    }
+    function hydrateAlertCheckinsFromCache(passCode) {
+      memberAlertCheckins = loadAlertCheckinsCache(passCode);
+    }
     function loadVipDealsFromStorage() {
       if (!allowLocalCache()) return {};
       if (memberProfile?.vipDealsCache) return memberProfile.vipDealsCache;
@@ -15516,6 +15622,7 @@
     const STAFF_ACCENT_PREFIX = "staffAccent_";
     const IDLE_TIMEOUT_MS = 2 * 60 * 1000;
     const STATS_CACHE_PREFIX = "statsCache_";
+    const STATS_RUNTIME_CACHE = new Map();
     let idleTimer = null;
     let idleActive = false;
 
@@ -15612,6 +15719,8 @@
     let featuredVenuesData = [];
     let tonightAlerts = loadAlertsFromStorage();
     let alertsCache = [...tonightAlerts];
+    let memberAlertCheckins = new Set();
+    const alertCheckinInFlight = new Set();
     let dealCodes = {};
     function pruneExpiredAlerts() {
       const now = Date.now();
@@ -16610,10 +16719,55 @@
       maybeCelebrateAllAchievements();
     }
 
-    function computeStats(entries) {
+    function parseStatCount(text) {
+      const parsed = Number.parseInt(String(text || "").replace(/[^\d-]/g, ""), 10);
+      return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+    }
+    function venueCountFromVisitedMap(source) {
+      if (!source) return 0;
+      if (Array.isArray(source)) return source.filter(Boolean).length;
+      if (typeof source !== "object") return 0;
+      return Object.keys(source).filter((key) => Boolean(source[key])).length;
+    }
+    function getStatsBaseline(passCode = "") {
+      const code = (passCode || currentPassCode || memberProfile?.passCode || "").toUpperCase();
+      const cached = code ? loadStatsCache(code) : null;
+      const uiTotal = parseStatCount(statRedemptions?.textContent);
+      const uiVenues = parseStatCount(statVenuesVisited?.textContent);
+      const profileTotal = Math.max(
+        0,
+        Number(memberProfile?.totalRedemptions || 0),
+        Number(memberProfile?.vouchersUsed || 0)
+      );
+      const profileVenues = Math.max(
+        0,
+        Number(memberProfile?.venuesVisitedCount || 0),
+        venueCountFromVisitedMap(memberProfile?.venuesVisited)
+      );
+      let directoryTotal = 0;
+      let directoryVenues = 0;
+      if (code) {
+        try {
+          const entry = loadMemberDirectory()[code] || {};
+          directoryTotal = Math.max(0, Number(entry.vouchersUsed || entry.totalRedemptions || 0));
+          directoryVenues = Math.max(
+            0,
+            Number(entry.venuesVisitedCount || 0),
+            venueCountFromVisitedMap(entry.venuesVisited)
+          );
+        } catch (_) {}
+      }
+      return {
+        total: Math.max(uiTotal, profileTotal, directoryTotal, Number(cached?.total || 0)),
+        venuesVisited: Math.max(uiVenues, profileVenues, directoryVenues, Number(cached?.venuesVisited || 0)),
+        avg: Number(cached?.avg || 0)
+      };
+    }
+
+    function computeStats(entries, baseline = {}) {
       const counted = entries.filter(isCountedRedemptionEntry);
-      const total = counted.length;
-      const venuesVisited = new Set(
+      const computedTotal = counted.length;
+      const computedVenuesVisited = new Set(
         counted.map(entry => (entry.venue || entry.requestedVenue || "").toLowerCase()).filter(Boolean)
       ).size;
       const totalSavings = counted.reduce((sum, entry) => {
@@ -16631,7 +16785,12 @@
         feeTotal = monthlyFee * cycles;
       }
       const netSavings = Math.max(0, totalSavings - feeTotal);
-      const avg = total ? (netSavings / total) : 0;
+      const total = Math.max(computedTotal, Number(baseline?.total || 0));
+      const venuesVisited = Math.max(computedVenuesVisited, Number(baseline?.venuesVisited || 0));
+      let avg = computedTotal ? (netSavings / computedTotal) : 0;
+      if (!computedTotal && Number.isFinite(Number(baseline?.avg || NaN))) {
+        avg = Number(baseline.avg) || 0;
+      }
       return { total, venuesVisited, avg };
     }
 
@@ -16640,24 +16799,27 @@
     }
     function saveStatsCache(code, stats) {
       if (!code || !stats) return;
-      if (useCloudProfile()) return;
+      const key = (code || "").toUpperCase();
+      if (!key) return;
+      STATS_RUNTIME_CACHE.set(key, { ...stats, cachedAt: Date.now() });
       try {
-        localStorage.setItem(statsCacheKey(code), JSON.stringify({ ...stats, cachedAt: Date.now() }));
+        localStorage.setItem(statsCacheKey(key), JSON.stringify({ ...stats, cachedAt: Date.now() }));
       } catch (_) {}
     }
     function loadStatsCache(code) {
       if (!code) return null;
+      const key = (code || "").toUpperCase();
+      if (STATS_RUNTIME_CACHE.has(key)) {
+        return STATS_RUNTIME_CACHE.get(key);
+      }
       try {
-        const raw = localStorage.getItem(statsCacheKey(code));
+        const raw = localStorage.getItem(statsCacheKey(key));
         return raw ? JSON.parse(raw) : null;
       } catch (_) {
         return null;
       }
     }
     function applyCachedStats() {
-      if (useCloudProfile() && navigator.onLine) {
-        return;
-      }
       const code = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
       const cached = loadStatsCache(code);
       if (cached && typeof cached.total === "number") {
@@ -16722,6 +16884,11 @@
       updateStatCell(statAvgSavings, `$${avg.toFixed(2)} avg`);
       updateStatCell(statLoginCount, `${Number(memberProfile?.loginCount || 0)}`);
       updateStatCell(statActiveDays, `${Number(memberProfile?.activeDays || 0)}`);
+      if (memberProfile) {
+        memberProfile.totalRedemptions = Math.max(Number(memberProfile.totalRedemptions || 0), Number(total || 0));
+        memberProfile.vouchersUsed = Math.max(Number(memberProfile.vouchersUsed || 0), Number(total || 0));
+        memberProfile.venuesVisitedCount = Math.max(Number(memberProfile.venuesVisitedCount || 0), Number(venuesVisited || 0));
+      }
       updatePulseBand({ total, venuesVisited, avg });
       updatePointsUI();
       updateQuickStrip();
@@ -17295,6 +17462,7 @@
     if (!useCloudProfile() || !navigator.onLine) return;
     redemptionLog = [];
     resetMemberStatsUi();
+    applyCachedStats();
     setRealtimeRequiredSources(["settingsApp", "member", "memberRedemptions"]);
   }
   window.addEventListener("online", () => renderRealtimeStatus());
@@ -17348,6 +17516,7 @@
           title: data.title || data.venueName || "FoCo alert",
           detail: data.detail || "",
           meta: data.meta || data.venueName || "",
+          checkInCount: Math.max(0, Number(data.checkInCount || 0)),
           expiresAt: expiresAtMs,
           createdAt: createdAtMs,
           updatedAt: updatedAtMs,
@@ -17561,6 +17730,8 @@
     async function refreshMemberStats() {
       const now = Date.now();
       const localEntries = getMemberRedemptionEntries();
+      const passCode = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
+      const baseline = getStatsBaseline(passCode);
       if (isCeoActive() && !localEntries.length && !ceoRedemptionsCache.length && lastCeoStats && (now - lastCeoStatsAt) < 4000) {
         applyStatsToUi(lastCeoStats);
         updateStreakBadge(localEntries);
@@ -17571,7 +17742,7 @@
       }
       // When signed in, rely on realtime snapshots to populate redemptionLog.
       // Offline/beta uses whatever local entries exist.
-      const stats = computeStats(localEntries);
+      const stats = computeStats(localEntries, baseline);
       if (isCeoActive()) {
         if (stats.total > 0 || ceoRedemptionsCache.length) {
           lastCeoStats = stats;
@@ -17586,6 +17757,30 @@
       syncRewardsFromEntries(localEntries);
       renderProfileBadges();
       evaluateAchievements(localEntries);
+      if (
+        useCloudProfile() &&
+        navigator.onLine &&
+        passCode &&
+        !localEntries.length &&
+        Number(stats.total || 0) === 0 &&
+        !statsCloudBackfillPromise
+      ) {
+        statsCloudBackfillPass = passCode;
+        statsCloudBackfillPromise = fetchMemberRedemptionsFromCloud(passCode)
+          .then((entries) => {
+            if (!Array.isArray(entries) || !entries.length) return;
+            const activePass = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
+            if (!activePass || activePass !== statsCloudBackfillPass) return;
+            mergeRedemptionLogEntries(entries);
+          })
+          .catch((err) => {
+            console.warn("Stats backfill failed", err);
+          })
+          .finally(() => {
+            statsCloudBackfillPromise = null;
+            statsCloudBackfillPass = "";
+          });
+      }
     }
     refreshMemberStats();
 
@@ -17596,10 +17791,14 @@
         .filter(alert => !alert.expiresAt || alert.expiresAt > now)
         .sort((a, b) => (a.expiresAt || Number.MAX_SAFE_INTEGER) - (b.expiresAt || Number.MAX_SAFE_INTEGER))
         .map(alert => ({
+          id: alert.id || "",
+          venueId: alert.venueId || "",
+          venueName: alert.venueName || "",
           title: alert.title || alert.venue || "FoCo venue",
           detail: alert.detail || "",
           meta: alert.meta || alert.venue || "",
           type: "general",
+          checkInCount: Math.max(0, Number(alert.checkInCount || 0)),
           expiresAt: alert.expiresAt || null
         }));
       const isVip = hasVipAccess();
@@ -17626,6 +17825,29 @@
       }
       return `${minutes}m ${seconds.toString().padStart(2, "0")}s left`;
     }
+    function getAlertCountdownParts(diffMs) {
+      const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return {
+        h: hours.toString().padStart(2, "0"),
+        m: minutes.toString().padStart(2, "0"),
+        s: seconds.toString().padStart(2, "0")
+      };
+    }
+    function getAlertRushCopy(diffMs) {
+      const minutesLeft = Math.floor(Math.max(0, diffMs) / 60000);
+      if (minutesLeft <= 10) return "Last call rush";
+      if (minutesLeft <= 30) return "Going fast tonight";
+      if (minutesLeft <= 90) return "Active now";
+      return "Live tonight";
+    }
+    function isAlertCheckedIn(alertId) {
+      const id = String(alertId || "").trim();
+      if (!id) return false;
+      return memberAlertCheckins.has(id);
+    }
 
     function renderAlertsList() {
       if (!alertsList) return;
@@ -17647,15 +17869,38 @@
         if (alert.expiresAt) {
           const diff = alert.expiresAt - Date.now();
           if (diff > 0) {
-            timer = `<span class="alert-timer">${formatAlertCountdown(diff)}</span>`;
+            const parts = getAlertCountdownParts(diff);
+            timer = `
+              <div class="alert-timer" title="${formatAlertCountdown(diff)}">
+                <span class="alert-timer-label">Ends in</span>
+                <span class="alert-timer-chip">${parts.h}h</span>
+                <span class="alert-timer-chip">${parts.m}m</span>
+                <span class="alert-timer-chip">${parts.s}s</span>
+              </div>
+              <div class="alert-rush-copy">${getAlertRushCopy(diff)}</div>
+            `;
           }
         }
+      const checkInCount = Math.max(0, Number(alert.checkInCount || 0));
+      const checkedIn = isAlertCheckedIn(alert.id);
+      const checkInBusy = alertCheckinInFlight.has(String(alert.id || "").trim());
+      const checkInAction = alert.type === "general" && alert.id
+        ? `
+          <div class="alert-actions">
+            <button type="button" class="alert-checkin-btn ${checkedIn ? "is-checked" : ""}" data-alert-checkin="${alert.id}" ${(checkedIn || checkInBusy) ? "disabled" : ""}>
+              ${checkedIn ? "Checked in" : (checkInBusy ? "Checking in..." : "Check in")}
+            </button>
+            <span class="alert-checkin-count">${checkInCount} user${checkInCount === 1 ? "" : "s"} checked in for this alert</span>
+          </div>
+        `
+        : "";
       return `
         <li>
           <strong>${alert.title}</strong>
           <span>${alert.detail}</span>
           <span class="alerts-meta">${alert.meta || ""}${alert.type === "vip" ? " • VIP" : ""}</span>
           ${timer}
+          ${checkInAction}
         </li>
       `;
     }).join("");
@@ -17702,6 +17947,72 @@
       if (window.__alertsCountdownHandle) {
         clearInterval(window.__alertsCountdownHandle);
         window.__alertsCountdownHandle = null;
+      }
+    }
+    async function submitAlertCheckIn(alertId) {
+      const id = String(alertId || "").trim();
+      if (!id) return;
+      if (isAlertCheckedIn(id) || alertCheckinInFlight.has(id)) {
+        refreshAlertsTicker();
+        return;
+      }
+      if (!firebaseAuth.currentUser) {
+        showToast("Log in first.");
+        return;
+      }
+      if (!functionsClient) {
+        showToast("Check-in unavailable right now.");
+        return;
+      }
+      const passCode = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
+      if (!passCode) {
+        showToast("Pass not ready yet. Try again.");
+        return;
+      }
+      const previousAlerts = Array.isArray(tonightAlerts) ? [...tonightAlerts] : [];
+      alertCheckinInFlight.add(id);
+      memberAlertCheckins.add(id);
+      tonightAlerts = (tonightAlerts || []).map((alert) => (
+        alert.id === id
+          ? { ...alert, checkInCount: Math.max(0, Number(alert.checkInCount || 0)) + 1 }
+          : alert
+      ));
+      alertsCache = [...tonightAlerts];
+      saveAlertCheckinsCache(passCode, memberAlertCheckins);
+      refreshAlertsTicker();
+      try {
+        const fn = httpsCallable(functionsClient, "checkInAlert");
+        const resp = await fn({ alertId: id, passCode });
+        const data = resp?.data || {};
+        memberAlertCheckins.add(id);
+        saveAlertCheckinsCache(passCode, memberAlertCheckins);
+        if (Number.isFinite(Number(data.checkInCount))) {
+          const nextCount = Math.max(0, Number(data.checkInCount));
+          tonightAlerts = (tonightAlerts || []).map((alert) => (
+            alert.id === id ? { ...alert, checkInCount: nextCount } : alert
+          ));
+          alertsCache = [...tonightAlerts];
+        }
+        refreshAlertsTicker();
+        showToast(data.alreadyCheckedIn ? "Already checked in." : "Checked in. Venue sees you live.");
+      } catch (err) {
+        memberAlertCheckins.delete(id);
+        saveAlertCheckinsCache(passCode, memberAlertCheckins);
+        tonightAlerts = previousAlerts;
+        alertsCache = [...previousAlerts];
+        refreshAlertsTicker();
+        console.warn("Alert check-in failed", err);
+        const code = err?.code || "";
+        if (String(code).includes("failed-precondition")) {
+          showToast("This alert already expired.");
+        } else if (String(code).includes("permission-denied")) {
+          showToast("This check-in is for members only.");
+        } else {
+          showToast("Check-in failed. Try again.");
+        }
+      } finally {
+        alertCheckinInFlight.delete(id);
+        refreshAlertsTicker();
       }
     }
     refreshAlertsTicker();
@@ -18275,6 +18586,7 @@ let onboardingIndex = 0;
       memberProfile = null;
       memberDocRef = null;
       currentPassCode = null;
+      memberAlertCheckins = new Set();
       document.body.classList.remove("ceo-active");
       applyAccentTheme("cyan");
       applyBackgroundTheme("default");
@@ -18366,7 +18678,15 @@ let onboardingIndex = 0;
       });
     }
     if (alertsList) {
-      alertsList.addEventListener("click", () => {
+      alertsList.addEventListener("click", (event) => {
+        const checkInBtn = event?.target?.closest?.("[data-alert-checkin]");
+        if (checkInBtn) {
+          event.preventDefault();
+          event.stopPropagation();
+          const alertId = checkInBtn.getAttribute("data-alert-checkin");
+          submitAlertCheckIn(alertId);
+          return;
+        }
         markMemberFeedSeen();
       });
     }
@@ -20377,6 +20697,8 @@ let onboardingIndex = 0;
     let selectedPerkLabel = null;
     let selectedRedeemVenue = "";
     var redemptionLog = [];
+    let statsCloudBackfillPromise = null;
+    let statsCloudBackfillPass = "";
     let ceoGeneratedCodes = [];
     let staffPerksUnsub = null;
     let redeemPerksUnsub = null;
@@ -22407,6 +22729,7 @@ let onboardingIndex = 0;
     const MEMBER_DIRECTORY_KEY = "memberDirectory";
     const REVIEWS_KEY = "focoReviews";
     const ALERTS_STORAGE_KEY = "tonightAlertsCache";
+    const ALERT_CHECKINS_CACHE_PREFIX = "alertCheckins_";
     const VIP_DEALS_STORAGE_KEY = "vipDealsCache";
     const passDirectoryCache = {};
     const PASS_CACHE_TTL = 2 * 60 * 1000;
@@ -22648,12 +22971,14 @@ let onboardingIndex = 0;
       }
       const activeHtml = venueAlerts.map(alert => {
         const expires = alert.expiresAt ? formatMST(alert.expiresAt) : "No expiry";
+        const checkInCount = Math.max(0, Number(alert.checkInCount || 0));
         return `
           <div class="log-row">
             <strong>${alert.title || alert.venueName}</strong><br/>
             <span>${alert.detail || ""}</span><br/>
             <span style="color:#94a3b8;">${alert.meta || alert.venueName || ""}</span><br/>
             <span style="color:#93c5fd;font-size:11px;">Expires ${expires}</span>
+            <span style="color:#67e8f9;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">${checkInCount} user${checkInCount === 1 ? "" : "s"} checked in for this alert</span>
             <div class="log-meta" style="margin-top:4px;">
               <button class="btn btn-secondary" data-expire-alert="${alert.id}">Expire now</button>
             </div>
@@ -23381,6 +23706,7 @@ let onboardingIndex = 0;
 
     function updatePassCodeDisplay() {
       ensurePassCode();
+      hydrateAlertCheckinsFromCache(currentPassCode);
       syncPendingForCurrentPass();
       if (passCodeText && currentPassCode) {
         passCodeText.textContent = `Pass ID: ${currentPassCode}`;
@@ -25203,6 +25529,21 @@ let onboardingIndex = 0;
         const tb = new Date(b.timestamp || Date.now()).getTime();
         return tb - ta;
       });
+      const isVerifiedStatus = (status) => {
+        const normalized = String(status || "").toLowerCase();
+        return normalized === "verified" || normalized === "approved" || normalized === "confirmed";
+      };
+      const verifiedEntries = filtered.filter(entry => isVerifiedStatus(entry.status));
+      const pendingEntries = filtered.filter(entry => String(entry.status || "").toLowerCase() === "pending");
+      const categoryTotals = { drink: 0, shot: 0, cover: 0, other: 0 };
+      verifiedEntries.forEach((entry) => {
+        const key = normalizePerkKey(entry);
+        if (key === "drink" || key === "shot" || key === "cover") {
+          categoryTotals[key] += 1;
+        } else {
+          categoryTotals.other += 1;
+        }
+      });
       const groupBy = (range === "year" || range === "all") ? "month" : "day";
       const buckets = {};
       filtered.forEach(entry => {
@@ -25218,6 +25559,11 @@ let onboardingIndex = 0;
         if (ts > buckets[key].latest) buckets[key].latest = ts;
       });
       const grouped = Object.values(buckets).sort((a, b) => b.latest - a.latest);
+      const groupedWithCounts = grouped.map((group) => {
+        const verified = group.items.filter(item => isVerifiedStatus(item.status)).length;
+        const pending = group.items.filter(item => String(item.status || "").toLowerCase() === "pending").length;
+        return { ...group, verified, pending };
+      });
 
       const targetLog = staffVenueLog;
       if (targetLog) {
@@ -25261,12 +25607,18 @@ let onboardingIndex = 0;
 
           targetLog.innerHTML = `
             <div style="color:#9fb3d9;font-size:12px;margin:4px 0 8px;">
-              ${rangeLabel} · ${filtered.length} total
+              ${rangeLabel} · ${verifiedEntries.length} verified · ${pendingEntries.length} pending
             </div>
-            ${grouped.map(group => {
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 10px;">
+              <span class="pill-ghost">Drink ${categoryTotals.drink}</span>
+              <span class="pill-ghost">Shot ${categoryTotals.shot}</span>
+              <span class="pill-ghost">Entry ${categoryTotals.cover}</span>
+              <span class="pill-ghost">Other ${categoryTotals.other}</span>
+            </div>
+            ${groupedWithCounts.map(group => {
               return `
                 <div class="log-group">
-                  <div class="staff-ticker-header" style="margin:10px 0 6px 0;">${group.label} · ${group.items.length}</div>
+                  <div class="staff-ticker-header" style="margin:10px 0 6px 0;">${group.label} · ${group.verified} verified${group.pending ? ` · ${group.pending} pending` : ""}</div>
                   ${group.items.map(renderEntry).join("")}
                 </div>
               `;
@@ -25282,11 +25634,15 @@ let onboardingIndex = 0;
           const d = new Date(entry.timestamp);
           return d.getMonth() === month && d.getFullYear() === year;
         });
+        const verifiedMonthEntries = monthEntries.filter(entry => {
+          const status = String(entry.status || "").toLowerCase();
+          return status === "verified" || status === "approved" || status === "confirmed";
+        });
         if (!monthEntries.length) {
           staffVenueMonthlyLog.innerHTML = '<p style="color:#94a3b8;">No redemptions recorded this month.</p>';
         } else {
-          const total = monthEntries.length;
-          staffVenueMonthlyLog.innerHTML = `<p style="color:#cbd5f5;font-weight:600;">${total} redemptions this month</p>` + monthEntries.map(entry => {
+          const total = verifiedMonthEntries.length;
+          staffVenueMonthlyLog.innerHTML = `<p style="color:#cbd5f5;font-weight:600;">${total} verified redemptions this month</p>` + monthEntries.map(entry => {
             const date = new Date(entry.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" });
             const label = entry.perk
               ? entry.perk
@@ -25861,6 +26217,9 @@ let onboardingIndex = 0;
       if (!staffGateOverlay) return;
       staffGateVerified = false;
       staffGateCodeValue = "";
+      if (screens.staffLogin) {
+        screens.staffLogin.classList.remove("gate-verified");
+      }
       staffGateOverlay.classList.add("active");
       if (staffGateError) staffGateError.textContent = "";
       if (staffGateCode) {
@@ -25884,6 +26243,9 @@ let onboardingIndex = 0;
       }
       staffGateCodeValue = entered;
       staffGateVerified = true;
+      if (screens.staffLogin) {
+        screens.staffLogin.classList.add("gate-verified");
+      }
       closeStaffGate();
       if (staffGateResumeLogin) {
         staffGateResumeLogin = false;
@@ -26171,6 +26533,7 @@ let onboardingIndex = 0;
     if (staffGateCancel) {
       staffGateCancel.addEventListener("click", () => {
         staffGateVerified = false;
+        if (screens.staffLogin) screens.staffLogin.classList.remove("gate-verified");
         closeStaffGate();
         showScreen("landing");
       });
@@ -26183,6 +26546,7 @@ let onboardingIndex = 0;
       staffSession = null;
       localStorage.removeItem("staffSession");
       staffGateVerified = false;
+      if (screens.staffLogin) screens.staffLogin.classList.remove("gate-verified");
       if (memberProfile) {
         memberProfile.staffSession = null;
       }
