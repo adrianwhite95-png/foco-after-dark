@@ -15,6 +15,35 @@ const messaging = firebase.messaging();
 let lastPushKey = "";
 let lastPushAt = 0;
 
+function parsePushPayload(payload) {
+  const notice = payload?.notification || payload?.data || {};
+  const title = String(notice?.title || "FoCo After Dark").trim();
+  const body = String(notice?.body || "New update from a venue.").trim();
+  const link = payload?.fcmOptions?.link || payload?.data?.link || notice?.link || "/";
+  const sentAt = String(payload?.data?.sentAt || Date.now());
+  const dedupeKey = `${sentAt}|${title}|${body}`;
+  const hasNotificationPayload = !!payload?.notification;
+  return { title, body, link, sentAt, dedupeKey, hasNotificationPayload };
+}
+
+function isDuplicatePush(dedupeKey) {
+  const now = Date.now();
+  if (dedupeKey === lastPushKey && (now - lastPushAt) < 12000) return true;
+  lastPushKey = dedupeKey;
+  lastPushAt = now;
+  return false;
+}
+
+function showPushNotification({ title, body, link, sentAt }) {
+  return self.registration.showNotification(title, {
+    body,
+    icon: "/foco-logo.png",
+    badge: "/foco-logo.png",
+    tag: `foco-${sentAt}`,
+    data: { link, sentAt }
+  });
+}
+
 async function setAppBadgeValue(value = 1) {
   try {
     if (self.registration && typeof self.registration.setAppBadge === "function") {
@@ -45,23 +74,28 @@ async function clearAppBadgeValue() {
 
 messaging.onBackgroundMessage((payload) => {
   setAppBadgeValue(1).catch(() => {});
-  const notice = payload?.notification || payload?.data || {};
-  const title = notice.title || "FoCo After Dark";
-  const body = notice.body || "New update from a venue.";
-  const link = payload?.fcmOptions?.link || payload?.data?.link || notice.link || "/";
-  const sentAt = payload?.data?.sentAt || String(Date.now());
-  const dedupeKey = `${sentAt}|${title}|${body}`;
-  const now = Date.now();
-  if (dedupeKey === lastPushKey && (now - lastPushAt) < 12000) return;
-  lastPushKey = dedupeKey;
-  lastPushAt = now;
-  self.registration.showNotification(title, {
-    body,
-    icon: "/foco-logo.png",
-    badge: "/foco-logo.png",
-    tag: `foco-${sentAt}`,
-    data: { link, sentAt }
-  });
+  const parsed = parsePushPayload(payload || {});
+  if (isDuplicatePush(parsed.dedupeKey)) return;
+  // If notification payload exists, browser handles display.
+  if (parsed.hasNotificationPayload) return;
+  showPushNotification(parsed).catch(() => {});
+});
+
+self.addEventListener("push", (event) => {
+  setAppBadgeValue(1).catch(() => {});
+  if (!event?.data) return;
+  let payload = {};
+  try {
+    payload = event.data.json() || {};
+  } catch (_) {
+    return;
+  }
+  const parsed = parsePushPayload(payload);
+  if (!parsed.title && !parsed.body) return;
+  if (isDuplicatePush(parsed.dedupeKey)) return;
+  // Browser auto-displays notification payloads; only render data-only here.
+  if (parsed.hasNotificationPayload) return;
+  event.waitUntil(showPushNotification(parsed));
 });
 
 self.addEventListener("notificationclick", (event) => {
@@ -95,7 +129,7 @@ self.addEventListener("message", (event) => {
   }
 });
 
-const CACHE_VERSION = "foco-cache-v13";
+const CACHE_VERSION = "foco-cache-v14";
 const CORE_ASSETS = ["/", "/index.html", "/manifest.json", "/foco-logo.png"];
 
 self.addEventListener("install", (event) => {

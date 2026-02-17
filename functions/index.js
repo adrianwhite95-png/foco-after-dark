@@ -2435,6 +2435,8 @@ async function sendPushToAll({ title, body, link, source = "system", dedupeKey =
   let failedRaw = 0;
   let staleFailureCount = 0;
   const sentAt = String(Date.now());
+  const safeTitle = String(title || "FoCo After Dark").slice(0, 80);
+  const safeBody = String(body || "New update from a venue.").slice(0, 180);
   const invalidTokens = new Set();
   const errorCodes = {};
   let firstErrorCode = null;
@@ -2442,8 +2444,8 @@ async function sendPushToAll({ title, body, link, source = "system", dedupeKey =
   for (const batch of batches) {
     const message = {
       data: {
-        title: String(title || ''),
-        body: String(body || ''),
+        title: safeTitle,
+        body: safeBody,
         link: safeLink,
         sentAt
       },
@@ -2451,6 +2453,10 @@ async function sendPushToAll({ title, body, link, source = "system", dedupeKey =
         headers: {
           Urgency: "high",
           TTL: "2419200"
+        },
+        notification: {
+          title: safeTitle,
+          body: safeBody
         },
         fcmOptions: safeLink ? { link: safeLink } : undefined
       },
@@ -2527,10 +2533,12 @@ async function sendPushToUid(uid, { title, body, link, source = "direct" } = {})
   if (!tokens.length) return { success: false, reason: 'no_tokens', sent: 0, failed: 0 };
   const safeLink = normalizePushLink((link || '').toString());
   const sentAt = String(Date.now());
+  const safeTitle = String(title || "FoCo After Dark").slice(0, 80);
+  const safeBody = String(body || "New update from a venue.").slice(0, 180);
   const message = {
     data: {
-      title: String(title || ''),
-      body: String(body || ''),
+      title: safeTitle,
+      body: safeBody,
       link: safeLink,
       sentAt
     },
@@ -2538,6 +2546,10 @@ async function sendPushToUid(uid, { title, body, link, source = "direct" } = {})
       headers: {
         Urgency: "high",
         TTL: "2419200"
+      },
+      notification: {
+        title: safeTitle,
+        body: safeBody
       },
       fcmOptions: safeLink ? { link: safeLink } : undefined
     },
