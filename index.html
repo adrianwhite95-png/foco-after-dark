@@ -13481,7 +13481,8 @@
         return;
       }
       if (!pushResult?.ok) {
-        showToast(`Push failed: ${pushResult?.code || "unknown"}`, 3200);
+        const detail = pushResult?.message ? ` · ${pushResult.message}` : "";
+        showToast(`Push failed: ${pushResult?.code || "unknown"}${detail}`, 3800);
         return;
       }
       showToast("Posted, but push dispatch status was empty.", 3000);

@@ -201,23 +201,37 @@ async function checkRateLimit(uid, opts = {}) {
   const maxPerMin = opts.maxPerMin || 5;
   const maxPerDay = opts.maxPerDay || 200;
   const now = admin.firestore.Timestamp.now();
+  const nowMs = now.toMillis();
+  const toMs = (value) => {
+    if (!value) return 0;
+    if (typeof value.toMillis === "function") return value.toMillis();
+    if (typeof value.seconds === "number") {
+      return (value.seconds * 1000) + Math.floor((Number(value.nanoseconds || 0) || 0) / 1e6);
+    }
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
   const ref = db.collection('rateLimits').doc(uid);
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    const data = snap.exists ? snap.data() : { perMin: 0, perDay: 0, minuteWindowStart: now, dayWindowStart: now };
-    const minuteWindowStart = data.minuteWindowStart || now;
-    const dayWindowStart = data.dayWindowStart || now;
-    let perMin = data.perMin || 0;
-    let perDay = data.perDay || 0;
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const minuteWindowStartRaw = data.minuteWindowStart || now;
+    const dayWindowStartRaw = data.dayWindowStart || now;
+    const minuteWindowMs = toMs(minuteWindowStartRaw) || nowMs;
+    const dayWindowMs = toMs(dayWindowStartRaw) || nowMs;
+    let perMin = Number(data.perMin || 0) || 0;
+    let perDay = Number(data.perDay || 0) || 0;
+    let nextMinuteStart = admin.firestore.Timestamp.fromMillis(minuteWindowMs);
+    let nextDayStart = admin.firestore.Timestamp.fromMillis(dayWindowMs);
     // Reset minute window if older than 60s
-    if (now.seconds - minuteWindowStart.seconds >= 60) {
+    if ((nowMs - minuteWindowMs) >= 60 * 1000) {
       perMin = 0;
-      tx.set(ref, { minuteWindowStart: now }, { merge: true });
+      nextMinuteStart = now;
     }
     // Reset day window if a day passed
-    if (now.toDate().toDateString() !== new Date(dayWindowStart.toDate()).toDateString()) {
+    if (new Date(nowMs).toDateString() !== new Date(dayWindowMs).toDateString()) {
       perDay = 0;
-      tx.set(ref, { dayWindowStart: now }, { merge: true });
+      nextDayStart = now;
     }
     if (perMin + 1 > maxPerMin) {
       throw new HttpsError('resource-exhausted', 'Rate limit exceeded (per minute)');
@@ -226,7 +240,13 @@ async function checkRateLimit(uid, opts = {}) {
       throw new HttpsError('resource-exhausted', 'Rate limit exceeded (per day)');
     }
     // increment counters
-    tx.set(ref, { perMin: perMin + 1, perDay: perDay + 1, minuteWindowStart: minuteWindowStart, dayWindowStart: dayWindowStart }, { merge: true });
+    tx.set(ref, {
+      perMin: perMin + 1,
+      perDay: perDay + 1,
+      minuteWindowStart: nextMinuteStart,
+      dayWindowStart: nextDayStart,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
     return true;
   });
 }
