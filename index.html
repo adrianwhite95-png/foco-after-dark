@@ -5335,6 +5335,14 @@
       overflow-wrap: anywhere;
       white-space: pre-wrap;
     }
+    .message-bubble-meta {
+      display: block;
+      margin-top: 4px;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.78);
+    }
     .message-bubble.incoming {
       align-self: flex-start;
       background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.88));
@@ -5412,6 +5420,15 @@
     body.ios :is(.vip-deal-card p, .ceo-panel p, .small, .message-bubble, .log-row, .ceo-member-row, .ceo-log-row) {
       overflow-wrap: anywhere;
       word-break: break-word;
+    }
+    body.ios .screen :is(input, textarea, select, button) {
+      max-width: 100%;
+    }
+    body.ios :is(.ceo-grid, .ceo-hq-grid, .staff-board, .meta-row, .payment-actions, .community-stats) > * {
+      min-width: 0;
+    }
+    body.ios :is(.btn, .pill, .chip, .nav-item) {
+      white-space: normal;
     }
     body.ios .message-center-list {
       max-height: 44vh;
@@ -9601,15 +9618,36 @@
     }
     body.ios .ceo-hq-nav {
       position: static;
+      display: flex;
+      flex-direction: row !important;
+      flex-wrap: nowrap;
       overflow-x: auto;
+      overflow-y: hidden;
+      overscroll-behavior-x: contain;
       -webkit-overflow-scrolling: touch;
+      touch-action: pan-x;
+      scroll-snap-type: x proximity;
       gap: 6px;
       padding: 8px;
       border-radius: 16px;
     }
+    body.ios .ceo-hq-nav::-webkit-scrollbar {
+      display: none;
+    }
     body.ios .ceo-nav-item {
       flex: 0 0 auto;
       white-space: nowrap;
+      touch-action: manipulation;
+      scroll-snap-align: center;
+    }
+    body.ios .ceo-nav-item:hover {
+      background: transparent;
+      color: var(--muted);
+    }
+    body.ios .ceo-nav-item.active:hover {
+      color: var(--text);
+      border-color: rgba(34, 211, 238, 0.35);
+      background: rgba(34, 211, 238, 0.08);
     }
     body.ios .ceo-hq-panel {
       max-width: 100%;
@@ -11586,6 +11624,15 @@
             <div class="pass-holo"></div>
           </div>
           <div class="pass-security-stripe" aria-hidden="true"></div>
+          <div class="ceo-pass-banner" id="ceoPassBanner">
+            <div>
+              <strong>CEO BLACK CARD</strong>
+              <div style="font-size:12px;color:#e0e7ff;">Unlimited VIP access + free guest passes</div>
+            </div>
+            <button type="button" class="btn btn-secondary" id="ceoPortalShortcut" style="width:auto;padding:6px 12px;font-size:11px;">
+              Manage
+            </button>
+          </div>
 
           <details class="member-command-deck card-hd no-tilt" id="memberCommandDeck">
             <summary class="member-command-folder-summary">
@@ -11801,15 +11848,6 @@
                 </div>
               </div>
             </div>
-          </div>
-          <div class="ceo-pass-banner" id="ceoPassBanner">
-            <div>
-              <strong>CEO BLACK CARD</strong>
-              <div style="font-size:12px;color:#e0e7ff;">Unlimited VIP access + free guest passes</div>
-            </div>
-            <button type="button" class="btn btn-secondary" id="ceoPortalShortcut" style="width:auto;padding:6px 12px;font-size:11px;">
-              Manage
-            </button>
           </div>
           <div class="night-wheel card-hd no-tilt">
             <h4>Night Wheel</h4>
@@ -12179,15 +12217,11 @@
           <h4 style="margin:0;">Foco Help message center</h4>
           <span class="pill" id="staffMsgBadge" style="display:none;">New</span>
         </div>
-        <p class="small" style="color:#cbd5f5;margin-top:4px;">Tap a thread to reply. Swipe left to delete. Live sync stays enabled.</p>
+        <p class="small" style="color:#cbd5f5;margin-top:4px;">Single live thread with Foco Help. New updates stay synced in real time.</p>
         <form id="staffMessageForm">
           <div class="field">
             <label for="staffMessageInput">Message</label>
             <textarea id="staffMessageInput" rows="3" placeholder="Type a quick note..."></textarea>
-          </div>
-          <div class="message-reply-context" id="staffReplyContext">
-            <span id="staffReplyContextText">Replying in thread</span>
-            <button type="button" id="staffReplyContextClear">Clear</button>
           </div>
           <div class="error" id="staffMessageError"></div>
           <p class="support-success" id="staffMessageSuccess" style="display:none;">Message sent.</p>
@@ -12196,9 +12230,8 @@
           </div>
         </form>
         <div class="message-center-list" id="staffMessagesList">No messages yet.</div>
-        <div class="payment-actions" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
-          <button type="button" class="btn btn-secondary" id="staffDeleteSelectedBtn" style="flex:1;min-width:140px;">Delete selected</button>
-          <button type="button" class="btn btn-secondary" id="staffClearMessagesBtn" style="flex:1;min-width:140px;">Clear all</button>
+        <div class="payment-actions" style="margin-top:8px;">
+          <button type="button" class="btn btn-secondary" id="staffClearMessagesBtn">Clear thread</button>
         </div>
       </div>
 
@@ -12522,24 +12555,24 @@
                 <h4 style="margin:0;">Venue message center</h4>
                 <span class="pill" id="ceoMsgBadge" style="display:none;">New</span>
               </div>
-              <p class="ceo-panel-note">Conversation view. Tap thread to reply. Swipe left to delete from your inbox.</p>
+              <p class="ceo-panel-note">Single thread view by venue. Select a venue and chat in one continuous chain.</p>
               <form id="ceoReplyForm">
                 <input type="hidden" id="ceoReplyTarget" />
                 <div class="field">
-                  <label for="ceoReplyVenue">Reply to venue</label>
+                  <label for="ceoReplyVenue">Venue thread</label>
                   <select id="ceoReplyVenue">
-                    <option value="">Select a venue to reply</option>
+                    <option value="">Select a venue</option>
                   </select>
                 </div>
                 <div class="field">
-                  <label for="ceoReplyInput">Reply</label>
-                  <textarea id="ceoReplyInput" rows="2" placeholder="Select a venue to reply"></textarea>
+                  <label for="ceoReplyInput">Message</label>
+                  <textarea id="ceoReplyInput" rows="2" placeholder="Select a venue to message"></textarea>
                 </div>
                 <div class="error" id="ceoReplyError"></div>
-                <p class="support-success" id="ceoReplySuccess" style="display:none;">Reply sent.</p>
+                <p class="support-success" id="ceoReplySuccess" style="display:none;">Message sent.</p>
                 <div class="ceo-panel-actions">
-                  <button type="submit" class="btn btn-primary">Send reply</button>
-                  <button type="button" class="btn btn-secondary" id="ceoClearMessages">Clear all</button>
+                  <button type="submit" class="btn btn-primary">Send message</button>
+                  <button type="button" class="btn btn-secondary" id="ceoClearMessages">Clear thread</button>
                 </div>
               </form>
               <div class="message-center-list ceo-scroll" id="ceoMessagesList">No messages yet.</div>
@@ -12661,14 +12694,14 @@
           <div class="ceo-reset-card" id="ceoChatCard">
             <div class="ceo-chat-body" style="flex:1;">
               <strong>Ask HQ (AI)</strong>
-              <div class="meta-note">CEO-only assistant. Ask product, ops, or rollout questions.</div>
+              <div class="meta-note">CEO-only assistant with live app context (features, messaging, redemptions, settings).</div>
               <div class="field" style="margin-top:2px;">
                 <label for="ceoChatInput" style="font-size:12px;color:#cbd5f5;">Prompt</label>
                 <textarea id="ceoChatInput" rows="4"></textarea>
               </div>
               <div class="ceo-reset-actions" style="margin-top:2px;">
-                <span class="pill-ghost" id="ceoChatPresetRollout">Rollout steps</span>
-                <span class="pill-ghost" id="ceoChatPresetIssues">Triage issues</span>
+                <button type="button" class="btn btn-secondary" id="ceoChatSyncContext">Sync app context</button>
+                <span class="small" id="ceoChatSyncStatus" style="color:#94a3b8;">Context sync pending</span>
               </div>
               <div id="ceoChatHistory" style="max-height:200px;overflow:auto;font-size:12px;display:flex;flex-direction:column;gap:6px;"></div>
             </div>
@@ -16120,6 +16153,7 @@
     applyStaffRememberedLogin();
     const ceoPortalBack = document.getElementById("ceoPortalBack");
     const ceoPassButton = document.getElementById("ceoPassButton");
+    const ceoNavRail = document.querySelector(".ceo-hq-nav");
     const ceoNavItems = document.querySelectorAll(".ceo-nav-item");
     const ceoPanels = document.querySelectorAll(".ceo-hq-panel");
     const ceoGenButtons = document.querySelectorAll("[data-ceo-gen-perk]");
@@ -16341,8 +16375,8 @@
     const ceoChatSend = document.getElementById("ceoChatSend");
     const ceoChatInput = document.getElementById("ceoChatInput");
     const ceoChatHistory = document.getElementById("ceoChatHistory");
-    const ceoChatPresetRollout = document.getElementById("ceoChatPresetRollout");
-    const ceoChatPresetIssues = document.getElementById("ceoChatPresetIssues");
+    const ceoChatSyncContext = document.getElementById("ceoChatSyncContext");
+    const ceoChatSyncStatus = document.getElementById("ceoChatSyncStatus");
     const ceoReviewsModal = document.getElementById("ceoReviewsModal");
     const ceoReviewsClose = document.getElementById("ceoReviewsClose");
     const testimonialQuote = document.getElementById("testimonialQuote");
@@ -18068,7 +18102,7 @@
             perkKey: data.perkKey || null,
             venuePerkId: data.perkId || data.venuePerkId || null,
             venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
-            member: data.memberName || data.member || "FoCo member",
+            member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
             memberUsername: data.memberUsername || null,
             passId: (data.passCode || data.passId || passCode).toUpperCase(),
             venue: data.venueId || data.venue || null,
@@ -18708,7 +18742,7 @@
                 perkKey: data.perkKey || null,
                 venuePerkId: data.perkId || data.venuePerkId || null,
                 venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
-                member: data.memberName || data.member || "FoCo member",
+                member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
                 memberUsername: data.memberUsername || null,
                 passId: (data.passCode || data.passId || code).toUpperCase(),
                 venue: data.venueId || data.venue || null,
@@ -19075,20 +19109,14 @@
         .filter(Boolean);
     }
     function setStaffReplyContext(message = null) {
-      if (!staffReplyContext || !staffReplyContextText) return;
       if (!message) {
         staffReplyContextId = "";
-        staffReplyContext.classList.remove("active");
-        staffReplyContextText.textContent = "Replying in thread";
         if (staffMessageInput) staffMessageInput.placeholder = "Type a quick note...";
         return;
       }
       const id = String(message.id || "").trim();
       staffReplyContextId = id;
-      const label = message.fromCeo ? "Foco Help message" : "Venue message";
-      staffReplyContextText.textContent = `Replying to: ${label}`;
-      staffReplyContext.classList.add("active");
-      if (staffMessageInput) staffMessageInput.placeholder = "Type your reply...";
+      if (staffMessageInput) staffMessageInput.placeholder = "Type a quick note...";
     }
     function escapeMessageText(value) {
       return escapeHtmlText(String(value || ""));
@@ -19151,6 +19179,72 @@
         });
       });
     }
+    function getMessageVenueId(msg = {}) {
+      return String(msg.venueId || "").trim().toLowerCase();
+    }
+    function venueNameFromId(venueId = "") {
+      const normalized = String(venueId || "").trim().toLowerCase();
+      return venuesInfo[normalized]?.name || normalized || "Venue";
+    }
+    function getCeoVenueReplyKey(msg = {}) {
+      const venueId = getMessageVenueId(msg);
+      return venueId ? `venue:${venueId}` : "";
+    }
+    function venueIdFromReplyKey(selectionKey = "") {
+      const key = String(selectionKey || "").trim().toLowerCase();
+      if (!key.startsWith("venue:")) return "";
+      return key.slice(6);
+    }
+    function buildMessageThreadEvents(messages = [], options = {}) {
+      const viewer = options.viewer === "staff" ? "staff" : "ceo";
+      const venueIdFilter = String(options.venueId || "").trim().toLowerCase();
+      const events = [];
+      messages.forEach((msg) => {
+        const venueId = getMessageVenueId(msg);
+        if (venueIdFilter && venueId !== venueIdFilter) return;
+        const venueName = msg.venueName || venueNameFromId(venueId);
+        const createdTs = tsToMillis(msg.createdAtServer || msg.createdAt);
+        const addEvent = (text, fromCeo, ts = createdTs) => {
+          const content = String(text || "").trim();
+          if (!content) return;
+          const isIncoming = viewer === "staff" ? !!fromCeo : !fromCeo;
+          events.push({
+            id: String(msg.id || ""),
+            ts,
+            venueId,
+            venueName,
+            direction: isIncoming ? "incoming" : "outgoing",
+            sender: fromCeo ? "Foco Help" : venueName,
+            text: content
+          });
+        };
+        if (msg.fromCeo) {
+          addEvent(msg.message || msg.reply || "", true, createdTs);
+          return;
+        }
+        addEvent(msg.message || "", false, createdTs);
+        if (msg.reply) {
+          addEvent(msg.reply, true, tsToMillis(msg.repliedAt || msg.createdAtServer || msg.createdAt));
+        }
+      });
+      return events.sort((a, b) => a.ts - b.ts).slice(-120);
+    }
+    function getUnreadStaffMessageIds(messages = [], venueId = "") {
+      const scopedVenue = String(venueId || "").trim().toLowerCase();
+      return messages
+        .filter((msg) => !scopedVenue || getMessageVenueId(msg) === scopedVenue)
+        .filter((msg) => (!msg.readByStaff) && (msg.fromCeo || !!msg.reply))
+        .map((msg) => String(msg.id || ""))
+        .filter(Boolean);
+    }
+    function getUnreadCeoMessageIds(messages = [], venueId = "") {
+      const scopedVenue = String(venueId || "").trim().toLowerCase();
+      return messages
+        .filter((msg) => !scopedVenue || getMessageVenueId(msg) === scopedVenue)
+        .filter((msg) => !msg.readByCeo && !msg.fromCeo)
+        .map((msg) => String(msg.id || ""))
+        .filter(Boolean);
+    }
     function renderStaffTicker() {
       if (!staffTickerList) return;
       const venueId = staffSession?.venue || null;
@@ -19181,7 +19275,7 @@
           const bTs = tsToMillis(b.repliedAt || b.createdAtServer || b.createdAt);
           return bTs - aTs;
         });
-      const visible = sorted.slice(0, 25);
+      const visible = sorted.slice(0, 120);
       staffMessagesCache = visible;
       if (!visible.length) {
         staffMessagesList.innerHTML = "No messages yet.";
@@ -19189,137 +19283,55 @@
         setStaffReplyContext(null);
         return;
       }
-      const isUnreadForStaff = (msg) => {
-        if (msg.fromCeo) return !msg.readByStaff;
-        return !!msg.reply && !msg.readByStaff;
-      };
-      const unread = visible.some(isUnreadForStaff);
-      if (staffMsgBadge) staffMsgBadge.style.display = unread ? "inline-flex" : "none";
-      const hasReplyTarget = staffReplyContextId && visible.some(msg => String(msg.id) === staffReplyContextId);
-      if (!hasReplyTarget) setStaffReplyContext(null);
-      staffMessagesList.innerHTML = visible
-        .map(msg => {
-          const createdMs = tsToMillis(msg.repliedAt || msg.createdAtServer || msg.createdAt);
-          const created = formatTimeLabel(createdMs);
-          const unreadForStaff = isUnreadForStaff(msg);
-          const venueLabel = msg.venueName || "Foco Help";
-          const baseMessage = msg.fromCeo ? (msg.message || msg.reply || "") : (msg.message || "");
-          const bubbles = [];
-          if (baseMessage) {
-            bubbles.push(`<div class="message-bubble ${msg.fromCeo ? "incoming" : "outgoing"}">${escapeMessageText(baseMessage)}</div>`);
-          }
-          if (!msg.fromCeo && msg.reply) {
-            bubbles.push(`<div class="message-bubble incoming">${escapeMessageText(msg.reply)}</div>`);
-          }
-          const rowClass = `staff-msg-row${unreadForStaff ? " staff-msg-unread" : ""}`;
-          const activeClass = staffReplyContextId && String(msg.id) === String(staffReplyContextId) ? " active" : "";
-          return `
-            <div class="message-row-wrap ${rowClass}" data-id="${msg.id}">
-              <button type="button" class="message-delete-btn staff-msg-delete" aria-label="Delete message">Delete</button>
-              <div class="message-thread${activeClass}">
-                <div class="message-thread-header">
-                  <div class="message-thread-meta">
-                    <input class="staff-msg-check" type="checkbox" value="${msg.id}" aria-label="Select message" />
-                    <span class="message-role-pill ${msg.fromCeo ? "" : "outgoing"}">${msg.fromCeo ? "Foco" : "You"}</span>
-                    <span class="message-thread-venue">${escapeMessageText(venueLabel)}</span>
-                    ${unreadForStaff ? '<span class="pill" style="background:#7f1d1d;color:#fecaca;border-color:rgba(239,68,68,0.45);font-size:10px;padding:2px 8px;">New</span>' : ""}
-                  </div>
-                  <span class="message-thread-time">${created}</span>
-                </div>
-                <div class="message-bubbles">${bubbles.join("") || '<div class="message-bubble incoming">No content.</div>'}</div>
-                <div class="message-thread-actions">
-                  <span class="msg-hint">Tap thread to reply</span>
-                  <button type="button" class="msg-action-btn staff-quick-reply">Reply</button>
-                </div>
-              </div>
+      const unreadIds = new Set(getUnreadStaffMessageIds(visible, staffSession?.venue || ""));
+      if (staffMsgBadge) staffMsgBadge.style.display = unreadIds.size ? "inline-flex" : "none";
+      const events = buildMessageThreadEvents(visible, { viewer: "staff", venueId: staffSession?.venue || "" });
+      const bubbleHtml = events.length
+        ? events.map((event) => `
+            <div class="message-bubble ${event.direction}">
+              ${escapeMessageText(event.text)}
+              <span class="message-bubble-meta">${escapeMessageText(event.sender)} • ${formatTimeLabel(event.ts)}</span>
             </div>
-          `;
-        })
-        .join("");
-      staffMessagesList.querySelectorAll(".staff-msg-row").forEach(row => {
-        row.addEventListener("click", async (evt) => {
-          if (evt?.target?.classList?.contains("staff-msg-check")) return;
-          if (evt?.target?.closest(".message-delete-btn")) return;
-          const id = row.getAttribute("data-id");
-          if (!id) return;
-          const msg = staffMessagesCache.find(item => item.id === id);
-          const thread = row.querySelector(".message-thread");
-          if (thread?.classList.contains("swiped")) {
-            thread.classList.remove("swiped");
-            thread.style.setProperty("--swipe-x", "0px");
-            return;
-          }
-          if (msg) {
-            setStaffReplyContext(msg);
-            if (staffMessageInput) staffMessageInput.focus();
-            if (db && isUnreadForStaff(msg)) {
-              if (!guardWriteAction("markStaffMessageRead")) return;
-              try {
-                await updateDoc(doc(db, "staffMessages", id), { readByStaff: true });
-              } catch (err) {
-                console.warn("Failed to mark staff message read", err);
-              }
-            }
-          }
-        });
-      });
-      staffMessagesList.querySelectorAll(".staff-quick-reply").forEach(btn => {
-        btn.addEventListener("click", (evt) => {
-          evt.preventDefault();
-          evt.stopPropagation();
-          const row = btn.closest(".staff-msg-row");
-          const id = row?.getAttribute("data-id");
-          if (!id) return;
-          const msg = staffMessagesCache.find(item => item.id === id);
-          if (!msg) return;
-          setStaffReplyContext(msg);
+          `).join("")
+        : '<div class="message-bubble incoming">No messages yet in this thread.</div>';
+      staffMessagesList.innerHTML = `
+        <div class="message-row-wrap${unreadIds.size ? " staff-msg-unread" : ""}">
+          <div class="message-thread active" data-thread-role="staff">
+            <div class="message-thread-header">
+              <div class="message-thread-meta">
+                <span class="message-role-pill">Foco Help</span>
+                <span class="message-thread-venue">Live thread</span>
+                ${unreadIds.size ? '<span class="pill" style="background:#7f1d1d;color:#fecaca;border-color:rgba(239,68,68,0.45);font-size:10px;padding:2px 8px;">New</span>' : ""}
+              </div>
+              <span class="message-thread-time">${events.length ? formatTimeLabel(events[events.length - 1].ts) : "—"}</span>
+            </div>
+            <div class="message-bubbles">${bubbleHtml}</div>
+          </div>
+        </div>
+      `;
+      const thread = staffMessagesList.querySelector(".message-thread");
+      if (thread) {
+        thread.addEventListener("click", async () => {
           if (staffMessageInput) staffMessageInput.focus();
+          if (!unreadIds.size || !db) return;
+          if (!guardWriteAction("markStaffThreadRead")) return;
+          try {
+            await Promise.all(Array.from(unreadIds).map((id) => (
+              updateDoc(doc(db, "staffMessages", id), { readByStaff: true })
+            )));
+          } catch (err) {
+            console.warn("Failed to mark staff thread read", err);
+          }
         });
-      });
-      attachSwipeDeleteHandlers(staffMessagesList, ".staff-msg-row", ".staff-msg-delete", async (id) => {
-        if (!id || !staffSession) return;
-        try {
-          if (!guardWriteAction("deleteStaffMessageSwipe")) return;
-          await ensureFirebaseUser();
-          await updateDoc(doc(db, "staffMessages", id), { deletedByStaff: true });
-          startStaffMessagesListener(staffSession.venue);
-        } catch (err) {
-          console.warn("Staff swipe delete failed", err);
-          if (staffMessageError) staffMessageError.textContent = "Could not delete message.";
-        }
-      });
-    }
-
-    function getCeoVenueReplyKey(msg = {}) {
-      const venueId = String(msg.venueId || "").trim().toLowerCase();
-      if (venueId) return `venue:${venueId}`;
-      const id = String(msg.id || "").trim();
-      if (id) return `msg:${id}`;
-      return "";
-    }
-    function resolveCeoReplyTarget(selectionKey = "") {
-      const key = String(selectionKey || "").trim();
-      if (!key) return "";
-      if (key.startsWith("msg:")) {
-        return key.slice(4);
       }
-      if (!key.startsWith("venue:")) return "";
-      const venueId = key.slice(6);
-      const scoped = ceoMessagesCache
-        .filter(msg => String(msg.venueId || "").trim().toLowerCase() === venueId)
-        .sort((a, b) => tsToMillis(b.createdAt || b.createdAtServer) - tsToMillis(a.createdAt || a.createdAtServer));
-      if (!scoped.length) return "";
-      const unread = scoped.find(msg => !msg.readByCeo);
-      return (unread || scoped[0])?.id || "";
     }
     function syncCeoReplyTargetFromSelection() {
       if (!ceoReplyVenue) return;
-      const targetId = resolveCeoReplyTarget(ceoReplyVenue.value);
-      if (ceoReplyTarget) ceoReplyTarget.value = targetId;
+      if (ceoReplyTarget) ceoReplyTarget.value = "";
       if (ceoReplyInput) {
         ceoReplyInput.placeholder = ceoReplyVenue.value
-          ? "Type your reply..."
-          : "Select a venue to reply";
+          ? "Type your message..."
+          : "Select a venue to message";
       }
     }
     function updateCeoReplyVenueOptions(messages = []) {
@@ -19347,7 +19359,7 @@
         options.push({ key, label: venueName });
       });
       const optionsMarkup = options.map(item => `<option value="${escapeHtmlText(item.key)}">${escapeHtmlText(item.label)}</option>`).join("");
-      ceoReplyVenue.innerHTML = `<option value="">Select a venue to reply</option>${optionsMarkup}`;
+      ceoReplyVenue.innerHTML = `<option value="">Select a venue</option>${optionsMarkup}`;
       const hasPrev = options.some(item => item.key === prevSelection);
       if (hasPrev) {
         ceoReplyVenue.value = prevSelection;
@@ -19387,97 +19399,55 @@
         if (ceoMsgBadge) ceoMsgBadge.style.display = "none";
         return;
       }
-      const unread = sorted.some(m => !m.readByCeo);
-      if (ceoMsgBadge) ceoMsgBadge.style.display = unread ? "inline-flex" : "none";
-      ceoMessagesList.innerHTML = sorted
-        .map(msg => {
-          const created = formatTimeLabel(tsToMillis(msg.repliedAt || msg.createdAtServer || msg.createdAt));
-          const venueKey = getCeoVenueReplyKey(msg);
-          const baseMessage = msg.message || "";
-          const bubbles = [];
-          if (baseMessage) {
-            bubbles.push(`<div class="message-bubble ${msg.fromCeo ? "outgoing" : "incoming"}">${escapeMessageText(baseMessage)}</div>`);
-          }
-          if (!msg.fromCeo && msg.reply) {
-            bubbles.push(`<div class="message-bubble outgoing">${escapeMessageText(msg.reply)}</div>`);
-          }
-          return `
-            <div class="message-row-wrap message-row${!msg.readByCeo ? " staff-msg-unread" : ""}" data-id="${msg.id}" data-venue-key="${escapeHtmlText(venueKey)}">
-              <button type="button" class="message-delete-btn ceo-msg-delete" aria-label="Delete message">Delete</button>
-              <div class="message-thread">
-                <div class="message-thread-header">
-                  <div class="message-thread-meta">
-                    <span class="message-role-pill ${msg.fromCeo ? "outgoing" : ""}">${msg.fromCeo ? "Foco" : "Venue"}</span>
-                    <span class="message-thread-venue">${escapeMessageText(msg.venueName || "Venue")}</span>
-                    ${!msg.readByCeo ? '<span class="pill" style="background:#7f1d1d;color:#fecaca;border-color:rgba(239,68,68,0.45);font-size:10px;padding:2px 8px;">New</span>' : ""}
-                  </div>
-                  <span class="message-thread-time">${created}</span>
-                </div>
-                <div class="message-bubbles">${bubbles.join("") || '<div class="message-bubble incoming">No content.</div>'}</div>
-                <div class="message-thread-actions">
-                  <span class="msg-hint">Tap thread to reply</span>
-                  <button type="button" class="msg-action-btn ceo-msg-reply">Reply</button>
-                </div>
-              </div>
+      const unreadAny = getUnreadCeoMessageIds(sorted).length > 0;
+      if (ceoMsgBadge) ceoMsgBadge.style.display = unreadAny ? "inline-flex" : "none";
+      const selectedVenueId = venueIdFromReplyKey(ceoReplyVenue?.value || "");
+      if (!selectedVenueId) {
+        ceoMessagesList.innerHTML = "Select a venue to view thread.";
+        return;
+      }
+      const scoped = sorted.filter((msg) => getMessageVenueId(msg) === selectedVenueId);
+      const selectedVenueName = scoped[0]?.venueName || venueNameFromId(selectedVenueId);
+      const unreadIds = new Set(getUnreadCeoMessageIds(scoped, selectedVenueId));
+      const events = buildMessageThreadEvents(scoped, { viewer: "ceo", venueId: selectedVenueId });
+      const bubbleHtml = events.length
+        ? events.map((event) => `
+            <div class="message-bubble ${event.direction}">
+              ${escapeMessageText(event.text)}
+              <span class="message-bubble-meta">${escapeMessageText(event.sender)} • ${formatTimeLabel(event.ts)}</span>
             </div>
-          `;
-        })
-        .join("");
-      ceoMessagesList.querySelectorAll(".message-row").forEach(row => {
-        row.addEventListener("click", async (evt) => {
-          if (evt?.target?.closest(".message-delete-btn")) return;
-          const id = row.getAttribute("data-id");
-          const venueKey = row.getAttribute("data-venue-key") || "";
-          const thread = row.querySelector(".message-thread");
-          if (thread?.classList.contains("swiped")) {
-            thread.classList.remove("swiped");
-            thread.style.setProperty("--swipe-x", "0px");
-            return;
-          }
-          if (ceoReplyVenue && venueKey) {
-            ceoReplyVenue.value = venueKey;
-            syncCeoReplyTargetFromSelection();
-          } else if (ceoReplyTarget) {
-            ceoReplyTarget.value = id || "";
-          }
+          `).join("")
+        : '<div class="message-bubble incoming">No messages in this thread yet.</div>';
+      ceoMessagesList.innerHTML = `
+        <div class="message-row-wrap${unreadIds.size ? " staff-msg-unread" : ""}">
+          <div class="message-thread active" data-thread-role="ceo">
+            <div class="message-thread-header">
+              <div class="message-thread-meta">
+                <span class="message-role-pill">Venue</span>
+                <span class="message-thread-venue">${escapeMessageText(selectedVenueName)}</span>
+                ${unreadIds.size ? '<span class="pill" style="background:#7f1d1d;color:#fecaca;border-color:rgba(239,68,68,0.45);font-size:10px;padding:2px 8px;">New</span>' : ""}
+              </div>
+              <span class="message-thread-time">${events.length ? formatTimeLabel(events[events.length - 1].ts) : "—"}</span>
+            </div>
+            <div class="message-bubbles">${bubbleHtml}</div>
+          </div>
+        </div>
+      `;
+      const thread = ceoMessagesList.querySelector(".message-thread");
+      if (thread) {
+        thread.addEventListener("click", async () => {
           if (ceoReplyInput) ceoReplyInput.focus();
-          if (!id || !isCeoAccount || !db) return;
-          const msg = ceoMessagesCache.find(item => item.id === id);
-          if (!msg || msg.readByCeo) return;
-          if (!guardWriteAction("markCeoMessageRead")) return;
+          if (!isCeoAccount || !db || !unreadIds.size) return;
+          if (!guardWriteAction("markCeoThreadRead")) return;
           try {
-            await updateDoc(doc(db, "staffMessages", id), { readByCeo: true });
+            await Promise.all(Array.from(unreadIds).map((id) => (
+              updateDoc(doc(db, "staffMessages", id), { readByCeo: true })
+            )));
           } catch (err) {
-            console.warn("Failed to mark CEO message read", err);
+            console.warn("Failed to mark CEO thread read", err);
           }
         });
-      });
-      ceoMessagesList.querySelectorAll(".ceo-msg-reply").forEach(btn => {
-        btn.addEventListener("click", (evt) => {
-          evt.preventDefault();
-          evt.stopPropagation();
-          const row = btn.closest(".message-row");
-          const venueKey = row?.getAttribute("data-venue-key") || "";
-          const id = row?.getAttribute("data-id") || "";
-          if (ceoReplyVenue && venueKey) {
-            ceoReplyVenue.value = venueKey;
-            syncCeoReplyTargetFromSelection();
-          } else if (ceoReplyTarget) {
-            ceoReplyTarget.value = id;
-          }
-          if (ceoReplyInput) ceoReplyInput.focus();
-        });
-      });
-      attachSwipeDeleteHandlers(ceoMessagesList, ".message-row", ".ceo-msg-delete", async (id) => {
-        if (!id || !isCeoAccount) return;
-        try {
-          if (!guardWriteAction("deleteCeoMessageSwipe")) return;
-          await updateDoc(doc(db, "staffMessages", id), { deletedByCeo: true });
-          renderCeoMessages(ceoMessagesCache.filter(msg => msg.id !== id));
-        } catch (err) {
-          console.warn("CEO swipe delete failed", err);
-        }
-      });
+      }
     }
     function logStaffVerification(entry) {
       if (!entry) return;
@@ -25330,7 +25300,7 @@ let onboardingIndex = 0;
           perkKey: data.perkKey || null,
           venuePerkId: data.perkId || data.venuePerkId || null,
           venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
-          member: data.memberName || data.member || "FoCo member",
+          member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
           memberUsername: data.memberUsername || null,
           passId: (data.passCode || data.passId || "").toUpperCase(),
           venue: data.venueId || data.venue || null,
@@ -25941,6 +25911,10 @@ let onboardingIndex = 0;
       const passId = (entry.passId || "").toUpperCase();
       const tier = String(entry.tier || "").toLowerCase();
       return entry.ceo === true || passId === CEO_PASS_ID || tier === "ceo";
+    }
+    function getEntryMemberDisplay(entry = {}) {
+      if (isCreatorRedemption(entry)) return "Creator";
+      return entry.member || "FoCo member";
     }
     function getEntryVibeLabel(entry = {}) {
       const direct = sanitizeCustomVibeText(entry.vibeLabel || entry.vibe || "");
@@ -26628,7 +26602,7 @@ let onboardingIndex = 0;
               perkKey: data.perkKey || null,
               venuePerkId: data.perkId || data.venuePerkId || null,
               venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
-              member: data.memberName || data.member || "FoCo member",
+              member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
               memberUsername: data.memberUsername || null,
               passId: (data.passCode || data.passId || "").toUpperCase(),
               venue: data.venueId || data.venue || null,
@@ -27295,7 +27269,7 @@ let onboardingIndex = 0;
           venuePerkId: data.venuePerkId || null,
           venuePerkLabel: data.venuePerkLabel || null,
           passId: (data.passId || "").toUpperCase(),
-          member: data.member || "FoCo member",
+          member: data.member || (data.ceo ? "Creator" : "FoCo member"),
           memberUsername: data.memberUsername || null,
           venue: data.venue || null,
           requestedVenue: data.requestedVenue || null,
@@ -27411,7 +27385,6 @@ let onboardingIndex = 0;
             const venueText = venueValue
               ? `<span style="color:#94a3b8;">Venue: ${venueValue}</span>`
               : "<span style='color:#94a3b8;'>Venue: Pending</span>";
-            const creatorBadge = isCreatorRedemption(entry) ? ' <span class="creator-pill">Creator</span>' : "";
             const label = entry.perk
               ? entry.perk
               : entry.perkKey === "reward_shot"
@@ -27423,7 +27396,7 @@ let onboardingIndex = 0;
             return `
               <div class="log-row">
                 <strong>${entry.code} · ${label}</strong>
-                <div>${entry.member || "FoCo member"}${creatorBadge}</div>
+                <div>${getEntryMemberDisplay(entry)}</div>
                 ${venueText}
                 <div class="log-meta">
                   <span>${date}</span>
@@ -27476,11 +27449,10 @@ let onboardingIndex = 0;
               : entry.perkKey === "reward_shot"
                 ? "Reward: shot perk"
                 : (entry.perkKey || "Perk");
-            const creatorBadge = isCreatorRedemption(entry) ? ' <span class="creator-pill">Creator</span>' : "";
             return `
               <div class="log-row">
                 <strong>${label}</strong>
-                <div>${entry.member || "FoCo member"}${creatorBadge}</div>
+                <div>${getEntryMemberDisplay(entry)}</div>
                 <div class="log-meta">
                   <span>${date}</span>
                   <span class="status-pill-sm ${entry.status}">${entry.status}</span>
@@ -27863,7 +27835,7 @@ let onboardingIndex = 0;
         return `
           <div class="log-row">
             <strong>${entry.code} · ${tierText}</strong>
-            <div>${entry.member || "FoCo member"}</div>
+            <div>${getEntryMemberDisplay(entry)}</div>
             ${venueText}
             <div class="log-meta">
               <span>${date}</span>
@@ -28216,7 +28188,7 @@ let onboardingIndex = 0;
       const q = query(
         collection(db, "staffMessages"),
         orderBy("createdAt", "desc"),
-        limit(50)
+        limit(160)
       );
       ceoMessagesUnsub = subscribeSnapshot("ceoMessages", q, null, (snap) => {
         const msgs = [];
@@ -28507,23 +28479,37 @@ let onboardingIndex = 0;
     }
     if (staffCloseOutSend) {
       staffCloseOutSend.addEventListener("click", async () => {
+        if (staffCloseOutSend.dataset.busy === "1") return;
+        staffCloseOutSend.dataset.busy = "1";
+        staffCloseOutSend.disabled = true;
+        const originalText = staffCloseOutSend.textContent;
+        staffCloseOutSend.textContent = "Sending…";
         const report = pendingCloseOutReport || buildCloseOutReport();
         if (!report) {
           staffCloseOutStatus.textContent = "No redemptions to close out.";
+          staffCloseOutSend.dataset.busy = "";
+          staffCloseOutSend.disabled = false;
+          staffCloseOutSend.textContent = originalText;
           return;
         }
-        staffCloseOutStatus.textContent = "Sending report…";
-        const sent = await sendCloseOutEmail(report);
-        persistCloseOutReport(report);
-        await persistCloseOutReportToCloud(report);
-        renderCeoCloseOutReports();
-        if (sent) {
-          markAutoCloseOutSent(staffSession?.venue);
-        }
-        staffCloseOutStatus.textContent = sent ? "Report sent to focoafterdark@gmail.com." : "Report saved locally. Email delivery failed.";
-        if (staffSession?.venue) {
-          setStaffShiftStart(staffSession.venue, new Date());
-          renderStaffPendingQueue();
+        try {
+          staffCloseOutStatus.textContent = "Sending report…";
+          const sent = await sendCloseOutEmail(report);
+          persistCloseOutReport(report);
+          await persistCloseOutReportToCloud(report);
+          renderCeoCloseOutReports();
+          if (sent) {
+            markAutoCloseOutSent(staffSession?.venue);
+          }
+          staffCloseOutStatus.textContent = sent ? "Report sent to focoafterdark@gmail.com." : "Report saved locally. Email delivery failed.";
+          if (staffSession?.venue) {
+            setStaffShiftStart(staffSession.venue, new Date());
+            renderStaffPendingQueue();
+          }
+        } finally {
+          staffCloseOutSend.dataset.busy = "";
+          staffCloseOutSend.disabled = false;
+          staffCloseOutSend.textContent = originalText;
         }
       });
     }
@@ -28531,19 +28517,32 @@ let onboardingIndex = 0;
       staffVenueLog.addEventListener("click", async (e) => {
         const pill = e.target.closest(".status-pill-sm.pending");
         if (!pill) return;
+        if (pill.dataset.busy === "1") return;
+        pill.dataset.busy = "1";
+        const originalPillText = pill.textContent;
+        pill.textContent = "verifying…";
         const code = pill.dataset.code;
-        if (!code) return;
+        if (!code) {
+          pill.dataset.busy = "";
+          pill.textContent = originalPillText;
+          return;
+        }
         const venueId = staffSession ? staffSession.venue : null;
-        const result = await verifyCode(code, venueId);
-        if (!result.success) {
-          const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
-          if (fallbackEntry) {
-            applyVoucherConfirmSuccess(fallbackEntry, code);
-            return;
+        try {
+          const result = await verifyCode(code, venueId);
+          if (!result.success) {
+            const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
+            if (fallbackEntry) {
+              applyVoucherConfirmSuccess(fallbackEntry, code);
+              return;
+            }
+            verifyError.textContent = result.message;
+          } else {
+            applyVoucherConfirmSuccess(result.entry, code);
           }
-          verifyError.textContent = result.message;
-        } else {
-          applyVoucherConfirmSuccess(result.entry, code);
+        } finally {
+          pill.dataset.busy = "";
+          pill.textContent = originalPillText;
         }
       });
     }
@@ -28553,21 +28552,35 @@ let onboardingIndex = 0;
           const btn = e.target.closest("[data-pending-confirm]");
           const row = e.target.closest("[data-pending-code]");
           if (!row || !staffSession) return;
+          if (btn?.dataset.busy === "1") return;
           if ((row.dataset.pendingStatus || "") !== "pending") return;
           const code = (btn?.dataset.pendingConfirm || row.dataset.pendingCode || "").toUpperCase();
           if (!code) return;
           const venueId = staffSession.venue;
-          const result = await verifyCode(code, venueId);
-          if (!result.success) {
-            const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
-            if (fallbackEntry) {
-              applyVoucherConfirmSuccess(fallbackEntry, code);
+          if (btn) {
+            btn.dataset.busy = "1";
+            btn.disabled = true;
+            btn.textContent = "Verifying…";
+          }
+          try {
+            const result = await verifyCode(code, venueId);
+            if (!result.success) {
+              const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
+              if (fallbackEntry) {
+                applyVoucherConfirmSuccess(fallbackEntry, code);
+                return;
+              }
+              verifyError.textContent = result.message;
               return;
             }
-            verifyError.textContent = result.message;
-            return;
+            applyVoucherConfirmSuccess(result.entry, code);
+          } finally {
+            if (btn) {
+              btn.dataset.busy = "";
+              btn.disabled = false;
+              btn.textContent = "Confirm";
+            }
           }
-          applyVoucherConfirmSuccess(result.entry, code);
         } catch (err) {
           console.warn("Pending confirm failed", err);
           const code = (e.target.closest("[data-pending-confirm]")?.dataset.pendingConfirm
@@ -28661,6 +28674,8 @@ let onboardingIndex = 0;
       if (tab === "content") {
         refreshFreeMembersList();
         refreshCeoFreeCodeList();
+      } else if (tab === "assistant") {
+        syncCeoAssistantContext(false);
       }
     }
     if (ceoNavItems && ceoNavItems.length) {
@@ -28668,8 +28683,36 @@ let onboardingIndex = 0;
         btn.addEventListener("click", () => {
           const tab = btn.dataset.ceoTab;
           if (tab) showCeoPanel(tab);
+          if (document.body.classList.contains("ios")) {
+            btn.blur();
+            if (ceoNavRail) {
+              requestAnimationFrame(() => {
+                try {
+                  btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+                } catch (_) {
+                  btn.scrollIntoView();
+                }
+              });
+            }
+          }
         });
       });
+    }
+    if (ceoNavRail && document.body.classList.contains("ios")) {
+      let navTouchStartX = 0;
+      let navScrollStart = 0;
+      ceoNavRail.addEventListener("touchstart", (evt) => {
+        const touch = evt.touches?.[0];
+        if (!touch) return;
+        navTouchStartX = touch.clientX;
+        navScrollStart = ceoNavRail.scrollLeft;
+      }, { passive: true });
+      ceoNavRail.addEventListener("touchmove", (evt) => {
+        const touch = evt.touches?.[0];
+        if (!touch) return;
+        const deltaX = touch.clientX - navTouchStartX;
+        ceoNavRail.scrollLeft = navScrollStart - deltaX;
+      }, { passive: true });
     }
     ceoPortalBack.addEventListener("click", () => {
       showScreen("pass");
@@ -28960,6 +29003,78 @@ let onboardingIndex = 0;
       ceoChatHistory.appendChild(el);
       ceoChatHistory.scrollTop = ceoChatHistory.scrollHeight;
     }
+    const CEO_CHAT_CONTEXT_SYNC_KEY = "ceo_ai_context_sync_build_v3";
+    function trimAssistantContextText(value, maxLen = 2400) {
+      const normalized = String(value || "").replace(/\s+/g, " ").trim();
+      if (!normalized) return "";
+      return normalized.slice(0, maxLen);
+    }
+    function extractAssistantSnippet(source, marker, before = 220, after = 980) {
+      const text = String(source || "");
+      const idx = text.indexOf(marker);
+      if (idx < 0) return "";
+      const start = Math.max(0, idx - before);
+      const end = Math.min(text.length, idx + after);
+      return trimAssistantContextText(text.slice(start, end), 2600);
+    }
+    function buildCeoAssistantContextPayload() {
+      const moduleScript = document.querySelector('script[type="module"]')?.textContent || "";
+      const assistantPanel = document.querySelector('[data-ceo-panel="assistant"]')?.outerHTML || "";
+      const staffMessageCardMarkup = document.getElementById("staffMessageCard")?.outerHTML || "";
+      const ceoInboxMarkup = document.getElementById("ceoInboxCard")?.outerHTML || "";
+      return {
+        buildVersion: BUILD_VERSION,
+        capturedAt: new Date().toISOString(),
+        coreCollections: [
+          "members",
+          "redemptions",
+          "staffMessages",
+          "alerts",
+          "deals",
+          "venuePerks",
+          "closeOutReports",
+          "settings/app"
+        ],
+        contextNotes: "Realtime staff-to-CEO messaging, voucher redemption/verification, close-out reporting, and maintenance controls are core flows.",
+        htmlSnippets: {
+          assistantPanel: trimAssistantContextText(assistantPanel),
+          staffMessageCard: trimAssistantContextText(staffMessageCardMarkup),
+          ceoInboxCard: trimAssistantContextText(ceoInboxMarkup)
+        },
+        scriptSnippets: {
+          renderStaffMessages: extractAssistantSnippet(moduleScript, "function renderStaffMessages("),
+          renderCeoMessages: extractAssistantSnippet(moduleScript, "function renderCeoMessages("),
+          verifyCode: extractAssistantSnippet(moduleScript, "async function verifyCode("),
+          createRedemption: extractAssistantSnippet(moduleScript, "const fn = httpsCallable(functionsClient, \"createRedemption\")"),
+          appLocking: extractAssistantSnippet(moduleScript, "function applyMaintenanceModeFromSettings(")
+        },
+        firestoreRulesHint: "Firestore rules and privileged actions are enforced server-side via Cloud Functions callables."
+      };
+    }
+    async function syncCeoAssistantContext(force = false) {
+      if (!functionsClient || !isCeoAccount) return false;
+      const syncedBuild = localStorage.getItem(CEO_CHAT_CONTEXT_SYNC_KEY) || "";
+      if (!force && syncedBuild === BUILD_VERSION) {
+        if (ceoChatSyncStatus) ceoChatSyncStatus.textContent = `Context synced for ${BUILD_VERSION}`;
+        return true;
+      }
+      try {
+        if (ceoChatSyncContext) ceoChatSyncContext.disabled = true;
+        if (ceoChatSyncStatus) ceoChatSyncStatus.textContent = "Syncing app context…";
+        const fn = httpsCallable(functionsClient, "syncCeoAssistantContext");
+        const payload = buildCeoAssistantContextPayload();
+        await fn({ context: payload });
+        localStorage.setItem(CEO_CHAT_CONTEXT_SYNC_KEY, BUILD_VERSION);
+        if (ceoChatSyncStatus) ceoChatSyncStatus.textContent = `Context synced for ${BUILD_VERSION}`;
+        return true;
+      } catch (err) {
+        console.warn("syncCeoAssistantContext failed", err);
+        if (ceoChatSyncStatus) ceoChatSyncStatus.textContent = "Context sync failed. Assistant may have limited app awareness.";
+        return false;
+      } finally {
+        if (ceoChatSyncContext) ceoChatSyncContext.disabled = false;
+      }
+    }
 
     if (ceoChatSend && ceoChatInput && ceoChatCard) {
       ceoChatSend.addEventListener("click", async () => {
@@ -28970,6 +29085,7 @@ let onboardingIndex = 0;
         ceoChatSend.disabled = true;
         ceoChatSend.textContent = "Thinking…";
         try {
+          await syncCeoAssistantContext(false);
           const fn = httpsCallable(functionsClient, "ceoChat");
           console.info("[ceoChat] request", { promptLen: prompt.length });
           const resp = await fn({ prompt });
@@ -28978,31 +29094,34 @@ let onboardingIndex = 0;
             keys: Object.keys(resp?.data || {})
           });
           const reply = resp?.data?.reply || resp?.data?.text || resp?.data?.answer || "No reply.";
+          if (resp?.data?.degraded && ceoChatSyncStatus) {
+            ceoChatSyncStatus.textContent = "Assistant running in fallback mode (API limits).";
+          }
           appendCeoChat("assistant", reply);
           if (ceoChatHistory) ceoChatHistory.scrollTop = ceoChatHistory.scrollHeight;
         } catch (err) {
           console.warn("ceoChat failed", err);
-          const msg = err?.message || err?.code || "HQ AI is temporarily unavailable.";
-          appendCeoChat("assistant", `HQ AI is temporarily unavailable (${msg}).`);
+          const msg = err?.message || err?.code || "";
+          const rateLimited = String(msg).includes("429") || String(err?.code || "").includes("resource-exhausted");
+          appendCeoChat("assistant", rateLimited
+            ? "HQ AI is rate-limited right now. Retry in a minute."
+            : `HQ AI is temporarily unavailable (${msg || "request failed"}).`);
         } finally {
           ceoChatSend.disabled = false;
           ceoChatSend.textContent = "Send";
         }
       });
     }
-    if (ceoChatPresetRollout && ceoChatInput && ceoChatCard) {
-      ceoChatPresetRollout.addEventListener("click", () => {
-        ceoChatInput.value = "Give me a launch checklist for pushing a production web update to all users (PWA/home screen) with zero downtime and post-deploy validation steps.";
-      });
-    }
-    if (ceoChatPresetIssues && ceoChatInput && ceoChatCard) {
-      ceoChatPresetIssues.addEventListener("click", () => {
-        ceoChatInput.value = "Help me triage live production issues: what logs, Firestore collections, and user states should I check first?";
+    if (ceoChatSyncContext && ceoChatCard) {
+      ceoChatSyncContext.addEventListener("click", async () => {
+        await syncCeoAssistantContext(true);
       });
     }
     if (ceoChatSend && !functionsClient) {
       ceoChatSend.disabled = true;
       ceoChatSend.textContent = "Offline";
+      if (ceoChatSyncContext) ceoChatSyncContext.disabled = true;
+      if (ceoChatSyncStatus) ceoChatSyncStatus.textContent = "Cloud functions unavailable";
       appendCeoChat("assistant", "HQ AI is temporarily unavailable.");
     }
 
@@ -31112,11 +31231,11 @@ let onboardingIndex = 0;
       }) || null;
     }
 
-    async function awaitVerifiedRedemptionForVenue(code, venueId, timeoutMs = 1600) {
+    async function awaitVerifiedRedemptionForVenue(code, venueId, timeoutMs = 700) {
       const start = Date.now();
       let match = getVerifiedRedemptionForVenue(code, venueId);
       while (!match && (Date.now() - start) < timeoutMs) {
-        await new Promise(resolve => setTimeout(resolve, 120));
+        await new Promise(resolve => setTimeout(resolve, 70));
         match = getVerifiedRedemptionForVenue(code, venueId);
       }
       return match;
@@ -31271,7 +31390,14 @@ let onboardingIndex = 0;
 
     verifyForm.addEventListener("submit", async (e) => {
       e.preventDefault();
+      const submitBtn = verifyForm.querySelector('button[type="submit"]');
+      if (submitBtn?.dataset.busy === "1") return;
       try {
+        if (submitBtn) {
+          submitBtn.dataset.busy = "1";
+          submitBtn.disabled = true;
+          submitBtn.textContent = "Verifying…";
+        }
         verifyError.textContent = "";
         verifySuccess.classList.remove("visible");
         const code = verifyCodeInput.value.trim();
@@ -31304,6 +31430,12 @@ let onboardingIndex = 0;
           return;
         }
         verifyError.textContent = "Could not verify right now. Try again.";
+      } finally {
+        if (submitBtn) {
+          submitBtn.dataset.busy = "";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Verify code";
+        }
       }
       });
 
@@ -31420,71 +31552,71 @@ let onboardingIndex = 0;
       ceoReplyVenue.addEventListener("change", () => {
         if (ceoReplyError) ceoReplyError.textContent = "";
         syncCeoReplyTargetFromSelection();
+        renderCeoMessages(ceoMessagesCache);
       });
     }
 
     if (ceoReplyForm) {
       ceoReplyForm.addEventListener("submit", async (e) => {
         e.preventDefault();
+        const submitBtn = ceoReplyForm.querySelector('button[type="submit"]');
+        if (submitBtn?.dataset.busy === "1") return;
         if (ceoReplyError) ceoReplyError.textContent = "";
         if (ceoReplySuccess) ceoReplySuccess.style.display = "none";
         const reply = ceoReplyInput?.value?.trim();
         const venueSelection = ceoReplyVenue?.value || "";
-        const targetId = ceoReplyTarget?.value || resolveCeoReplyTarget(venueSelection);
+        const venueId = venueIdFromReplyKey(venueSelection);
         if (!isCeoAccount) {
           if (ceoReplyError) ceoReplyError.textContent = "CEO login required.";
           return;
         }
-        if (!venueSelection) {
-          if (ceoReplyError) ceoReplyError.textContent = "Select a venue to reply.";
+        if (!venueSelection || !venueId) {
+          if (ceoReplyError) ceoReplyError.textContent = "Select a venue.";
           return;
         }
         if (!guardWriteAction("ceoReplyMessage")) return;
         if (!reply) {
-          if (ceoReplyError) ceoReplyError.textContent = "Enter a reply.";
+          if (ceoReplyError) ceoReplyError.textContent = "Enter a message.";
           return;
         }
         try {
-          await ensureFirebaseUser();
-          if (targetId) {
-            const ref = doc(db, "staffMessages", targetId);
-            await updateDoc(ref, {
-              reply,
-              repliedAt: Timestamp.now(),
-              readByCeo: true,
-              readByStaff: false,
-              deletedByCeo: false
-            });
-          } else {
-            const venueId = venueSelection.startsWith("venue:") ? venueSelection.slice(6) : "";
-            const venueName = venuesInfo[venueId]?.name || venueId || "Venue";
-            await addDoc(collection(db, "staffMessages"), {
-              venueId,
-              venueName,
-              staffUid: null,
-              message: reply,
-              fromCeo: true,
-              createdAt: Timestamp.now(),
-              createdAtServer: serverTimestamp(),
-              reply: "",
-              repliedAt: null,
-              readByCeo: true,
-              readByStaff: false,
-              deletedByCeo: false,
-              deletedByStaff: false
-            });
+          if (submitBtn) {
+            submitBtn.dataset.busy = "1";
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Sending…";
           }
+          await ensureFirebaseUser();
+          const venueName = venuesInfo[venueId]?.name || venueId || "Venue";
+          await addDoc(collection(db, "staffMessages"), {
+            venueId,
+            venueName,
+            staffUid: null,
+            message: reply,
+            fromCeo: true,
+            createdAt: Timestamp.now(),
+            createdAtServer: serverTimestamp(),
+            reply: "",
+            repliedAt: null,
+            readByCeo: true,
+            readByStaff: false,
+            deletedByCeo: false,
+            deletedByStaff: false
+          });
           if (ceoReplyInput) ceoReplyInput.value = "";
           syncCeoReplyTargetFromSelection();
           if (ceoReplySuccess) {
-            const venueId = venueSelection.startsWith("venue:") ? venueSelection.slice(6) : "";
-            const venueName = venuesInfo[venueId]?.name || "venue";
-            ceoReplySuccess.textContent = targetId ? "Reply sent." : `Message sent to ${venueName}.`;
+            ceoReplySuccess.textContent = `Message sent to ${venueName}.`;
             ceoReplySuccess.style.display = "block";
           }
         } catch (err) {
-          console.warn("CEO reply failed", err);
-          if (ceoReplyError) ceoReplyError.textContent = err?.message || "Reply failed.";
+          console.warn("CEO message send failed", err);
+          if (ceoReplyError) ceoReplyError.textContent = err?.message || "Message failed.";
+        } finally {
+          if (submitBtn) {
+            submitBtn.dataset.busy = "";
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Send message";
+          }
         }
       });
     }
@@ -31492,12 +31624,16 @@ let onboardingIndex = 0;
     if (ceoClearMessages) {
       ceoClearMessages.addEventListener("click", async () => {
         if (!isCeoAccount || !ceoMessagesCache.length) return;
+        const selectedVenueId = venueIdFromReplyKey(ceoReplyVenue?.value || "");
+        if (!selectedVenueId) return;
+        const scoped = ceoMessagesCache.filter((msg) => getMessageVenueId(msg) === selectedVenueId);
+        if (!scoped.length) return;
         try {
           if (!guardWriteAction("ceoClearMessages")) return;
           await Promise.all(
-            ceoMessagesCache.map(msg => updateDoc(doc(db, "staffMessages", msg.id), { deletedByCeo: true }))
+            scoped.map(msg => updateDoc(doc(db, "staffMessages", msg.id), { deletedByCeo: true }))
           );
-          renderCeoMessages([]);
+          renderCeoMessages(ceoMessagesCache.filter((msg) => getMessageVenueId(msg) !== selectedVenueId));
         } catch (err) {
           console.warn("Clear messages failed", err);
         }
@@ -31717,7 +31853,7 @@ let onboardingIndex = 0;
           venuePerkId: data.perkId || data.venuePerkId || null,
           venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
           passId: (data.passCode || data.passId || currentPassCode || "").toUpperCase(),
-          member: data.memberName || data.member || passUserName?.textContent || "FoCo member",
+          member: data.memberName || data.member || passUserName?.textContent || (data.ceo ? "Creator" : "FoCo member"),
           memberUsername: data.memberUsername || null,
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
@@ -32227,7 +32363,7 @@ let onboardingIndex = 0;
         return;
       }
       setRedeemRequestBusy(true);
-      const perkLabel = ceoActive ? `Executive ${selectedPerkLabel}` : selectedPerkLabel;
+      const perkLabel = selectedPerkLabel;
       let pendingReserved = false;
       let movedToDispatchView = false;
       const rollbackPendingReservation = () => {
@@ -32263,7 +32399,7 @@ let onboardingIndex = 0;
         }
       }
       try {
-        await authUser.getIdToken(true);
+        await authUser.getIdToken();
       } catch (err) {
         console.warn("[createRedemption] token refresh failed", err);
       }

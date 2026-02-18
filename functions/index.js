@@ -5259,53 +5259,373 @@ exports.processRenewals = functions.runWith({ secrets: ["STRIPE_SECRET"] }).pubs
   return null;
 });
 
+const CEO_ASSISTANT_CONTEXT_DOC = "settings/ceoAssistantContext";
+const CEO_ASSISTANT_CACHE_COLLECTION = "ceoAssistantCache";
+function clampAssistantText(value, max = 3200) {
+  const normalized = String(value || "").replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  return normalized.slice(0, max);
+}
+function sanitizeAssistantContextPayload(raw = {}) {
+  const obj = raw && typeof raw === "object" ? raw : {};
+  const htmlSnippetsRaw = (obj.htmlSnippets && typeof obj.htmlSnippets === "object") ? obj.htmlSnippets : {};
+  const scriptSnippetsRaw = (obj.scriptSnippets && typeof obj.scriptSnippets === "object") ? obj.scriptSnippets : {};
+  const htmlSnippets = {};
+  const scriptSnippets = {};
+  Object.entries(htmlSnippetsRaw).slice(0, 12).forEach(([key, value]) => {
+    htmlSnippets[String(key || "").slice(0, 48)] = clampAssistantText(value, 2600);
+  });
+  Object.entries(scriptSnippetsRaw).slice(0, 16).forEach(([key, value]) => {
+    scriptSnippets[String(key || "").slice(0, 48)] = clampAssistantText(value, 2800);
+  });
+  const coreCollections = Array.isArray(obj.coreCollections)
+    ? obj.coreCollections.map((v) => String(v || "").trim()).filter(Boolean).slice(0, 40)
+    : [];
+  return {
+    buildVersion: clampAssistantText(obj.buildVersion, 60) || "unknown",
+    capturedAt: clampAssistantText(obj.capturedAt, 80),
+    contextNotes: clampAssistantText(obj.contextNotes, 2200),
+    firestoreRulesHint: clampAssistantText(obj.firestoreRulesHint, 1400),
+    coreCollections,
+    htmlSnippets,
+    scriptSnippets
+  };
+}
+function formatAssistantContextForPrompt(contextData = {}) {
+  const parts = [];
+  if (contextData.buildVersion) parts.push(`Build: ${contextData.buildVersion}`);
+  if (Array.isArray(contextData.coreCollections) && contextData.coreCollections.length) {
+    parts.push(`Collections: ${contextData.coreCollections.join(", ")}`);
+  }
+  if (contextData.contextNotes) parts.push(`Notes: ${contextData.contextNotes}`);
+  if (contextData.firestoreRulesHint) parts.push(`Rules: ${contextData.firestoreRulesHint}`);
+  const htmlSnippets = contextData.htmlSnippets || {};
+  Object.entries(htmlSnippets).slice(0, 6).forEach(([key, value]) => {
+    if (!value) return;
+    parts.push(`HTML[${key}]: ${value}`);
+  });
+  const scriptSnippets = contextData.scriptSnippets || {};
+  Object.entries(scriptSnippets).slice(0, 8).forEach(([key, value]) => {
+    if (!value) return;
+    parts.push(`JS[${key}]: ${value}`);
+  });
+  return clampAssistantText(parts.join("\n"), 15000);
+}
+async function getAssistantLiveSnapshot() {
+  const snapshot = {
+    members: null,
+    activeAlerts: null,
+    activeDeals: null,
+    pendingMessages: null,
+    pendingRedemptions: null,
+    maintenance: null,
+    launchMode: null
+  };
+  const nowMs = Date.now();
+  try {
+    const membersSnap = await db.collection("members")
+      .select("passCode", "paused", "revoked", "paymentStatus", "membershipStatus")
+      .limit(5000)
+      .get();
+    let members = 0;
+    membersSnap.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const passCode = String(data.passCode || "").trim();
+      if (!passCode) return;
+      if (data.paused === true || data.revoked === true) return;
+      const status = String(data.paymentStatus || data.membershipStatus || "active").toLowerCase();
+      if (["canceled", "cancelled", "inactive", "deleted"].includes(status)) return;
+      members += 1;
+    });
+    snapshot.members = members;
+  } catch (_) {}
+  try {
+    const alertSnap = await db.collection("alerts").limit(1500).get();
+    let activeAlerts = 0;
+    alertSnap.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      if (data.deleted === true || data.archived === true || data.active === false) return;
+      const expiresMs = toMillisSafe(data.expiresAt);
+      if (expiresMs && expiresMs <= nowMs) return;
+      activeAlerts += 1;
+    });
+    snapshot.activeAlerts = activeAlerts;
+  } catch (_) {}
+  try {
+    const dealsSnap = await db.collection("deals").limit(1500).get();
+    let activeDeals = 0;
+    dealsSnap.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const expiresMs = toMillisSafe(data.expiresAt);
+      if (expiresMs && expiresMs <= nowMs) return;
+      const standardQty = Number(data.standardQty || 0);
+      const vipQty = Number(data.vipQty || 0);
+      const totalQty = Number(data.quantity || 0);
+      const hasInventory = standardQty > 0 || vipQty > 0 || totalQty > 0;
+      const hasContent = !!String(data.title || data.detail || data.meta || "").trim();
+      if (!hasInventory || !hasContent) return;
+      activeDeals += 1;
+    });
+    snapshot.activeDeals = activeDeals;
+  } catch (_) {}
+  try {
+    const msgSnap = await db.collection("staffMessages")
+      .where("readByCeo", "==", false)
+      .limit(1500)
+      .get();
+    let unread = 0;
+    msgSnap.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      if (data.deletedByCeo === true || data.deletedByStaff === true) return;
+      if (data.fromCeo === true) return;
+      const hasContent = !!String(data.message || data.reply || "").trim();
+      if (!hasContent) return;
+      unread += 1;
+    });
+    snapshot.pendingMessages = unread;
+  } catch (_) {}
+  try {
+    const redSnap = await db.collection("redemptions")
+      .where("status", "==", "pending")
+      .limit(1500)
+      .get();
+    let pending = 0;
+    redSnap.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const expiresMs = toMillisSafe(data.expiresAt);
+      if (expiresMs && expiresMs <= nowMs) return;
+      pending += 1;
+    });
+    snapshot.pendingRedemptions = pending;
+  } catch (_) {}
+  try {
+    const appSnap = await db.doc("settings/app").get();
+    const app = appSnap.exists ? (appSnap.data() || {}) : {};
+    snapshot.maintenance = app.maintenanceMode === true;
+    snapshot.launchMode = app.launched === true ? "live" : "beta";
+  } catch (_) {}
+  return snapshot;
+}
+function formatAssistantLiveSnapshot(snapshot = {}) {
+  return [
+    `Live members: ${snapshot.members ?? "n/a"}`,
+    `Active alerts: ${snapshot.activeAlerts ?? "n/a"}`,
+    `Active deals: ${snapshot.activeDeals ?? "n/a"}`,
+    `Unread venue messages for CEO: ${snapshot.pendingMessages ?? "n/a"}`,
+    `Pending redemptions: ${snapshot.pendingRedemptions ?? "n/a"}`,
+    `Launch mode: ${snapshot.launchMode || "n/a"}`,
+    `Maintenance mode: ${snapshot.maintenance === null ? "n/a" : (snapshot.maintenance ? "on" : "off")}`
+  ].join("\n");
+}
+function buildAssistantFallbackReply(prompt = "", liveSnapshot = {}) {
+  const lower = String(prompt || "").toLowerCase();
+  if (lower.includes("message")) {
+    return `Message center is live. Unread venue messages: ${liveSnapshot.pendingMessages ?? "n/a"}. Use staffMessages for reads/replies and deletedBy* flags for cleanup.`;
+  }
+  if (lower.includes("redeem") || lower.includes("verify")) {
+    return `Redemptions are live. Pending redemptions: ${liveSnapshot.pendingRedemptions ?? "n/a"}. Validate createRedemption -> verifyRedemption path and staff venue matching first.`;
+  }
+  if (lower.includes("maintenance")) {
+    return `Maintenance mode is currently ${liveSnapshot.maintenance ? "ON" : "OFF"}. Launch mode is ${liveSnapshot.launchMode || "unknown"}.`;
+  }
+  return `HQ AI is rate-limited right now. Live snapshot: members ${liveSnapshot.members ?? "n/a"}, alerts ${liveSnapshot.activeAlerts ?? "n/a"}, deals ${liveSnapshot.activeDeals ?? "n/a"}, unread messages ${liveSnapshot.pendingMessages ?? "n/a"}.`;
+}
+async function requestOpenAiWithRetry(apiKey, payload) {
+  const retries = [0, 800, 1700];
+  let lastStatus = 0;
+  let lastBody = "";
+  for (let i = 0; i < retries.length; i += 1) {
+    if (retries[i] > 0) {
+      await new Promise((resolve) => setTimeout(resolve, retries[i]));
+    }
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const txt = await resp.text();
+    if (resp.ok) {
+      let json = {};
+      try { json = JSON.parse(txt); } catch (_) {}
+      const reply = json?.choices?.[0]?.message?.content || "";
+      if (reply) return { ok: true, status: resp.status, reply };
+      return { ok: true, status: resp.status, reply: "No reply." };
+    }
+    lastStatus = resp.status;
+    lastBody = txt;
+    if (![429, 500, 502, 503, 504].includes(resp.status)) {
+      break;
+    }
+  }
+  return { ok: false, status: lastStatus, body: lastBody };
+}
+async function requestOpenAiWithModelFallback(apiKey, basePayload, models = []) {
+  const candidates = Array.isArray(models) && models.length
+    ? models
+    : ["gpt-4.1-mini", "gpt-4o-mini", "gpt-4.1-nano"];
+  let last = { ok: false, status: 0, body: "" };
+  for (const model of candidates) {
+    const result = await requestOpenAiWithRetry(apiKey, { ...basePayload, model });
+    if (result.ok) return { ...result, model };
+    last = { ...result, model };
+    const status = Number(result.status || 0);
+    const body = String(result.body || "").toLowerCase();
+    const modelError = status === 404 || (status === 400 && body.includes("model"));
+    const transient = [429, 500, 502, 503, 504].includes(status);
+    if (!modelError && !transient) break;
+  }
+  return last;
+}
+
+exports.syncCeoAssistantContext = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 8, maxPerDay: 200 }
+  });
+  if (!context?.auth) throw new HttpsError("unauthenticated", "Auth required");
+  const uid = context.auth.uid;
+  let isCeo = isCeoContext(context);
+  if (!isCeo && uid) {
+    try {
+      const memberSnap = await db.collection("members").doc(uid).get();
+      isCeo = isCeoMemberDoc(memberSnap.exists ? (memberSnap.data() || {}) : {}, uid);
+    } catch (_) {}
+  }
+  if (!isCeo) throw new HttpsError("permission-denied", "CEO only");
+  const contextPayload = sanitizeAssistantContextPayload(data?.context || {});
+  await db.doc(CEO_ASSISTANT_CONTEXT_DOC).set({
+    ...contextPayload,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedBy: uid,
+    updatedByEmail: (context.auth.token?.email || "").toLowerCase()
+  }, { merge: true });
+  return { ok: true, buildVersion: contextPayload.buildVersion || "unknown" };
+});
+
 exports.ceoChat = functions.runWith({ secrets: ["OPENAI_API_KEY"] }).https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 30, maxPerDay: 1000 }
+  });
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
   const uid = context.auth.uid;
   let isCeo = isCeoContext(context);
   if (!isCeo && uid) {
     try {
       const snap = await db.collection('members').doc(uid).get();
-      const data = snap.exists ? snap.data() : {};
-      if (isCeoMemberDoc(data, uid)) {
+      const memberData = snap.exists ? snap.data() : {};
+      if (isCeoMemberDoc(memberData, uid)) {
         isCeo = true;
       }
     } catch (_) {}
   }
   if (!isCeo) throw new HttpsError('permission-denied', 'CEO only');
-  const liveKey = process.env.OPENAI_API_KEY;
-  if (!liveKey) throw new HttpsError('failed-precondition', 'OpenAI not configured');
   const prompt = (data?.prompt || '').toString().trim();
   if (!prompt) throw new HttpsError('invalid-argument', 'Prompt required');
+  const normalizedPrompt = prompt.toLowerCase().slice(0, 1200);
+  let contextData = {};
   try {
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${liveKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are the FoCo After Dark CEO assistant. Be concise, action-oriented, and focus on product, ops, and rollout guidance. Keep replies short.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 400,
-        temperature: 0.4
-      })
-    });
-    const txt = await resp.text();
-    if (!resp.ok) {
-      console.warn('OpenAI error', resp.status, txt);
-      throw new HttpsError('internal', `OpenAI request failed (${resp.status})`);
+    const contextSnap = await db.doc(CEO_ASSISTANT_CONTEXT_DOC).get();
+    contextData = contextSnap.exists ? (contextSnap.data() || {}) : {};
+  } catch (_) {}
+  const liveSnapshot = await getAssistantLiveSnapshot();
+  const staticContext = [
+    "FoCo After Dark app context:",
+    "- Core roles: member, venue staff, CEO.",
+    "- Core flows: createRedemption -> verifyRedemption -> closeOutReports.",
+    "- Messaging flow: staffMessages stores venue-to-CEO and CEO-to-venue replies.",
+    "- Maintenance and launch mode are controlled in settings/app.",
+    "- Prefer concrete steps: where to click, what collection/doc to inspect, and exact rollback plan."
+  ].join("\n");
+  const dynamicContext = formatAssistantContextForPrompt(contextData);
+  const liveContext = formatAssistantLiveSnapshot(liveSnapshot);
+  const contextHash = crypto
+    .createHash("sha256")
+    .update(`${contextData?.buildVersion || "none"}|${contextData?.updatedAt?.seconds || 0}|${liveContext}`)
+    .digest("hex")
+    .slice(0, 16);
+  const promptHash = crypto
+    .createHash("sha256")
+    .update(`${normalizedPrompt}|${contextHash}`)
+    .digest("hex")
+    .slice(0, 48);
+  const cacheRef = db.collection(CEO_ASSISTANT_CACHE_COLLECTION).doc(promptHash);
+  let cached = null;
+  try {
+    const cacheSnap = await cacheRef.get();
+    if (cacheSnap.exists) {
+      const payload = cacheSnap.data() || {};
+      const cachedAt = payload.cachedAt?.toMillis ? payload.cachedAt.toMillis() : 0;
+      if (cachedAt && (Date.now() - cachedAt) < (6 * 60 * 60 * 1000) && payload.reply) {
+        cached = payload;
+      }
     }
-    const json = JSON.parse(txt);
-    const reply = json?.choices?.[0]?.message?.content || 'No reply';
-    return { reply, status: resp.status };
+  } catch (_) {}
+  if (cached) {
+    return {
+      reply: cached.reply,
+      status: 200,
+      cached: true,
+      degraded: false
+    };
+  }
+  const liveKey = process.env.OPENAI_API_KEY;
+  if (!liveKey) {
+    return {
+      reply: buildAssistantFallbackReply(prompt, liveSnapshot),
+      status: 0,
+      degraded: true,
+      fallback: true
+    };
+  }
+  try {
+    const result = await requestOpenAiWithModelFallback(liveKey, {
+      messages: [
+        {
+          role: "system",
+          content: "You are HQ AI for FoCo After Dark. Behave like a general-purpose ChatGPT assistant: answer any topic clearly and helpfully. For app-specific requests, prioritize the provided app context and live snapshot."
+        },
+        { role: "system", content: staticContext },
+        { role: "system", content: `Live snapshot:\n${liveContext}` },
+        { role: "system", content: `App code context:\n${dynamicContext || "No context synced yet."}` },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 900,
+      temperature: 0.45
+    }, ["gpt-4.1-mini", "gpt-4o-mini", "gpt-4.1-nano"]);
+    if (!result.ok) {
+      console.warn("OpenAI error", result.status, result.body, result.model || "");
+      return {
+        reply: buildAssistantFallbackReply(prompt, liveSnapshot),
+        status: result.status || 429,
+        degraded: true,
+        fallback: true
+      };
+    }
+    const reply = clampAssistantText(result.reply || "No reply.", 6000);
+    await cacheRef.set({
+      prompt: clampAssistantText(prompt, 1600),
+      reply,
+      model: result.model || "unknown",
+      status: result.status || 200,
+      contextHash,
+      cachedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return {
+      reply,
+      status: result.status || 200,
+      cached: false,
+      degraded: false
+    };
   } catch (err) {
-    if (err instanceof HttpsError) throw err;
     console.warn('ceoChat failed', err);
-    throw new HttpsError('internal', err?.message || 'Chat failed');
+    return {
+      reply: buildAssistantFallbackReply(prompt, liveSnapshot),
+      status: 500,
+      degraded: true,
+      fallback: true
+    };
   }
 });
 function getStripeClient() {
