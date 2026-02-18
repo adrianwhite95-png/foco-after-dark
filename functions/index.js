@@ -3421,6 +3421,42 @@ function isoFromUnix(seconds) {
   return new Date(value * 1000).toISOString();
 }
 
+function normalizeDobParts(input = null) {
+  if (!input || typeof input !== "object") return null;
+  const year = Number(input.year || 0);
+  const month = Number(input.month || 0);
+  const day = Number(input.day || 0);
+  if (!Number.isFinite(year) || year < 1900 || year > 2100) return null;
+  if (!Number.isFinite(month) || month < 1 || month > 12) return null;
+  if (!Number.isFinite(day) || day < 1 || day > 31) return null;
+  return { year, month, day };
+}
+
+function dobPartsFromDateInput(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+  };
+}
+
+function calculateAgeFromDobParts(dob = null, now = new Date()) {
+  if (!dob) return null;
+  const year = Number(dob.year || 0);
+  const month = Number(dob.month || 0);
+  const day = Number(dob.day || 0);
+  if (!year || !month || !day) return null;
+  let age = now.getUTCFullYear() - year;
+  const monthDiff = (now.getUTCMonth() + 1) - month;
+  if (monthDiff < 0 || (monthDiff === 0 && now.getUTCDate() < day)) {
+    age -= 1;
+  }
+  return age;
+}
+
 function stripeStatusToPaymentStatus(status = "") {
   const key = String(status || "").toLowerCase();
   if (key === "active" || key === "trialing") return "active";
@@ -3696,6 +3732,201 @@ function assertStripeAllowed(context, memberDocData) {
     throw stripeExcludedError();
   }
 }
+
+function isAgeVerificationExempt(token = {}, memberDocData = {}) {
+  const email = String(token?.email || memberDocData?.email || "").toLowerCase();
+  return (
+    isStripeExcluded(token, memberDocData)
+    || email === BETA_EMAIL
+    || email.includes("beta@")
+  );
+}
+
+async function applyIdentityVerificationUpdate(session, eventType = "identity.verification_session.updated") {
+  if (!session) return;
+  const memberCtx = await resolveMemberContextFromStripeObject(session);
+  if (!memberCtx?.ref) {
+    console.warn("Identity webhook: member not found", session?.id || "", eventType);
+    return;
+  }
+  const stripeDob = normalizeDobParts(session?.verified_outputs?.dob || null);
+  const fallbackDob = dobPartsFromDateInput(memberCtx.data?.birthDate || null);
+  const dob = stripeDob || fallbackDob;
+  const age = calculateAgeFromDobParts(dob);
+  const baseUpdates = {
+    ageVerificationRequired: true,
+    ageVerificationSessionId: session?.id || memberCtx.data?.ageVerificationSessionId || null,
+    ageVerificationSessionStatus: String(session?.status || "").toLowerCase() || null,
+    ageVerificationLastEvent: eventType,
+    ageVerificationLastEventAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  const underage = Number.isFinite(age) ? age < 21 : false;
+  if (eventType === "identity.verification_session.verified" || String(session?.status || "").toLowerCase() === "verified") {
+    if (underage) {
+      await memberCtx.ref.set({
+        ...baseUpdates,
+        ageVerificationStatus: "underage",
+        ageVerified21: false,
+        ageVerificationFailedReason: "UNDER_21",
+        ageVerificationCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return;
+    }
+    await memberCtx.ref.set({
+      ...baseUpdates,
+      ageVerificationStatus: "verified",
+      ageVerified21: true,
+      ageVerificationFailedReason: admin.firestore.FieldValue.delete(),
+      ageVerificationCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
+      ageVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      onboardingEligible: true,
+    }, { merge: true });
+    return;
+  }
+  if (eventType === "identity.verification_session.requires_input" || String(session?.status || "").toLowerCase() === "requires_input") {
+    await memberCtx.ref.set({
+      ...baseUpdates,
+      ageVerificationStatus: "requires_input",
+      ageVerified21: false,
+      ageVerificationFailedReason: "REQUIRES_INPUT",
+    }, { merge: true });
+    return;
+  }
+  if (eventType === "identity.verification_session.canceled" || String(session?.status || "").toLowerCase() === "canceled") {
+    await memberCtx.ref.set({
+      ...baseUpdates,
+      ageVerificationStatus: "canceled",
+      ageVerified21: false,
+      ageVerificationFailedReason: "CANCELED",
+    }, { merge: true });
+    return;
+  }
+  await memberCtx.ref.set({
+    ...baseUpdates,
+    ageVerificationStatus: "processing",
+    ageVerified21: false,
+    ageVerificationFailedReason: admin.firestore.FieldValue.delete(),
+  }, { merge: true });
+}
+
+exports.createAgeVerificationSession = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
+  if (!context?.auth) throw new HttpsError("unauthenticated", "Auth required");
+  const uid = context.auth.uid;
+  await checkRateLimit(uid, { maxPerMin: 6, maxPerDay: 60 });
+  const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
+  if (isAgeVerificationExempt(context.auth.token, memberDocData)) {
+    return {
+      ok: true,
+      bypassed: true,
+      verified: true,
+      status: "exempt"
+    };
+  }
+  if (memberDocData?.ageVerified21 === true || String(memberDocData?.ageVerificationStatus || "").toLowerCase() === "verified") {
+    return {
+      ok: true,
+      verified: true,
+      status: "verified"
+    };
+  }
+  const rawTier = normalizeTierKey((data?.tier || memberDocData?.requestedTier || "standard").toString());
+  const returnUrlRaw = String(data?.returnUrl || "https://foco-after-dark.web.app").trim();
+  if (!/^https?:\/\//i.test(returnUrlRaw)) {
+    throw new HttpsError("invalid-argument", "returnUrl must be an absolute URL.");
+  }
+  const birthDateInput = data?.birthDate || memberDocData?.birthDate || null;
+  const birthDob = dobPartsFromDateInput(birthDateInput);
+  if (!birthDob) {
+    throw new HttpsError("failed-precondition", "Birthdate is required before age verification.");
+  }
+  const ageFromInput = calculateAgeFromDobParts(birthDob);
+  if (Number.isFinite(ageFromInput) && ageFromInput < 21) {
+    await memberRef.set({
+      ageVerificationRequired: true,
+      ageVerificationStatus: "underage",
+      ageVerified21: false,
+      ageVerificationFailedReason: "UNDER_21_INPUT",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    throw new HttpsError("failed-precondition", "You must be 21+ to use FoCo After Dark.");
+  }
+  const stripe = getStripeClient();
+  const email = (context.auth.token.email || memberDocData?.email || "").toLowerCase();
+  const customerId = await ensureStripeCustomer({
+    stripe,
+    memberRef,
+    memberDocData,
+    uid,
+    email,
+    token: context.auth.token,
+  });
+  const session = await stripe.identity.verificationSessions.create({
+    type: "document",
+    customer: customerId,
+    metadata: {
+      uid,
+      tier: rawTier,
+    },
+    return_url: returnUrlRaw,
+  });
+  await memberRef.set({
+    requestedTier: rawTier,
+    onboardingEligible: false,
+    ageVerificationRequired: true,
+    ageVerificationStatus: "processing",
+    ageVerificationSessionStatus: "processing",
+    ageVerified21: false,
+    ageVerificationSessionId: session.id,
+    ageVerificationStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+  return {
+    ok: true,
+    verified: false,
+    status: "processing",
+    sessionId: session.id,
+    url: session.url,
+  };
+});
+
+exports.getAgeVerificationStatus = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
+  if (!context?.auth) throw new HttpsError("unauthenticated", "Auth required");
+  const uid = context.auth.uid;
+  const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
+  if (isAgeVerificationExempt(context.auth.token, memberDocData)) {
+    return {
+      exempt: true,
+      verified: true,
+      status: "exempt",
+    };
+  }
+  const forceSync = data?.forceSync === true;
+  const sessionId = String(memberDocData?.ageVerificationSessionId || "").trim();
+  if (forceSync && sessionId) {
+    try {
+      const stripe = getStripeClient();
+      const session = await stripe.identity.verificationSessions.retrieve(sessionId);
+      if (session) {
+        const mappedEvent = `identity.verification_session.${String(session.status || "").toLowerCase() || "processing"}`;
+        await applyIdentityVerificationUpdate(session, mappedEvent);
+      }
+    } catch (err) {
+      console.warn("getAgeVerificationStatus forceSync failed", err?.message || err);
+    }
+  }
+  const freshSnap = await memberRef.get();
+  const fresh = freshSnap.exists ? (freshSnap.data() || {}) : {};
+  const status = String(fresh?.ageVerificationStatus || "required").toLowerCase();
+  return {
+    exempt: false,
+    verified: fresh?.ageVerified21 === true || status === "verified",
+    status,
+    sessionId: String(fresh?.ageVerificationSessionId || ""),
+    required: fresh?.ageVerificationRequired !== false,
+    requestedTier: normalizeTierKey((fresh?.requestedTier || "standard").toString()),
+  };
+});
 
 async function ensureStripeCustomer({ stripe, memberRef, memberDocData, uid, email, token }) {
   if (isStripeExcluded(token, memberDocData)) {
@@ -4122,6 +4353,13 @@ exports.stripeWebhook = functions.runWith(stripeWebhookSecrets).https.onRequest(
           lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
         }, { merge: true });
       }
+    } else if (
+      event.type === "identity.verification_session.processing"
+      || event.type === "identity.verification_session.verified"
+      || event.type === "identity.verification_session.requires_input"
+      || event.type === "identity.verification_session.canceled"
+    ) {
+      await applyIdentityVerificationUpdate(intent, event.type);
     }
   } catch (err) {
     console.warn("Stripe webhook handler failed", err?.message || err);

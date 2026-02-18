@@ -3084,6 +3084,79 @@
     .membership-perks li {
       margin-bottom: 4px;
     }
+    .signup-plan-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .signup-plan-card {
+      min-height: 112px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: linear-gradient(155deg, rgba(6, 12, 24, 0.92), rgba(11, 17, 33, 0.84));
+      color: #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 3px;
+      padding: 12px;
+      text-align: left;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .signup-plan-card .plan-name {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .signup-plan-card .plan-price {
+      font-size: 13px;
+      color: #e2e8f0;
+      font-weight: 700;
+    }
+    .signup-plan-card .plan-copy {
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.35;
+    }
+    .signup-plan-card.active {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 62%, #a5b4fc);
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 35%, transparent),
+        0 0 16px color-mix(in srgb, var(--accent-primary-live) 30%, transparent);
+      transform: translateY(-1px);
+    }
+    .age-verify-card {
+      margin-top: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: linear-gradient(150deg, rgba(8, 12, 23, 0.96), rgba(9, 16, 31, 0.84));
+      padding: 16px;
+      box-shadow: 0 18px 34px rgba(2, 8, 23, 0.5);
+    }
+    .age-verify-plan {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+    .age-verify-status {
+      font-size: 15px;
+      color: #e2e8f0;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 520px) {
+      .signup-plan-grid {
+        grid-template-columns: 1fr;
+      }
+      .signup-plan-card {
+        min-height: 98px;
+      }
+    }
 
     .ceo-pass-banner {
       display: none;
@@ -11398,6 +11471,24 @@
           <label for="signupInviteCode">CEO issued invite code (optional)</label>
           <input id="signupInviteCode" type="text" maxlength="28" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
         </div>
+        <div class="field signup-only" id="signupPlanField">
+          <label>Choose your pass</label>
+          <div class="signup-plan-grid" id="signupPlanGrid">
+            <button type="button" class="signup-plan-card active" data-signup-tier="standard" aria-pressed="true">
+              <span class="plan-name">Standard</span>
+              <span class="plan-price">$5.00 / month</span>
+              <span class="plan-copy">Up to 5 vouchers monthly</span>
+            </button>
+            <button type="button" class="signup-plan-card" data-signup-tier="vip" aria-pressed="false">
+              <span class="plan-name">VIP</span>
+              <span class="plan-price">$10.00 / month</span>
+              <span class="plan-copy">Up to 10 vouchers + VIP drops</span>
+            </button>
+          </div>
+          <p class="small" style="margin-top:6px;text-align:left;">
+            After account creation, you'll complete secure 21+ ID verification before billing starts.
+          </p>
+        </div>
         <div class="error" id="authError"></div>
         <button type="button" class="btn btn-primary" id="authSubmitBtn">
           Continue
@@ -11413,6 +11504,9 @@
           <div class="modal-title">Confirm your details</div>
           <p style="font-size:13px;color:#e2e8f0;line-height:1.4;">
             By continuing, you confirm that all information you provide is accurate and truthful. You certify that you are 21 years of age or older, and you understand that a matching ID is required by the venue. Providing false information may result in account removal.
+          </p>
+          <p id="signupConfirmTierNote" style="font-size:12px;color:#94a3b8;line-height:1.45;margin-top:8px;">
+            Selected pass: Standard. Next step is secure ID verification.
           </p>
           <div class="modal-actions" style="margin-top:12px;">
             <button type="button" class="btn btn-secondary" id="signupBackBtn">Back</button>
@@ -11473,6 +11567,23 @@
       <button type="button" class="btn btn-secondary back-btn" id="authBackBtn" style="margin-top:8px;display:block;margin-left:auto;margin-right:auto;max-width:240px;">
         Back to start
       </button>
+    </div>
+
+    <div id="ageVerifyScreen" class="screen">
+      <div class="app-title"><span>Age</span> verification 21+</div>
+      <div class="tagline">Before activation, confirm your age with a valid government-issued ID.</div>
+      <div class="age-verify-card">
+        <div class="age-verify-plan">Selected pass: <strong id="ageVerifyPlan">Standard</strong></div>
+        <div class="age-verify-status" id="ageVerifyStatus">Verification required.</div>
+        <p class="small" id="ageVerifyHint" style="text-align:left;">
+          This step is required before billing and voucher redemption can start.
+        </p>
+        <div class="payment-actions">
+          <button type="button" class="btn btn-primary" id="ageVerifyStartBtn">Verify my ID now</button>
+          <button type="button" class="btn btn-secondary" id="ageVerifyRefreshBtn">Check status</button>
+          <button type="button" class="btn btn-secondary" id="ageVerifyLogoutBtn">Log out</button>
+        </div>
+      </div>
     </div>
 
     <!-- MEMBERSHIP SELECTION SCREEN -->
@@ -12912,7 +13023,7 @@
         <p>Our goal is simple: support local nightlife, improve guest experience, and give venues practical tools that keep lines moving and service efficient. We build with a privacy-first mindset and continue improving the app through live feedback from members, venue staff, and local partners.</p>
 
         <h4 style="margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Age requirement</h4>
-        <p>You must be 21 years of age or older to redeem alcoholic beverage vouchers in Fort Collins, Colorado. Venues may require a valid government-issued photo ID at redemption.</p>
+        <p>You must be 21 years of age or older to redeem alcoholic beverage vouchers in Fort Collins, Colorado. FoCo After Dark uses third-party ID verification during signup before membership activation. Venues may still require a valid government-issued photo ID at redemption.</p>
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Responsible service</h4>
         <p>Vouchers are subject to venue policies and Colorado law. Do not serve alcohol to persons who are visibly intoxicated. Venue staff retain the right to refuse service in accordance with state and local regulations.</p>
@@ -12962,6 +13073,7 @@
           <h5 style="margin-top:10px;color:var(--accent-cyan);font-size:13px;">Information we collect</h5>
           <ul style="margin-left:18px;color:#cbd5f5;">
             <li><strong>Account data:</strong> name, email, birthdate (to verify legal age), and profile details you provide.</li>
+            <li><strong>Age verification data:</strong> verification status and completion metadata from our identity verification provider. We do not store full ID images in app storage.</li>
             <li><strong>Authentication & identifiers:</strong> Firebase UID, device identifiers, and Pass ID for your membership.</li>
             <li><strong>Redemption & audit logs:</strong> voucher codes generated, redemption attempts, timestamps, venue identifiers, and staff verification events to support operations and fraud prevention.</li>
             <li><strong>Payment info:</strong> we use third-party processors for payments and do not store full card numbers in-app; only masked card references or tokens may be kept for billing convenience.</li>
@@ -14033,6 +14145,7 @@
     const screens = {
       landing: document.getElementById("landingScreen"),
       auth: document.getElementById("authScreen"),
+      ageVerify: document.getElementById("ageVerifyScreen"),
       maintenance: document.getElementById("maintenanceScreen"),
       membership: document.getElementById("membershipScreen"),
       payment: document.getElementById("paymentScreen"),
@@ -14118,6 +14231,38 @@
         currentMembershipTier === "standard_pending"
       );
     }
+    function isAgeVerificationExemptClient(profile = memberProfile, user = firebaseAuth?.currentUser) {
+      const email = String(profile?.email || user?.email || "").toLowerCase();
+      const override = String(profile?.membershipOverride || profile?.override || "").toUpperCase();
+      return Boolean(
+        profile?.ceo
+        || isCeoAccount
+        || isBetaAccount
+        || profile?.freeMembership
+        || override === "CEO_FREE"
+        || email === "ceo@gmail.com"
+        || email.includes("beta@")
+      );
+    }
+    function ageVerificationStatusKey(profile = memberProfile) {
+      return String(profile?.ageVerificationStatus || "").toLowerCase();
+    }
+    function isAgeVerifiedClient(profile = memberProfile) {
+      return profile?.ageVerified21 === true || ageVerificationStatusKey(profile) === "verified";
+    }
+    function requiresAgeVerificationClient(profile = memberProfile, user = firebaseAuth?.currentUser) {
+      if (!profile || !user) return false;
+      if (isAgeVerificationExemptClient(profile, user)) return false;
+      const status = ageVerificationStatusKey(profile);
+      const explicitRequired = profile?.ageVerificationRequired === true
+        || status === "required"
+        || status === "processing"
+        || status === "requires_input"
+        || status === "underage"
+        || status === "canceled";
+      if (!explicitRequired) return false;
+      return !isAgeVerifiedClient(profile);
+    }
 
     function withTimeout(promise, ms = 3500) {
       let timer;
@@ -14169,6 +14314,15 @@
       if (maintenanceModeActive && name !== "maintenance" && !canBypassMaintenance()) {
         name = "maintenance";
       }
+      if (
+        name !== "landing"
+        && name !== "auth"
+        && name !== "maintenance"
+        && name !== "ageVerify"
+        && requiresAgeVerificationClient(memberProfile, firebaseAuth?.currentUser)
+      ) {
+        name = "ageVerify";
+      }
       if (name === "pass" && requiresMembershipSelection()) {
         name = "membership";
       }
@@ -14197,6 +14351,10 @@
         applyRememberedEmailToForm();
         resetAuthSubmitState();
         refreshAuthNotificationStatusLine();
+      }
+      if (name === "ageVerify") {
+        renderAgeVerificationState();
+        refreshAgeVerificationStatus(false);
       }
       if (name === "staffLogin") {
         applyStaffRememberedLogin();
@@ -14348,6 +14506,8 @@
     const birthDateInput = document.getElementById("birthDate");
     const genderSelect = document.getElementById("genderSelect");
     const signupInviteCodeInput = document.getElementById("signupInviteCode");
+    const signupPlanGrid = document.getElementById("signupPlanGrid");
+    const signupConfirmTierNote = document.getElementById("signupConfirmTierNote");
     const signupOnlyFields = document.querySelectorAll(".signup-only");
     const signupConfirmModal = document.getElementById("signupConfirmModal");
     const signupConfirmBtn = document.getElementById("signupConfirmBtn");
@@ -14366,6 +14526,12 @@
     const resetPasswordCancel = document.getElementById("resetPasswordCancel");
     const resetPasswordSuccess = document.getElementById("resetPasswordSuccess");
     const resetPasswordReturn = document.getElementById("resetPasswordReturn");
+    const ageVerifyPlan = document.getElementById("ageVerifyPlan");
+    const ageVerifyStatus = document.getElementById("ageVerifyStatus");
+    const ageVerifyHint = document.getElementById("ageVerifyHint");
+    const ageVerifyStartBtn = document.getElementById("ageVerifyStartBtn");
+    const ageVerifyRefreshBtn = document.getElementById("ageVerifyRefreshBtn");
+    const ageVerifyLogoutBtn = document.getElementById("ageVerifyLogoutBtn");
     const alertForm = document.getElementById("alertForm");
     const alertTitleInput = document.getElementById("alertTitle");
     const alertDetailInput = document.getElementById("alertDetail");
@@ -14405,11 +14571,11 @@
       const forgotWrap = forgotPasswordLink ? forgotPasswordLink.closest("p") : null;
       const rememberRow = rememberMe ? rememberMe.closest(".remember-row") : null;
       if (authMode === "signup") {
-        authModeText.textContent = "Create your account to get the Nightlife Pass.";
+        authModeText.textContent = "Create your account, pick your pass, then verify 21+ ID.";
         if (authModeSubline) authModeSubline.textContent = "You’ll get a digital Nightlife Pass you can show at bars to unlock perks.";
         authToggleText.innerHTML =
           'Already have an account? <span id="authToggleLink" class="linkish">Log in instead</span>';
-        authSubmitBtn.textContent = "Create Account and Get Pass";
+        authSubmitBtn.textContent = "Create Account and Verify ID";
         if (authEmailLabel) authEmailLabel.textContent = "Email";
         signupOnlyFields.forEach(el => {
           el.style.display = "block";
@@ -14447,8 +14613,35 @@
         authNotificationsStatus.textContent = "Recommended: enable notifications for live alerts and perk updates.";
       }
     }
+    function normalizeMembershipTierSelection(rawTier) {
+      return String(rawTier || "").toLowerCase() === "vip" ? "vip" : "standard";
+    }
+    function tierLabelForUi(tier) {
+      return normalizeMembershipTierSelection(tier) === "vip" ? "VIP" : "Standard";
+    }
+    function setSignupTierSelection(tier) {
+      signupSelectedTier = normalizeMembershipTierSelection(tier);
+      if (!signupPlanGrid) return;
+      signupPlanGrid.querySelectorAll("[data-signup-tier]").forEach((btn) => {
+        const isActive = normalizeMembershipTierSelection(btn.dataset.signupTier) === signupSelectedTier;
+        btn.classList.toggle("active", isActive);
+        btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
+      if (signupConfirmTierNote) {
+        signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupSelectedTier)}. Next step is secure ID verification.`;
+      }
+    }
     updateAuthModeText();
     refreshAuthNotificationStatusLine();
+    setSignupTierSelection(signupSelectedTier);
+    if (signupPlanGrid) {
+      signupPlanGrid.addEventListener("click", (event) => {
+        const btn = event.target?.closest?.("[data-signup-tier]");
+        if (!btn) return;
+        event.preventDefault();
+        setSignupTierSelection(btn.dataset.signupTier);
+      });
+    }
     if (signupInviteCodeInput) {
       signupInviteCodeInput.addEventListener("input", () => {
         const normalized = normalizeCeoFreeInviteCode(signupInviteCodeInput.value || "");
@@ -14502,7 +14695,126 @@
         // ignore
       }
     }
+    function getRequestedTier(profile = memberProfile) {
+      const raw = profile?.requestedTier || profile?.pendingTier?.toTier || signupSelectedTier || "standard";
+      return normalizeMembershipTierSelection(raw);
+    }
+    function renderAgeVerificationState(statusOverride = "") {
+      if (!ageVerifyStatus || !ageVerifyPlan) return;
+      const tier = getRequestedTier();
+      ageVerifyPlan.textContent = tierLabelForUi(tier);
+      const status = String(statusOverride || ageVerificationStatusKey(memberProfile) || "required").toLowerCase();
+      let statusText = "Verification required.";
+      let hintText = "This step is required before billing and voucher redemption can start.";
+      if (status === "processing") {
+        statusText = "Verification in progress.";
+        hintText = "Complete the ID check in Stripe Identity, then tap Check status.";
+      } else if (status === "requires_input") {
+        statusText = "More ID input required.";
+        hintText = "Open verification again and submit a clearer ID photo.";
+      } else if (status === "underage") {
+        statusText = "Not eligible: account must be 21+.";
+        hintText = "If this is incorrect, contact support for a manual review.";
+      } else if (status === "canceled") {
+        statusText = "Verification canceled.";
+        hintText = "Restart verification to continue with membership activation.";
+      } else if (status === "verified" || isAgeVerifiedClient(memberProfile)) {
+        statusText = "Age verified. Continue to payment.";
+        hintText = "Your age is confirmed. Finish membership activation.";
+      }
+      ageVerifyStatus.textContent = statusText;
+      if (ageVerifyHint) ageVerifyHint.textContent = hintText;
+      if (ageVerifyStartBtn) {
+        ageVerifyStartBtn.disabled = ageVerificationInFlight || status === "underage";
+        ageVerifyStartBtn.textContent = ageVerificationInFlight ? "Opening..." : "Verify my ID now";
+      }
+      if (ageVerifyRefreshBtn) ageVerifyRefreshBtn.disabled = ageVerificationInFlight;
+    }
+    async function refreshAgeVerificationStatus(forceSync = false) {
+      if (!functionsClient || !firebaseAuth.currentUser) return null;
+      try {
+        const fn = httpsCallable(functionsClient, "getAgeVerificationStatus");
+        const resp = await fn({ forceSync: !!forceSync });
+        const data = resp?.data || {};
+        const updates = {};
+        if (typeof data.status === "string") updates.ageVerificationStatus = data.status;
+        if (typeof data.sessionId === "string" && data.sessionId) updates.ageVerificationSessionId = data.sessionId;
+        if (typeof data.verified === "boolean") updates.ageVerified21 = data.verified;
+        if (Object.keys(updates).length) {
+          memberProfile = { ...(memberProfile || {}), ...updates };
+        }
+        renderAgeVerificationState();
+        if (
+          data?.verified === true
+          && currentScreenName === "ageVerify"
+          && onboardingMembershipFlow
+        ) {
+          const tier = getRequestedTier(memberProfile);
+          pendingMembershipTier = tier;
+          updatePaymentSummary(tier);
+          resetPaymentForm();
+          prepareStripePayment(tier);
+          showScreen("payment");
+        }
+        return data;
+      } catch (err) {
+        console.warn("refreshAgeVerificationStatus failed", err);
+        renderAgeVerificationState("processing");
+        return null;
+      }
+    }
+    async function startAgeVerificationFlow(opts = {}) {
+      if (ageVerificationInFlight) return false;
+      if (!functionsClient || !firebaseAuth.currentUser) {
+        showToast("Please log in again to continue verification.");
+        return false;
+      }
+      ageVerificationInFlight = true;
+      renderAgeVerificationState();
+      try {
+        const tier = normalizeMembershipTierSelection(opts.tier || getRequestedTier());
+        const returnUrl = `${window.location.origin}${window.location.pathname}`;
+        const fn = httpsCallable(functionsClient, "createAgeVerificationSession");
+        const resp = await fn({
+          tier,
+          birthDate: opts.birthDate || memberProfile?.birthDate || "",
+          returnUrl
+        });
+        const data = resp?.data || {};
+        if (data?.verified || data?.bypassed) {
+          memberProfile = {
+            ...(memberProfile || {}),
+            ageVerified21: true,
+            ageVerificationStatus: "verified",
+            requestedTier: tier
+          };
+          pendingMembershipTier = tier;
+          renderAgeVerificationState();
+          updatePaymentSummary(tier);
+          resetPaymentForm();
+          prepareStripePayment(tier);
+          showScreen("payment");
+          return true;
+        }
+        if (data?.url) {
+          window.location.assign(data.url);
+          return true;
+        }
+        showToast("Could not start verification. Try again.");
+        return false;
+      } catch (err) {
+        console.warn("startAgeVerificationFlow failed", err);
+        const msg = err?.message || "Could not start ID verification.";
+        showToast(msg, 3000);
+        return false;
+      } finally {
+        ageVerificationInFlight = false;
+        renderAgeVerificationState();
+      }
+    }
     let pendingSignupData = null;
+    let signupSelectedTier = "standard";
+    let ageVerificationInFlight = false;
     let currentMembershipTier = null;
     let ceoSession = false;
     let ceoPreviewTier = null;
@@ -14539,16 +14851,39 @@
           return;
         }
         hideSignupConfirmModal();
-      onboardingMembershipFlow = true;
-      forceMembershipScreen = true;
-      showScreen("membership");
-      try {
-        await completeSignup(pendingSignupData);
-      } catch (err) {
-        console.error("Signup confirmation failed:", err);
-      }
-    });
-  }
+        onboardingMembershipFlow = true;
+        forceMembershipScreen = true;
+        try {
+          await completeSignup(pendingSignupData);
+        } catch (err) {
+          console.error("Signup confirmation failed:", err);
+        }
+      });
+    }
+    if (ageVerifyStartBtn) {
+      ageVerifyStartBtn.addEventListener("click", async () => {
+        const tier = getRequestedTier();
+        await startAgeVerificationFlow({ tier });
+      });
+    }
+    if (ageVerifyRefreshBtn) {
+      ageVerifyRefreshBtn.addEventListener("click", async () => {
+        await refreshAgeVerificationStatus(true);
+        if (isAgeVerifiedClient(memberProfile)) {
+          const tier = getRequestedTier();
+          pendingMembershipTier = tier;
+          updatePaymentSummary(tier);
+          resetPaymentForm();
+          prepareStripePayment(tier);
+          showScreen("payment");
+        }
+      });
+    }
+    if (ageVerifyLogoutBtn) {
+      ageVerifyLogoutBtn.addEventListener("click", async () => {
+        await signOutToLanding();
+      });
+    }
   if (forgotPasswordLink) {
     const openForgotModal = () => showForgotPasswordModal();
     forgotPasswordLink.addEventListener("click", openForgotModal);
@@ -15010,6 +15345,7 @@
         }
         birthDateISO = birthDate.toISOString();
         fullName = `${firstName} ${lastName}`;
+        const signupTier = normalizeMembershipTierSelection(signupSelectedTier);
         pendingSignupData = {
           email,
           password,
@@ -15017,8 +15353,12 @@
           birthDateISO,
           gender: genderValue,
           username: usernameAvailability.username || usernameCheck.value,
-          ceoFreeInviteCode: inviteCode || ""
+          ceoFreeInviteCode: inviteCode || "",
+          tier: signupTier
         };
+        if (signupConfirmTierNote) {
+          signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupTier)}. Next step is secure ID verification.`;
+        }
         showSignupConfirmModal();
         return;
       }
@@ -15157,12 +15497,14 @@
         birthDateISO,
         gender,
         username,
-        ceoFreeInviteCode
+        ceoFreeInviteCode,
+        tier
       } = data || {};
       if (!email || !password) {
         authError.textContent = "Missing required information. Please try again.";
         return;
       }
+      const requestedTier = normalizeMembershipTierSelection(tier || "standard");
       let signupAppliedFreeInvite = false;
       let createdUser = null;
       try {
@@ -15180,7 +15522,11 @@
           if (birthDateISO) profilePayload.birthDate = birthDateISO;
           if (fullName) profilePayload.legalName = fullName;
           if (gender) profilePayload.gender = gender;
-          profilePayload.onboardingEligible = true;
+          profilePayload.requestedTier = requestedTier;
+          profilePayload.ageVerificationRequired = true;
+          profilePayload.ageVerificationStatus = "required";
+          profilePayload.ageVerified21 = false;
+          profilePayload.onboardingEligible = false;
           profilePayload.onboardingComplete = false;
           let finalizedUsername = "";
           if (username && email) {
@@ -15211,11 +15557,11 @@
               localStorage.setItem(`memberMeta_${cred.user.uid}`, JSON.stringify(profilePayload));
             }
           }
-      if (ceoFreeInviteCode) {
-        const inviteResult = await claimCeoFreeSignupCodeCloud(ceoFreeInviteCode);
-        if (inviteResult.ok && (inviteResult.applied || inviteResult.alreadyFree)) {
-          signupAppliedFreeInvite = true;
-          onboardingMembershipFlow = false;
+	      if (ceoFreeInviteCode) {
+	        const inviteResult = await claimCeoFreeSignupCodeCloud(ceoFreeInviteCode);
+	        if (inviteResult.ok && (inviteResult.applied || inviteResult.alreadyFree)) {
+	          signupAppliedFreeInvite = true;
+	          onboardingMembershipFlow = false;
           forceMembershipScreen = false;
           clearPendingMembershipFlagForUser(cred.user.uid);
           showToast("CEO ISSUED membership activated.");
@@ -15224,10 +15570,11 @@
           showToast(inviteMessage, 3200);
         }
       }
-      if (onboardingMembershipFlow && !signupAppliedFreeInvite) {
-        localStorage.setItem(PENDING_MEMBERSHIP_STORAGE_KEY, cred.user.uid);
-      }
-      await handleAuthenticatedUser(cred.user);
+	      if (onboardingMembershipFlow && !signupAppliedFreeInvite) {
+	        localStorage.setItem(PENDING_MEMBERSHIP_STORAGE_KEY, cred.user.uid);
+          pendingMembershipTier = requestedTier;
+	      }
+	      await handleAuthenticatedUser(cred.user);
       if (!finalizedUsername && username) {
         const retry = await reserveUsernameCloud(username);
         if (retry.ok) {
@@ -15238,31 +15585,38 @@
       }
       forceShowLogin = false;
       clearLoginHash();
-      if (signupAppliedFreeInvite) {
-        if (memberProfile) {
-          memberProfile = {
+	      if (signupAppliedFreeInvite) {
+	        if (memberProfile) {
+	          memberProfile = {
             ...memberProfile,
             freeMembership: true,
             membershipOverride: "CEO_FREE",
             tier: "free",
             validUntil: "never"
           };
-        }
-        applyMembershipToPass("free");
-        showScreen("pass");
-      } else if (onboardingMembershipFlow) {
-        showScreen("membership");
-      }
-      showAddHomeGate();
-    }
-  } catch (err) {
+	        }
+	        applyMembershipToPass("free");
+	        showScreen("pass");
+	      } else if (onboardingMembershipFlow) {
+          const started = await startAgeVerificationFlow({
+            tier: requestedTier,
+            birthDate: birthDateISO || memberProfile?.birthDate || ""
+          });
+          if (!started) {
+            showScreen("ageVerify");
+          }
+	      }
+	      showAddHomeGate();
+	    }
+	  } catch (err) {
         const msg = err?.message || formatAuthError(err);
         authError.textContent = msg;
         if (typeof showToast === "function") showToast(msg, 2600);
-        onboardingMembershipFlow = false;
-        forceMembershipScreen = false;
-        showScreen("auth");
-      } finally {
+	        onboardingMembershipFlow = false;
+	        forceMembershipScreen = false;
+          pendingMembershipTier = null;
+	        showScreen("auth");
+	      } finally {
         pendingSignupData = null;
       }
     }
@@ -15594,6 +15948,16 @@
         return;
       }
 
+      if (requiresAgeVerificationClient(memberProfile, user)) {
+        onboardingMembershipFlow = true;
+        forceMembershipScreen = false;
+        pendingMembershipTier = getRequestedTier(memberProfile);
+        renderAgeVerificationState();
+        showScreen("ageVerify");
+        clearPassLoading();
+        return;
+      }
+
       const pendingUid = localStorage.getItem(PENDING_MEMBERSHIP_STORAGE_KEY);
       let storedTier = memberProfile?.tier || (allowLocalCache() && user.uid ? localStorage.getItem(`membership_${user.uid}`) : null);
       if (memberProfile?.freeMembership) storedTier = "free";
@@ -15602,12 +15966,17 @@
       }
       const needsMembership = onboardingMembershipFlow || !storedTier;
       if (needsMembership) {
-        forceMembershipScreen = true;
+        forceMembershipScreen = false;
+        const requestedTier = getRequestedTier(memberProfile);
+        pendingMembershipTier = requestedTier;
         if (allowLocalCache() && user.uid) {
           localStorage.removeItem(`membership_${user.uid}`);
         }
         clearPassLoading();
-        showScreen("membership");
+        updatePaymentSummary(requestedTier);
+        resetPaymentForm();
+        prepareStripePayment(requestedTier);
+        showScreen("payment");
         return;
       }
 
@@ -18712,11 +19081,23 @@
             updatePointsUI();
             renderVipDealForMember();
             renderPassIdentity(firebaseAuth.currentUser);
-            updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
-            updateExpiryDisplay();
-            updateVoucherBalanceUI();
-            updateLastCheckinUI();
-          } else if (guardWriteAction("seedMemberDoc", "App is locked (read-only).", { silent: true })) {
+	            updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
+	            updateExpiryDisplay();
+	            updateVoucherBalanceUI();
+	            updateLastCheckinUI();
+              if (currentScreenName === "ageVerify") {
+                if (!requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
+                  const requestedTier = getRequestedTier(memberProfile);
+                  pendingMembershipTier = requestedTier;
+                  updatePaymentSummary(requestedTier);
+                  resetPaymentForm();
+                  prepareStripePayment(requestedTier);
+                  showScreen("payment");
+                } else {
+                  renderAgeVerificationState();
+                }
+              }
+	          } else if (guardWriteAction("seedMemberDoc", "App is locked (read-only).", { silent: true })) {
             const seed = {
               memberSince: new Date().toISOString(),
               updatedAt: serverTimestamp()
@@ -20497,7 +20878,11 @@ let onboardingIndex = 0;
               memberSince: memberProfile.memberSince,
               legalName: memberProfile.legalName || "",
               username: memberProfile.username || "",
-              onboardingEligible: true,
+              requestedTier: "standard",
+              ageVerificationRequired: true,
+              ageVerificationStatus: "required",
+              ageVerified21: false,
+              onboardingEligible: false,
               onboardingComplete: false,
               updatedAt: serverTimestamp()
             };
@@ -20753,6 +21138,11 @@ let onboardingIndex = 0;
         paymentError.textContent = "Select a membership first.";
         return;
       }
+      if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
+        paymentError.textContent = "Complete 21+ ID verification before billing.";
+        showScreen("ageVerify");
+        return;
+      }
       if (!stripeInstance || !stripeElements || !stripeClientSecret) {
         paymentError.textContent = "Payment not ready. Please tap your plan again or wait a moment.";
         return;
@@ -20997,6 +21387,11 @@ let onboardingIndex = 0;
       if (!firebaseAuth.currentUser && !betaPassMode) {
         paymentError.textContent = "Please sign in first.";
         showScreen("auth");
+        return;
+      }
+      if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
+        paymentError.textContent = "Complete 21+ ID verification before billing.";
+        showScreen("ageVerify");
         return;
       }
       if (isStripeExcludedMember()) {
@@ -21310,6 +21705,11 @@ let onboardingIndex = 0;
       }
       if (!firebaseAuth.currentUser) {
         showScreen("auth");
+        return false;
+      }
+      if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
+        showToast("Complete 21+ ID verification first.");
+        showScreen("ageVerify");
         return false;
       }
       if (isStripeExcludedMember()) {
@@ -30873,9 +31273,10 @@ let onboardingIndex = 0;
     }
     if (paymentBackBtn) {
       paymentBackBtn.addEventListener("click", () => {
-        pendingMembershipTier = null;
+        const wasOnboarding = onboardingMembershipFlow;
+        if (!wasOnboarding) pendingMembershipTier = null;
         resetPaymentForm();
-        showScreen("membership");
+        showScreen(wasOnboarding ? "ageVerify" : "membership");
       });
     }
     if (ceoRedemptionBtn) {
