@@ -14394,7 +14394,7 @@
       }
       if (name === "ageVerify") {
         renderAgeVerificationState();
-        refreshAgeVerificationStatus(false);
+        refreshAgeVerificationStatus(false, { autoContinue: false, showStatusToast: false });
       }
       if (name === "staffLogin") {
         applyStaffRememberedLogin();
@@ -14804,7 +14804,18 @@
       }
       if (ageVerifyRefreshBtn) ageVerifyRefreshBtn.disabled = ageVerificationInFlight;
     }
-    async function refreshAgeVerificationStatus(forceSync = false) {
+    function ageVerificationStatusToast(statusRaw) {
+      const status = String(statusRaw || "").toLowerCase();
+      if (status === "verified") return "ID verified. Moving to billing.";
+      if (status === "processing") return "ID check is still processing.";
+      if (status === "requires_input") return "ID check needs more input.";
+      if (status === "canceled") return "ID verification was canceled.";
+      if (status === "underage") return "Account must be 21+.";
+      return "Checking verification status…";
+    }
+    async function refreshAgeVerificationStatus(forceSync = false, options = {}) {
+      const autoContinue = options?.autoContinue === true;
+      const showStatusToast = options?.showStatusToast === true;
       if (!functionsClient || !firebaseAuth.currentUser) return null;
       try {
         const fn = httpsCallable(functionsClient, "getAgeVerificationStatus");
@@ -14818,10 +14829,14 @@
           memberProfile = { ...(memberProfile || {}), ...updates };
         }
         renderAgeVerificationState();
+        if (showStatusToast) {
+          showToast(ageVerificationStatusToast(data?.status), 1800);
+        }
         if (
           data?.verified === true
           && currentScreenName === "ageVerify"
           && onboardingMembershipFlow
+          && autoContinue
           && !suppressAgeVerifyAutoContinue
         ) {
           continuePostAgeVerification(getRequestedTier(memberProfile));
@@ -14935,10 +14950,7 @@
     if (ageVerifyRefreshBtn) {
       ageVerifyRefreshBtn.addEventListener("click", async () => {
         suppressAgeVerifyAutoContinue = false;
-        await refreshAgeVerificationStatus(true);
-        if (isAgeVerifiedClient(memberProfile)) {
-          continuePostAgeVerification(getRequestedTier());
-        }
+        await refreshAgeVerificationStatus(true, { autoContinue: true, showStatusToast: true });
       });
     }
     if (ageVerifyLogoutBtn) {
