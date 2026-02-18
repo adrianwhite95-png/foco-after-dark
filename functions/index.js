@@ -3947,15 +3947,50 @@ async function ensureStripeCustomer({ stripe, memberRef, memberDocData, uid, ema
   return customer.id;
 }
 
-function subscriptionPriceDataForTier(tier) {
+const stripeMembershipProductIdCache = new Map();
+
+async function getOrCreateMembershipProductId(stripe, tier) {
   const key = normalizeTierKey(tier);
+  if (stripeMembershipProductIdCache.has(key)) {
+    return stripeMembershipProductIdCache.get(key);
+  }
+  const metadataApp = "foco-after-dark";
+  const metadataTier = key;
+  let productId = "";
+  try {
+    const list = await stripe.products.list({ active: true, limit: 100 });
+    const existing = (list?.data || []).find((p) =>
+      String(p?.metadata?.app || "").toLowerCase() === metadataApp
+      && normalizeTierKey(p?.metadata?.membershipTier || "") === metadataTier
+    );
+    if (existing?.id) {
+      productId = existing.id;
+    }
+  } catch (err) {
+    console.warn("getOrCreateMembershipProductId list failed", err?.message || err);
+  }
+  if (!productId) {
+    const created = await stripe.products.create({
+      name: `FoCo After Dark ${membershipTierLabel(key)}`,
+      metadata: {
+        app: metadataApp,
+        membershipTier: metadataTier,
+      },
+    });
+    productId = created.id;
+  }
+  stripeMembershipProductIdCache.set(key, productId);
+  return productId;
+}
+
+async function subscriptionPriceDataForTier(stripe, tier) {
+  const key = normalizeTierKey(tier);
+  const productId = await getOrCreateMembershipProductId(stripe, key);
   return {
     currency: "usd",
     unit_amount: priceForTier(key),
     recurring: { interval: "month" },
-    product_data: {
-      name: `FoCo After Dark ${membershipTierLabel(key)}`,
-    },
+    product: productId,
   };
 }
 
@@ -3992,6 +4027,7 @@ function isStripePromoError(err) {
 
 async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, uid, email, tier, token, discount, promoTag }) {
   const normalizedTier = normalizeTierKey(tier);
+  const tierPriceData = await subscriptionPriceDataForTier(stripe, normalizedTier);
   const customerId = await ensureStripeCustomer({
     stripe,
     memberRef,
@@ -4016,7 +4052,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
         metadata: { uid, tier: normalizedTier, ...promoMeta },
         items: [{
           id: currentItem.id,
-          price_data: subscriptionPriceDataForTier(normalizedTier),
+          price_data: tierPriceData,
         }],
         expand: ["latest_invoice.payment_intent", "items.data.price"],
       });
@@ -4029,7 +4065,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
   } else {
     const createPayload = {
       customer: customerId,
-      items: [{ price_data: subscriptionPriceDataForTier(normalizedTier) }],
+      items: [{ price_data: tierPriceData }],
       payment_behavior: "default_incomplete",
       payment_settings: { save_default_payment_method: "on_subscription" },
       metadata: { uid, tier: normalizedTier, ...promoMeta },
@@ -4510,6 +4546,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
 
   let subscription = await retrieveStripeSubscription(stripe, profile?.stripeSubscriptionId);
   const hasActiveSubscription = subscription && !["canceled", "incomplete_expired"].includes(subscription.status);
+  const tierPriceData = await subscriptionPriceDataForTier(stripe, tier);
   if (hasActiveSubscription) {
     const currentTier = normalizeTierKey(subscription.metadata?.tier || profile?.tier || tier);
     const sameTierActive = currentTier === tier && subscription.status === "active" && subscription.cancel_at_period_end !== true;
@@ -4541,7 +4578,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
         metadata: { uid, tier, ...promoMeta },
         items: [{
           id: currentItem.id,
-          price_data: subscriptionPriceDataForTier(tier),
+          price_data: tierPriceData,
         }],
         expand: ["latest_invoice.payment_intent", "items.data.price"],
       });
@@ -4550,7 +4587,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     subscription = await stripe.subscriptions.create({
       customer: customerId,
       default_payment_method: defaultPm,
-      items: [{ price_data: subscriptionPriceDataForTier(tier) }],
+      items: [{ price_data: tierPriceData }],
       payment_behavior: "default_incomplete",
       payment_settings: { save_default_payment_method: "on_subscription" },
       metadata: { uid, tier, ...promoMeta },
