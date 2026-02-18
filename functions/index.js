@@ -158,6 +158,43 @@ async function sendReportEmail(subject, text, opts = {}) {
   }
 }
 
+async function queueMembershipConfirmationEmail({
+  to = "",
+  tier = "standard",
+  trialDays = 0,
+  nextRenewalIso = "",
+}) {
+  const email = String(to || "").trim().toLowerCase();
+  if (!email || !email.includes("@")) return;
+  const tierLabel = membershipTierLabel(normalizeTierKey(tier));
+  const renewalText = nextRenewalIso ? new Date(nextRenewalIso).toLocaleDateString("en-US") : "your renewal date";
+  const trialLine = trialDays > 0
+    ? `Your first ${trialDays} days are free. Billing starts after ${renewalText}.`
+    : `Your membership is active. Billing renews on ${renewalText}.`;
+  const subject = `FoCo After Dark • ${tierLabel} membership active`;
+  const text = [
+    `Your FoCo After Dark ${tierLabel} membership is active.`,
+    trialLine,
+    "",
+    "If you did not authorize this, contact support immediately."
+  ].join("\n");
+  const html = `<p>Your FoCo After Dark <strong>${tierLabel}</strong> membership is active.</p><p>${trialLine}</p><p>If you did not authorize this, contact support immediately.</p>`;
+  try {
+    await db.collection("mail").add({
+      to: email,
+      message: { subject, text, html },
+      meta: {
+        type: "membership_confirmation",
+        tier: normalizeTierKey(tier),
+        trialDays: Number(trialDays || 0),
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    console.warn("queueMembershipConfirmationEmail failed", err?.message || err);
+  }
+}
+
 const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 function generateCode(len = 6) {
   const bytes = crypto.randomBytes(len);
@@ -4128,6 +4165,37 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
       promoCodeInput,
     });
 
+    if (promoContext.promoTag === "launch30") {
+      const customerId = await ensureStripeCustomer({
+        stripe,
+        memberRef,
+        memberDocData,
+        uid,
+        email,
+        token: context.auth.token,
+      });
+      const setupIntent = await stripe.setupIntents.create({
+        customer: customerId,
+        payment_method_types: ["card"],
+        usage: "off_session",
+        metadata: { uid, tier, promo: "launch30", flow: "membership_setup" },
+      });
+      await memberRef.set({
+        requestedTier: tier,
+        stripeCustomerId: customerId,
+        lastStripeEvent: "membership_setup_intent",
+        lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return {
+        publishableKey: publishable,
+        tier,
+        requiresCardSetup: true,
+        setupClientSecret: setupIntent.client_secret,
+        launchTrial: true,
+        trialDays: 30,
+      };
+    }
+
     const { subscription, paymentIntent } = await upsertMembershipSubscription({
       stripe,
       memberRef,
@@ -4141,11 +4209,13 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
     });
 
     if (!paymentIntent?.client_secret) {
+      const activePromoTag = String(subscription?.metadata?.promo || "").toLowerCase();
       return {
         publishableKey: publishable,
         subscriptionId: subscription?.id || null,
         tier,
         alreadyActive: true,
+        trialDays: activePromoTag === "launch30" ? 30 : 0,
       };
     }
     return {
@@ -4211,6 +4281,12 @@ exports.confirmMembershipActivation = functions.runWith(stripeSecrets).https.onC
   if (promoTag === "launch30") {
     await finalizeLaunch30(uid, true);
   }
+  await queueMembershipConfirmationEmail({
+    to: context.auth.token?.email || memberDocData?.email || "",
+    tier,
+    trialDays: promoTag === "launch30" ? 30 : 0,
+    nextRenewalIso: currentPeriodEndIso,
+  });
   return { ok: true, tier, subscriptionId: updates.stripeSubscriptionId };
 });
 
@@ -4551,6 +4627,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     const currentTier = normalizeTierKey(subscription.metadata?.tier || profile?.tier || tier);
     const sameTierActive = currentTier === tier && subscription.status === "active" && subscription.cancel_at_period_end !== true;
     if (sameTierActive) {
+      const activePromoTag = String(subscription?.metadata?.promo || "").toLowerCase();
       const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
       await memberRef.set({
         tier,
@@ -4566,7 +4643,13 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
         lastStripeEvent: "chargeMembershipOnFile:already_active",
         lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
-      return { ok: true, tier, subscriptionId: subscription.id, alreadyActive: true };
+      return {
+        ok: true,
+        tier,
+        subscriptionId: subscription.id,
+        alreadyActive: true,
+        trialDays: activePromoTag === "launch30" ? 30 : 0,
+      };
     }
     const currentItem = subscription.items?.data?.[0];
     if (currentItem) {
@@ -4631,7 +4714,20 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
   if (promoContext.promoTag === "launch30") {
     await finalizeLaunch30(uid, true);
   }
-  return { ok: true, tier, subscriptionId: subscription?.id || null };
+  const launchTrial = promoContext.promoTag === "launch30";
+  await queueMembershipConfirmationEmail({
+    to: context.auth.token?.email || profile?.email || "",
+    tier,
+    trialDays: launchTrial ? 30 : 0,
+    nextRenewalIso: currentPeriodEndIso,
+  });
+  return {
+    ok: true,
+    tier,
+    subscriptionId: subscription?.id || null,
+    launchTrial,
+    trialDays: launchTrial ? 30 : 0,
+  };
 });
 
 exports.createVoucherPaymentIntent = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
