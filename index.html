@@ -11143,6 +11143,10 @@
             <option value="prefer_not_say">Prefer not to say</option>
           </select>
         </div>
+        <div class="field signup-only" id="signupInviteCodeField">
+          <label for="signupInviteCode">CEO issued invite code (optional)</label>
+          <input id="signupInviteCode" type="text" maxlength="28" placeholder="e.g. FREE-AB12CD34" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
+        </div>
         <div class="error" id="authError"></div>
         <button type="button" class="btn btn-primary" id="authSubmitBtn">
           Continue
@@ -11377,7 +11381,7 @@
                 <div class="member-folder-caption">Tap to open account controls</div>
               </div>
               <div class="member-folder-right">
-                <span class="member-experience-tag" id="profileExperienceTag">Standard mode</span>
+                <span class="member-experience-tag" id="profileExperienceTag">Standard</span>
                 <span class="member-folder-caret" aria-hidden="true">▾</span>
               </div>
             </summary>
@@ -11856,7 +11860,7 @@
         <form id="memberIdForm" style="margin-top:12px;" autocomplete="off" novalidate>
           <div class="field">
             <label for="memberIdInput">Quick member lookup</label>
-            <input id="memberIdInput" name="member_lookup" type="search" placeholder="Pass ID or username (e.g. XYZ789 or username)" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" />
+            <input id="memberIdInput" name="staff_member_lookup_code" type="text" placeholder="Pass ID (e.g. XYZ789)" autocomplete="new-password" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="search" data-form-type="other" data-lpignore="true" />
           </div>
           <div class="error" id="memberIdError"></div>
           <p class="support-success" id="memberIdResult">Member is active.</p>
@@ -12280,6 +12284,15 @@
                   <button type="button" class="btn btn-secondary" id="refreshFreeMembers">Refresh list</button>
                 </div>
                 <div id="freeMembersList" class="ceo-scroll"></div>
+              </div>
+              <div class="ceo-subpanel">
+                <div class="ceo-subpanel-header">
+                  <strong>CEO FREE signup codes</strong>
+                  <button type="button" class="btn btn-secondary" id="ceoFreeCodeGenerateBtn">Generate code</button>
+                </div>
+                <p class="small" style="color:#cbd5f5;margin-top:4px;">One-time codes for signup only. Each code can be used once.</p>
+                <p class="support-success" id="ceoFreeCodeStatus" style="display:none;">Code generated.</p>
+                <div id="ceoFreeCodeList" class="ceo-scroll"></div>
               </div>
             </section>
 
@@ -13795,6 +13808,7 @@
     const BG_KEY = "bgTheme";
     const ACHIEVEMENTS_KEY = "achievementsMap";
     const REMEMBER_EMAIL_KEY = "rememberedEmail";
+    const REMEMBER_LOGIN_KEY = "rememberedAuthLogin_v2";
     const STAFF_REMEMBER_LOGIN_KEY = "staffRememberedLogin";
     const BUILD_VERSION = "2025.12.15.1";
     try {
@@ -14078,6 +14092,7 @@
     const usernameInput = document.getElementById("username");
     const birthDateInput = document.getElementById("birthDate");
     const genderSelect = document.getElementById("genderSelect");
+    const signupInviteCodeInput = document.getElementById("signupInviteCode");
     const signupOnlyFields = document.querySelectorAll(".signup-only");
     const signupConfirmModal = document.getElementById("signupConfirmModal");
     const signupConfirmBtn = document.getElementById("signupConfirmBtn");
@@ -14169,6 +14184,14 @@
     }
     updateAuthModeText();
     refreshAuthNotificationStatusLine();
+    if (signupInviteCodeInput) {
+      signupInviteCodeInput.addEventListener("input", () => {
+        const normalized = normalizeCeoFreeInviteCode(signupInviteCodeInput.value || "");
+        if (signupInviteCodeInput.value !== normalized) {
+          signupInviteCodeInput.value = normalized;
+        }
+      });
+    }
 
     function showSignupConfirmModal() {
       if (signupConfirmModal) signupConfirmModal.classList.add("active");
@@ -14487,30 +14510,57 @@
       return age >= 21;
     }
 
+    function loadRememberedLogin() {
+      try {
+        const raw = localStorage.getItem(REMEMBER_LOGIN_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {
+            const identifier = String(parsed.identifier || "").trim();
+            const password = String(parsed.password || "");
+            if (identifier) {
+              return { identifier, password, remember: true };
+            }
+          }
+        }
+      } catch (_) {}
+      const legacyEmail = String(localStorage.getItem(REMEMBER_EMAIL_KEY) || "").trim();
+      if (legacyEmail) return { identifier: legacyEmail, password: "", remember: true };
+      return null;
+    }
     function loadRememberedEmail() {
-      const saved = localStorage.getItem(REMEMBER_EMAIL_KEY);
-      if (saved && authEmail) {
-        authEmail.value = saved;
-        if (rememberMe) rememberMe.checked = true;
-      }
+      const saved = loadRememberedLogin();
+      if (!saved || !authEmail) return;
+      authEmail.value = saved.identifier || "";
+      if (authPassword) authPassword.value = saved.password || "";
+      if (rememberMe) rememberMe.checked = true;
     }
     function applyRememberedEmailToForm() {
       if (!authEmail || !authPassword) return;
-      const saved = localStorage.getItem(REMEMBER_EMAIL_KEY);
-      if (saved) {
-        authEmail.value = saved;
+      const saved = loadRememberedLogin();
+      if (saved?.remember && saved.identifier) {
+        authEmail.value = saved.identifier;
+        authPassword.value = saved.password || "";
         if (rememberMe) rememberMe.checked = true;
       } else {
         authEmail.value = "";
+        authPassword.value = "";
         if (rememberMe) rememberMe.checked = false;
       }
-      authPassword.value = "";
     }
-    function updateRememberedEmail(email) {
-      if (email) {
-        localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+    function updateRememberedEmail(identifier, password = "") {
+      const safeIdentifier = String(identifier || "").trim();
+      if (safeIdentifier) {
+        localStorage.setItem(REMEMBER_EMAIL_KEY, safeIdentifier);
+        localStorage.setItem(REMEMBER_LOGIN_KEY, JSON.stringify({
+          identifier: safeIdentifier,
+          password: String(password || ""),
+          remember: true,
+          savedAt: new Date().toISOString()
+        }));
       } else {
         localStorage.removeItem(REMEMBER_EMAIL_KEY);
+        localStorage.removeItem(REMEMBER_LOGIN_KEY);
       }
     }
     function loadStaffRememberedLogin() {
@@ -14618,13 +14668,15 @@
         console.info("[auth] submit ignored: already in flight");
         return;
       }
-      let email = authEmail.value.trim();
+      const authIdentifierRaw = authEmail.value.trim();
+      let email = authIdentifierRaw;
       const password = authPassword.value.trim();
       const firstName = firstNameInput.value.trim();
       const lastName = lastNameInput.value.trim();
       const username = usernameInput?.value.trim();
       const birthDateValue = birthDateInput?.value;
       const genderValue = genderSelect?.value;
+      const signupInviteCodeRaw = signupInviteCodeInput?.value || "";
       let fullName = "";
       let birthDateISO = "";
 
@@ -14662,6 +14714,13 @@
           if (typeof showToast === "function") showToast(msg, 2200);
           return;
         }
+        const inviteCode = normalizeCeoFreeInviteCode(signupInviteCodeRaw);
+        if (signupInviteCodeRaw.trim() && inviteCode.length < 6) {
+          const msg = "Invite code format is invalid.";
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2200);
+          return;
+        }
         const birthDate = new Date(`${birthDateValue}T00:00:00`);
         if (!isTwentyOneOrOlder(birthDate)) {
           const msg = "FoCo After Dark is 21+. Please enter a valid 21+ birthdate.";
@@ -14671,7 +14730,15 @@
         }
         birthDateISO = birthDate.toISOString();
         fullName = `${firstName} ${lastName}`;
-        pendingSignupData = { email, password, fullName, birthDateISO, gender: genderValue, username: usernameCheck.value };
+        pendingSignupData = {
+          email,
+          password,
+          fullName,
+          birthDateISO,
+          gender: genderValue,
+          username: usernameCheck.value,
+          ceoFreeInviteCode: inviteCode || ""
+        };
         showSignupConfirmModal();
         return;
       }
@@ -14721,7 +14788,7 @@
             uid: cred?.user?.uid || null,
             email: cred?.user?.email || null
           });
-          updateRememberedEmail(remember ? email : null);
+          updateRememberedEmail(remember ? authIdentifierRaw : null, remember ? password : "");
           forceShowLogin = false;
           clearLoginHash();
         } catch (err) {
@@ -14760,7 +14827,7 @@
           isAnonymous: !!cred?.user?.isAnonymous,
           email: cred?.user?.email || null
         });
-        updateRememberedEmail(remember ? email : null);
+        updateRememberedEmail(remember ? authIdentifierRaw : null, remember ? password : "");
         forceShowLogin = false;
         clearLoginHash();
       } catch (err) {
@@ -14803,15 +14870,24 @@
     }, true);
 
     async function completeSignup(data) {
-      const { email, password, fullName, birthDateISO, gender, username } = data || {};
+      const {
+        email,
+        password,
+        fullName,
+        birthDateISO,
+        gender,
+        username,
+        ceoFreeInviteCode
+      } = data || {};
       if (!email || !password) {
         authError.textContent = "Missing required information. Please try again.";
         return;
       }
+      let signupAppliedFreeInvite = false;
       try {
         const remember = !!(rememberMe && rememberMe.checked);
         await ensureAuthPersistence();
-        updateRememberedEmail(remember ? email : null);
+        updateRememberedEmail(remember ? email : null, remember ? password : "");
         suppressLandingRedirectOnce = true;
         const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         if (cred?.user) {
@@ -14848,7 +14924,20 @@
               localStorage.setItem(`memberMeta_${cred.user.uid}`, JSON.stringify(profilePayload));
             }
           }
-      if (onboardingMembershipFlow) {
+      if (ceoFreeInviteCode) {
+        const inviteResult = await claimCeoFreeSignupCodeCloud(ceoFreeInviteCode);
+        if (inviteResult.ok && (inviteResult.applied || inviteResult.alreadyFree)) {
+          signupAppliedFreeInvite = true;
+          onboardingMembershipFlow = false;
+          forceMembershipScreen = false;
+          clearPendingMembershipFlagForUser(cred.user.uid);
+          showToast("CEO ISSUED membership activated.");
+        } else {
+          const inviteMessage = inviteResult?.message || "Invite code was not accepted.";
+          showToast(inviteMessage, 3200);
+        }
+      }
+      if (onboardingMembershipFlow && !signupAppliedFreeInvite) {
         localStorage.setItem(PENDING_MEMBERSHIP_STORAGE_KEY, cred.user.uid);
       }
       await handleAuthenticatedUser(cred.user);
@@ -14862,7 +14951,19 @@
       }
       forceShowLogin = false;
       clearLoginHash();
-      if (onboardingMembershipFlow) {
+      if (signupAppliedFreeInvite) {
+        if (memberProfile) {
+          memberProfile = {
+            ...memberProfile,
+            freeMembership: true,
+            membershipOverride: "CEO_FREE",
+            tier: "free",
+            validUntil: "never"
+          };
+        }
+        applyMembershipToPass("free");
+        showScreen("pass");
+      } else if (onboardingMembershipFlow) {
         showScreen("membership");
       }
       showAddHomeGate();
@@ -15809,6 +15910,9 @@
     const freeMemberStatus = document.getElementById("freeMemberStatus");
     const freeMembersList = document.getElementById("freeMembersList");
     const refreshFreeMembers = document.getElementById("refreshFreeMembers");
+    const ceoFreeCodeGenerateBtn = document.getElementById("ceoFreeCodeGenerateBtn");
+    const ceoFreeCodeStatus = document.getElementById("ceoFreeCodeStatus");
+    const ceoFreeCodeList = document.getElementById("ceoFreeCodeList");
     const ceoMessagesList = document.getElementById("ceoMessagesList");
     const ceoReplyForm = document.getElementById("ceoReplyForm");
     const ceoReplyVenue = document.getElementById("ceoReplyVenue");
@@ -19732,6 +19836,37 @@ let onboardingIndex = 0;
         return { ok: false, code: err?.code || "", message: err?.message || "Username reservation failed" };
       }
     }
+    function normalizeCeoFreeInviteCode(raw = "") {
+      return String(raw || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9-]/g, "")
+        .slice(0, 28);
+    }
+    async function claimCeoFreeSignupCodeCloud(code) {
+      const normalized = normalizeCeoFreeInviteCode(code);
+      if (!normalized || !functionsClient || !firebaseAuth?.currentUser) {
+        return { ok: false, applied: false, code: "unavailable", message: "Invite unavailable" };
+      }
+      try {
+        const fn = httpsCallable(functionsClient, "claimCeoFreeSignupCode");
+        const resp = await fn({ code: normalized });
+        const data = resp?.data || {};
+        return {
+          ok: true,
+          applied: data.applied === true,
+          alreadyFree: data.alreadyFree === true,
+          passCode: String(data.passCode || "").toUpperCase(),
+          code: normalized
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          applied: false,
+          code: err?.code || "failed",
+          message: err?.message || "Could not apply invite code"
+        };
+      }
+    }
     const BANNED_USER_WORDS = ["hate","kill","murder","bomb","terror","racist","nazi","kkk","lynch","violence","threat","harm","attack","shoot","slur"];
     function loadUsernameMap() {
       try {
@@ -21554,6 +21689,7 @@ let onboardingIndex = 0;
     };
     let autoCloseOutTimer = null;
     let freeMembersCache = [];
+    let ceoFreeSignupCodesCache = [];
     const localFreeMembers = () => {
       if (!allowLocalCache()) return [];
       try { return JSON.parse(localStorage.getItem(FREE_MEMBERS_KEY) || "[]"); } catch (err) { return []; }
@@ -23023,10 +23159,10 @@ let onboardingIndex = 0;
       }
       if (memberCommandSubline) {
         const mode = getProfileTierMode(currentMembershipTier || memberProfile?.tier || "standard");
-        let label = "Standard profile";
-        if (mode === "vip") label = "VIP profile";
-        else if (mode === "ceo_free") label = "Founder profile";
-        else if (mode === "ceo") label = "Creator profile";
+        let label = "Standard";
+        if (mode === "vip") label = "VIP";
+        else if (mode === "ceo_free") label = "CEO ISSUED";
+        else if (mode === "ceo") label = "Founder Mode";
         memberCommandSubline.textContent = `${label} · Live sync ${navigator.onLine ? "on" : "offline"}.`;
       }
       if (memberCommandNewPill) refreshMemberCommandNewBadge();
@@ -23173,6 +23309,128 @@ let onboardingIndex = 0;
       }
       freeMembersCache = list;
       renderFreeMembersList(list);
+    }
+
+    function showCeoFreeCodeStatus(message, success = true) {
+      if (!ceoFreeCodeStatus) return;
+      ceoFreeCodeStatus.textContent = message;
+      ceoFreeCodeStatus.style.color = success ? "#a7f3d0" : "#f97373";
+      ceoFreeCodeStatus.style.display = "block";
+      window.setTimeout(() => {
+        if (ceoFreeCodeStatus) ceoFreeCodeStatus.style.display = "none";
+      }, 4200);
+    }
+
+    function renderCeoFreeCodeList(list = []) {
+      if (!ceoFreeCodeList) return;
+      if (!list.length) {
+        ceoFreeCodeList.innerHTML = '<p style="color:#94a3b8;font-size:12px;">No active codes yet.</p>';
+        return;
+      }
+      ceoFreeCodeList.innerHTML = list.map((item) => {
+        const code = normalizeCeoFreeInviteCode(item.code || "");
+        const used = item.consumed === true;
+        const revoked = item.revoked === true;
+        const state = revoked ? "revoked" : (used ? "used" : "active");
+        const when = used
+          ? (item.consumedAt ? formatMST(item.consumedAt) : "used")
+          : (item.createdAt ? formatMST(item.createdAt) : "created");
+        const who = used && item.consumedPassCode
+          ? ` · ${item.consumedPassCode}`
+          : "";
+        return `
+          <div class="ceo-issued-item" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <div>
+              <div class="ceo-issued-code">${code}</div>
+              <div class="ceo-issued-meta">${state.toUpperCase()} · ${when}${who}</div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              ${!used && !revoked ? `<button class="btn btn-secondary" data-copy-ceo-free="${code}" style="padding:6px 10px;">Copy</button>` : ""}
+              ${!used && !revoked ? `<button class="btn btn-secondary" data-revoke-ceo-free="${code}" style="padding:6px 10px;">Revoke</button>` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      ceoFreeCodeList.querySelectorAll("[data-copy-ceo-free]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const code = btn.dataset.copyCeoFree || "";
+          try {
+            await navigator.clipboard.writeText(code);
+            showToast("Code copied.");
+          } catch (_) {
+            showToast(code);
+          }
+        });
+      });
+      ceoFreeCodeList.querySelectorAll("[data-revoke-ceo-free]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const code = btn.dataset.revokeCeoFree || "";
+          if (!code || !functionsClient) return;
+          btn.disabled = true;
+          try {
+            const fn = httpsCallable(functionsClient, "revokeCeoFreeSignupCode");
+            await fn({ code });
+            showCeoFreeCodeStatus(`Code ${code} revoked.`);
+            await refreshCeoFreeCodeList();
+          } catch (err) {
+            showCeoFreeCodeStatus(err?.message || "Could not revoke code.", false);
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+
+    async function refreshCeoFreeCodeList() {
+      if (!ceoFreeCodeList) return;
+      if (!isCeoAccount) {
+        ceoFreeCodeList.innerHTML = '<p style="color:#94a3b8;font-size:12px;">CEO only.</p>';
+        return;
+      }
+      ceoFreeCodeList.innerHTML = '<p style="color:#94a3b8;font-size:12px;">Loading…</p>';
+      if (!functionsClient) {
+        ceoFreeCodeList.innerHTML = '<p style="color:#94a3b8;font-size:12px;">Functions unavailable.</p>';
+        return;
+      }
+      try {
+        const fn = httpsCallable(functionsClient, "listCeoFreeSignupCodes");
+        const resp = await fn({ limit: 40 });
+        const list = Array.isArray(resp?.data?.codes) ? resp.data.codes : [];
+        ceoFreeSignupCodesCache = list;
+        renderCeoFreeCodeList(list);
+      } catch (err) {
+        console.warn("Failed to load CEO FREE codes", err);
+        ceoFreeCodeList.innerHTML = '<p style="color:#f97373;font-size:12px;">Could not load codes.</p>';
+      }
+    }
+
+    async function generateCeoFreeSignupCodeFromHq() {
+      if (!isCeoAccount) {
+        showCeoFreeCodeStatus("CEO access required.", false);
+        return;
+      }
+      if (!functionsClient) {
+        showCeoFreeCodeStatus("Functions unavailable right now.", false);
+        return;
+      }
+      if (ceoFreeCodeGenerateBtn) ceoFreeCodeGenerateBtn.disabled = true;
+      try {
+        const fn = httpsCallable(functionsClient, "createCeoFreeSignupCode");
+        const resp = await fn({});
+        const code = normalizeCeoFreeInviteCode(resp?.data?.code || "");
+        if (!code) {
+          showCeoFreeCodeStatus("Could not generate code.", false);
+          return;
+        }
+        try { await navigator.clipboard.writeText(code); } catch (_) {}
+        showCeoFreeCodeStatus(`Code ${code} generated${navigator.clipboard ? " and copied" : ""}.`);
+        await refreshCeoFreeCodeList();
+      } catch (err) {
+        showCeoFreeCodeStatus(err?.message || "Could not generate code.", false);
+      } finally {
+        if (ceoFreeCodeGenerateBtn) ceoFreeCodeGenerateBtn.disabled = false;
+      }
     }
 
     function showCeoTokenGrantFeedback(message, success = true) {
@@ -24018,24 +24276,75 @@ let onboardingIndex = 0;
       return null;
     }
     async function lookupMemberProfileByUsername(username) {
-      const normalized = String(username || "").trim().replace(/^@+/, "").toLowerCase();
-      if (!normalized) return null;
+      const raw = String(username || "").trim();
+      const normalized = raw.replace(/^@+/, "").trim();
+      const normalizedLower = normalized.toLowerCase();
+      if (!normalizedLower) return null;
       if (db) {
         try {
-          const q = query(collection(db, "members"), where("username", "==", normalized), limit(1));
-          const snapshot = await getDocs(q);
-          if (!snapshot.empty) {
-            const docSnap = snapshot.docs[0];
-            const data = docSnap.data() || {};
-            const passCode = String(data.passCode || data.passId || "").toUpperCase();
-            const profile = {
-              ...data,
-              passCode: passCode || data.passCode || "",
-            };
-            if (passCode) {
-              cachePassProfile(passCode, profile, docSnap.id);
+          const usernameCandidates = Array.from(new Set([
+            normalizedLower,
+            normalized,
+            `@${normalizedLower}`,
+            `@${normalized}`
+          ].filter(Boolean)));
+          for (const candidate of usernameCandidates) {
+            const q = query(collection(db, "members"), where("username", "==", candidate), limit(1));
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty) {
+              const docSnap = snapshot.docs[0];
+              const data = docSnap.data() || {};
+              const passCode = String(data.passCode || data.passId || "").toUpperCase();
+              const profile = {
+                ...data,
+                passCode: passCode || data.passCode || "",
+              };
+              if (passCode) {
+                cachePassProfile(passCode, profile, docSnap.id);
+              }
+              return { ...profile, _docId: docSnap.id };
             }
-            return { ...profile, _docId: docSnap.id };
+          }
+
+          // Fallback to canonical username directory and resolve through UID.
+          const usernameDoc = await getDoc(doc(db, "usernames", normalizedLower));
+          if (usernameDoc.exists()) {
+            const data = usernameDoc.data() || {};
+            const uid = String(data.uid || "").trim();
+            if (uid) {
+              const memberSnap = await getDoc(doc(db, "members", uid));
+              if (memberSnap.exists()) {
+                const memberData = memberSnap.data() || {};
+                const passCode = String(memberData.passCode || memberData.passId || data.passCode || "").toUpperCase();
+                const profile = {
+                  ...memberData,
+                  passCode: passCode || memberData.passCode || "",
+                };
+                if (passCode) cachePassProfile(passCode, profile, memberSnap.id);
+                return { ...profile, _docId: memberSnap.id };
+              }
+            }
+            const mappedPass = String(data.passCode || "").trim().toUpperCase();
+            if (mappedPass) {
+              const passProfile = await lookupMemberProfile(mappedPass, { requireDoc: true });
+              if (passProfile) return passProfile;
+            }
+            const mappedEmail = String(data.email || "").trim().toLowerCase();
+            if (mappedEmail) {
+              const byEmail = query(collection(db, "members"), where("email", "==", mappedEmail), limit(1));
+              const byEmailSnap = await getDocs(byEmail);
+              if (!byEmailSnap.empty) {
+                const docSnap = byEmailSnap.docs[0];
+                const memberData = docSnap.data() || {};
+                const passCode = String(memberData.passCode || memberData.passId || "").toUpperCase();
+                const profile = {
+                  ...memberData,
+                  passCode: passCode || memberData.passCode || "",
+                };
+                if (passCode) cachePassProfile(passCode, profile, docSnap.id);
+                return { ...profile, _docId: docSnap.id };
+              }
+            }
           }
         } catch (err) {
           console.warn("Failed to fetch member profile by username:", err);
@@ -24044,7 +24353,7 @@ let onboardingIndex = 0;
       const directory = loadMemberDirectory();
       const match = Object.entries(directory).find(([, value]) => {
         const candidate = String(value?.username || "").trim().replace(/^@+/, "").toLowerCase();
-        return candidate === normalized;
+        return candidate === normalizedLower;
       });
       if (match) {
         const [passCode, profile] = match;
@@ -25035,7 +25344,7 @@ let onboardingIndex = 0;
           venueName,
           generatedAt: new Date().toISOString(),
           range: "today",
-          totals: { verified: 0, pending: 0, uniqueMembers: 0, byPerk: {} },
+          totals: { submitted: 0, verified: 0, pending: 0, byPerk: {} },
           items: []
         };
       }
@@ -26260,40 +26569,15 @@ let onboardingIndex = 0;
       const verified = entries.filter(entry => entry.status === "verified");
       const pending = entries.filter(entry => entry.status === "pending");
       const denied = entries.filter(entry => entry.status === "denied" || entry.status === "canceled");
-      const valueMap = { drink: 3, shot: 1, cover: 8 };
-      const perkCounts = { drink: 0, shot: 0, cover: 0 };
-      const perkLabels = {
-        drink: PERK_TYPES?.drink?.label || "Drink perk",
-        shot: PERK_TYPES?.shot?.label || "Shot perk",
-        cover: PERK_TYPES?.cover?.label || "Guest entry perk"
-      };
+      const perkCounts = {};
       const hourBuckets = {};
       const nightlyBuckets = {};
       const memberRedemptionCounts = {};
       const venueCounts = {};
-      const tierValueTotals = { standard: 0, vip: 0 };
-      const tierRedeemCounts = { standard: 0, vip: 0 };
       verified.forEach(entry => {
-        const perkText = (entry.perk || "").toLowerCase();
-        let perkKey = entry.perkKey || "";
-        if (!perkKey) {
-          if (perkText.includes("line access")) {
-            perkKey = "cover";
-          } else if (perkText.includes("shot")) {
-            perkKey = "shot";
-          } else if (perkText.includes("drink")) {
-            perkKey = "drink";
-          }
-        }
-        if (!perkKey) perkKey = "drink";
-        if (perkCounts[perkKey] !== undefined) perkCounts[perkKey] += 1;
-        const passId = (entry.passId || "").toUpperCase();
-        const memberTier = directory[passId]?.tier || "standard";
-        const tierKey = memberTier.toLowerCase();
-        if (tierValueTotals[tierKey] !== undefined) {
-          tierValueTotals[tierKey] += valueMap[perkKey] || 3;
-          tierRedeemCounts[tierKey] += 1;
-        }
+        const perkLabel = String(entry.perk || entry.perkKey || "Perk").trim() || "Perk";
+        perkCounts[perkLabel] = (perkCounts[perkLabel] || 0) + 1;
+        const passId = (entry.passId || "").toUpperCase() || "UNKNOWN";
         if (!memberRedemptionCounts[passId]) memberRedemptionCounts[passId] = 0;
         memberRedemptionCounts[passId] += 1;
         const date = new Date(entry.timestamp);
@@ -26306,9 +26590,6 @@ let onboardingIndex = 0;
       });
       const returningMembers = Object.values(memberRedemptionCounts).filter(count => count > 1).length;
       const memberReturnRate = members.length ? Math.round((returningMembers / members.length) * 100) : 0;
-      const totalValue = Object.keys(perkCounts).reduce((sum, key) => sum + (perkCounts[key] * (valueMap[key] || 0)), 0);
-      const estRevenue = tierCounts.standard * 5.0 + tierCounts.vip * 10.0;
-      const roi = totalValue ? Math.round(((estRevenue - totalValue) / totalValue) * 100) : 0;
       const peakHours = Object.entries(hourBuckets)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
@@ -26317,8 +26598,6 @@ let onboardingIndex = 0;
         .sort((a, b) => new Date(b[0]) - new Date(a[0]))
         .slice(0, 5)
         .map(([dateKey, count]) => `${dateKey}: ${count}`);
-      const avgTabStandard = tierRedeemCounts.standard ? (tierValueTotals.standard / tierRedeemCounts.standard) : 0;
-      const avgTabVip = tierRedeemCounts.vip ? (tierValueTotals.vip / tierRedeemCounts.vip) : 0;
       const topVenues = Object.entries(venueCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
@@ -26344,13 +26623,10 @@ let onboardingIndex = 0;
         ],
         peakTimes: peakHours,
         nightlyTrends,
-        roi: `Estimated revenue $${estRevenue.toFixed(2)} vs perks cost $${totalValue.toFixed(2)} (${roi}% ROI)`,
         memberReturnRate,
-        avgTabs: {
-          standard: avgTabStandard.toFixed(2),
-          vip: avgTabVip.toFixed(2)
-        },
-        perkPopularity: Object.entries(perkCounts).map(([key, count]) => `${perkLabels[key] || key}: ${count}`),
+        perkPopularity: Object.entries(perkCounts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([key, count]) => `${key}: ${count}`),
         topVenues,
         topMembers,
         tokenSummary: {
@@ -26399,10 +26675,6 @@ let onboardingIndex = 0;
             <ul>${(snapshot.nightlyTrends.length ? snapshot.nightlyTrends : ["No redemptions yet."]).map(item => `<li>${item}</li>`).join("")}</ul>
           </div>
           <div class="analytics-section">
-            <h5>ROI reports</h5>
-            <ul><li>${snapshot.roi}</li></ul>
-          </div>
-          <div class="analytics-section">
             <h5>Verification funnel</h5>
             <ul>
               <li>Verified: ${snapshot.verifiedCount}</li>
@@ -26413,13 +26685,6 @@ let onboardingIndex = 0;
           <div class="analytics-section">
             <h5>Member return rate</h5>
             <ul><li>${snapshot.memberReturnRate}% of members have redeemed more than once</li></ul>
-          </div>
-          <div class="analytics-section">
-            <h5>Average tab size comparison</h5>
-            <ul>
-              <li>Standard: $${snapshot.avgTabs.standard}</li>
-              <li>VIP: $${snapshot.avgTabs.vip}</li>
-            </ul>
           </div>
           <div class="analytics-section">
             <h5>Breakdown of perk popularity</h5>
@@ -26849,15 +27114,6 @@ let onboardingIndex = 0;
         const label = e.perk || e.perkKey || "Perk";
         byPerk[label] = (byPerk[label] || 0) + 1;
       });
-      const topPerk = Object.entries(byPerk).sort((a, b) => b[1] - a[1])[0]?.[0] || "None";
-      const hourly = {};
-      verified.forEach(e => {
-        const d = new Date(e.timestamp || Date.now());
-        const hr = d.getHours();
-        hourly[hr] = (hourly[hr] || 0) + 1;
-      });
-      const peakHour = Object.entries(hourly).sort((a, b) => b[1] - a[1])[0];
-      const uniqueMembers = new Set(verified.map(e => e.member || e.passId || e.code));
       return {
         id: `close-${venueId}-${Date.now()}`,
         venue: venueId,
@@ -26866,12 +27122,10 @@ let onboardingIndex = 0;
         range: "today",
         windowLabel: `Window: ${formatMST(window.start)} — ${formatMST(window.end)}`,
         totals: {
+          submitted: entries.length,
           verified: verified.length,
           pending: pending.length,
-          uniqueMembers: uniqueMembers.size,
-          byPerk,
-          topPerk,
-          peakHour: peakHour ? `${peakHour[0]}:00 (${peakHour[1]} scans)` : "n/a"
+          byPerk
         },
         items: entries.map(e => ({
           code: e.code,
@@ -26899,11 +27153,9 @@ let onboardingIndex = 0;
           <div style="color:#94a3b8;font-size:12px;margin-bottom:4px;">Generated: ${formatMST(report.generatedAt)}</div>
           <div style="color:#94a3b8;font-size:12px;margin-bottom:10px;">${report.windowLabel || "Window: 12a–2a"}</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px;color:#e2e8f0;font-size:13px;">
+            <div><strong>${totals.submitted ?? ((totals.verified || 0) + (totals.pending || 0))}</strong><br/><span style="color:#94a3b8;">Submitted</span></div>
             <div><strong>${totals.verified || 0}</strong><br/><span style="color:#94a3b8;">Verified</span></div>
             <div><strong>${totals.pending || 0}</strong><br/><span style="color:#94a3b8;">Pending</span></div>
-            <div><strong>${totals.uniqueMembers || 0}</strong><br/><span style="color:#94a3b8;">Unique guests</span></div>
-            <div><strong>${totals.topPerk || "None"}</strong><br/><span style="color:#94a3b8;">Top perk</span></div>
-            <div><strong>${totals.peakHour || "n/a"}</strong><br/><span style="color:#94a3b8;">Peak hour</span></div>
           </div>
           <div style="margin-bottom:8px;">
             <strong style="color:#e2e8f0;">By perk</strong>
@@ -26939,8 +27191,7 @@ let onboardingIndex = 0;
         `Generated (MT): ${formatMST(report.generatedAt)}`,
         report.windowLabel || "Window: last 24 hours",
         "",
-        `Verified: ${totals.verified || 0}  Pending: ${totals.pending || 0}  Unique guests: ${totals.uniqueMembers || 0}`,
-        `Top perk: ${totals.topPerk || "None"}  Peak hour: ${totals.peakHour || "n/a"}`,
+        `Submitted: ${totals.submitted ?? ((totals.verified || 0) + (totals.pending || 0))}  Verified: ${totals.verified || 0}  Pending: ${totals.pending || 0}`,
         "",
         "By perk:"
       ];
@@ -26987,10 +27238,7 @@ let onboardingIndex = 0;
       lines.push(`- Denied/Canceled: ${snapshot.deniedCount || 0}`);
       lines.push("");
       lines.push("Core metrics:");
-      lines.push(`- ROI: ${snapshot.roi || "n/a"}`);
       lines.push(`- Member return rate: ${snapshot.memberReturnRate || 0}%`);
-      lines.push(`- Avg tab standard: $${snapshot?.avgTabs?.standard || "0.00"}`);
-      lines.push(`- Avg tab VIP: $${snapshot?.avgTabs?.vip || "0.00"}`);
       lines.push("");
       lines.push("Peak times:");
       (peakTimes.length ? peakTimes : ["No redemptions yet."]).slice(0, 5).forEach(item => lines.push(`- ${item}`));
@@ -27117,11 +27365,9 @@ let onboardingIndex = 0;
         `Venue: ${report.venueName}`,
         `Generated: ${formatMST(report.generatedAt)}`,
         `${report.windowLabel || ""}`,
+        `Submitted: ${report.totals.submitted ?? ((report.totals.verified || 0) + (report.totals.pending || 0))}`,
         `Verified: ${report.totals.verified || 0}`,
-        `Pending: ${report.totals.pending || 0}`,
-        `Unique guests: ${report.totals.uniqueMembers || 0}`,
-        `Top perk: ${report.totals.topPerk || "None"}`,
-        `Peak hour: ${report.totals.peakHour || "n/a"}`,
+        `Pending: ${report.totals.pending || 0}`
       ].join("\n");
       const lines = report.items.slice(0, 50).map(item => `${item.code} · ${item.perk} · ${formatMST(item.timestamp)}`);
       const message = `[Close Out Report]\n${summary}\n\nBreakdown:\n${lines.join("\n")}`;
@@ -27269,11 +27515,9 @@ let onboardingIndex = 0;
             <strong>${venueName}</strong>
             <div style="color:#cbd5f5;">Close-out · ${when}</div>
             <div class="log-meta" style="gap:12px;">
+              <span>Submitted: ${totals.submitted ?? ((totals.verified || 0) + (totals.pending || 0))}</span>
               <span>Verified: ${totals.verified || 0}</span>
               <span>Pending: ${totals.pending || 0}</span>
-              <span>Unique guests: ${totals.uniqueMembers || 0}</span>
-              ${totals.topPerk ? `<span>Top perk: ${totals.topPerk}</span>` : ""}
-              ${totals.peakHour ? `<span>Peak hour: ${totals.peakHour}</span>` : ""}
             </div>
             <div style="display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap;">
               <span style="color:#94a3b8;font-size:12px;">Tap to view details</span>
@@ -27514,11 +27758,9 @@ let onboardingIndex = 0;
           let totals = data.totals;
           if (!totals && data.summary) {
             totals = {
+              submitted: data.summary.submitted || data.summary.scansToday || 0,
               verified: data.summary.scansToday || 0,
               pending: 0,
-              uniqueMembers: data.summary.uniqueGuests || 0,
-              topPerk: data.summary.topPerk || "None",
-              peakHour: data.summary.peakHour || "n/a",
               byPerk: data.summary.byPerk || {}
             };
           }
@@ -28012,6 +28254,10 @@ let onboardingIndex = 0;
       ceoNavItems.forEach(btn => {
         btn.classList.toggle("active", btn.dataset.ceoTab === tab);
       });
+      if (tab === "content") {
+        refreshFreeMembersList();
+        refreshCeoFreeCodeList();
+      }
     }
     if (ceoNavItems && ceoNavItems.length) {
       ceoNavItems.forEach(btn => {
@@ -28163,6 +28409,10 @@ let onboardingIndex = 0;
         }
       });
       refreshFreeMembersList();
+    }
+    if (ceoFreeCodeGenerateBtn) {
+      ceoFreeCodeGenerateBtn.addEventListener("click", generateCeoFreeSignupCodeFromHq);
+      refreshCeoFreeCodeList();
     }
     if (ceoTokenGrantBtn) {
       ceoTokenGrantBtn.addEventListener("click", grantCeoMonthlyTokens);
@@ -30908,14 +31158,12 @@ let onboardingIndex = 0;
         memberIdResult.classList.remove("visible");
         const rawLookup = String(memberIdInput.value || "").trim();
         if (!rawLookup) {
-          memberIdError.textContent = "Enter a pass ID or username.";
+          memberIdError.textContent = "Enter a pass ID.";
           return;
         }
-        const cleanedLookup = rawLookup.replace(/^@+/, "").trim();
-        const passId = cleanedLookup.toUpperCase();
-        const usernameLookup = cleanedLookup.toLowerCase();
-        if (!cleanedLookup) {
-          memberIdError.textContent = "Enter a pass ID or username.";
+        const passId = rawLookup.toUpperCase().replace(/\s+/g, "");
+        if (!passId) {
+          memberIdError.textContent = "Enter a pass ID.";
           return;
         }
         if (passId === CEO_PASS_ID) {
@@ -30924,25 +31172,20 @@ let onboardingIndex = 0;
           memberIdInput.value = "";
           return;
         }
-        let profile = await lookupMemberProfile(passId, { requireDoc: true });
+        let profile = await lookupMemberProfile(passId, { requireDoc: false });
         let resolvedPass = passId;
         if (!profile) {
-          profile = await lookupMemberProfileByUsername(usernameLookup);
+          profile = await lookupMemberProfileByServer(passId);
           resolvedPass = String(profile?.passCode || profile?.passId || "").toUpperCase();
         }
         if (!profile) {
-          profile = await lookupMemberProfileByServer(cleanedLookup);
-          resolvedPass = String(profile?.passCode || profile?.passId || "").toUpperCase();
-        }
-        if (!profile) {
-          memberIdError.textContent = "Member not found. Try pass ID or username.";
+          memberIdError.textContent = "Member not found. Check the pass ID and try again.";
           return;
         }
         const summary = getLookupMembershipSummary(profile);
-        const displayUsername = String(profile.username || "").trim().replace(/^@+/, "");
         const displayName = String(profile.name || profile.displayName || profile.legalName || "").trim();
         const passDisplay = resolvedPass || "Unknown";
-        const userDisplay = displayUsername ? `@${displayUsername}` : (displayName || "FoCo member");
+        const userDisplay = displayName || "FoCo member";
         const membershipLine = `${summary.tierLabel} · ${summary.statusLabel}`;
         const verificationLine = `Verified: ${summary.verified ? "YES" : "NO"} · Active: ${summary.active ? "YES" : "NO"}`;
         let creatorNote = "";
@@ -31856,10 +32099,10 @@ let onboardingIndex = 0;
       document.body.dataset.memberTierMode = mode;
       if (screens?.pass) screens.pass.setAttribute("data-tier-mode", mode);
       if (profileExperienceTag) {
-        if (mode === "ceo") profileExperienceTag.textContent = "Creator mode";
-        else if (mode === "ceo_free") profileExperienceTag.textContent = "Founder mode";
-        else if (mode === "vip") profileExperienceTag.textContent = "VIP mode";
-        else profileExperienceTag.textContent = "Standard mode";
+        if (mode === "ceo") profileExperienceTag.textContent = "Founder Mode";
+        else if (mode === "ceo_free") profileExperienceTag.textContent = "CEO ISSUED";
+        else if (mode === "vip") profileExperienceTag.textContent = "VIP";
+        else profileExperienceTag.textContent = "Standard";
       }
     }
 
@@ -31901,7 +32144,7 @@ let onboardingIndex = 0;
           <li class="perk-row"><span class="perk-dot"></span> Up to 5 voucher redemptions monthly</li>
           <li class="perk-row"><span class="perk-dot"></span> Perks refresh on your billing date</li>
         `;
-        statusPill.textContent = "Standard Member";
+        statusPill.textContent = "Standard";
         passTierText.textContent = "Nightlife Pass • Standard";
       } else if (tier === "free") {
         statusPill.classList.remove("vip-status", "ceo");
@@ -31926,7 +32169,7 @@ let onboardingIndex = 0;
           <li class="perk-row"><span class="perk-dot"></span> VIP-only offers</li>
           <li class="perk-row"><span class="perk-dot"></span> Perks refresh on your billing date</li>
         `;
-        statusPill.textContent = ceoActive ? "CEO" : "VIP Member";
+        statusPill.textContent = ceoActive ? "CEO" : "VIP";
         passTierText.textContent = ceoActive ? "CEO Black Card" : "Nightlife Pass • VIP";
       } else {
         statusPill.classList.remove("vip-status", "ceo");

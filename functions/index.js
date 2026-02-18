@@ -21,6 +21,7 @@ const CEO_UID = "ceo_master";
 const BETA_UID = "foco-beta-demo";
 const BETA_EMAIL = "beta@focoafterdark.com";
 const BETA_USERNAME = "focobeta";
+const CEO_FREE_CODE_COLLECTION = "ceoFreeSignupCodes";
 const STAFF_VENUES = {
   bar_district: { name: "The Bar District", login: "district" },
   yeti: { name: "Yeti Bar & Grill", login: "yeti" },
@@ -861,7 +862,7 @@ function getVenuePerkUsageCountForWallet(entries = [], perkId = "", venueId = ""
 exports.createRedemption = functions.https.onCall(async (data, context) => {
   try {
     await enforceCallableSecurity(context, {
-      rateLimit: { maxPerMin: 8, maxPerDay: 500 }
+      rateLimit: { maxPerMin: 240, maxPerDay: 12000 }
     });
     const passCode = String(data?.passCode || "").trim().toUpperCase();
     const venueId = String(data?.venueId || "").trim().toLowerCase();
@@ -928,11 +929,6 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
               throw new HttpsError("failed-precondition", "Membership expired.");
             }
           }
-          const lastRedeemMs = toMillis(memberData.lastRedemptionAt);
-          if (lastRedeemMs && (Date.now() - lastRedeemMs) < 15000) {
-            throw new HttpsError("resource-exhausted", "Slow down and try again.");
-          }
-
           const unlimited = isStripeExcluded(claims, memberData)
             || ["ceo", "free"].includes(normalizeVoucherTierForWallet(memberData));
           let memberEntries = [];
@@ -1939,6 +1935,160 @@ exports.ensureMemberPassCode = functions.https.onCall(async (data, context) => {
   }, { merge: true });
 
   return { passCode };
+});
+
+exports.createCeoFreeSignupCode = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 20, maxPerDay: 400 }
+  });
+  if (!isCeoContext(context)) throw new HttpsError("permission-denied", "CEO only");
+
+  const providedCode = normalizeCeoFreeCodeInput(data?.code || "");
+  const code = providedCode || `FREE-${generateCode(8)}`;
+  if (!code || code.length < 6) {
+    throw new HttpsError("invalid-argument", "Invalid code format.");
+  }
+
+  const ref = db.collection(CEO_FREE_CODE_COLLECTION).doc(code);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) {
+      const existing = snap.data() || {};
+      const stillActive = existing.revoked !== true && existing.consumed !== true;
+      if (stillActive) {
+        throw new HttpsError("already-exists", "Code already exists.");
+      }
+    }
+    tx.set(ref, buildCeoFreeCodeDoc(code, context), { merge: true });
+  });
+
+  return { ok: true, code };
+});
+
+exports.listCeoFreeSignupCodes = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 20, maxPerDay: 1000 }
+  });
+  if (!isCeoContext(context)) throw new HttpsError("permission-denied", "CEO only");
+  const limit = Math.min(Math.max(Number(data?.limit || 40) || 40, 1), 200);
+  let snap;
+  try {
+    snap = await db.collection(CEO_FREE_CODE_COLLECTION).orderBy("createdAt", "desc").limit(limit).get();
+  } catch (_) {
+    snap = await db.collection(CEO_FREE_CODE_COLLECTION).limit(limit).get();
+  }
+  const codes = [];
+  snap.forEach((docSnap) => {
+    const d = docSnap.data() || {};
+    codes.push({
+      code: docSnap.id,
+      revoked: d.revoked === true,
+      consumed: d.consumed === true,
+      createdAt: d.createdAt || null,
+      updatedAt: d.updatedAt || null,
+      consumedAt: d.consumedAt || null,
+      consumedByUid: d.consumedByUid || null,
+      consumedPassCode: d.consumedPassCode || null
+    });
+  });
+  return { ok: true, codes };
+});
+
+exports.revokeCeoFreeSignupCode = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 20, maxPerDay: 500 }
+  });
+  if (!isCeoContext(context)) throw new HttpsError("permission-denied", "CEO only");
+  const code = normalizeCeoFreeCodeInput(data?.code || "");
+  if (!code) throw new HttpsError("invalid-argument", "Code required");
+  const ref = db.collection(CEO_FREE_CODE_COLLECTION).doc(code);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Code not found");
+  await ref.set({
+    revoked: true,
+    revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+    revokedByUid: context.auth?.uid || null,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+  return { ok: true, code, revoked: true };
+});
+
+exports.claimCeoFreeSignupCode = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 12, maxPerDay: 120 }
+  });
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+
+  const code = normalizeCeoFreeCodeInput(data?.code || "");
+  if (!code) throw new HttpsError("invalid-argument", "Code required");
+
+  const uid = context.auth.uid;
+  const email = (context.auth.token?.email || "").toLowerCase();
+  const prepared = await ensureMemberProfileForCeoFree(uid, email);
+  const { memberRef, passCode } = prepared;
+  const codeRef = db.collection(CEO_FREE_CODE_COLLECTION).doc(code);
+  const freeRef = db.collection("freeMemberships").doc(passCode);
+
+  const result = await db.runTransaction(async (tx) => {
+    const [memberSnap, codeSnap] = await Promise.all([
+      tx.get(memberRef),
+      tx.get(codeRef)
+    ]);
+    if (!codeSnap.exists) {
+      throw new HttpsError("not-found", "Code not found.");
+    }
+    const memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
+    const codeData = codeSnap.data() || {};
+    const override = String(memberData.membershipOverride || memberData.override || "").toUpperCase();
+    const alreadyFree = memberData.freeMembership === true || override === "CEO_FREE";
+    if (alreadyFree) {
+      return { ok: true, applied: false, alreadyFree: true, passCode };
+    }
+
+    if (codeData.revoked === true) {
+      throw new HttpsError("failed-precondition", "Code is no longer active.");
+    }
+    if (codeData.expiresAt && typeof codeData.expiresAt.toMillis === "function" && codeData.expiresAt.toMillis() < Date.now()) {
+      throw new HttpsError("failed-precondition", "Code has expired.");
+    }
+    if (codeData.consumed === true) {
+      throw new HttpsError("already-exists", "Code already used.");
+    }
+
+    tx.set(memberRef, {
+      freeMembership: true,
+      membershipOverride: "CEO_FREE",
+      tier: "free",
+      revoked: false,
+      validUntil: "never",
+      freeGrantedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    tx.set(freeRef, {
+      active: true,
+      passCode,
+      uid,
+      email,
+      oneTimeCode: code,
+      freeMembership: true,
+      membershipOverride: "CEO_FREE",
+      tier: "free",
+      grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    tx.set(codeRef, {
+      consumed: true,
+      uses: 1,
+      consumedAt: admin.firestore.FieldValue.serverTimestamp(),
+      consumedByUid: uid,
+      consumedByEmail: email,
+      consumedPassCode: passCode,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return { ok: true, applied: true, passCode };
+  });
+
+  return result;
 });
 
 function normalizePointAwardKey(raw = "") {
@@ -3304,6 +3454,84 @@ function normalizePromoCodeInput(raw) {
   return (raw || "").toString().trim().toUpperCase();
 }
 
+function normalizeCeoFreeCodeInput(raw = "") {
+  return String(raw || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, "")
+    .slice(0, 28);
+}
+
+function buildCeoFreeCodeDoc(code = "", context = {}) {
+  return {
+    code,
+    oneTime: true,
+    maxUses: 1,
+    uses: 0,
+    consumed: false,
+    revoked: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdByUid: context?.auth?.uid || null,
+    createdByEmail: (context?.auth?.token?.email || "").toLowerCase() || null,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+}
+
+async function ensureMemberProfileForCeoFree(uid = "", email = "") {
+  if (!uid) throw new HttpsError("unauthenticated", "Auth required");
+  const memberRef = db.collection("members").doc(uid);
+  let memberSnap = await memberRef.get();
+  let memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
+  if (!memberSnap.exists) {
+    const passCode = await ensureUniquePassCode();
+    const usernameSeed = String((email || "").split("@")[0] || "member")
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, "")
+      .slice(0, 16) || `member_${uid.slice(0, 6).toLowerCase()}`;
+    await memberRef.set({
+      email: String(email || "").toLowerCase(),
+      username: usernameSeed,
+      passCode,
+      passId: passCode,
+      tier: "standard",
+      freeMembership: false,
+      revoked: false,
+      memberSince: new Date().toISOString(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    await db.collection("passes").doc(passCode).set({
+      uid,
+      passCode,
+      tier: "standard",
+      status: "active",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    memberSnap = await memberRef.get();
+    memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
+  }
+
+  let passCode = String(memberData.passCode || memberData.passId || "").trim().toUpperCase();
+  if (!passCode) {
+    passCode = await ensureUniquePassCode();
+    await memberRef.set({
+      passCode,
+      passId: passCode,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    memberData = { ...memberData, passCode, passId: passCode };
+  }
+
+  await db.collection("passes").doc(passCode).set({
+    uid,
+    passCode,
+    tier: memberData.tier || memberData.membershipTier || "standard",
+    status: memberData.revoked ? "revoked" : "active",
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  return { memberRef, memberData, passCode };
+}
+
 function isNewMembership(memberDocData = {}) {
   return !(
     memberDocData?.membershipActivatedAt
@@ -4410,7 +4638,8 @@ async function findMemberForStaffLookup(rawQuery = "") {
   const raw = String(rawQuery || "").trim();
   if (!raw) return null;
   const passCandidate = raw.replace(/\s+/g, "").toUpperCase();
-  const usernameCandidate = raw.replace(/^@+/, "").trim().toLowerCase();
+  const usernameCandidateRaw = raw.replace(/^@+/, "").trim();
+  const usernameCandidate = usernameCandidateRaw.toLowerCase();
   const candidates = Array.from(new Set([passCandidate, raw, raw.toLowerCase()].filter(Boolean)));
 
   const snapshotToMember = (snap) => {
@@ -4431,9 +4660,41 @@ async function findMemberForStaffLookup(rawQuery = "") {
   }
 
   if (usernameCandidate) {
-    const byUsername = await db.collection("members").where("username", "==", usernameCandidate).limit(1).get();
-    const usernameHit = snapshotToMember(byUsername);
-    if (usernameHit) return usernameHit;
+    const usernameVariants = Array.from(new Set([
+      usernameCandidate,
+      usernameCandidateRaw,
+      `@${usernameCandidate}`,
+      `@${usernameCandidateRaw}`
+    ].filter(Boolean)));
+    for (const candidate of usernameVariants) {
+      const byUsername = await db.collection("members").where("username", "==", candidate).limit(1).get();
+      const usernameHit = snapshotToMember(byUsername);
+      if (usernameHit) return usernameHit;
+    }
+
+    const usernameDoc = await db.collection("usernames").doc(usernameCandidate).get();
+    if (usernameDoc.exists) {
+      const usernameData = usernameDoc.data() || {};
+      const mappedUid = String(usernameData.uid || "").trim();
+      if (mappedUid) {
+        const memberSnap = await db.collection("members").doc(mappedUid).get();
+        if (memberSnap.exists) {
+          return normalizeLookupPayload(memberSnap.data() || {}, mappedUid);
+        }
+      }
+      const mappedPassCode = String(usernameData.passCode || "").trim().toUpperCase();
+      if (mappedPassCode) {
+        const byMappedPassCode = await db.collection("members").where("passCode", "==", mappedPassCode).limit(1).get();
+        const mappedPassHit = snapshotToMember(byMappedPassCode);
+        if (mappedPassHit) return mappedPassHit;
+      }
+      const mappedEmail = String(usernameData.email || "").trim().toLowerCase();
+      if (mappedEmail) {
+        const byMappedEmail = await db.collection("members").where("email", "==", mappedEmail).limit(1).get();
+        const mappedEmailHit = snapshotToMember(byMappedEmail);
+        if (mappedEmailHit) return mappedEmailHit;
+      }
+    }
   }
 
   if (passCandidate) {
