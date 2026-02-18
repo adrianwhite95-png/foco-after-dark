@@ -11818,10 +11818,10 @@
             <div class="small" style="margin-top:6px;">Tap a pending code to confirm.</div>
           </div>
         </div>
-        <form id="memberIdForm" style="margin-top:12px;">
+        <form id="memberIdForm" style="margin-top:12px;" autocomplete="off">
           <div class="field">
             <label for="memberIdInput">Quick member lookup</label>
-            <input id="memberIdInput" type="text" placeholder="Pass ID or username (e.g. XYZ789 or username)" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" />
+            <input id="memberIdInput" name="member_lookup_query" type="text" placeholder="Pass ID or username (e.g. XYZ789 or username)" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" />
           </div>
           <div class="error" id="memberIdError"></div>
           <p class="support-success" id="memberIdResult">Member is active.</p>
