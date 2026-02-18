@@ -11609,7 +11609,7 @@
         </p>
         <div class="payment-actions">
           <button type="button" class="btn btn-primary" id="ageVerifyStartBtn">Verify my ID now</button>
-          <button type="button" class="btn btn-secondary" id="ageVerifyRefreshBtn">Check status</button>
+          <button type="button" class="btn btn-secondary" id="ageVerifyRefreshBtn">Check Status and Continue to Billing</button>
           <button type="button" class="btn btn-secondary" id="ageVerifyLogoutBtn">Log out</button>
         </div>
       </div>
@@ -14395,6 +14395,8 @@
       if (name === "ageVerify") {
         renderAgeVerificationState();
         refreshAgeVerificationStatus(false, { autoContinue: false, showStatusToast: false });
+      } else {
+        stopAgeVerifyAutoPoll();
       }
       if (name === "staffLogin") {
         applyStaffRememberedLogin();
@@ -14532,6 +14534,7 @@
     let pendingSignupData = null;
     let signupSelectedTier = "standard";
     let ageVerificationInFlight = false;
+    let ageVerifyAutoPollTimer = null;
     const authModeText = document.getElementById("authModeText");
     const authToggleText = document.getElementById("authToggleText");
     const authSubmitBtn = document.getElementById("authSubmitBtn");
@@ -14742,7 +14745,29 @@
       const raw = profile?.requestedTier || profile?.pendingTier?.toTier || signupSelectedTier || "standard";
       return normalizeMembershipTierSelection(raw);
     }
+    function stopAgeVerifyAutoPoll() {
+      if (!ageVerifyAutoPollTimer) return;
+      try { clearInterval(ageVerifyAutoPollTimer); } catch (_) {}
+      ageVerifyAutoPollTimer = null;
+    }
+    function startAgeVerifyAutoPoll() {
+      if (ageVerifyAutoPollTimer) return;
+      ageVerifyAutoPollTimer = setInterval(async () => {
+        if (currentScreenName !== "ageVerify" || !onboardingMembershipFlow) {
+          stopAgeVerifyAutoPoll();
+          return;
+        }
+        const status = ageVerificationStatusKey(memberProfile);
+        if (status !== "processing") {
+          stopAgeVerifyAutoPoll();
+          return;
+        }
+        if (ageVerificationInFlight) return;
+        await refreshAgeVerificationStatus(true, { autoContinue: true, showStatusToast: false });
+      }, 6500);
+    }
     function continuePostAgeVerification(tier) {
+      stopAgeVerifyAutoPoll();
       suppressAgeVerifyAutoContinue = false;
       const requestedTier = normalizeMembershipTierSelection(tier || getRequestedTier(memberProfile));
       pendingMembershipTier = requestedTier;
@@ -14777,7 +14802,7 @@
       let hintText = "This step is required before billing and voucher redemption can start.";
       if (status === "processing") {
         statusText = "Verification in progress.";
-        hintText = "Complete the ID check in Stripe Identity, then tap Check status.";
+        hintText = "Complete the ID check in Stripe Identity, then tap Check Status and Continue to Billing.";
       } else if (status === "requires_input") {
         statusText = "More ID input required.";
         hintText = "Open verification again and submit a clearer ID photo.";
@@ -14803,6 +14828,9 @@
         ageVerifyStartBtn.textContent = ageVerificationInFlight ? "Opening..." : "Verify my ID now";
       }
       if (ageVerifyRefreshBtn) ageVerifyRefreshBtn.disabled = ageVerificationInFlight;
+      const canAutoPoll = currentScreenName === "ageVerify" && onboardingMembershipFlow && status === "processing";
+      if (canAutoPoll) startAgeVerifyAutoPoll();
+      else stopAgeVerifyAutoPoll();
     }
     function ageVerificationStatusToast(statusRaw) {
       const status = String(statusRaw || "").toLowerCase();
@@ -17915,10 +17943,25 @@
       if (!candidates.length) return null;
       return new Date(Math.max(...candidates.map((d) => d.getTime())));
     }
+    function hasActiveLaunchTrial(profile = memberProfile) {
+      const promoTag = String(profile?.membershipPromoTag || "").toLowerCase();
+      const membershipStatus = String(profile?.membershipStatus || "").toLowerCase();
+      const trialDays = Number(profile?.membershipTrialDays || 0);
+      const trialEndsAt = toDateSafe(
+        profile?.membershipTrialEndsAt
+        || profile?.currentPeriodEnd
+        || profile?.nextRenewal
+      );
+      const trialFlag = promoTag === "launch30" || membershipStatus === "trialing" || trialDays >= 30;
+      if (!trialFlag) return false;
+      if (trialEndsAt && trialEndsAt < new Date()) return false;
+      return true;
+    }
     function hasSuccessfulPaymentThisCycle(tier, billing = {}, profile = memberProfile) {
       if (tier !== "standard" && tier !== "vip") return true;
       const status = (profile?.paymentStatus || "active").toLowerCase();
       if (status !== "active") return false;
+      if (hasActiveLaunchTrial(profile)) return true;
       const paidAt = resolveLatestSuccessfulPaymentDate(billing, profile);
       if (!paidAt) return false;
       const cycle = getVoucherCycleWindow(billing)?.current;
@@ -19244,7 +19287,10 @@
 	            updateVoucherBalanceUI();
 	            updateLastCheckinUI();
               if (currentScreenName === "ageVerify") {
-                if (!requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
+                if (
+                  isAgeVerifiedClient(memberProfile)
+                  && !requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)
+                ) {
                   continuePostAgeVerification(getRequestedTier(memberProfile));
                 } else {
                   renderAgeVerificationState();
@@ -21955,13 +22001,28 @@ let onboardingIndex = 0;
         const promoCode = membershipPromoInput?.value?.trim() || "";
         const resp = await fn({ tier, promoCode });
         const data = resp?.data || {};
+        const syncLocalMembershipBilling = () => {
+          memberProfile = memberProfile || {};
+          memberProfile.tier = tier;
+          memberProfile.membershipStatus = String(data.membershipStatus || memberProfile.membershipStatus || (data.launchTrial ? "trialing" : "active")).toLowerCase();
+          memberProfile.paymentStatus = String(data.paymentStatus || memberProfile.paymentStatus || "active").toLowerCase();
+          if (data.membershipPromoTag) memberProfile.membershipPromoTag = data.membershipPromoTag;
+          if (Number(data.trialDays || 0) > 0) memberProfile.membershipTrialDays = Number(data.trialDays || 0);
+          if (data.currentPeriodEnd) memberProfile.currentPeriodEnd = data.currentPeriodEnd;
+          updateMembershipStatusUI({ status: memberProfile.paymentStatus, paused: memberProfile?.paused });
+          updateExpiryDisplay();
+          updateVoucherBalanceUI();
+          renderRedemptionOptions();
+        };
         if (data.free) {
           pendingMembershipTier = null;
+          syncLocalMembershipBilling();
           completeMembership(tier, { force: true });
           return true;
         }
         if (data.alreadyActive) {
           pendingMembershipTier = null;
+          syncLocalMembershipBilling();
           if (Number(data.trialDays || 0) > 0) {
             showToast(`Membership active. First ${Number(data.trialDays)} days are free.`, 3600);
           }
@@ -21988,6 +22049,7 @@ let onboardingIndex = 0;
         }
         if (data.ok) {
           pendingMembershipTier = null;
+          syncLocalMembershipBilling();
           if (Number(data.trialDays || 0) > 0) {
             showToast(`Membership active. First ${Number(data.trialDays)} days are free.`, 3600);
           }
@@ -24249,7 +24311,12 @@ let onboardingIndex = 0;
         lastCheckinText.textContent = memberProfile.lastCheckinDate;
         return;
       }
-      lastCheckinText.textContent = "—";
+      const firstSeen = memberProfile?.memberSince || memberProfile?.membershipActivatedAt || memberProfile?.createdAt || "";
+      if (firstSeen) {
+        lastCheckinText.textContent = `Joined ${formatMST(firstSeen, { year: "numeric" })}`;
+        return;
+      }
+      lastCheckinText.textContent = "Just joined";
     }
     const VOUCHER_GRANT_SEEN_PREFIX = "voucherGrantSeen_";
     function closeVoucherGrantModal() {

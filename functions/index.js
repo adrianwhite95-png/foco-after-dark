@@ -146,12 +146,14 @@ async function sendReportEmail(subject, text, opts = {}) {
   const from = process.env.REPORTS_SMTP_FROM || process.env.REPORTS_SMTP_USER || "reports@focoafterdark.com";
   const to = opts.to || REPORTS_TO_EMAIL;
   try {
-    await transporter.sendMail({
+    const payload = {
       from: `FoCo After Dark <${from}>`,
       to,
       subject,
       text
-    });
+    };
+    if (opts.html) payload.html = opts.html;
+    await transporter.sendMail(payload);
     return { sent: true };
   } catch (err) {
     return { sent: false, error: err?.message || "SMTP send failed" };
@@ -192,6 +194,13 @@ async function queueMembershipConfirmationEmail({
     });
   } catch (err) {
     console.warn("queueMembershipConfirmationEmail failed", err?.message || err);
+  }
+  if (process.env.REPORTS_SMTP_USER && process.env.REPORTS_SMTP_PASS) {
+    try {
+      await sendReportEmail(subject, text, { to: email, html });
+    } catch (err) {
+      console.warn("directMembershipConfirmationEmail failed", err?.message || err);
+    }
   }
 }
 
@@ -748,6 +757,21 @@ function resolveLatestSuccessfulPaymentDate(billing = {}, memberData = {}) {
   return new Date(Math.max(...candidates.map((d) => d.getTime())));
 }
 
+function hasActiveLaunchTrialForWallet(memberData = {}, now = new Date()) {
+  const promoTag = String(memberData?.membershipPromoTag || "").toLowerCase();
+  const membershipStatus = String(memberData?.membershipStatus || "").toLowerCase();
+  const trialDays = Number(memberData?.membershipTrialDays || 0);
+  const trialEndsAt = toDateSafe(
+    memberData?.membershipTrialEndsAt
+    || memberData?.currentPeriodEnd
+    || memberData?.nextRenewal
+  );
+  const trialFlag = promoTag === "launch30" || membershipStatus === "trialing" || trialDays >= 30;
+  if (!trialFlag) return false;
+  if (trialEndsAt && trialEndsAt < now) return false;
+  return true;
+}
+
 function getPointsMonthlyTokenGrantTotal(memberData = {}, now = new Date()) {
   const grants = memberData?.pointsMonthlyTokenGrants;
   if (!grants || typeof grants !== "object") return 0;
@@ -760,6 +784,7 @@ function hasSuccessfulPaymentThisCycleForWallet(tier, billing = {}, memberData =
   if (tier !== "standard" && tier !== "vip") return true;
   const status = String(memberData?.paymentStatus || "active").toLowerCase();
   if (status !== "active") return false;
+  if (hasActiveLaunchTrialForWallet(memberData, now)) return true;
   const paidAt = resolveLatestSuccessfulPaymentDate(billing, memberData);
   if (!paidAt) return false;
   const cycle = getVoucherCycleWindowForWallet(memberData, billing, now)?.current;
@@ -4753,6 +4778,10 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
         subscriptionId: subscription.id,
         alreadyActive: true,
         trialDays: activePromoTag === "launch30" ? 30 : 0,
+        membershipStatus: subscription.status || "active",
+        paymentStatus: stripeStatusToPaymentStatus(subscription.status || "active"),
+        currentPeriodEnd: currentPeriodEndIso,
+        membershipPromoTag: activePromoTag || null,
       };
     }
     const currentItem = subscription.items?.data?.[0];
@@ -4838,6 +4867,10 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     subscriptionId: subscription?.id || null,
     launchTrial,
     trialDays: launchTrial ? 30 : 0,
+    membershipStatus: subscription?.status || "active",
+    paymentStatus: stripeStatusToPaymentStatus(subscription?.status || "active"),
+    currentPeriodEnd: currentPeriodEndIso,
+    membershipPromoTag: finalPromoTag || null,
   };
 });
 
