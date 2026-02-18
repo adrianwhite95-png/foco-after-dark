@@ -3734,11 +3734,22 @@ function assertStripeAllowed(context, memberDocData) {
 }
 
 function isAgeVerificationExempt(token = {}, memberDocData = {}) {
+  const overrideRaw = memberDocData?.membershipOverride
+    || memberDocData?.override
+    || memberDocData?.membership_override
+    || memberDocData?.membershipTierOverride
+    || "";
+  const override = String(overrideRaw || "").toUpperCase();
   const email = String(token?.email || memberDocData?.email || "").toLowerCase();
   return (
-    isStripeExcluded(token, memberDocData)
+    token?.ceo === true
+    || token?.admin === true
+    || token?.beta === true
+    || memberDocData?.ceo === true
+    || email === CEO_EMAIL
     || email === BETA_EMAIL
     || email.includes("beta@")
+    || override.includes("BETA")
   );
 }
 
@@ -3853,23 +3864,34 @@ exports.createAgeVerificationSession = functions.runWith(stripeSecrets).https.on
   }
   const stripe = getStripeClient();
   const email = (context.auth.token.email || memberDocData?.email || "").toLowerCase();
-  const customerId = await ensureStripeCustomer({
-    stripe,
-    memberRef,
-    memberDocData,
-    uid,
-    email,
-    token: context.auth.token,
-  });
-  const session = await stripe.identity.verificationSessions.create({
+  const overrideRaw = memberDocData?.membershipOverride
+    || memberDocData?.override
+    || memberDocData?.membership_override
+    || memberDocData?.membershipTierOverride
+    || "";
+  const override = String(overrideRaw || "").toUpperCase();
+  const freeInviteAccount = memberDocData?.freeMembership === true || override === "CEO_FREE";
+  let customerId = "";
+  if (!freeInviteAccount) {
+    customerId = await ensureStripeCustomer({
+      stripe,
+      memberRef,
+      memberDocData,
+      uid,
+      email,
+      token: context.auth.token,
+    });
+  }
+  const sessionPayload = {
     type: "document",
-    customer: customerId,
     metadata: {
       uid,
       tier: rawTier,
     },
     return_url: returnUrlRaw,
-  });
+  };
+  if (customerId) sessionPayload.customer = customerId;
+  const session = await stripe.identity.verificationSessions.create(sessionPayload);
   await memberRef.set({
     requestedTier: rawTier,
     onboardingEligible: false,

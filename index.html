@@ -14233,13 +14233,10 @@
     }
     function isAgeVerificationExemptClient(profile = memberProfile, user = firebaseAuth?.currentUser) {
       const email = String(profile?.email || user?.email || "").toLowerCase();
-      const override = String(profile?.membershipOverride || profile?.override || "").toUpperCase();
       return Boolean(
         profile?.ceo
         || isCeoAccount
         || isBetaAccount
-        || profile?.freeMembership
-        || override === "CEO_FREE"
         || email === "ceo@gmail.com"
         || email.includes("beta@")
       );
@@ -14702,6 +14699,31 @@
       const raw = profile?.requestedTier || profile?.pendingTier?.toTier || signupSelectedTier || "standard";
       return normalizeMembershipTierSelection(raw);
     }
+    function continuePostAgeVerification(tier) {
+      const requestedTier = normalizeMembershipTierSelection(tier || getRequestedTier(memberProfile));
+      pendingMembershipTier = requestedTier;
+      if (isFreeMember(memberProfile)) {
+        onboardingMembershipFlow = false;
+        forceMembershipScreen = false;
+        clearPendingMembershipFlagForUser(firebaseAuth?.currentUser?.uid || "");
+        memberProfile = {
+          ...(memberProfile || {}),
+          freeMembership: true,
+          membershipOverride: "CEO_FREE",
+          tier: "free",
+          validUntil: "never"
+        };
+        applyMembershipToPass("free");
+        updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
+        updateExpiryDisplay();
+        showScreen("pass");
+        return;
+      }
+      updatePaymentSummary(requestedTier);
+      resetPaymentForm();
+      prepareStripePayment(requestedTier);
+      showScreen("payment");
+    }
     function renderAgeVerificationState(statusOverride = "") {
       if (!ageVerifyStatus || !ageVerifyPlan) return;
       const tier = getRequestedTier();
@@ -14722,8 +14744,13 @@
         statusText = "Verification canceled.";
         hintText = "Restart verification to continue with membership activation.";
       } else if (status === "verified" || isAgeVerifiedClient(memberProfile)) {
-        statusText = "Age verified. Continue to payment.";
-        hintText = "Your age is confirmed. Finish membership activation.";
+        if (isFreeMember(memberProfile)) {
+          statusText = "Age verified. CEO issued pass activated.";
+          hintText = "Your pass is now active without billing.";
+        } else {
+          statusText = "Age verified. Continue to payment.";
+          hintText = "Your age is confirmed. Finish membership activation.";
+        }
       }
       ageVerifyStatus.textContent = statusText;
       if (ageVerifyHint) ageVerifyHint.textContent = hintText;
@@ -14752,12 +14779,7 @@
           && currentScreenName === "ageVerify"
           && onboardingMembershipFlow
         ) {
-          const tier = getRequestedTier(memberProfile);
-          pendingMembershipTier = tier;
-          updatePaymentSummary(tier);
-          resetPaymentForm();
-          prepareStripePayment(tier);
-          showScreen("payment");
+          continuePostAgeVerification(getRequestedTier(memberProfile));
         }
         return data;
       } catch (err) {
@@ -14791,12 +14813,8 @@
             ageVerificationStatus: "verified",
             requestedTier: tier
           };
-          pendingMembershipTier = tier;
           renderAgeVerificationState();
-          updatePaymentSummary(tier);
-          resetPaymentForm();
-          prepareStripePayment(tier);
-          showScreen("payment");
+          continuePostAgeVerification(tier);
           return true;
         }
         if (data?.url) {
@@ -14870,12 +14888,7 @@
       ageVerifyRefreshBtn.addEventListener("click", async () => {
         await refreshAgeVerificationStatus(true);
         if (isAgeVerifiedClient(memberProfile)) {
-          const tier = getRequestedTier();
-          pendingMembershipTier = tier;
-          updatePaymentSummary(tier);
-          resetPaymentForm();
-          prepareStripePayment(tier);
-          showScreen("payment");
+          continuePostAgeVerification(getRequestedTier());
         }
       });
     }
@@ -15561,16 +15574,13 @@
 	        const inviteResult = await claimCeoFreeSignupCodeCloud(ceoFreeInviteCode);
 	        if (inviteResult.ok && (inviteResult.applied || inviteResult.alreadyFree)) {
 	          signupAppliedFreeInvite = true;
-	          onboardingMembershipFlow = false;
-          forceMembershipScreen = false;
-          clearPendingMembershipFlagForUser(cred.user.uid);
           showToast("CEO ISSUED membership activated.");
         } else {
           const inviteMessage = inviteResult?.message || "Invite code not valid. Only CEO generated codes work.";
           showToast(inviteMessage, 3200);
         }
       }
-	      if (onboardingMembershipFlow && !signupAppliedFreeInvite) {
+	      if (onboardingMembershipFlow) {
 	        localStorage.setItem(PENDING_MEMBERSHIP_STORAGE_KEY, cred.user.uid);
           pendingMembershipTier = requestedTier;
 	      }
@@ -15585,19 +15595,16 @@
       }
       forceShowLogin = false;
       clearLoginHash();
-	      if (signupAppliedFreeInvite) {
-	        if (memberProfile) {
-	          memberProfile = {
+	      if (signupAppliedFreeInvite && memberProfile) {
+          memberProfile = {
             ...memberProfile,
             freeMembership: true,
             membershipOverride: "CEO_FREE",
             tier: "free",
             validUntil: "never"
           };
-	        }
-	        applyMembershipToPass("free");
-	        showScreen("pass");
-	      } else if (onboardingMembershipFlow) {
+        }
+	      if (onboardingMembershipFlow) {
           const started = await startAgeVerificationFlow({
             tier: requestedTier,
             birthDate: birthDateISO || memberProfile?.birthDate || ""
@@ -15964,7 +15971,7 @@
       if (pendingUid && pendingUid === user.uid) {
         onboardingMembershipFlow = true;
       }
-      const needsMembership = onboardingMembershipFlow || !storedTier;
+      const needsMembership = (onboardingMembershipFlow || !storedTier) && !isFreeMember(memberProfile);
       if (needsMembership) {
         forceMembershipScreen = false;
         const requestedTier = getRequestedTier(memberProfile);
@@ -19087,12 +19094,7 @@
 	            updateLastCheckinUI();
               if (currentScreenName === "ageVerify") {
                 if (!requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
-                  const requestedTier = getRequestedTier(memberProfile);
-                  pendingMembershipTier = requestedTier;
-                  updatePaymentSummary(requestedTier);
-                  resetPaymentForm();
-                  prepareStripePayment(requestedTier);
-                  showScreen("payment");
+                  continuePostAgeVerification(getRequestedTier(memberProfile));
                 } else {
                   renderAgeVerificationState();
                 }
