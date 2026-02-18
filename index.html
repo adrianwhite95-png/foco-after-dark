@@ -11464,7 +11464,7 @@
         Already have an account?
         <span id="authToggleLink" class="linkish">Log in instead</span>
       </p>
-      <p class="small">
+      <p class="small" id="authModeSubline">
         You’ll get a digital Nightlife Pass you can show at bars to unlock perks.
       </p>
       <p class="small">
@@ -14353,6 +14353,7 @@
     const signupConfirmBtn = document.getElementById("signupConfirmBtn");
     const signupBackBtn = document.getElementById("signupBackBtn");
     const forgotPasswordLink = document.getElementById("forgotPasswordLink");
+    const authModeSubline = document.getElementById("authModeSubline");
     const forgotPasswordModal = document.getElementById("forgotPasswordModal");
     const forgotPasswordForm = document.getElementById("forgotPasswordForm");
     const forgotPasswordEmail = document.getElementById("forgotPasswordEmail");
@@ -14405,6 +14406,7 @@
       const rememberRow = rememberMe ? rememberMe.closest(".remember-row") : null;
       if (authMode === "signup") {
         authModeText.textContent = "Create your account to get the Nightlife Pass.";
+        if (authModeSubline) authModeSubline.textContent = "You’ll get a digital Nightlife Pass you can show at bars to unlock perks.";
         authToggleText.innerHTML =
           'Already have an account? <span id="authToggleLink" class="linkish">Log in instead</span>';
         authSubmitBtn.textContent = "Create Account and Get Pass";
@@ -14416,6 +14418,7 @@
         if (forgotWrap) forgotWrap.style.display = "none";
       } else {
         authModeText.textContent = "Log in to access your Nightlife Pass.";
+        if (authModeSubline) authModeSubline.textContent = "Welcome back — your FoCo After Dark pass is ready.";
         authToggleText.innerHTML =
           'Need an account? <span id="authToggleLink" class="linkish">Sign up instead</span>';
         authSubmitBtn.textContent = "Log in";
