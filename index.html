@@ -15549,6 +15549,7 @@
       const requestedTier = normalizeMembershipTierSelection(tier || "standard");
       let signupAppliedFreeInvite = false;
       let createdUser = null;
+      let completedPostAuthBootstrap = false;
       try {
         const remember = !!(rememberMe && rememberMe.checked);
         await ensureAuthPersistence();
@@ -15614,6 +15615,7 @@
           pendingMembershipTier = requestedTier;
 	      }
 	      await handleAuthenticatedUser(cred.user);
+      completedPostAuthBootstrap = true;
       if (!finalizedUsername && username) {
         const retry = await reserveUsernameCloud(username);
         if (retry.ok) {
@@ -15645,6 +15647,25 @@
 	      showAddHomeGate();
 	    }
       } catch (err) {
+        const errCode = String(err?.code || "");
+        if (errCode.includes("email-already-in-use")) {
+          try {
+            await ensureAuthPersistence();
+            suppressLandingRedirectOnce = true;
+            const existingCred = await signInWithEmailAndPassword(firebaseAuth, email, password);
+            await handleAuthenticatedUser(existingCred.user);
+            forceShowLogin = false;
+            clearLoginHash();
+            showToast("Account already exists. Continue setup from here.", 3000);
+            pendingSignupData = null;
+            return;
+          } catch (recoverErr) {
+            console.warn("Existing account recovery failed", recoverErr);
+          }
+        }
+        if (createdUser && !completedPostAuthBootstrap) {
+          await rollbackIncompleteSignup(createdUser);
+        }
         const msg = normalizeUiErrorMessage(err, formatAuthError(err));
         authError.textContent = msg;
         if (typeof showToast === "function") showToast(msg, 2600);
@@ -15655,6 +15676,26 @@
 	      } finally {
         pendingSignupData = null;
       }
+    }
+
+    async function rollbackIncompleteSignup(user) {
+      if (!user) return;
+      const uid = String(user.uid || "");
+      try {
+        if (db && uid) {
+          await deleteDoc(doc(db, "members", uid));
+        }
+      } catch (err) {
+        console.warn("Signup rollback: member doc delete failed", err);
+      }
+      try {
+        await user.delete();
+      } catch (err) {
+        console.warn("Signup rollback: auth user delete failed", err);
+      }
+      try {
+        await signOut(firebaseAuth);
+      } catch (_) {}
     }
 
     function clearPendingMembershipFlagForUser(uid) {
