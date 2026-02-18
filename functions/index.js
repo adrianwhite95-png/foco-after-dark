@@ -3268,7 +3268,9 @@ async function applyVoucherPack(uid, pack) {
   return { extraVouchers: data.extraVouchers || {} };
 }
 
-const stripeSecrets = { secrets: ["STRIPE_SECRET", "STRIPE_PUBLISHABLE"] };
+const stripeSecrets = {
+  secrets: ["STRIPE_SECRET", "STRIPE_PUBLISHABLE", "REPORTS_SMTP_USER", "REPORTS_SMTP_PASS"]
+};
 const STRIPE_PROMOS = {
   LAUNCH30: {
     couponId: "iydJPH3m",
@@ -4055,6 +4057,10 @@ async function ensureStripeCustomer({ stripe, memberRef, memberDocData, uid, ema
     try {
       const existingCustomer = await stripe.customers.retrieve(existingCustomerId);
       if (existingCustomer && !existingCustomer.deleted) {
+        const existingEmail = String(existingCustomer.email || "").toLowerCase();
+        if (email && existingEmail !== email) {
+          await stripe.customers.update(existingCustomerId, { email });
+        }
         return existingCustomerId;
       }
     } catch (err) {
@@ -4708,6 +4714,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
   const email = (context.auth.token.email || '').toLowerCase();
   const tier = normalizeTierKey((data?.tier || 'standard').toString());
   const promoCodeInput = (data?.promoCode || "").toString();
+  const providedPaymentMethodId = String(data?.paymentMethodId || "").trim();
 
   const { ref: memberRef, data: profile } = await getMemberContext(uid);
   assertStripeAllowed(context, profile);
@@ -4731,6 +4738,25 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     token: context.auth.token,
   });
   let defaultPm = profile.defaultPaymentMethodId || null;
+  if (!defaultPm && providedPaymentMethodId) {
+    try {
+      await stripe.paymentMethods.attach(providedPaymentMethodId, { customer: customerId });
+    } catch (err) {
+      const msg = readStripeErrorMessage(err).toLowerCase();
+      if (!msg.includes("already")) {
+        console.warn("chargeMembershipOnFile paymentMethods.attach failed", err?.message || err);
+      }
+    }
+    try {
+      await stripe.customers.update(customerId, {
+        invoice_settings: { default_payment_method: providedPaymentMethodId }
+      });
+      defaultPm = providedPaymentMethodId;
+      await memberRef.set({ defaultPaymentMethodId: defaultPm }, { merge: true });
+    } catch (err) {
+      console.warn("chargeMembershipOnFile default payment method update failed", err?.message || err);
+    }
+  }
   if (!defaultPm) {
     const customer = await stripe.customers.retrieve(customerId);
     defaultPm = customer?.invoice_settings?.default_payment_method || null;

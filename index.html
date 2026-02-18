@@ -21382,7 +21382,9 @@ let onboardingIndex = 0;
           }
           if (setupIntent && setupIntent.status === "succeeded") {
             const tierToActivate = pendingMembershipTier || "standard";
-            const activated = await chargeMembershipOnFile(tierToActivate);
+            const activated = await chargeMembershipOnFile(tierToActivate, {
+              paymentMethodId: setupIntent.payment_method || ""
+            });
             if (!activated) return;
             paymentSuccess.textContent = membershipTrialDays > 0
               ? `Membership Active • First ${membershipTrialDays} days free`
@@ -21977,7 +21979,7 @@ let onboardingIndex = 0;
       }
     }
 
-    async function chargeMembershipOnFile(tier) {
+    async function chargeMembershipOnFile(tier, options = {}) {
       if (!functionsClient) {
         showToast("Payments unavailable right now.");
         return false;
@@ -21999,7 +22001,11 @@ let onboardingIndex = 0;
       try {
         const fn = httpsCallable(functionsClient, "chargeMembershipOnFile");
         const promoCode = membershipPromoInput?.value?.trim() || "";
-        const resp = await fn({ tier, promoCode });
+        const resp = await fn({
+          tier,
+          promoCode,
+          paymentMethodId: options?.paymentMethodId || ""
+        });
         const data = resp?.data || {};
         const syncLocalMembershipBilling = () => {
           memberProfile = memberProfile || {};
