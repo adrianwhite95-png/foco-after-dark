@@ -5217,9 +5217,226 @@
       border-top: 1px solid rgba(148, 163, 184, 0.25);
       padding-top: 8px;
     }
+    .message-center-list {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 340px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .message-row-wrap {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .message-delete-btn {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 78px;
+      border: none;
+      background: linear-gradient(180deg, rgba(127, 29, 29, 0.95), rgba(185, 28, 28, 0.95));
+      color: #fee2e2;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 11px;
+      cursor: pointer;
+      z-index: 1;
+    }
+    .message-thread {
+      position: relative;
+      z-index: 2;
+      background: rgba(12, 18, 32, 0.82);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 14px;
+      padding: 10px 11px;
+      backdrop-filter: blur(4px);
+      transform: translateX(var(--swipe-x, 0px));
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+      cursor: pointer;
+      min-width: 0;
+      touch-action: pan-y;
+    }
+    .message-thread.swiped {
+      --swipe-x: -78px;
+    }
+    .message-thread.active {
+      border-color: rgba(34, 211, 238, 0.52);
+      box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35), 0 12px 24px rgba(6, 12, 24, 0.5);
+    }
+    .message-thread-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+    .message-thread-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .message-role-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 64px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(34, 211, 238, 0.4);
+      background: rgba(8, 47, 73, 0.35);
+      color: #a5f3fc;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .message-role-pill.outgoing {
+      border-color: rgba(56, 189, 248, 0.45);
+      background: rgba(2, 132, 199, 0.24);
+      color: #dbeafe;
+    }
+    .message-thread-venue {
+      font-weight: 650;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
+    }
+    .message-thread-time {
+      flex-shrink: 0;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .message-bubbles {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      min-width: 0;
+    }
+    .message-bubble {
+      max-width: 92%;
+      border-radius: 14px;
+      padding: 8px 10px;
+      font-size: 13px;
+      line-height: 1.35;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+    .message-bubble.incoming {
+      align-self: flex-start;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.88));
+      color: #e2e8f0;
+    }
+    .message-bubble.outgoing {
+      align-self: flex-end;
+      background: linear-gradient(135deg, rgba(6, 95, 70, 0.88), rgba(8, 145, 178, 0.82));
+      border-color: rgba(34, 211, 238, 0.35);
+      color: #ecfeff;
+    }
+    .message-thread-actions {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+    .message-thread-actions .msg-action-btn {
+      border: 1px solid rgba(34, 211, 238, 0.34);
+      background: rgba(8, 47, 73, 0.28);
+      color: #a5f3fc;
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .message-thread-actions .msg-hint {
+      font-size: 11px;
+      color: #94a3b8;
+      white-space: nowrap;
+    }
+    .staff-msg-unread .message-thread {
+      border-color: var(--staff-border-strong) !important;
+      box-shadow: 0 0 18px color-mix(in srgb, var(--staff-glow) 66%, transparent);
+    }
+    .message-reply-context {
+      display: none;
+      margin-top: 6px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(34, 211, 238, 0.34);
+      background: rgba(8, 47, 73, 0.28);
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+      color: #bae6fd;
+    }
+    .message-reply-context.active {
+      display: flex;
+    }
+    .message-reply-context button {
+      border: none;
+      background: transparent;
+      color: #a5f3fc;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 0;
+    }
     .staff-msg-unread {
       border-color: var(--staff-border-strong) !important;
       box-shadow: 0 0 16px var(--staff-glow);
+    }
+    body.ios :is(.vip-deal-card, .ceo-panel, .staff-form, .staff-radar, .member-folder-content, .profile-summary) {
+      min-width: 0;
+    }
+    body.ios :is(.vip-deal-card p, .ceo-panel p, .small, .message-bubble, .log-row, .ceo-member-row, .ceo-log-row) {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    body.ios .message-center-list {
+      max-height: 44vh;
+    }
+    @media (max-width: 640px) {
+      .message-thread {
+        padding: 9px 9px;
+      }
+      .message-thread-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+      .message-thread-venue {
+        max-width: 100%;
+      }
+      .message-thread-actions {
+        flex-wrap: wrap;
+      }
+      .message-thread-actions .msg-hint {
+        white-space: normal;
+      }
+      .message-bubble {
+        max-width: 100%;
+      }
     }
     .staff-log {
       margin-top: 12px;
@@ -11959,14 +12176,18 @@
       <!-- Card 6: Message Foco Help -->
       <div class="vip-deal-card" id="staffMessageCard">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-          <h4 style="margin:0;">Message Foco Help</h4>
+          <h4 style="margin:0;">Foco Help message center</h4>
           <span class="pill" id="staffMsgBadge" style="display:none;">New</span>
         </div>
-        <p class="small" style="color:#cbd5f5;margin-top:4px;">Send urgent questions to Foco Help. Replies appear here in real time.</p>
+        <p class="small" style="color:#cbd5f5;margin-top:4px;">Tap a thread to reply. Swipe left to delete. Live sync stays enabled.</p>
         <form id="staffMessageForm">
           <div class="field">
             <label for="staffMessageInput">Message</label>
             <textarea id="staffMessageInput" rows="3" placeholder="Type a quick note..."></textarea>
+          </div>
+          <div class="message-reply-context" id="staffReplyContext">
+            <span id="staffReplyContextText">Replying in thread</span>
+            <button type="button" id="staffReplyContextClear">Clear</button>
           </div>
           <div class="error" id="staffMessageError"></div>
           <p class="support-success" id="staffMessageSuccess" style="display:none;">Message sent.</p>
@@ -11974,7 +12195,7 @@
             <button type="submit" class="btn btn-primary">Send to Foco Help</button>
           </div>
         </form>
-        <div class="vip-deal-preview" id="staffMessagesList">No messages yet.</div>
+        <div class="message-center-list" id="staffMessagesList">No messages yet.</div>
         <div class="payment-actions" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
           <button type="button" class="btn btn-secondary" id="staffDeleteSelectedBtn" style="flex:1;min-width:140px;">Delete selected</button>
           <button type="button" class="btn btn-secondary" id="staffClearMessagesBtn" style="flex:1;min-width:140px;">Clear all</button>
@@ -12298,10 +12519,10 @@
 
             <section class="ceo-panel" id="ceoInboxCard">
               <div class="ceo-panel-header ceo-panel-header-row">
-                <h4 style="margin:0;">Venue messages</h4>
+                <h4 style="margin:0;">Venue message center</h4>
                 <span class="pill" id="ceoMsgBadge" style="display:none;">New</span>
               </div>
-              <p class="ceo-panel-note">Live messaging between venue staff and Foco Help.</p>
+              <p class="ceo-panel-note">Conversation view. Tap thread to reply. Swipe left to delete from your inbox.</p>
               <form id="ceoReplyForm">
                 <input type="hidden" id="ceoReplyTarget" />
                 <div class="field">
@@ -12312,7 +12533,7 @@
                 </div>
                 <div class="field">
                   <label for="ceoReplyInput">Reply</label>
-                  <textarea id="ceoReplyInput" rows="3" placeholder="Select a venue to reply"></textarea>
+                  <textarea id="ceoReplyInput" rows="2" placeholder="Select a venue to reply"></textarea>
                 </div>
                 <div class="error" id="ceoReplyError"></div>
                 <p class="support-success" id="ceoReplySuccess" style="display:none;">Reply sent.</p>
@@ -12321,7 +12542,7 @@
                   <button type="button" class="btn btn-secondary" id="ceoClearMessages">Clear all</button>
                 </div>
               </form>
-              <div class="vip-deal-preview ceo-scroll" id="ceoMessagesList">No messages yet.</div>
+              <div class="message-center-list ceo-scroll" id="ceoMessagesList">No messages yet.</div>
             </section>
             <div class="pitch-toggle" id="ceoPitchToggle">
               <div>
@@ -13654,6 +13875,7 @@
     let lastCeoStatsAt = 0;
     let staffMessagesCache = [];
     let ceoMessagesCache = [];
+    let staffReplyContextId = "";
     let ceoUnreadToastKeys = new Set();
     let venuePerksCache = {};
     let authSubmitInFlight = false;
@@ -15886,6 +16108,9 @@
     const staffMessageInput = document.getElementById("staffMessageInput");
     const staffMessageError = document.getElementById("staffMessageError");
     const staffMessageSuccess = document.getElementById("staffMessageSuccess");
+    const staffReplyContext = document.getElementById("staffReplyContext");
+    const staffReplyContextText = document.getElementById("staffReplyContextText");
+    const staffReplyContextClear = document.getElementById("staffReplyContextClear");
     const staffMessagesList = document.getElementById("staffMessagesList");
     const staffDeleteSelectedBtn = document.getElementById("staffDeleteSelectedBtn");
     const staffClearMessagesBtn = document.getElementById("staffClearMessagesBtn");
@@ -18849,6 +19074,83 @@
         .map(el => el.value)
         .filter(Boolean);
     }
+    function setStaffReplyContext(message = null) {
+      if (!staffReplyContext || !staffReplyContextText) return;
+      if (!message) {
+        staffReplyContextId = "";
+        staffReplyContext.classList.remove("active");
+        staffReplyContextText.textContent = "Replying in thread";
+        if (staffMessageInput) staffMessageInput.placeholder = "Type a quick note...";
+        return;
+      }
+      const id = String(message.id || "").trim();
+      staffReplyContextId = id;
+      const label = message.fromCeo ? "Foco Help message" : "Venue message";
+      staffReplyContextText.textContent = `Replying to: ${label}`;
+      staffReplyContext.classList.add("active");
+      if (staffMessageInput) staffMessageInput.placeholder = "Type your reply...";
+    }
+    function escapeMessageText(value) {
+      return escapeHtmlText(String(value || ""));
+    }
+    function attachSwipeDeleteHandlers(container, rowSelector, deleteSelector, onDelete) {
+      if (!container) return;
+      container.querySelectorAll(rowSelector).forEach(row => {
+        const thread = row.querySelector(".message-thread");
+        const deleteBtn = row.querySelector(deleteSelector);
+        if (!thread || !deleteBtn) return;
+        const resetSwipe = () => {
+          thread.classList.remove("swiped");
+          thread.style.setProperty("--swipe-x", "0px");
+        };
+        let startX = 0;
+        let startY = 0;
+        let swiping = false;
+        let moved = false;
+        thread.addEventListener("touchstart", (evt) => {
+          const touch = evt.changedTouches?.[0];
+          if (!touch) return;
+          startX = touch.clientX;
+          startY = touch.clientY;
+          swiping = true;
+          moved = false;
+        }, { passive: true });
+        thread.addEventListener("touchmove", (evt) => {
+          if (!swiping) return;
+          const touch = evt.changedTouches?.[0];
+          if (!touch) return;
+          const deltaX = touch.clientX - startX;
+          const deltaY = touch.clientY - startY;
+          if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 8) {
+            swiping = false;
+            return;
+          }
+          if (deltaX >= 0) return;
+          moved = true;
+          const clamped = Math.max(-78, deltaX);
+          thread.style.setProperty("--swipe-x", `${clamped}px`);
+        }, { passive: true });
+        thread.addEventListener("touchend", () => {
+          if (!swiping) return;
+          swiping = false;
+          const swipeX = Number.parseFloat(String(thread.style.getPropertyValue("--swipe-x") || "0")) || 0;
+          if (moved && swipeX <= -42) {
+            thread.classList.add("swiped");
+            thread.style.setProperty("--swipe-x", "-78px");
+          } else {
+            resetSwipe();
+          }
+        }, { passive: true });
+        thread.addEventListener("touchcancel", resetSwipe, { passive: true });
+        deleteBtn.addEventListener("click", async (evt) => {
+          evt.preventDefault();
+          evt.stopPropagation();
+          const id = row.getAttribute("data-id");
+          if (!id || typeof onDelete !== "function") return;
+          await onDelete(id);
+        });
+      });
+    }
     function renderStaffTicker() {
       if (!staffTickerList) return;
       const venueId = staffSession?.venue || null;
@@ -18884,6 +19186,7 @@
       if (!visible.length) {
         staffMessagesList.innerHTML = "No messages yet.";
         if (staffMsgBadge) staffMsgBadge.style.display = "none";
+        setStaffReplyContext(null);
         return;
       }
       const isUnreadForStaff = (msg) => {
@@ -18892,51 +19195,98 @@
       };
       const unread = visible.some(isUnreadForStaff);
       if (staffMsgBadge) staffMsgBadge.style.display = unread ? "inline-flex" : "none";
+      const hasReplyTarget = staffReplyContextId && visible.some(msg => String(msg.id) === staffReplyContextId);
+      if (!hasReplyTarget) setStaffReplyContext(null);
       staffMessagesList.innerHTML = visible
         .map(msg => {
-          const created = formatTimeLabel(tsToMillis(msg.createdAt || msg.createdAtServer));
+          const createdMs = tsToMillis(msg.repliedAt || msg.createdAtServer || msg.createdAt);
+          const created = formatTimeLabel(createdMs);
           const unreadForStaff = isUnreadForStaff(msg);
-          const venueLabel = msg.fromCeo ? "Foco Help" : (msg.venueName || "Your venue");
-          const bodyText = msg.fromCeo
-            ? (msg.message || msg.reply || "")
-            : (msg.message || "");
-          const replyBlock = msg.reply
-            ? `<div class="small" style="color:#cbd5f5;margin-top:4px;">Foco Help: ${msg.reply}</div>`
-            : "";
+          const venueLabel = msg.venueName || "Foco Help";
+          const baseMessage = msg.fromCeo ? (msg.message || msg.reply || "") : (msg.message || "");
+          const bubbles = [];
+          if (baseMessage) {
+            bubbles.push(`<div class="message-bubble ${msg.fromCeo ? "incoming" : "outgoing"}">${escapeMessageText(baseMessage)}</div>`);
+          }
+          if (!msg.fromCeo && msg.reply) {
+            bubbles.push(`<div class="message-bubble incoming">${escapeMessageText(msg.reply)}</div>`);
+          }
           const rowClass = `staff-msg-row${unreadForStaff ? " staff-msg-unread" : ""}`;
-          const newPill = unreadForStaff
-            ? '<span class="pill" style="background:#b91c1c;color:#fecaca;border-color:rgba(239,68,68,0.45);font-size:10px;padding:2px 8px;">New</span>'
-            : "";
-          return `<div class="${rowClass}" data-id="${msg.id}" style="margin-bottom:8px;padding:8px;border-radius:10px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.65);">
-            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
-              <div style="font-weight:600;display:flex;gap:8px;align-items:center;">
-                <input class="staff-msg-check" type="checkbox" value="${msg.id}" aria-label="Select message" />
-                <span>${venueLabel}</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                ${newPill}
-                <span style="font-size:12px;color:#94a3b8;">${created}</span>
+          const activeClass = staffReplyContextId && String(msg.id) === String(staffReplyContextId) ? " active" : "";
+          return `
+            <div class="message-row-wrap ${rowClass}" data-id="${msg.id}">
+              <button type="button" class="message-delete-btn staff-msg-delete" aria-label="Delete message">Delete</button>
+              <div class="message-thread${activeClass}">
+                <div class="message-thread-header">
+                  <div class="message-thread-meta">
+                    <input class="staff-msg-check" type="checkbox" value="${msg.id}" aria-label="Select message" />
+                    <span class="message-role-pill ${msg.fromCeo ? "" : "outgoing"}">${msg.fromCeo ? "Foco" : "You"}</span>
+                    <span class="message-thread-venue">${escapeMessageText(venueLabel)}</span>
+                    ${unreadForStaff ? '<span class="pill" style="background:#7f1d1d;color:#fecaca;border-color:rgba(239,68,68,0.45);font-size:10px;padding:2px 8px;">New</span>' : ""}
+                  </div>
+                  <span class="message-thread-time">${created}</span>
+                </div>
+                <div class="message-bubbles">${bubbles.join("") || '<div class="message-bubble incoming">No content.</div>'}</div>
+                <div class="message-thread-actions">
+                  <span class="msg-hint">Tap thread to reply</span>
+                  <button type="button" class="msg-action-btn staff-quick-reply">Reply</button>
+                </div>
               </div>
             </div>
-            <div style="color:#e2e8f0;margin-top:4px;">${bodyText}</div>
-            ${replyBlock}
-          </div>`;
+          `;
         })
         .join("");
       staffMessagesList.querySelectorAll(".staff-msg-row").forEach(row => {
         row.addEventListener("click", async (evt) => {
           if (evt?.target?.classList?.contains("staff-msg-check")) return;
+          if (evt?.target?.closest(".message-delete-btn")) return;
           const id = row.getAttribute("data-id");
-          if (!id || !db) return;
+          if (!id) return;
           const msg = staffMessagesCache.find(item => item.id === id);
-          if (!msg || !isUnreadForStaff(msg)) return;
-          if (!guardWriteAction("markStaffMessageRead")) return;
-          try {
-            await updateDoc(doc(db, "staffMessages", id), { readByStaff: true });
-          } catch (err) {
-            console.warn("Failed to mark staff message read", err);
+          const thread = row.querySelector(".message-thread");
+          if (thread?.classList.contains("swiped")) {
+            thread.classList.remove("swiped");
+            thread.style.setProperty("--swipe-x", "0px");
+            return;
+          }
+          if (msg) {
+            setStaffReplyContext(msg);
+            if (staffMessageInput) staffMessageInput.focus();
+            if (db && isUnreadForStaff(msg)) {
+              if (!guardWriteAction("markStaffMessageRead")) return;
+              try {
+                await updateDoc(doc(db, "staffMessages", id), { readByStaff: true });
+              } catch (err) {
+                console.warn("Failed to mark staff message read", err);
+              }
+            }
           }
         });
+      });
+      staffMessagesList.querySelectorAll(".staff-quick-reply").forEach(btn => {
+        btn.addEventListener("click", (evt) => {
+          evt.preventDefault();
+          evt.stopPropagation();
+          const row = btn.closest(".staff-msg-row");
+          const id = row?.getAttribute("data-id");
+          if (!id) return;
+          const msg = staffMessagesCache.find(item => item.id === id);
+          if (!msg) return;
+          setStaffReplyContext(msg);
+          if (staffMessageInput) staffMessageInput.focus();
+        });
+      });
+      attachSwipeDeleteHandlers(staffMessagesList, ".staff-msg-row", ".staff-msg-delete", async (id) => {
+        if (!id || !staffSession) return;
+        try {
+          if (!guardWriteAction("deleteStaffMessageSwipe")) return;
+          await ensureFirebaseUser();
+          await updateDoc(doc(db, "staffMessages", id), { deletedByStaff: true });
+          startStaffMessagesListener(staffSession.venue);
+        } catch (err) {
+          console.warn("Staff swipe delete failed", err);
+          if (staffMessageError) staffMessageError.textContent = "Could not delete message.";
+        }
       });
     }
 
@@ -19026,36 +19376,64 @@
     }
     function renderCeoMessages(messages = []) {
       if (!ceoMessagesList) return;
-      ceoMessagesCache = messages;
-      updateCeoReplyVenueOptions(messages);
-      maybeNotifyCeoUnreadMessages(messages);
-      if (!messages.length) {
+      const sorted = messages
+        .slice()
+        .sort((a, b) => tsToMillis(b.repliedAt || b.createdAtServer || b.createdAt) - tsToMillis(a.repliedAt || a.createdAtServer || a.createdAt));
+      ceoMessagesCache = sorted;
+      updateCeoReplyVenueOptions(sorted);
+      maybeNotifyCeoUnreadMessages(sorted);
+      if (!sorted.length) {
         ceoMessagesList.innerHTML = "No messages yet.";
         if (ceoMsgBadge) ceoMsgBadge.style.display = "none";
         return;
       }
-      const unread = messages.some(m => !m.readByCeo);
+      const unread = sorted.some(m => !m.readByCeo);
       if (ceoMsgBadge) ceoMsgBadge.style.display = unread ? "inline-flex" : "none";
-      ceoMessagesList.innerHTML = messages
+      ceoMessagesList.innerHTML = sorted
         .map(msg => {
-          const created = formatTimeLabel(tsToMillis(msg.createdAt || msg.createdAtServer));
+          const created = formatTimeLabel(tsToMillis(msg.repliedAt || msg.createdAtServer || msg.createdAt));
           const venueKey = getCeoVenueReplyKey(msg);
-          const reply = msg.reply ? `<div class="small" style="color:#cbd5f5;margin-top:4px;">Reply: ${msg.reply}</div>` : "";
-          const cls = !msg.readByCeo ? "style=\"border:1px solid rgba(34,211,238,0.35);\"" : "";
-          return `<div ${cls} class="message-row" data-id="${msg.id}" data-venue-key="${escapeHtmlText(venueKey)}" style="padding:8px;border-radius:10px;background:rgba(12,18,32,0.8);margin-bottom:8px;cursor:pointer;">
-            <div style="display:flex;justify-content:space-between;gap:8px;">
-              <div><strong>${msg.venueName || "Venue"}</strong><div style="color:#cbd5f5;font-size:12px;">${msg.staffUid || ""}</div></div>
-              <span style="font-size:12px;color:#94a3b8;">${created}</span>
+          const baseMessage = msg.message || "";
+          const bubbles = [];
+          if (baseMessage) {
+            bubbles.push(`<div class="message-bubble ${msg.fromCeo ? "outgoing" : "incoming"}">${escapeMessageText(baseMessage)}</div>`);
+          }
+          if (!msg.fromCeo && msg.reply) {
+            bubbles.push(`<div class="message-bubble outgoing">${escapeMessageText(msg.reply)}</div>`);
+          }
+          return `
+            <div class="message-row-wrap message-row${!msg.readByCeo ? " staff-msg-unread" : ""}" data-id="${msg.id}" data-venue-key="${escapeHtmlText(venueKey)}">
+              <button type="button" class="message-delete-btn ceo-msg-delete" aria-label="Delete message">Delete</button>
+              <div class="message-thread">
+                <div class="message-thread-header">
+                  <div class="message-thread-meta">
+                    <span class="message-role-pill ${msg.fromCeo ? "outgoing" : ""}">${msg.fromCeo ? "Foco" : "Venue"}</span>
+                    <span class="message-thread-venue">${escapeMessageText(msg.venueName || "Venue")}</span>
+                    ${!msg.readByCeo ? '<span class="pill" style="background:#7f1d1d;color:#fecaca;border-color:rgba(239,68,68,0.45);font-size:10px;padding:2px 8px;">New</span>' : ""}
+                  </div>
+                  <span class="message-thread-time">${created}</span>
+                </div>
+                <div class="message-bubbles">${bubbles.join("") || '<div class="message-bubble incoming">No content.</div>'}</div>
+                <div class="message-thread-actions">
+                  <span class="msg-hint">Tap thread to reply</span>
+                  <button type="button" class="msg-action-btn ceo-msg-reply">Reply</button>
+                </div>
+              </div>
             </div>
-            <div style="color:#e2e8f0;margin-top:4px;">${msg.message || ""}</div>
-            ${reply}
-          </div>`;
+          `;
         })
         .join("");
       ceoMessagesList.querySelectorAll(".message-row").forEach(row => {
-        row.addEventListener("click", async () => {
+        row.addEventListener("click", async (evt) => {
+          if (evt?.target?.closest(".message-delete-btn")) return;
           const id = row.getAttribute("data-id");
           const venueKey = row.getAttribute("data-venue-key") || "";
+          const thread = row.querySelector(".message-thread");
+          if (thread?.classList.contains("swiped")) {
+            thread.classList.remove("swiped");
+            thread.style.setProperty("--swipe-x", "0px");
+            return;
+          }
           if (ceoReplyVenue && venueKey) {
             ceoReplyVenue.value = venueKey;
             syncCeoReplyTargetFromSelection();
@@ -19073,6 +19451,32 @@
             console.warn("Failed to mark CEO message read", err);
           }
         });
+      });
+      ceoMessagesList.querySelectorAll(".ceo-msg-reply").forEach(btn => {
+        btn.addEventListener("click", (evt) => {
+          evt.preventDefault();
+          evt.stopPropagation();
+          const row = btn.closest(".message-row");
+          const venueKey = row?.getAttribute("data-venue-key") || "";
+          const id = row?.getAttribute("data-id") || "";
+          if (ceoReplyVenue && venueKey) {
+            ceoReplyVenue.value = venueKey;
+            syncCeoReplyTargetFromSelection();
+          } else if (ceoReplyTarget) {
+            ceoReplyTarget.value = id;
+          }
+          if (ceoReplyInput) ceoReplyInput.focus();
+        });
+      });
+      attachSwipeDeleteHandlers(ceoMessagesList, ".message-row", ".ceo-msg-delete", async (id) => {
+        if (!id || !isCeoAccount) return;
+        try {
+          if (!guardWriteAction("deleteCeoMessageSwipe")) return;
+          await updateDoc(doc(db, "staffMessages", id), { deletedByCeo: true });
+          renderCeoMessages(ceoMessagesCache.filter(msg => msg.id !== id));
+        } catch (err) {
+          console.warn("CEO swipe delete failed", err);
+        }
       });
     }
     function logStaffVerification(entry) {
@@ -30955,6 +31359,7 @@ let onboardingIndex = 0;
           ]);
           startStaffMessagesListener(staffSession.venue);
           if (staffMessageInput) staffMessageInput.value = "";
+          setStaffReplyContext(null);
           if (staffMessageSuccess) {
             staffMessageSuccess.textContent = "Message sent.";
             staffMessageSuccess.style.display = "block";
@@ -30963,6 +31368,11 @@ let onboardingIndex = 0;
           console.warn("Staff message send failed", err);
           if (staffMessageError) staffMessageError.textContent = err?.message || "Could not send message.";
         }
+      });
+    }
+    if (staffReplyContextClear) {
+      staffReplyContextClear.addEventListener("click", () => {
+        setStaffReplyContext(null);
       });
     }
     if (staffDeleteSelectedBtn) {
