@@ -9593,6 +9593,16 @@
         0 0 0 2px color-mix(in srgb, var(--accent-primary-live) 14%, transparent),
         0 0 8px color-mix(in srgb, var(--accent-primary-live) 16%, transparent);
     }
+    #memberIdInput::-webkit-credentials-auto-fill-button,
+    #memberIdInput::-webkit-contacts-auto-fill-button {
+      visibility: hidden;
+      pointer-events: none;
+      position: absolute;
+      right: 0;
+    }
+    #memberIdInput::-webkit-textfield-decoration-container {
+      display: none !important;
+    }
     body.ios :where(.btn, .nav-item, .pill, .community-stat, .featured-card, .ceo-nav-item) {
       -webkit-tap-highlight-color: rgba(34, 211, 238, 0.24);
     }
@@ -11837,10 +11847,10 @@
             <div class="small" style="margin-top:6px;">Tap a pending code to confirm.</div>
           </div>
         </div>
-        <form id="memberIdForm" style="margin-top:12px;" autocomplete="off">
+        <form id="memberIdForm" style="margin-top:12px;" autocomplete="off" data-lpignore="true" novalidate>
           <div class="field">
             <label for="memberIdInput">Quick member lookup</label>
-            <input id="memberIdInput" name="member_lookup_query" type="text" placeholder="Pass ID or username (e.g. XYZ789 or username)" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" />
+            <input id="memberIdInput" name="staff_member_lookup" type="text" placeholder="Pass ID or username (e.g. XYZ789 or username)" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" aria-autocomplete="none" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" />
           </div>
           <div class="error" id="memberIdError"></div>
           <p class="support-success" id="memberIdResult">Member is active.</p>
