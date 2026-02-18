@@ -4366,6 +4366,126 @@ exports.getStaffLoginToken = functions.runWith(staffLoginRunConfig).https.onCall
   }
 });
 
+function hasStaffLookupAccess(context) {
+  const claims = context?.auth?.token || {};
+  const uid = String(context?.auth?.uid || "");
+  return (
+    claims.staff === true ||
+    claims.ceo === true ||
+    claims.admin === true ||
+    uid.startsWith("staff_") ||
+    uid === CEO_UID
+  );
+}
+
+function normalizeLookupPayload(memberData = {}, uid = "") {
+  const passCode = String(memberData.passCode || memberData.passId || "").trim().toUpperCase();
+  const username = String(memberData.username || "").trim().replace(/^@+/, "").toLowerCase();
+  const displayName = String(
+    memberData.displayName ||
+    memberData.name ||
+    memberData.legalName ||
+    memberData.fullName ||
+    ""
+  ).trim();
+  return {
+    uid: String(uid || "").trim(),
+    passCode,
+    username,
+    name: displayName,
+    displayName,
+    tier: memberData.tier || memberData.membershipTier || memberData.membership || memberData.plan || null,
+    membershipTier: memberData.membershipTier || memberData.tier || null,
+    membershipOverride: memberData.membershipOverride || memberData.override || null,
+    paymentStatus: memberData.paymentStatus || null,
+    membershipStatus: memberData.membershipStatus || null,
+    paused: memberData.paused === true,
+    ceo: memberData.ceo === true || passCode === CEO_PASS_ID,
+    freeMembership: memberData.freeMembership === true || String(memberData.membershipOverride || "").toUpperCase() === "CEO_FREE",
+    blackCard: memberData.blackCard === true
+  };
+}
+
+async function findMemberForStaffLookup(rawQuery = "") {
+  const raw = String(rawQuery || "").trim();
+  if (!raw) return null;
+  const passCandidate = raw.replace(/\s+/g, "").toUpperCase();
+  const usernameCandidate = raw.replace(/^@+/, "").trim().toLowerCase();
+  const candidates = Array.from(new Set([passCandidate, raw, raw.toLowerCase()].filter(Boolean)));
+
+  const snapshotToMember = (snap) => {
+    if (!snap || snap.empty) return null;
+    const docSnap = snap.docs[0];
+    const data = docSnap.data() || {};
+    return normalizeLookupPayload(data, docSnap.id);
+  };
+
+  for (const value of candidates) {
+    const byPassCode = await db.collection("members").where("passCode", "==", value).limit(1).get();
+    const passCodeHit = snapshotToMember(byPassCode);
+    if (passCodeHit) return passCodeHit;
+
+    const byPassId = await db.collection("members").where("passId", "==", value).limit(1).get();
+    const passIdHit = snapshotToMember(byPassId);
+    if (passIdHit) return passIdHit;
+  }
+
+  if (usernameCandidate) {
+    const byUsername = await db.collection("members").where("username", "==", usernameCandidate).limit(1).get();
+    const usernameHit = snapshotToMember(byUsername);
+    if (usernameHit) return usernameHit;
+  }
+
+  if (passCandidate) {
+    const passSnap = await db.collection("passes").doc(passCandidate).get();
+    if (passSnap.exists) {
+      const passData = passSnap.data() || {};
+      const uid = String(
+        passData.uid ||
+        passData.memberUid ||
+        passData.userId ||
+        passData.ownerUid ||
+        ""
+      ).trim();
+      if (uid) {
+        const memberSnap = await db.collection("members").doc(uid).get();
+        if (memberSnap.exists) {
+          return normalizeLookupPayload(memberSnap.data() || {}, uid);
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+exports.staffLookupMember = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 40, maxPerDay: 1200 }
+  });
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  let allowed = hasStaffLookupAccess(context);
+  if (!allowed) {
+    try {
+      const memberSnap = await db.collection("members").doc(context.auth.uid).get();
+      const member = memberSnap.exists ? (memberSnap.data() || {}) : {};
+      const role = String(member.role || "").toLowerCase();
+      allowed = member.staff === true || member.ceo === true || role === "staff" || role === "ceo";
+    } catch (_) {}
+  }
+  if (!allowed) throw new HttpsError("permission-denied", "Staff access required");
+  const queryText = String(data?.query || "").trim();
+  if (!queryText) throw new HttpsError("invalid-argument", "Pass ID or username required");
+  try {
+    const member = await findMemberForStaffLookup(queryText);
+    if (!member) return { found: false };
+    return { found: true, ...member };
+  } catch (err) {
+    console.warn("staffLookupMember failed", err?.message || err);
+    throw err instanceof HttpsError ? err : new HttpsError("internal", "Member lookup failed");
+  }
+});
+
 // CEO login via shared passphrase: returns custom token with CEO claims.
 exports.getCeoLoginToken = functions.runWith(ceoLoginRunConfig).https.onCall(async (data, context) => {
   try {

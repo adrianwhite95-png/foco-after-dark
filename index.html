@@ -5010,11 +5010,17 @@
       color: var(--staff-muted);
       font-size: 13px;
     }
+    .radar-hype-slot {
+      position: relative;
+      z-index: 18;
+      margin-top: 10px;
+    }
     .radar-hype {
       position: relative;
-      margin-top: 12px;
-      z-index: 2;
+      z-index: 18;
       pointer-events: none;
+      display: block;
+      width: 100%;
       text-align: center;
       padding: 10px 12px;
       border-radius: 12px;
@@ -5025,8 +5031,7 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       line-height: 1.2;
-      color: #e2f7ff;
-      color: color-mix(in srgb, var(--staff-text) 92%, white 8%);
+      color: #f3fbff;
       text-shadow:
         0 0 12px color-mix(in srgb, var(--staff-primary, #67e8f9) 55%, transparent),
         0 0 calc(18px + var(--radar-hype-glow, 0) * 30px) color-mix(in srgb, var(--staff-primary, #67e8f9) 75%, transparent);
@@ -11800,7 +11805,7 @@
         <form id="memberIdForm" style="margin-top:12px;">
           <div class="field">
             <label for="memberIdInput">Quick member lookup</label>
-            <input id="memberIdInput" type="text" placeholder="Pass ID or username (e.g. XYZ789 or dreeboy)" />
+            <input id="memberIdInput" type="text" placeholder="Pass ID or username (e.g. XYZ789 or username)" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" />
           </div>
           <div class="error" id="memberIdError"></div>
           <p class="support-success" id="memberIdResult">Member is active.</p>
@@ -11823,7 +11828,9 @@
           <div class="radar-pings" id="radarPings"></div>
           <div class="radar-particles" id="radarParticles"></div>
         </div>
-        <div class="radar-hype" id="staffRadarHype" data-level="0">Build the buzz</div>
+        <div class="radar-hype-slot">
+          <div class="radar-hype" id="staffRadarHype" data-level="0">Build the buzz</div>
+        </div>
         <div class="radar-copy">
           <div class="radar-title">Live floor pulse</div>
           <div class="radar-mood">
@@ -23882,59 +23889,75 @@ let onboardingIndex = 0;
 
     async function lookupMemberProfile(passId, options = {}) {
       if (!passId) return null;
-      const key = String(passId || "").trim().toUpperCase();
-      if (!key) return null;
-      const cached = passDirectoryCache[key];
+      const raw = String(passId || "").trim();
+      const key = raw.toUpperCase();
+      if (!key && !raw) return null;
+      const cached = passDirectoryCache[key || raw.toUpperCase()];
       const freshEnough = cached && (Date.now() - cached.fetchedAt < PASS_CACHE_TTL);
       if (cached && freshEnough && (!options.requireDoc || cached.docId)) {
         return { ...cached.profile, _docId: cached.docId };
       }
       if (db) {
         try {
-          const runMemberLookup = async (fieldName) => {
-            const q = query(collection(db, "members"), where(fieldName, "==", key), limit(1));
+          const runMemberLookup = async (fieldName, value) => {
+            if (!value) return null;
+            const q = query(collection(db, "members"), where(fieldName, "==", value), limit(1));
             const snapshot = await getDocs(q);
             if (snapshot.empty) return null;
             const docSnap = snapshot.docs[0];
             const data = docSnap.data() || {};
             const profile = {
               ...data,
-              passCode: String(data.passCode || data.passId || key).toUpperCase(),
+              passCode: String(data.passCode || data.passId || value).toUpperCase(),
             };
             cachePassProfile(profile.passCode, profile, docSnap.id);
             return { ...profile, _docId: docSnap.id };
           };
-          const byPassCode = await runMemberLookup("passCode");
-          if (byPassCode) return byPassCode;
-          const byPassId = await runMemberLookup("passId");
-          if (byPassId) return byPassId;
-          try {
-            const passSnap = await getDoc(doc(db, "passes", key));
-            if (passSnap.exists()) {
+          const candidates = Array.from(new Set([
+            key,
+            raw,
+            raw.replace(/\s+/g, ""),
+            raw.toLowerCase(),
+            key.replace(/\s+/g, "")
+          ].filter(Boolean)));
+          for (const candidate of candidates) {
+            const byPassCode = await runMemberLookup("passCode", candidate);
+            if (byPassCode) return byPassCode;
+            const byPassId = await runMemberLookup("passId", candidate);
+            if (byPassId) return byPassId;
+          }
+          for (const passKey of candidates.map((value) => String(value || "").toUpperCase()).filter(Boolean)) {
+            try {
+              const passSnap = await getDoc(doc(db, "passes", passKey));
+              if (!passSnap.exists()) continue;
               const passData = passSnap.data() || {};
-              const uid = String(passData.uid || passData.memberUid || "").trim();
-              if (uid) {
-                const memberSnap = await getDoc(doc(db, "members", uid));
-                if (memberSnap.exists()) {
-                  const data = memberSnap.data() || {};
-                  const profile = {
-                    ...data,
-                    passCode: String(data.passCode || data.passId || key).toUpperCase(),
-                  };
-                  cachePassProfile(profile.passCode, profile, memberSnap.id);
-                  return { ...profile, _docId: memberSnap.id };
-                }
-              }
+              const uid = String(
+                passData.uid
+                || passData.memberUid
+                || passData.userId
+                || passData.ownerUid
+                || ""
+              ).trim();
+              if (!uid) continue;
+              const memberSnap = await getDoc(doc(db, "members", uid));
+              if (!memberSnap.exists()) continue;
+              const data = memberSnap.data() || {};
+              const profile = {
+                ...data,
+                passCode: String(data.passCode || data.passId || passKey).toUpperCase(),
+              };
+              cachePassProfile(profile.passCode, profile, memberSnap.id);
+              return { ...profile, _docId: memberSnap.id };
+            } catch (passErr) {
+              console.warn("Pass document lookup failed:", passErr);
             }
-          } catch (passErr) {
-            console.warn("Pass document lookup failed:", passErr);
           }
         } catch (err) {
           console.warn("Failed to fetch member profile from Firestore:", err);
         }
       }
       const directory = loadMemberDirectory();
-      const fallback = directory[key];
+      const fallback = directory[key] || directory[raw.toUpperCase()];
       if (fallback) {
         return { ...fallback };
       }
@@ -23943,7 +23966,7 @@ let onboardingIndex = 0;
       }
       return null;
     }
-    async function lookupMemberProfileByUsername(username, options = {}) {
+    async function lookupMemberProfileByUsername(username) {
       const normalized = String(username || "").trim().replace(/^@+/, "").toLowerCase();
       if (!normalized) return null;
       if (db) {
@@ -23980,6 +24003,38 @@ let onboardingIndex = 0;
         };
       }
       return null;
+    }
+    async function lookupMemberProfileByServer(queryText) {
+      if (!functionsClient) return null;
+      try {
+        const fn = httpsCallable(functionsClient, "staffLookupMember");
+        const resp = await fn({ query: String(queryText || "") });
+        const data = resp?.data || {};
+        if (!data?.found) return null;
+        const profile = {
+          passCode: String(data.passCode || "").toUpperCase(),
+          passId: String(data.passCode || "").toUpperCase(),
+          username: String(data.username || "").trim().replace(/^@+/, "").toLowerCase(),
+          name: String(data.name || data.displayName || "").trim(),
+          displayName: String(data.displayName || data.name || "").trim(),
+          tier: data.tier || data.membershipTier || null,
+          membershipTier: data.membershipTier || data.tier || null,
+          membershipOverride: data.membershipOverride || null,
+          paymentStatus: data.paymentStatus || null,
+          membershipStatus: data.membershipStatus || null,
+          paused: data.paused === true,
+          ceo: data.ceo === true,
+          freeMembership: data.freeMembership === true,
+          blackCard: data.blackCard === true
+        };
+        if (profile.passCode) {
+          cachePassProfile(profile.passCode, profile, data.uid || null);
+        }
+        return { ...profile, _docId: data.uid || null };
+      } catch (err) {
+        console.warn("staffLookupMember callable failed", err);
+        return null;
+      }
     }
     function getLookupMembershipSummary(profile = {}) {
       const passCode = String(profile.passCode || profile.passId || "").toUpperCase();
@@ -27329,6 +27384,18 @@ let onboardingIndex = 0;
       refreshStaffCeoReceipts();
       return { success: true, venueId: resolved };
     }
+    function hydrateStaffVenueData(venueId) {
+      if (!venueId) return;
+      startStaffPerksListener(venueId);
+      startStaffRedemptionListener(venueId);
+      startStaffMessagesListener(venueId);
+      renderStaffVipDeal();
+      renderStaffAlertPreview();
+      renderStaffDealCodes();
+      refreshStaffCeoReceipts();
+      updateStaffRadar();
+      renderStaffPendingQueue();
+    }
     async function handlePendingScanVerification() {
       if (!pendingScanVerify || !staffSession) return;
       const code = pendingScanVerify;
@@ -27358,6 +27425,7 @@ let onboardingIndex = 0;
       const staffAccent = loadStaffAccent(result.venueId) || "cyan";
       applyStaffAccent(staffAccent);
       if (staffAccentSelect) staffAccentSelect.value = staffAccent;
+      hydrateStaffVenueData(result.venueId);
       showScreen("staffPortal");
       return true;
     }
@@ -27516,6 +27584,7 @@ let onboardingIndex = 0;
       suppressLandingRedirectOnce = true;
       try {
         await signInWithCustomToken(firebaseAuth, token);
+        await refreshAuthClaims(firebaseAuth.currentUser);
         console.info("[staff] auth ok (token)");
         showToast("Staff auth verified.", 1400);
       } catch (err) {
@@ -27538,6 +27607,7 @@ let onboardingIndex = 0;
       setRadarGraffiti(venueName);
       const staffAccent = loadStaffAccent(venueId) || "cyan";
       applyStaffAccent(staffAccent);
+      hydrateStaffVenueData(venueId);
       const rememberStaffLogin = !!(staffRememberMe && staffRememberMe.checked);
       updateStaffRememberedLogin({
         venue,
@@ -27679,7 +27749,7 @@ let onboardingIndex = 0;
           if (staffVenueChip) staffVenueChip.textContent = venueName;
           renderStaffVenueLog();
           renderStaffPendingQueue();
-          refreshStaffCeoReceipts();
+          hydrateStaffVenueData(staffSession.venue);
           showScreen("staffPortal");
         } else {
           showScreen("staffLogin");
@@ -30797,7 +30867,7 @@ let onboardingIndex = 0;
           memberIdError.textContent = "Enter a pass ID or username.";
           return;
         }
-        if (passId === CEO_PASS_ID || usernameLookup === "dreeboy") {
+        if (passId === CEO_PASS_ID) {
           showNeonSuccess(memberIdResult, "Verified FoCo Founder & CEO · Adrian White", 7600, true);
           memberIdResult.scrollIntoView({ behavior: "smooth", block: "center" });
           memberIdInput.value = "";
@@ -30806,7 +30876,11 @@ let onboardingIndex = 0;
         let profile = await lookupMemberProfile(passId, { requireDoc: true });
         let resolvedPass = passId;
         if (!profile) {
-          profile = await lookupMemberProfileByUsername(usernameLookup, { requireDoc: true });
+          profile = await lookupMemberProfileByUsername(usernameLookup);
+          resolvedPass = String(profile?.passCode || profile?.passId || "").toUpperCase();
+        }
+        if (!profile) {
+          profile = await lookupMemberProfileByServer(cleanedLookup);
           resolvedPass = String(profile?.passCode || profile?.passId || "").toUpperCase();
         }
         if (!profile) {
