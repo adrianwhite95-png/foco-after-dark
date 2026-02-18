@@ -871,7 +871,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
     const vibeLabelInput = String(data?.vibeLabel || "").trim();
     const vibeLabel = vibeLabelInput ? vibeLabelInput.slice(0, 28) : null;
     const vibeKeyInput = String(data?.vibeKey || "").trim().toLowerCase();
-    const vibeKey = ["flirty", "blacking", "social", "casual", "custom"].includes(vibeKeyInput)
+    const vibeKey = ["flirty", "blacking", "social", "casual", "justone", "custom"].includes(vibeKeyInput)
       ? vibeKeyInput
       : null;
     const missingFields = [];
