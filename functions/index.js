@@ -3843,10 +3843,6 @@ exports.createAgeVerificationSession = functions.runWith(stripeSecrets).https.on
     },
     return_url: returnUrlRaw,
   };
-  const existingCustomerId = String(memberDocData?.stripeCustomerId || "").trim();
-  if (existingCustomerId) {
-    sessionPayload.customer = existingCustomerId;
-  }
   let session;
   try {
     session = await stripe.identity.verificationSessions.create(sessionPayload);
@@ -3924,7 +3920,22 @@ async function ensureStripeCustomer({ stripe, memberRef, memberDocData, uid, ema
   if (isStripeExcluded(token, memberDocData)) {
     throw stripeExcludedError();
   }
-  if (memberDocData?.stripeCustomerId) return memberDocData.stripeCustomerId;
+  const existingCustomerId = String(memberDocData?.stripeCustomerId || "").trim();
+  if (existingCustomerId) {
+    try {
+      const existingCustomer = await stripe.customers.retrieve(existingCustomerId);
+      if (existingCustomer && !existingCustomer.deleted) {
+        return existingCustomerId;
+      }
+    } catch (err) {
+      const errCode = String(err?.code || err?.raw?.code || "").toLowerCase();
+      const errType = String(err?.type || err?.raw?.type || "").toLowerCase();
+      if (errCode !== "resource_missing" && errType !== "invalid_request_error") {
+        throw err;
+      }
+      console.warn("ensureStripeCustomer: stale stripeCustomerId, creating replacement", existingCustomerId);
+    }
+  }
   const customer = await stripe.customers.create({
     email: email || undefined,
     metadata: { uid }
