@@ -1463,7 +1463,8 @@ exports.initUserProfile = functions.auth.user().onCreate(async (user) => {
     extraVouchers: existing.exists && existing.data().extraVouchers ? existing.data().extraVouchers : { drink: 0, shot: 0, cover: 0 },
     perks: existing.exists && existing.data().perks ? existing.data().perks : defaultPerks,
     points: existing.exists && existing.data().points ? existing.data().points : 0,
-    username: existing.exists && existing.data().username ? existing.data().username : (email ? email.split('@')[0] : ''),
+    // Username is explicitly claimed via reserveUsername from the client flow.
+    username: existing.exists && existing.data().username ? existing.data().username : '',
     email
   };
   await memberRef.set(profile, { merge: true });
@@ -1476,12 +1477,20 @@ exports.initUserProfile = functions.auth.user().onCreate(async (user) => {
   }, { merge: true });
   const uname = (profile.username || '').trim().toLowerCase();
   if (uname) {
-    await db.collection('usernames').doc(uname).set({
-      uid,
-      email,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    const unameRef = db.collection('usernames').doc(uname);
+    await db.runTransaction(async (tx) => {
+      const unameSnap = await tx.get(unameRef);
+      if (!unameSnap.exists || unameSnap.data()?.uid === uid) {
+        tx.set(unameRef, {
+          uid,
+          email,
+          createdAt: unameSnap.exists
+            ? (unameSnap.data()?.createdAt || admin.firestore.FieldValue.serverTimestamp())
+            : admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
+    });
   }
   await db.collection('settings').doc('appStats').set({
     membersCount: admin.firestore.FieldValue.increment(1),
@@ -1865,6 +1874,30 @@ exports.runCloseOutNow = functions.runWith(reportEmailSecrets).https.onCall(asyn
 
 
 // Atomic username reservation/update
+exports.checkUsernameAvailability = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    requireAuth: false,
+    rateLimit: true,
+    publicScope: "checkUsernameAvailability",
+    publicRateLimit: { limit: 40, windowMs: 10 * 60 * 1000 }
+  });
+  const requesterUid = String(context?.auth?.uid || "").trim();
+  const desired = (data && data.username ? String(data.username) : '').trim().toLowerCase();
+  if (!desired || desired.length < 3 || desired.length > 10 || !/^[a-z0-9_]+$/.test(desired)) {
+    throw new HttpsError('invalid-argument', 'Invalid username format');
+  }
+  const unameSnap = await db.collection("usernames").doc(desired).get();
+  if (unameSnap.exists) {
+    const ownerUid = String(unameSnap.data()?.uid || "").trim();
+    if (!ownerUid || ownerUid !== requesterUid) {
+      return { available: false, username: desired };
+    }
+  }
+  const memberMatch = await db.collection("members").where("username", "==", desired).limit(2).get();
+  const takenByOtherMember = memberMatch.docs.some((docSnap) => docSnap.id !== requesterUid);
+  return { available: !takenByOtherMember, username: desired };
+});
+
 exports.reserveUsername = functions.https.onCall(async (data, context) => {
   await enforceCallableSecurity(context, {
     rateLimit: { maxPerMin: 12, maxPerDay: 200 }
@@ -1879,6 +1912,11 @@ exports.reserveUsername = functions.https.onCall(async (data, context) => {
     const unameRef = db.collection('usernames').doc(desired);
     const existingUname = await tx.get(unameRef);
     if (existingUname.exists && existingUname.data().uid !== uid) {
+      throw new HttpsError('already-exists', 'Username already taken');
+    }
+    const memberMatch = await tx.get(db.collection("members").where("username", "==", desired).limit(2));
+    const takenByOtherMember = memberMatch.docs.some((docSnap) => docSnap.id !== uid);
+    if (takenByOtherMember) {
       throw new HttpsError('already-exists', 'Username already taken');
     }
     const memberSnap = await tx.get(memberRef);

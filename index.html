@@ -14963,6 +14963,19 @@
           if (typeof showToast === "function") showToast(msg, 2400);
           return;
         }
+        const usernameAvailability = await checkUsernameAvailabilityCloud(usernameCheck.value);
+        if (!usernameAvailability.ok) {
+          const msg = usernameAvailability.message || "Could not verify username. Try again.";
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2400);
+          return;
+        }
+        if (!usernameAvailability.available) {
+          const msg = "This username already exists. Try another.";
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2400);
+          return;
+        }
         if (!genderValue) {
           const msg = "Please select your gender.";
           authError.textContent = msg;
@@ -14991,7 +15004,7 @@
           fullName,
           birthDateISO,
           gender: genderValue,
-          username: usernameCheck.value,
+          username: usernameAvailability.username || usernameCheck.value,
           ceoFreeInviteCode: inviteCode || ""
         };
         showSignupConfirmModal();
@@ -15139,12 +15152,14 @@
         return;
       }
       let signupAppliedFreeInvite = false;
+      let createdUser = null;
       try {
         const remember = !!(rememberMe && rememberMe.checked);
         await ensureAuthPersistence();
         updateRememberedEmail(remember ? email : null, remember ? password : "");
         suppressLandingRedirectOnce = true;
         const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        createdUser = cred?.user || null;
         if (cred?.user) {
           if (fullName) {
             await updateProfile(cred.user, { displayName: fullName });
@@ -15162,7 +15177,12 @@
               finalizedUsername = reserved.username;
               saveUsernameMapEntry(finalizedUsername, email);
             } else if (reserved.code?.includes("already-exists")) {
-              showToast("That username was just claimed. Choose another after signup.");
+              try {
+                await createdUser.delete();
+              } catch (_) {
+                try { await signOut(firebaseAuth); } catch (_) {}
+              }
+              throw new Error("This username already exists. Try another.");
             } else {
               console.warn("Username reservation failed", reserved.message || reserved.code || "");
             }
@@ -15224,9 +15244,12 @@
       showAddHomeGate();
     }
   } catch (err) {
-        authError.textContent = formatAuthError(err);
+        const msg = err?.message || formatAuthError(err);
+        authError.textContent = msg;
+        if (typeof showToast === "function") showToast(msg, 2600);
         onboardingMembershipFlow = false;
         forceMembershipScreen = false;
+        showScreen("auth");
       } finally {
         pendingSignupData = null;
       }
@@ -20210,6 +20233,27 @@ let onboardingIndex = 0;
         return { ok: false, code: err?.code || "", message: err?.message || "Username reservation failed" };
       }
     }
+    async function checkUsernameAvailabilityCloud(username) {
+      const desired = String(username || "").trim().toLowerCase();
+      if (!desired) return { ok: false, available: false, message: "Username required." };
+      if (!functionsClient) return { ok: false, available: false, message: "Username check unavailable right now." };
+      try {
+        const fn = httpsCallable(functionsClient, "checkUsernameAvailability");
+        const resp = await fn({ username: desired });
+        const data = resp?.data || {};
+        return {
+          ok: true,
+          available: data.available !== false,
+          username: String(data.username || desired).trim().toLowerCase()
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          available: false,
+          message: err?.message || "Username check failed."
+        };
+      }
+    }
     function normalizeCeoFreeInviteCode(raw = "") {
       return String(raw || "")
         .toUpperCase()
@@ -22921,7 +22965,7 @@ let onboardingIndex = 0;
       const reserved = await reserveUsernameCloud(finalName);
       if (!reserved.ok) {
         if (reserved.code?.includes("already-exists")) {
-          throw new Error("Username already taken. Try another.");
+          throw new Error("This username already exists. Try another.");
         }
         throw new Error("Could not save username right now.");
       }
@@ -22960,7 +23004,7 @@ let onboardingIndex = 0;
       const finalName = check.value;
       const current = preferredUsername();
       if (isUsernameTaken(finalName) && finalName.toLowerCase() !== current.toLowerCase()) {
-        if (usernameEditError) usernameEditError.textContent = "Username already taken. Try another.";
+        if (usernameEditError) usernameEditError.textContent = "This username already exists. Try another.";
         return;
       }
       try {
@@ -23005,7 +23049,7 @@ let onboardingIndex = 0;
       }
       const finalName = check.value;
       if (isUsernameTaken(finalName) && finalName.toLowerCase() !== current.toLowerCase()) {
-        showToast("Username already taken. Try another.");
+        showToast("This username already exists. Try another.");
         return;
       }
       await applyUsernameChange(code, finalName);
