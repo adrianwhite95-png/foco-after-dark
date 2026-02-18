@@ -5273,10 +5273,10 @@ function sanitizeAssistantContextPayload(raw = {}) {
   const htmlSnippets = {};
   const scriptSnippets = {};
   Object.entries(htmlSnippetsRaw).slice(0, 12).forEach(([key, value]) => {
-    htmlSnippets[String(key || "").slice(0, 48)] = clampAssistantText(value, 2600);
+    htmlSnippets[String(key || "").slice(0, 48)] = clampAssistantText(value, 900);
   });
   Object.entries(scriptSnippetsRaw).slice(0, 16).forEach(([key, value]) => {
-    scriptSnippets[String(key || "").slice(0, 48)] = clampAssistantText(value, 2800);
+    scriptSnippets[String(key || "").slice(0, 48)] = clampAssistantText(value, 1000);
   });
   const coreCollections = Array.isArray(obj.coreCollections)
     ? obj.coreCollections.map((v) => String(v || "").trim()).filter(Boolean).slice(0, 40)
@@ -5284,14 +5284,40 @@ function sanitizeAssistantContextPayload(raw = {}) {
   return {
     buildVersion: clampAssistantText(obj.buildVersion, 60) || "unknown",
     capturedAt: clampAssistantText(obj.capturedAt, 80),
-    contextNotes: clampAssistantText(obj.contextNotes, 2200),
-    firestoreRulesHint: clampAssistantText(obj.firestoreRulesHint, 1400),
+    contextNotes: clampAssistantText(obj.contextNotes, 1200),
+    firestoreRulesHint: clampAssistantText(obj.firestoreRulesHint, 700),
     coreCollections,
     htmlSnippets,
     scriptSnippets
   };
 }
-function formatAssistantContextForPrompt(contextData = {}) {
+function parsePromptKeywords(prompt = "") {
+  const stopWords = new Set([
+    "the", "and", "for", "with", "from", "that", "this", "have", "what", "when", "where", "which", "your", "into", "about", "need", "please", "make", "just", "then"
+  ]);
+  const tokens = String(prompt || "")
+    .toLowerCase()
+    .split(/[^a-z0-9_]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 4 && !stopWords.has(t));
+  return Array.from(new Set(tokens)).slice(0, 10);
+}
+function rankSnippetEntries(entries = [], keywords = []) {
+  if (!keywords.length) return entries;
+  return entries
+    .map(([key, value]) => {
+      const hay = `${String(key || "").toLowerCase()} ${String(value || "").toLowerCase()}`;
+      let score = 0;
+      keywords.forEach((kw) => {
+        if (hay.includes(kw)) score += 1;
+      });
+      return { key, value, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => [entry.key, entry.value]);
+}
+function formatAssistantContextForPrompt(contextData = {}, prompt = "") {
+  const keywords = parsePromptKeywords(prompt);
   const parts = [];
   if (contextData.buildVersion) parts.push(`Build: ${contextData.buildVersion}`);
   if (Array.isArray(contextData.coreCollections) && contextData.coreCollections.length) {
@@ -5300,16 +5326,16 @@ function formatAssistantContextForPrompt(contextData = {}) {
   if (contextData.contextNotes) parts.push(`Notes: ${contextData.contextNotes}`);
   if (contextData.firestoreRulesHint) parts.push(`Rules: ${contextData.firestoreRulesHint}`);
   const htmlSnippets = contextData.htmlSnippets || {};
-  Object.entries(htmlSnippets).slice(0, 6).forEach(([key, value]) => {
+  rankSnippetEntries(Object.entries(htmlSnippets), keywords).slice(0, 3).forEach(([key, value]) => {
     if (!value) return;
-    parts.push(`HTML[${key}]: ${value}`);
+    parts.push(`HTML[${key}]: ${clampAssistantText(value, 360)}`);
   });
   const scriptSnippets = contextData.scriptSnippets || {};
-  Object.entries(scriptSnippets).slice(0, 8).forEach(([key, value]) => {
+  rankSnippetEntries(Object.entries(scriptSnippets), keywords).slice(0, 4).forEach(([key, value]) => {
     if (!value) return;
-    parts.push(`JS[${key}]: ${value}`);
+    parts.push(`JS[${key}]: ${clampAssistantText(value, 420)}`);
   });
-  return clampAssistantText(parts.join("\n"), 15000);
+  return clampAssistantText(parts.join("\n"), 3600);
 }
 async function getAssistantLiveSnapshot() {
   const snapshot = {
@@ -5430,6 +5456,40 @@ function buildAssistantFallbackReply(prompt = "", liveSnapshot = {}) {
   }
   return `HQ AI is rate-limited right now. Live snapshot: members ${liveSnapshot.members ?? "n/a"}, alerts ${liveSnapshot.activeAlerts ?? "n/a"}, deals ${liveSnapshot.activeDeals ?? "n/a"}, unread messages ${liveSnapshot.pendingMessages ?? "n/a"}.`;
 }
+function parseOpenAiErrorBody(rawBody = "") {
+  const text = String(rawBody || "");
+  if (!text) return { code: "", message: "" };
+  try {
+    const parsed = JSON.parse(text);
+    const err = parsed?.error || {};
+    return {
+      code: String(err.code || err.type || "").trim(),
+      message: clampAssistantText(err.message || "", 360)
+    };
+  } catch (_) {
+    return {
+      code: "",
+      message: clampAssistantText(text, 360)
+    };
+  }
+}
+function buildAssistantOpenAiFailureReply(status = 0, code = "", message = "", liveSnapshot = {}) {
+  const normalizedCode = String(code || "").toLowerCase();
+  const normalizedMessage = String(message || "").toLowerCase();
+  const quotaLike = status === 429
+    || normalizedCode.includes("quota")
+    || normalizedCode.includes("rate")
+    || normalizedMessage.includes("quota")
+    || normalizedMessage.includes("billing")
+    || normalizedMessage.includes("rate limit");
+  if (quotaLike) {
+    return `HQ AI is temporarily unavailable because the OpenAI API key is currently quota/rate limited. Live snapshot: members ${liveSnapshot.members ?? "n/a"}, alerts ${liveSnapshot.activeAlerts ?? "n/a"}, deals ${liveSnapshot.activeDeals ?? "n/a"}, unread messages ${liveSnapshot.pendingMessages ?? "n/a"}.`;
+  }
+  if (status === 401 || normalizedCode.includes("invalid_api_key")) {
+    return "HQ AI could not authenticate with OpenAI. Update OPENAI_API_KEY in Firebase Functions secrets.";
+  }
+  return buildAssistantFallbackReply("", liveSnapshot);
+}
 async function requestOpenAiWithRetry(apiKey, payload) {
   const retries = [0, 800, 1700];
   let lastStatus = 0;
@@ -5523,7 +5583,8 @@ exports.ceoChat = functions.runWith({ secrets: ["OPENAI_API_KEY"] }).https.onCal
   if (!isCeo) throw new HttpsError('permission-denied', 'CEO only');
   const prompt = (data?.prompt || '').toString().trim();
   if (!prompt) throw new HttpsError('invalid-argument', 'Prompt required');
-  const normalizedPrompt = prompt.toLowerCase().slice(0, 1200);
+  const safePrompt = clampAssistantText(prompt, 1400);
+  const normalizedPrompt = safePrompt.toLowerCase().slice(0, 1200);
   let contextData = {};
   try {
     const contextSnap = await db.doc(CEO_ASSISTANT_CONTEXT_DOC).get();
@@ -5538,7 +5599,7 @@ exports.ceoChat = functions.runWith({ secrets: ["OPENAI_API_KEY"] }).https.onCal
     "- Maintenance and launch mode are controlled in settings/app.",
     "- Prefer concrete steps: where to click, what collection/doc to inspect, and exact rollback plan."
   ].join("\n");
-  const dynamicContext = formatAssistantContextForPrompt(contextData);
+  const dynamicContext = formatAssistantContextForPrompt(contextData, safePrompt);
   const liveContext = formatAssistantLiveSnapshot(liveSnapshot);
   const contextHash = crypto
     .createHash("sha256")
@@ -5589,16 +5650,18 @@ exports.ceoChat = functions.runWith({ secrets: ["OPENAI_API_KEY"] }).https.onCal
         { role: "system", content: staticContext },
         { role: "system", content: `Live snapshot:\n${liveContext}` },
         { role: "system", content: `App code context:\n${dynamicContext || "No context synced yet."}` },
-        { role: "user", content: prompt }
+        { role: "user", content: safePrompt }
       ],
-      max_tokens: 900,
-      temperature: 0.45
-    }, ["gpt-4.1-mini", "gpt-4o-mini", "gpt-4.1-nano"]);
+      max_tokens: 650,
+      temperature: 0.4
+    }, ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1-nano"]);
     if (!result.ok) {
-      console.warn("OpenAI error", result.status, result.body, result.model || "");
+      const openAiErr = parseOpenAiErrorBody(result.body || "");
+      console.warn("OpenAI error", result.status, openAiErr.code || "", openAiErr.message || "", result.model || "");
       return {
-        reply: buildAssistantFallbackReply(prompt, liveSnapshot),
+        reply: buildAssistantOpenAiFailureReply(result.status, openAiErr.code, openAiErr.message, liveSnapshot),
         status: result.status || 429,
+        openAiCode: openAiErr.code || "",
         degraded: true,
         fallback: true
       };
