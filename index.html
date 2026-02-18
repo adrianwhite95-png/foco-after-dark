@@ -5012,14 +5012,18 @@
     }
     .radar-hype-slot {
       position: relative;
-      z-index: 18;
-      margin-top: 10px;
-      min-height: 44px;
-      display: block;
+      z-index: 40;
+      margin-top: 12px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+      isolation: isolate;
     }
     .radar-hype {
       position: relative;
-      z-index: 18;
+      z-index: 41;
       pointer-events: none;
       display: block;
       width: 100%;
@@ -5029,7 +5033,7 @@
       padding: 10px 12px;
       border-radius: 12px;
       border: 1px solid color-mix(in srgb, var(--staff-primary, #67e8f9) 42%, rgba(148, 163, 184, 0.35));
-      background: linear-gradient(120deg, rgba(4, 10, 24, 0.78), rgba(8, 14, 30, 0.58));
+      background: linear-gradient(120deg, rgba(4, 10, 24, 0.82), rgba(8, 14, 30, 0.62));
       font-size: clamp(15px, 2.4vw, 22px);
       font-weight: 900;
       letter-spacing: 0.08em;
@@ -9244,6 +9248,21 @@
       opacity: 1 !important;
       mix-blend-mode: screen;
     }
+    #staffPortalScreen .staff-radar .radar-hype-slot {
+      display: flex !important;
+      position: relative !important;
+      z-index: 50 !important;
+      margin-top: 12px !important;
+      min-height: 48px !important;
+      overflow: visible !important;
+    }
+    #staffPortalScreen .staff-radar #staffRadarHype {
+      display: block !important;
+      position: relative !important;
+      z-index: 51 !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
     .staff-radar .radar-grid {
       animation: radarGridPulse 3.8s ease-in-out infinite !important;
     }
@@ -11845,7 +11864,7 @@
           <div class="radar-particles" id="radarParticles"></div>
         </div>
         <div class="radar-hype-slot">
-          <div class="radar-hype" id="staffRadarHype" data-level="0">Build the buzz</div>
+          <div class="radar-hype" id="staffRadarHype" data-level="0" aria-live="polite">Build the buzz</div>
         </div>
         <div class="radar-copy">
           <div class="radar-title">Live floor pulse</div>
