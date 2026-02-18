@@ -11487,7 +11487,7 @@
                   <button type="button" class="vibe-btn vibe-custom" data-vibe="custom">Custom</button>
                 </div>
                 <div class="vibe-custom-wrap" id="customVibeWrap" aria-live="polite">
-                  <input id="customVibeInput" type="text" maxlength="28" placeholder="Type your vibe..." />
+                  <input id="customVibeInput" type="text" maxlength="15" placeholder="Type your vibe..." />
                   <button type="button" class="vibe-btn vibe-custom-save" id="customVibeSave">Set</button>
                 </div>
               </div>
@@ -17598,6 +17598,7 @@
             venuePerkId: data.perkId || data.venuePerkId || null,
             venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
             member: data.memberName || data.member || "FoCo member",
+            memberUsername: data.memberUsername || null,
             passId: (data.passCode || data.passId || passCode).toUpperCase(),
             venue: data.venueId || data.venue || null,
             requestedVenue: data.requestedVenue || null,
@@ -18237,6 +18238,7 @@
                 venuePerkId: data.perkId || data.venuePerkId || null,
                 venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
                 member: data.memberName || data.member || "FoCo member",
+                memberUsername: data.memberUsername || null,
                 passId: (data.passCode || data.passId || code).toUpperCase(),
                 venue: data.venueId || data.venue || null,
                 requestedVenue: data.requestedVenue || null,
@@ -21376,7 +21378,7 @@ let onboardingIndex = 0;
       return String(value || "")
         .replace(/\s+/g, " ")
         .trim()
-        .slice(0, 28);
+        .slice(0, 15);
     }
     function getVibeDisplayLabel(vibeName = currentVibe) {
       if (vibeName === "blacking") return "Blacking Out";
@@ -24338,6 +24340,7 @@ let onboardingIndex = 0;
           venuePerkId: data.perkId || data.venuePerkId || null,
           venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
           member: data.memberName || data.member || "FoCo member",
+          memberUsername: data.memberUsername || null,
           passId: (data.passCode || data.passId || "").toUpperCase(),
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
@@ -24957,6 +24960,14 @@ let onboardingIndex = 0;
       if (key === "custom") return "Custom";
       return key[0].toUpperCase() + key.slice(1);
     }
+    function getEntryUsername(entry = {}) {
+      const direct = String(entry.memberUsername || entry.username || "").trim().replace(/^@+/, "");
+      if (direct) return direct.slice(0, 24);
+      const passId = String(entry.passId || "").toUpperCase();
+      if (!passId) return "";
+      const fromDirectory = String(loadMemberDirectory()?.[passId]?.username || "").trim().replace(/^@+/, "");
+      return fromDirectory ? fromDirectory.slice(0, 24) : "";
+    }
     function renderStaffPendingQueue() {
       if (!staffPendingList || !staffPendingCount) return;
       if (!staffSession) {
@@ -24997,11 +25008,13 @@ let onboardingIndex = 0;
         const venueName = entry.requestedVenue ? getVenueDisplayName(entry.requestedVenue) : getVenueDisplayName(entry.venue);
         const vibeLabel = getEntryVibeLabel(entry);
         const vibeMeta = vibeLabel ? ` · Tonight's vibe: ${vibeLabel}` : "";
+        const username = getEntryUsername(entry);
+        const usernameMeta = username ? ` · @${username}` : "";
         const creatorBadge = isCreatorRedemption(entry) ? '<span class="creator-pill">Creator</span>' : "";
         return `
           <div class="staff-pending-row" data-pending-code="${entry.code}" data-pending-status="${statusLabel}">
             <div class="staff-pending-meta">
-              <div><strong>${entry.code}</strong> · Pass ID: ${entry.passId || "—"} ${creatorBadge}</div>
+              <div><strong>${entry.code}</strong> · Pass ID: ${entry.passId || "—"}${usernameMeta} ${creatorBadge}</div>
               <div class="staff-pending-sub">${perkLabel}${venueName ? ` · ${venueName}` : ""}${vibeMeta}</div>
             </div>
             <div class="staff-pending-actions">
@@ -25598,6 +25611,7 @@ let onboardingIndex = 0;
               venuePerkId: data.perkId || data.venuePerkId || null,
               venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
               member: data.memberName || data.member || "FoCo member",
+              memberUsername: data.memberUsername || null,
               passId: (data.passCode || data.passId || "").toUpperCase(),
               venue: data.venueId || data.venue || null,
               requestedVenue: data.requestedVenue || null,
@@ -26266,6 +26280,7 @@ let onboardingIndex = 0;
         venuePerkLabel: entry.venuePerkLabel || null,
         passId: passId || undefined,
         member: entry.member || null,
+        memberUsername: entry.memberUsername || null,
         venue: entry.venue || null,
         requestedVenue: entry.requestedVenue || null,
         vibeLabel: sanitizeCustomVibeText(entry.vibeLabel || ""),
@@ -26307,6 +26322,7 @@ let onboardingIndex = 0;
           venuePerkLabel: data.venuePerkLabel || null,
           passId: (data.passId || "").toUpperCase(),
           member: data.member || "FoCo member",
+          memberUsername: data.memberUsername || null,
           venue: data.venue || null,
           requestedVenue: data.requestedVenue || null,
           vibeLabel: data.vibeLabel || null,
@@ -26371,11 +26387,13 @@ let onboardingIndex = 0;
       };
       const verifiedEntries = filtered.filter(entry => isVerifiedStatus(entry.status));
       const pendingEntries = filtered.filter(entry => String(entry.status || "").toLowerCase() === "pending");
-      const categoryTotals = { drink: 0, shot: 0, cover: 0, other: 0 };
+      const categoryTotals = { drink: 0, deal: 0, other: 0 };
       verifiedEntries.forEach((entry) => {
         const key = normalizePerkKey(entry);
-        if (key === "drink" || key === "shot" || key === "cover") {
-          categoryTotals[key] += 1;
+        if (key === "drink") {
+          categoryTotals.drink += 1;
+        } else if (key === "deal") {
+          categoryTotals.deal += 1;
         } else {
           categoryTotals.other += 1;
         }
@@ -26447,8 +26465,7 @@ let onboardingIndex = 0;
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 10px;">
               <span class="pill-ghost">Drink ${categoryTotals.drink}</span>
-              <span class="pill-ghost">Shot ${categoryTotals.shot}</span>
-              <span class="pill-ghost">Entry ${categoryTotals.cover}</span>
+              <span class="pill-ghost">Tonight's Deal ${categoryTotals.deal}</span>
               <span class="pill-ghost">Other ${categoryTotals.other}</span>
             </div>
             ${groupedWithCounts.map(group => {
@@ -27545,16 +27562,14 @@ let onboardingIndex = 0;
         const venueId = staffSession ? staffSession.venue : null;
         const result = await verifyCode(code, venueId);
         if (!result.success) {
+          const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
+          if (fallbackEntry) {
+            applyVoucherConfirmSuccess(fallbackEntry, code);
+            return;
+          }
           verifyError.textContent = result.message;
         } else {
-          verifyError.textContent = "";
-          showNeonSuccess(verifySuccess, "Voucher confirmed.", 4600);
-          logStaffVerification(result.entry);
-          if (lastVerifiedLine) {
-            const ts = formatMST(result.entry.timestamp || Date.now());
-            lastVerifiedLine.textContent = `Last confirmed: ${result.entry.code} • ${ts}`;
-            lastVerifiedLine.style.display = "block";
-          }
+          applyVoucherConfirmSuccess(result.entry, code);
         }
       });
     }
@@ -27570,19 +27585,26 @@ let onboardingIndex = 0;
           const venueId = staffSession.venue;
           const result = await verifyCode(code, venueId);
           if (!result.success) {
+            const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
+            if (fallbackEntry) {
+              applyVoucherConfirmSuccess(fallbackEntry, code);
+              return;
+            }
             verifyError.textContent = result.message;
             return;
           }
-          verifyError.textContent = "";
-          showNeonSuccess(verifySuccess, "Voucher confirmed.", 4600);
-          logStaffVerification(result.entry);
-          if (lastVerifiedLine) {
-            const ts = formatMST(result.entry.timestamp || Date.now());
-            lastVerifiedLine.textContent = `Last confirmed: ${result.entry.code} • ${ts}`;
-            lastVerifiedLine.style.display = "block";
-          }
+          applyVoucherConfirmSuccess(result.entry, code);
         } catch (err) {
           console.warn("Pending confirm failed", err);
+          const code = (e.target.closest("[data-pending-confirm]")?.dataset.pendingConfirm
+            || e.target.closest("[data-pending-code]")?.dataset.pendingCode
+            || "").toUpperCase();
+          const venueId = staffSession?.venue || null;
+          const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
+          if (fallbackEntry) {
+            applyVoucherConfirmSuccess(fallbackEntry, code);
+            return;
+          }
           verifyError.textContent = "Could not verify right now. Try again.";
         }
       });
@@ -29966,6 +29988,7 @@ let onboardingIndex = 0;
         venuePerkId: payload.perkId || payload.venuePerkId || null,
         venuePerkLabel: payload.perkLabel || payload.venuePerkLabel || null,
         member: payload.memberName || payload.member || "FoCo member",
+        memberUsername: payload.memberUsername || null,
         passId: (payload.passCode || payload.passId || "").toUpperCase(),
         venue: payload.venueId || payload.venue || null,
         requestedVenue: payload.requestedVenue || null,
@@ -30089,6 +30112,45 @@ let onboardingIndex = 0;
       Object.assign(entry, mapped);
       applyVerifiedEntryToLocalLog(mapped);
       return { success: true, entry: mapped };
+    }
+
+    function isVerifiedRedemptionStatus(status) {
+      const normalized = String(status || "").toLowerCase();
+      return normalized === "verified" || normalized === "approved" || normalized === "confirmed";
+    }
+
+    function getVerifiedRedemptionForVenue(code, venueId) {
+      const codeUpper = String(code || "").toUpperCase();
+      const venueKey = String(venueId || "").toLowerCase();
+      if (!codeUpper) return null;
+      return redemptionLog.find((entry) => {
+        if (String(entry?.code || "").toUpperCase() !== codeUpper) return false;
+        if (venueKey && !entryMatchesVenue(entry, venueKey)) return false;
+        return isVerifiedRedemptionStatus(entry?.status);
+      }) || null;
+    }
+
+    async function awaitVerifiedRedemptionForVenue(code, venueId, timeoutMs = 1600) {
+      const start = Date.now();
+      let match = getVerifiedRedemptionForVenue(code, venueId);
+      while (!match && (Date.now() - start) < timeoutMs) {
+        await new Promise(resolve => setTimeout(resolve, 120));
+        match = getVerifiedRedemptionForVenue(code, venueId);
+      }
+      return match;
+    }
+
+    function applyVoucherConfirmSuccess(entry, fallbackCode = "") {
+      verifyError.textContent = "";
+      showNeonSuccess(verifySuccess, "Voucher confirmed.", 4600);
+      logStaffVerification(entry);
+      if (lastVerifiedLine) {
+        const ts = formatMST(entry?.timestamp || entry?.verifiedAt || Date.now());
+        const codeLabel = entry?.code || fallbackCode || "Code";
+        lastVerifiedLine.textContent = `Last confirmed: ${codeLabel} • ${ts}`;
+        lastVerifiedLine.style.display = "block";
+        lastVerifiedLine.classList.add("visible");
+      }
     }
 
     async function verifyPassId(passId, venueId, options = {}) {
@@ -30234,21 +30296,31 @@ let onboardingIndex = 0;
         const venueId = staffSession ? staffSession.venue : null;
         const result = await verifyCode(code, venueId);
         if (!result.success) {
+          const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
+          if (fallbackEntry) {
+            applyVoucherConfirmSuccess(fallbackEntry, code);
+            verifyCodeInput.value = "";
+            if (verifyCodeInput) verifyCodeInput.focus();
+            return;
+          }
           verifyError.textContent = result.message;
           if (verifyCodeInput) verifyCodeInput.focus();
           return;
         }
-        showNeonSuccess(verifySuccess, "Voucher confirmed.", 4600);
-        logStaffVerification(result.entry);
-        if (lastVerifiedLine) {
-          const ts = formatMST(result.entry.timestamp || Date.now());
-          lastVerifiedLine.textContent = `Last confirmed: ${result.entry.code} • ${ts}`;
-          lastVerifiedLine.classList.add("visible");
-        }
+        applyVoucherConfirmSuccess(result.entry, code);
         verifyCodeInput.value = "";
         if (verifyCodeInput) verifyCodeInput.focus();
       } catch (err) {
         console.warn("Verify form failed", err);
+        const code = verifyCodeInput?.value?.trim() || "";
+        const venueId = staffSession?.venue || null;
+        const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
+        if (fallbackEntry) {
+          applyVoucherConfirmSuccess(fallbackEntry, code);
+          verifyCodeInput.value = "";
+          if (verifyCodeInput) verifyCodeInput.focus();
+          return;
+        }
         verifyError.textContent = "Could not verify right now. Try again.";
       }
       });
@@ -30645,6 +30717,7 @@ let onboardingIndex = 0;
           venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
           passId: (data.passCode || data.passId || currentPassCode || "").toUpperCase(),
           member: data.memberName || data.member || passUserName?.textContent || "FoCo member",
+          memberUsername: data.memberUsername || null,
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
           vibeLabel: data.vibeLabel || null,
@@ -31171,6 +31244,7 @@ let onboardingIndex = 0;
           perkId,
           perkLabel: rewardLabel,
           perkKey: selectedPerkId === "reward_shot" ? "reward_shot" : "venue_perk",
+          memberUsername: preferredUsername(),
           vibeLabel,
           vibeKey
         });
@@ -31204,6 +31278,7 @@ let onboardingIndex = 0;
         code,
         perk: payload?.perkLabel || rewardLabel,
         member: payload?.memberName || passUserName.textContent,
+        memberUsername: payload?.memberUsername || preferredUsername() || null,
         ceo: !!payload?.ceo,
         perkKey: selectedPerkId === "reward_shot" ? "reward_shot" : "venue_perk",
         venuePerkId: payload?.perkId || selectedVenuePerkId || null,

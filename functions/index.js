@@ -1008,6 +1008,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
             passCode: resolvedPassCode || passCode,
             memberUid: resolved.uid,
             memberName: memberDisplayName(memberData),
+            memberUsername: String(memberData.username || data?.memberUsername || memberData.handle || "").trim() || null,
             tier: memberData.tier || "standard",
             venueId,
             perkId,
