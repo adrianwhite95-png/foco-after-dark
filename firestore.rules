@@ -373,6 +373,11 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /members/{uid}/alertCheckins/{checkinId} {
+      allow read: if isSignedIn() && (isOwner(uid) || isAdmin() || isCeo());
+      allow create, update, delete: if false;
+    }
+
     // Allow CEO/admin to read any redemptions subcollection (collectionGroup).
     match /{path=**}/redemptions/{redemptionId} {
       allow read: if isCeo() || isAdmin();

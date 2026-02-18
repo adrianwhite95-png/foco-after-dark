@@ -17113,6 +17113,7 @@
       const force = options?.force === true;
       const code = String(passCode || currentPassCode || memberProfile?.passCode || "").trim().toUpperCase();
       if (!code || !functionsClient || SAFE_MODE || !firebaseAuth.currentUser) return;
+      if (onboardingMembershipFlow || requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) return;
       if (alertCheckinsCloudSyncPromise) return alertCheckinsCloudSyncPromise;
       const now = Date.now();
       if (!force && alertCheckinsCloudSyncPass === code && (now - alertCheckinsCloudSyncAt) < 20000) return;
@@ -18184,6 +18185,9 @@
 
     function updateLoginStatsForUser(user) {
       if (!user || user.isAnonymous || !memberProfile) return;
+      if (onboardingMembershipFlow || requiresAgeVerificationClient(memberProfile, user) || requiresMembershipSelection()) {
+        return;
+      }
       const uid = user.uid || "";
       const sessionKey = getLoginSessionKey(uid);
       let skipLoginStats = false;
@@ -18670,9 +18674,9 @@
     clearAllRealtimeListeners("detachAll");
     setRealtimeRequiredSources([]);
   }
-  function attachRealtime() {
+  function attachRealtime(options = {}) {
     attachGlobalRealtime();
-    attachPassRealtime(currentPassCode);
+    attachPassRealtime(currentPassCode, options);
   }
   function attachRealtimeForCurrentContext(reason = "") {
     if (!authReady) return;
@@ -18727,8 +18731,16 @@
       setRealtimeRequiredSources(["settingsApp"]);
       return;
     }
-    primeMemberRealtime();
-    attachRealtime();
+    const onboardingBlocked = onboardingMembershipFlow
+      || requiresAgeVerificationClient(memberProfile, user)
+      || requiresMembershipSelection();
+    if (onboardingBlocked) {
+      setRealtimeRequiredSources(["settingsApp", "member"]);
+      attachRealtime({ minimal: true });
+    } else {
+      primeMemberRealtime();
+      attachRealtime();
+    }
     if (isCeoAccount && hasCeoAccess) {
       setRealtimeRequiredSources(["settingsApp", "member", "memberRedemptions"]);
       startCeoMessagesListener();
@@ -19213,29 +19225,31 @@
         } catch (err) {
           console.warn("Member realtime listener failed", err);
         }
-        try {
-          const checkinsRef = collection(db, "members", uid, "alertCheckins");
-          const unsub = subscribeSnapshot("memberAlertCheckins", checkinsRef, null, (snap) => {
-            if (!snap) return;
-            const next = new Set();
-            const now = Date.now();
-            snap.docs.forEach((docSnap) => {
-              const data = docSnap.data() || {};
-              const alertId = String(data.alertId || docSnap.id || "").trim();
-              if (!alertId) return;
-              const expiresAt = data.expiresAt?.toMillis
-                ? data.expiresAt.toMillis()
-                : (data.expiresAt ? new Date(data.expiresAt).getTime() : null);
-              if (expiresAt && expiresAt <= now) return;
-              next.add(alertId);
+        if (!options.minimal) {
+          try {
+            const checkinsRef = collection(db, "members", uid, "alertCheckins");
+            const unsub = subscribeSnapshot("memberAlertCheckins", checkinsRef, null, (snap) => {
+              if (!snap) return;
+              const next = new Set();
+              const now = Date.now();
+              snap.docs.forEach((docSnap) => {
+                const data = docSnap.data() || {};
+                const alertId = String(data.alertId || docSnap.id || "").trim();
+                if (!alertId) return;
+                const expiresAt = data.expiresAt?.toMillis
+                  ? data.expiresAt.toMillis()
+                  : (data.expiresAt ? new Date(data.expiresAt).getTime() : null);
+                if (expiresAt && expiresAt <= now) return;
+                next.add(alertId);
+              });
+              memberAlertCheckins = next;
+              saveAlertCheckinsCache(currentPassCode, memberAlertCheckins);
+              refreshAlertsTicker();
             });
-            memberAlertCheckins = next;
-            saveAlertCheckinsCache(currentPassCode, memberAlertCheckins);
-            refreshAlertsTicker();
-          });
-          if (unsub) passRealtimeUnsubs.push(unsub);
-        } catch (err) {
-          console.warn("Member alert check-ins listener failed", err);
+            if (unsub) passRealtimeUnsubs.push(unsub);
+          } catch (err) {
+            console.warn("Member alert check-ins listener failed", err);
+          }
         }
       }
       if (options.minimal) return;
@@ -25983,7 +25997,9 @@ let onboardingIndex = 0;
     function updatePassCodeDisplay() {
       ensurePassCode();
       hydrateAlertCheckinsFromCache(currentPassCode);
-      syncAlertCheckinsFromCloud(currentPassCode);
+      if (!(onboardingMembershipFlow || requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser))) {
+        syncAlertCheckinsFromCloud(currentPassCode);
+      }
       syncPendingForCurrentPass();
       if (passCodeText && currentPassCode) {
         passCodeText.textContent = `Pass ID: ${currentPassCode}`;
@@ -30284,7 +30300,9 @@ let onboardingIndex = 0;
         await handleAuthenticatedUser(user);
         attachRealtimeForCurrentContext("auth-change");
         requestBadgeClear();
-        await activatePushForLoggedInUser();
+        if (!(onboardingMembershipFlow || requiresAgeVerificationClient(memberProfile, user) || requiresMembershipSelection())) {
+          await activatePushForLoggedInUser();
+        }
         updateDebugNotificationControls();
         maybeShowNotificationsPrompt();
         initialAuthResolved = true;

@@ -2323,14 +2323,11 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
     throw new HttpsError('invalid-argument', 'Invalid token');
   }
   const uid = context.auth.uid;
+  const tokenDocId = crypto.createHash('sha256').update(token).digest('hex');
   // Keep each device token bound to only one user at a time.
-  const [existingByField, existingByDocId] = await Promise.all([
-    db.collectionGroup('tokens').where('token', '==', token).get(),
-    db.collectionGroup('tokens').where(admin.firestore.FieldPath.documentId(), '==', token).get()
-  ]);
+  const existingByField = await db.collectionGroup('tokens').where('token', '==', token).get();
   const existingMap = new Map();
   existingByField.docs.forEach((docSnap) => existingMap.set(docSnap.ref.path, docSnap));
-  existingByDocId.docs.forEach((docSnap) => existingMap.set(docSnap.ref.path, docSnap));
   if (existingMap.size) {
     const cleanup = db.batch();
     existingMap.forEach((docSnap) => {
@@ -2348,7 +2345,7 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
     if (!staleForClient.empty) {
       const staleBatch = db.batch();
       staleForClient.docs.forEach((docSnap) => {
-        if (docSnap.id !== token) {
+        if (docSnap.id !== tokenDocId) {
           staleBatch.delete(docSnap.ref);
         }
       });
@@ -2361,7 +2358,7 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
     if (!globalStale.empty) {
       const globalBatch = db.batch();
       globalStale.docs.forEach((docSnap) => {
-        if (docSnap.id !== token) {
+        if (docSnap.id !== tokenDocId) {
           globalBatch.delete(docSnap.ref);
         }
       });
@@ -2373,12 +2370,12 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
     if (!ownTokens.empty) {
       const ownBatch = db.batch();
       ownTokens.docs.forEach((docSnap) => {
-        if (docSnap.id !== token) ownBatch.delete(docSnap.ref);
+        if (docSnap.id !== tokenDocId) ownBatch.delete(docSnap.ref);
       });
       await ownBatch.commit();
     }
   }
-  const ref = db.collection('pushTokens').doc(uid).collection('tokens').doc(token);
+  const ref = db.collection('pushTokens').doc(uid).collection('tokens').doc(tokenDocId);
   await ref.set({
     token,
     uid,
@@ -2400,18 +2397,19 @@ exports.registerPushTokenPublic = functions.https.onCall(async (data, context) =
   if (!isLikelyPushToken(token)) {
     throw new HttpsError("invalid-argument", "Invalid token");
   }
+  const tokenDocId = crypto.createHash('sha256').update(token).digest('hex');
   const bucketRef = db.collection("pushTokensPublic").doc("global").collection("tokens");
   if (clientKey) {
     const stale = await bucketRef.where("clientKey", "==", clientKey).get();
     if (!stale.empty) {
       const batch = db.batch();
       stale.docs.forEach((docSnap) => {
-        if (docSnap.id !== token) batch.delete(docSnap.ref);
+        if (docSnap.id !== tokenDocId) batch.delete(docSnap.ref);
       });
       await batch.commit();
     }
   }
-  await bucketRef.doc(token).set({
+  await bucketRef.doc(tokenDocId).set({
     token,
     uid: null,
     clientKey: clientKey || null,
@@ -3824,7 +3822,7 @@ async function applyIdentityVerificationUpdate(session, eventType = "identity.ve
 exports.createAgeVerificationSession = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
   if (!context?.auth) throw new HttpsError("unauthenticated", "Auth required");
   const uid = context.auth.uid;
-  await checkRateLimit(uid, { maxPerMin: 6, maxPerDay: 60 });
+  await checkRateLimit(uid, { maxPerMin: 30, maxPerDay: 400 });
   const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
   if (isAgeVerificationExempt(context.auth.token, memberDocData)) {
     return {
