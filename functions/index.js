@@ -2324,20 +2324,7 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
   }
   const uid = context.auth.uid;
   const tokenDocId = crypto.createHash('sha256').update(token).digest('hex');
-  // Keep each device token bound to only one user at a time.
-  const existingByField = await db.collectionGroup('tokens').where('token', '==', token).get();
-  const existingMap = new Map();
-  existingByField.docs.forEach((docSnap) => existingMap.set(docSnap.ref.path, docSnap));
-  if (existingMap.size) {
-    const cleanup = db.batch();
-    existingMap.forEach((docSnap) => {
-      const ownerUid = String(docSnap.get('uid') || "").trim();
-      if (ownerUid && ownerUid !== uid) {
-        cleanup.delete(docSnap.ref);
-      }
-    });
-    await cleanup.commit();
-  }
+  // Keep one active token per client key within the same user account.
   if (clientKey) {
     const staleForClient = await db.collection('pushTokens').doc(uid).collection('tokens')
       .where('clientKey', '==', clientKey)
@@ -2350,19 +2337,6 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
         }
       });
       await staleBatch.commit();
-    }
-    // Keep a single active token per device client key across all users/sessions.
-    const globalStale = await db.collectionGroup('tokens')
-      .where('clientKey', '==', clientKey)
-      .get();
-    if (!globalStale.empty) {
-      const globalBatch = db.batch();
-      globalStale.docs.forEach((docSnap) => {
-        if (docSnap.id !== tokenDocId) {
-          globalBatch.delete(docSnap.ref);
-        }
-      });
-      await globalBatch.commit();
     }
   } else {
     // Legacy clients without a client key keep one active token per user.
@@ -3861,25 +3835,6 @@ exports.createAgeVerificationSession = functions.runWith(stripeSecrets).https.on
     throw new HttpsError("failed-precondition", "You must be 21+ to use FoCo After Dark.");
   }
   const stripe = getStripeClient();
-  const email = (context.auth.token.email || memberDocData?.email || "").toLowerCase();
-  const overrideRaw = memberDocData?.membershipOverride
-    || memberDocData?.override
-    || memberDocData?.membership_override
-    || memberDocData?.membershipTierOverride
-    || "";
-  const override = String(overrideRaw || "").toUpperCase();
-  const freeInviteAccount = memberDocData?.freeMembership === true || override === "CEO_FREE";
-  let customerId = "";
-  if (!freeInviteAccount) {
-    customerId = await ensureStripeCustomer({
-      stripe,
-      memberRef,
-      memberDocData,
-      uid,
-      email,
-      token: context.auth.token,
-    });
-  }
   const sessionPayload = {
     type: "document",
     metadata: {
@@ -3888,8 +3843,25 @@ exports.createAgeVerificationSession = functions.runWith(stripeSecrets).https.on
     },
     return_url: returnUrlRaw,
   };
-  if (customerId) sessionPayload.customer = customerId;
-  const session = await stripe.identity.verificationSessions.create(sessionPayload);
+  const existingCustomerId = String(memberDocData?.stripeCustomerId || "").trim();
+  if (existingCustomerId) {
+    sessionPayload.customer = existingCustomerId;
+  }
+  let session;
+  try {
+    session = await stripe.identity.verificationSessions.create(sessionPayload);
+  } catch (err) {
+    const message = String(err?.message || "").trim();
+    const code = String(err?.code || err?.raw?.code || "").trim();
+    console.error("createAgeVerificationSession stripe error", { uid, code, message });
+    if (message || code) {
+      throw new HttpsError(
+        "failed-precondition",
+        `ID verification is temporarily unavailable. ${message || code}`
+      );
+    }
+    throw new HttpsError("internal", "Could not start ID verification right now.");
+  }
   await memberRef.set({
     requestedTier: rawTier,
     onboardingEligible: false,
