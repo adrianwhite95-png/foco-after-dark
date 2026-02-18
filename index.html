@@ -20288,51 +20288,57 @@ let onboardingIndex = 0;
     }
 
     async function cancelMembershipAndSignOut() {
-      const user = firebaseAuth.currentUser;
-      const uid = user?.uid;
-      const passId = (memberProfile?.passCode || currentPassCode || "").toUpperCase();
-      if (passId) {
-        removeMemberDirectoryEntry(passId);
-        localStorage.removeItem(`passcode_${uid || "unknown"}`);
+      if (!functionsClient || !firebaseAuth.currentUser) {
+        showToast("Log in first.");
+        return;
       }
-      if (uid) {
-        localStorage.removeItem(`membership_${uid}`);
-        if (localStorage.getItem(PENDING_MEMBERSHIP_STORAGE_KEY) === uid) {
-          localStorage.removeItem(PENDING_MEMBERSHIP_STORAGE_KEY);
+      const originalLabel = cancelMembershipConfirm?.textContent || "Confirm cancel";
+      if (cancelMembershipConfirm) {
+        cancelMembershipConfirm.disabled = true;
+        cancelMembershipConfirm.textContent = "Canceling…";
+      }
+      try {
+        const fn = httpsCallable(functionsClient, "cancelMembership");
+        const resp = await fn({ wipe: false });
+        const data = resp?.data || {};
+        if (memberProfile) {
+          memberProfile = {
+            ...memberProfile,
+            cancelAtPeriodEnd: true,
+            membershipStatus: "canceling",
+            currentPeriodEnd: data?.currentPeriodEnd || memberProfile.currentPeriodEnd || null,
+            nextRenewal: data?.currentPeriodEnd || memberProfile.nextRenewal || null,
+            accountDeleteAt: data?.accountDeleteAt || null,
+          };
+        }
+        updateMembershipStatusUI({ status: "active", paused: false });
+        updateExpiryDisplay();
+        if (data?.trialCancellation && data?.accountDeleteAt) {
+          const when = new Date(data.accountDeleteAt);
+          const text = Number.isNaN(when.getTime())
+            ? "Trial canceled. Access stays active until trial ends, then this account will be deleted."
+            : `Trial canceled. Access stays active until ${when.toLocaleDateString("en-US")}, then this account will be deleted.`;
+          showToast(text, 5200);
+        } else if (data?.currentPeriodEnd) {
+          const endDate = new Date(data.currentPeriodEnd);
+          const text = Number.isNaN(endDate.getTime())
+            ? "Membership canceled at period end."
+            : `Membership canceled. Access remains until ${endDate.toLocaleDateString("en-US")}.`;
+          showToast(text, 4200);
+        } else {
+          showToast("Membership canceled.");
+        }
+        closeCancelModal();
+        showScreen("pass");
+      } catch (err) {
+        console.warn("cancelMembership failed", err);
+        showToast(normalizeUiErrorMessage(err, "Could not cancel membership right now."), 3200);
+      } finally {
+        if (cancelMembershipConfirm) {
+          cancelMembershipConfirm.disabled = false;
+          cancelMembershipConfirm.textContent = originalLabel;
         }
       }
-      ["betaSkipActive", "staffSession", "ceoSession"].forEach(key => localStorage.removeItem(key));
-      exitBetaPassMode();
-      onboardingMembershipFlow = false;
-      forceMembershipScreen = false;
-      ceoSession = false;
-      isCeoAccount = false;
-      ceoPreviewTier = null;
-      stopCeoMessagesListener();
-      stopCloseOutReportsListener();
-      updateCeoPassUI();
-      pendingMembershipTier = null;
-      resetPaymentForm();
-      resetSupportForm();
-      memberProfile = null;
-      memberDocRef = null;
-      currentPassCode = null;
-      memberAlertCheckins = new Set();
-      alertCheckinsCloudSyncAt = 0;
-      alertCheckinsCloudSyncPass = "";
-      document.body.classList.remove("ceo-active");
-      applyAccentTheme("cyan");
-      applyBackgroundTheme("default");
-      localStorage.removeItem(ACCENT_KEY);
-      localStorage.removeItem(BG_KEY);
-      try {
-        await signOut(firebaseAuth);
-      } catch (err) {
-        console.warn("Cancel sign-out skipped:", err);
-      }
-      closeCancelModal();
-      applyRememberedEmailToForm();
-      showScreen("landing");
     }
 
     function closeCancelModal() {

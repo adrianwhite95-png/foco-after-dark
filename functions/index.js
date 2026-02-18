@@ -1536,6 +1536,17 @@ exports.initUserProfile = functions.auth.user().onCreate(async (user) => {
   return true;
 });
 
+exports.cleanupDeletedAuthUser = functions.auth.user().onDelete(async (user) => {
+  const uid = user?.uid;
+  if (!uid) return null;
+  try {
+    await purgeMemberFirestoreRecords(uid);
+  } catch (err) {
+    console.warn("cleanupDeletedAuthUser failed", uid, err?.message || err);
+  }
+  return null;
+});
+
 // Nightly close-out summary with analytics + guaranteed email queue
 async function runNightlyCloseOutCore(source = "nightlyCloseOut") {
   const now = Timestamp.now();
@@ -3474,6 +3485,69 @@ function stripeStatusToPaymentStatus(status = "") {
   return "active";
 }
 
+async function deleteCollectionDocs(queryBase, batchSize = 300) {
+  let snap = await queryBase.limit(batchSize).get();
+  while (!snap.empty) {
+    const batch = db.batch();
+    snap.docs.forEach((docSnap) => batch.delete(docSnap.ref));
+    await batch.commit();
+    if (snap.size < batchSize) break;
+    snap = await queryBase.limit(batchSize).get();
+  }
+}
+
+async function purgeMemberFirestoreRecords(uid, memberDataOverride = null) {
+  const memberRef = db.collection("members").doc(uid);
+  let memberSnap = null;
+  let memberData = {};
+  if (memberDataOverride && typeof memberDataOverride === "object") {
+    memberData = memberDataOverride;
+  } else {
+    memberSnap = await memberRef.get();
+    memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
+  }
+  if (isCeoMemberDoc(memberData, uid)) {
+    return { skipped: true, reason: "ceo", memberDeleted: false, usernameDeleted: false };
+  }
+  const username = String(memberData.username || "").trim().toLowerCase();
+  const passCode = String(memberData.passCode || memberData.passId || "").trim().toUpperCase();
+  let usernameDeleted = false;
+
+  try { await deleteCollectionDocs(memberRef.collection("redemptions")); } catch (_) {}
+  try { await deleteCollectionDocs(memberRef.collection("alertCheckins")); } catch (_) {}
+  try {
+    const pushTokensRef = db.collection("pushTokens").doc(uid);
+    await deleteCollectionDocs(pushTokensRef.collection("tokens"));
+    await pushTokensRef.delete().catch(() => {});
+  } catch (_) {}
+
+  if (username) {
+    try {
+      const unameRef = db.collection("usernames").doc(username);
+      const unameSnap = await unameRef.get();
+      if (unameSnap.exists && String(unameSnap.data()?.uid || "") === uid) {
+        await unameRef.delete();
+        usernameDeleted = true;
+      }
+    } catch (_) {}
+  }
+  if (passCode) {
+    try { await db.collection("passes").doc(passCode).delete(); } catch (_) {}
+  }
+
+  if (!memberSnap) memberSnap = await memberRef.get();
+  if (memberSnap.exists) {
+    await memberRef.delete().catch(() => {});
+    try {
+      await db.collection("settings").doc("appStats").set({
+        membersCount: admin.firestore.FieldValue.increment(-1),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    } catch (_) {}
+  }
+  return { skipped: false, memberDeleted: !!memberSnap.exists, usernameDeleted };
+}
+
 async function purgeAnonymousUsersInternal({ dryRun = false, limit = 1000 } = {}) {
   const page = await admin.auth().listUsers(Math.min(limit, 1000));
   let matchedUsers = 0;
@@ -3491,15 +3565,9 @@ async function purgeAnonymousUsersInternal({ dryRun = false, limit = 1000 } = {}
     const memberSnap = await memberRef.get();
     const memberData = memberSnap.exists ? memberSnap.data() : {};
     if (isCeoMemberDoc(memberData, uid)) continue;
-    if (memberSnap.exists) {
-      await memberRef.delete();
-      deletedMemberDocs += 1;
-    }
-    const username = (memberData.username || "").toString().trim().toLowerCase();
-    if (username) {
-      await db.collection('usernames').doc(username).delete();
-      deletedUsernames += 1;
-    }
+    const purgeResult = await purgeMemberFirestoreRecords(uid, memberData);
+    if (purgeResult.memberDeleted) deletedMemberDocs += 1;
+    if (purgeResult.usernameDeleted) deletedUsernames += 1;
     await admin.auth().deleteUser(uid);
     deletedUsers += 1;
   }
@@ -4127,6 +4195,8 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
 
   const paymentIntent = subscription?.latest_invoice?.payment_intent || null;
   const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
+  const subscriptionPromoTag = String(subscription?.metadata?.promo || promoTag || "").toLowerCase();
+  const launchTrial = subscriptionPromoTag === "launch30";
   const updatePayload = {
     tier: normalizedTier,
     membershipTier: membershipTierLabel(normalizedTier),
@@ -4135,9 +4205,15 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
     billingProvider: "stripe",
     stripeCustomerId: subscription?.customer || customerId,
     stripeSubscriptionId: subscription?.id || null,
+    membershipPromoTag: subscriptionPromoTag || null,
+    membershipTrialDays: launchTrial ? 30 : admin.firestore.FieldValue.delete(),
+    membershipTrialEndsAt: launchTrial && currentPeriodEndIso ? currentPeriodEndIso : admin.firestore.FieldValue.delete(),
     currentPeriodEnd: currentPeriodEndIso,
     nextRenewal: currentPeriodEndIso,
     cancelAtPeriodEnd: subscription?.cancel_at_period_end === true,
+    accountDeleteAt: admin.firestore.FieldValue.delete(),
+    accountDeleteReason: admin.firestore.FieldValue.delete(),
+    accountDeleteScheduledAt: admin.firestore.FieldValue.delete(),
     lastStripeEvent: "subscription_upsert",
     lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
   };
@@ -4261,6 +4337,7 @@ exports.confirmMembershipActivation = functions.runWith(stripeSecrets).https.onC
   const tier = normalizeTierKey(intent.metadata?.tier || memberDocData?.tier || 'standard');
   const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
   const promoTag = (subscription?.metadata?.promo || intent.metadata?.promo || "").toString().toLowerCase();
+  const launchTrial = promoTag === "launch30";
   const updates = {
     tier,
     membershipTier: membershipTierLabel(tier),
@@ -4270,10 +4347,16 @@ exports.confirmMembershipActivation = functions.runWith(stripeSecrets).https.onC
     stripeCustomerId: intent.customer || subscription?.customer || memberDocData?.stripeCustomerId || null,
     stripeSubscriptionId: subscription?.id || memberDocData?.stripeSubscriptionId || null,
     defaultPaymentMethodId: intent.payment_method || memberDocData?.defaultPaymentMethodId || null,
+    membershipPromoTag: promoTag || null,
+    membershipTrialDays: launchTrial ? 30 : admin.firestore.FieldValue.delete(),
+    membershipTrialEndsAt: launchTrial && currentPeriodEndIso ? currentPeriodEndIso : admin.firestore.FieldValue.delete(),
     lastCharge: new Date().toISOString(),
     membershipActivatedAt: memberDocData?.membershipActivatedAt || new Date().toISOString(),
     currentPeriodEnd: currentPeriodEndIso,
     nextRenewal: currentPeriodEndIso,
+    accountDeleteAt: admin.firestore.FieldValue.delete(),
+    accountDeleteReason: admin.firestore.FieldValue.delete(),
+    accountDeleteScheduledAt: admin.firestore.FieldValue.delete(),
     lastStripeEvent: "membership_confirmed",
     lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
   };
@@ -4360,6 +4443,8 @@ async function applyStripeSubscriptionUpdate(subscription, memberCtx, eventType 
 
   const tier = normalizeTierKey(subscription?.metadata?.tier || memberDocData?.tier || "standard");
   const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
+  const promoTag = String(subscription?.metadata?.promo || memberDocData?.membershipPromoTag || "").toLowerCase();
+  const launchTrial = promoTag === "launch30";
   const updates = {
     tier,
     membershipTier: membershipTierLabel(tier),
@@ -4368,9 +4453,21 @@ async function applyStripeSubscriptionUpdate(subscription, memberCtx, eventType 
     paymentStatus: stripeStatusToPaymentStatus(subscription?.status),
     stripeCustomerId: subscription?.customer || memberDocData?.stripeCustomerId || null,
     stripeSubscriptionId: subscription?.id || memberDocData?.stripeSubscriptionId || null,
+    membershipPromoTag: promoTag || null,
+    membershipTrialDays: launchTrial ? 30 : admin.firestore.FieldValue.delete(),
+    membershipTrialEndsAt: launchTrial && currentPeriodEndIso ? currentPeriodEndIso : admin.firestore.FieldValue.delete(),
     currentPeriodEnd: currentPeriodEndIso,
     nextRenewal: currentPeriodEndIso,
     cancelAtPeriodEnd: subscription?.cancel_at_period_end === true,
+    accountDeleteAt: subscription?.cancel_at_period_end === true
+      ? (memberDocData?.accountDeleteAt || null)
+      : admin.firestore.FieldValue.delete(),
+    accountDeleteReason: subscription?.cancel_at_period_end === true
+      ? (memberDocData?.accountDeleteReason || null)
+      : admin.firestore.FieldValue.delete(),
+    accountDeleteScheduledAt: subscription?.cancel_at_period_end === true
+      ? (memberDocData?.accountDeleteScheduledAt || null)
+      : admin.firestore.FieldValue.delete(),
     canceledAt: isoFromUnix(subscription?.canceled_at) || null,
     lastStripeEvent: eventType,
     lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -4628,6 +4725,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     const sameTierActive = currentTier === tier && subscription.status === "active" && subscription.cancel_at_period_end !== true;
     if (sameTierActive) {
       const activePromoTag = String(subscription?.metadata?.promo || "").toLowerCase();
+      const activeLaunchTrial = activePromoTag === "launch30";
       const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
       await memberRef.set({
         tier,
@@ -4637,9 +4735,15 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
         paymentStatus: stripeStatusToPaymentStatus(subscription.status || "active"),
         stripeCustomerId: subscription.customer || customerId,
         stripeSubscriptionId: subscription.id,
+        membershipPromoTag: activePromoTag || null,
+        membershipTrialDays: activeLaunchTrial ? 30 : admin.firestore.FieldValue.delete(),
+        membershipTrialEndsAt: activeLaunchTrial && currentPeriodEndIso ? currentPeriodEndIso : admin.firestore.FieldValue.delete(),
         currentPeriodEnd: currentPeriodEndIso,
         nextRenewal: currentPeriodEndIso,
         cancelAtPeriodEnd: false,
+        accountDeleteAt: admin.firestore.FieldValue.delete(),
+        accountDeleteReason: admin.firestore.FieldValue.delete(),
+        accountDeleteScheduledAt: admin.firestore.FieldValue.delete(),
         lastStripeEvent: "chargeMembershipOnFile:already_active",
         lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
@@ -4695,6 +4799,8 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
   }
 
   const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
+  const finalPromoTag = String(subscription?.metadata?.promo || promoContext.promoTag || "").toLowerCase();
+  const launchTrial = finalPromoTag === "launch30";
   await memberRef.set({
     tier,
     membershipTier: membershipTierLabel(tier),
@@ -4703,9 +4809,15 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     paymentStatus: stripeStatusToPaymentStatus(subscription?.status || "active"),
     stripeCustomerId: customerId,
     stripeSubscriptionId: subscription?.id || profile?.stripeSubscriptionId || null,
+    membershipPromoTag: finalPromoTag || null,
+    membershipTrialDays: launchTrial ? 30 : admin.firestore.FieldValue.delete(),
+    membershipTrialEndsAt: launchTrial && currentPeriodEndIso ? currentPeriodEndIso : admin.firestore.FieldValue.delete(),
     defaultPaymentMethodId: defaultPm || paymentIntent?.payment_method || null,
     currentPeriodEnd: currentPeriodEndIso,
     nextRenewal: currentPeriodEndIso,
+    accountDeleteAt: admin.firestore.FieldValue.delete(),
+    accountDeleteReason: admin.firestore.FieldValue.delete(),
+    accountDeleteScheduledAt: admin.firestore.FieldValue.delete(),
     lastCharge: paymentIntent ? new Date().toISOString() : (profile?.lastCharge || null),
     membershipActivatedAt: profile?.membershipActivatedAt || new Date().toISOString(),
     lastStripeEvent: "chargeMembershipOnFile",
@@ -4714,7 +4826,6 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
   if (promoContext.promoTag === "launch30") {
     await finalizeLaunch30(uid, true);
   }
-  const launchTrial = promoContext.promoTag === "launch30";
   await queueMembershipConfirmationEmail({
     to: context.auth.token?.email || profile?.email || "",
     tier,
@@ -5489,6 +5600,9 @@ exports.cancelMembership = functions.https.onCall(async (data, context) => {
   const wipe = data?.wipe === true;
   const nowIso = new Date().toISOString();
   let currentPeriodEndIso = docData.currentPeriodEnd || docData.nextRenewal || null;
+  let subscriptionPromoTag = String(docData.membershipPromoTag || "").toLowerCase();
+  let launchTrialCancellation = subscriptionPromoTag === "launch30";
+  let accountDeleteAt = null;
 
   // For paid members, cancel the Stripe subscription at period end (Netflix-style cadence).
   if (!isStripeExcluded(context.auth.token, docData) && docData.stripeSubscriptionId) {
@@ -5498,6 +5612,8 @@ exports.cancelMembership = functions.https.onCall(async (data, context) => {
         cancel_at_period_end: true,
       });
       currentPeriodEndIso = isoFromUnix(sub.current_period_end) || currentPeriodEndIso;
+      subscriptionPromoTag = String(sub?.metadata?.promo || subscriptionPromoTag || "").toLowerCase();
+      launchTrialCancellation = subscriptionPromoTag === "launch30";
       await ref.set({
         stripeCustomerId: sub.customer || docData.stripeCustomerId || null,
         stripeSubscriptionId: sub.id,
@@ -5506,14 +5622,24 @@ exports.cancelMembership = functions.https.onCall(async (data, context) => {
       console.warn("Failed to set cancel_at_period_end on Stripe subscription", err?.message || err);
     }
   }
+  if (launchTrialCancellation && currentPeriodEndIso) {
+    const periodEndDate = new Date(currentPeriodEndIso);
+    if (!Number.isNaN(periodEndDate.getTime())) {
+      accountDeleteAt = admin.firestore.Timestamp.fromDate(periodEndDate);
+    }
+  }
 
   const updates = {
     cancelAtPeriodEnd: true,
     cancelRequestedAt: nowIso,
     membershipStatus: "canceling",
     paymentStatus: docData.paymentStatus || 'active',
+    membershipPromoTag: subscriptionPromoTag || null,
     currentPeriodEnd: currentPeriodEndIso,
     nextRenewal: currentPeriodEndIso,
+    accountDeleteAt: accountDeleteAt || admin.firestore.FieldValue.delete(),
+    accountDeleteReason: accountDeleteAt ? "launch30_cancel" : admin.firestore.FieldValue.delete(),
+    accountDeleteScheduledAt: accountDeleteAt ? admin.firestore.FieldValue.serverTimestamp() : admin.firestore.FieldValue.delete(),
   };
   if (currentPeriodEndIso) {
     updates.canceledAt = currentPeriodEndIso;
@@ -5533,7 +5659,15 @@ exports.cancelMembership = functions.https.onCall(async (data, context) => {
       clearedAt: new Date().toISOString()
     }, { merge: true });
   }
-  return { ok: true, canceled: true, cancelAtPeriodEnd: true, currentPeriodEnd: currentPeriodEndIso, wiped: wipe };
+  return {
+    ok: true,
+    canceled: true,
+    cancelAtPeriodEnd: true,
+    currentPeriodEnd: currentPeriodEndIso,
+    trialCancellation: launchTrialCancellation,
+    accountDeleteAt: accountDeleteAt ? accountDeleteAt.toDate().toISOString() : null,
+    wiped: wipe
+  };
 });
 
 // Launch mode toggle (CEO only) to switch between beta and live UI/flows
@@ -5718,6 +5852,52 @@ exports.processRenewals = functions.runWith({ secrets: ["STRIPE_SECRET"] }).pubs
   }
   return null;
 });
+
+exports.purgeExpiredCanceledAccounts = functions.pubsub
+  .schedule("every 60 minutes")
+  .timeZone("America/Denver")
+  .onRun(async () => {
+    const nowTs = admin.firestore.Timestamp.now();
+    let processed = 0;
+    let deletedAuth = 0;
+    let deletedFirestoreOnly = 0;
+    let skipped = 0;
+    while (true) {
+      const snap = await db.collection("members")
+        .where("accountDeleteAt", "<=", nowTs)
+        .limit(200)
+        .get();
+      if (snap.empty) break;
+      for (const docSnap of snap.docs) {
+        processed += 1;
+        const uid = docSnap.id;
+        const data = docSnap.data() || {};
+        if (String(data.accountDeleteReason || "") !== "launch30_cancel") {
+          skipped += 1;
+          continue;
+        }
+        if (isCeoMemberDoc(data, uid)) {
+          skipped += 1;
+          continue;
+        }
+        try {
+          await admin.auth().deleteUser(uid);
+          deletedAuth += 1;
+        } catch (err) {
+          const code = String(err?.code || "");
+          if (code === "auth/user-not-found") {
+            await purgeMemberFirestoreRecords(uid, data);
+            deletedFirestoreOnly += 1;
+          } else {
+            console.warn("purgeExpiredCanceledAccounts deleteUser failed", uid, err?.message || err);
+          }
+        }
+      }
+      if (snap.size < 200) break;
+    }
+    console.log("purgeExpiredCanceledAccounts", { processed, deletedAuth, deletedFirestoreOnly, skipped });
+    return null;
+  });
 
 const CEO_ASSISTANT_CONTEXT_DOC = "settings/ceoAssistantContext";
 const CEO_ASSISTANT_CACHE_COLLECTION = "ceoAssistantCache";
