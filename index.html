@@ -13814,6 +13814,21 @@
         localStorage.setItem(PUSH_PROMPT_KEY, "1");
       }
     }
+    function showAddHomeGate() {
+      try {
+        const seenKey = "addToHomeGateShown";
+        if (localStorage.getItem(seenKey)) return;
+        if (isIOS && !isStandaloneMode() && addToHomeOverlay) {
+          addToHomeOverlay.classList.add("active");
+          localStorage.setItem(seenKey, "1");
+          return;
+        }
+        maybeShowNotificationsPrompt();
+        localStorage.setItem(seenKey, "1");
+      } catch (_) {
+        // no-op
+      }
+    }
 
     async function clearAppBadgeIfSupported() {
       try {
