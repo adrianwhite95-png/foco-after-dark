@@ -5009,6 +5009,28 @@
       color: var(--staff-muted);
       font-size: 13px;
     }
+    .radar-hype {
+      width: 100%;
+      margin-top: 6px;
+      font-size: clamp(16px, 2.8vw, 24px);
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      line-height: 1.2;
+      color: color-mix(in srgb, var(--staff-text) 92%, white 8%);
+      text-shadow:
+        0 0 12px color-mix(in srgb, var(--staff-primary, #67e8f9) 55%, transparent),
+        0 0 calc(18px + var(--radar-hype-glow, 0) * 30px) color-mix(in srgb, var(--staff-primary, #67e8f9) 75%, transparent);
+      transform: scale(calc(1 + var(--radar-hype-glow, 0) * 0.03));
+      transform-origin: left center;
+      transition: text-shadow 220ms ease, transform 220ms ease, color 220ms ease;
+    }
+    .radar-hype[data-level="2"] {
+      color: color-mix(in srgb, #fde68a 55%, var(--staff-text) 45%);
+    }
+    .radar-hype[data-level="3"] {
+      color: color-mix(in srgb, #fca5a5 45%, #fef08a 55%);
+    }
     .radar-count {
       color: var(--staff-text);
       font-weight: 700;
@@ -11793,6 +11815,7 @@
             <span class="radar-count" id="staffRadarCount">0 scans · last hour</span> ·
             <span id="staffRadarMood">Calibrating flow</span>
           </div>
+          <div class="radar-hype" id="staffRadarHype" data-level="0">No redemptions yet · build the buzz</div>
         </div>
         <div class="radar-list" id="radarList"></div>
       </div>
@@ -15945,6 +15968,7 @@
     const radarParticles = document.getElementById("radarParticles");
     const radarStreaks = document.getElementById("radarStreaks");
     const radarBursts = document.getElementById("radarBursts");
+    const staffRadarHype = document.getElementById("staffRadarHype");
     const scanPendingAlert = document.getElementById("scanPendingAlert");
     const scanPortalAlert = document.getElementById("scanPortalAlert");
     const scanConfirmStatus = document.getElementById("scanConfirmStatus");
@@ -25041,6 +25065,13 @@ let onboardingIndex = 0;
         if (radarStreaks) radarStreaks.innerHTML = "";
         if (radarBursts) radarBursts.innerHTML = "";
         if (radarList) radarList.innerHTML = '<span class="radar-empty">No scans in last 30m.</span>';
+        if (staffRadarHype) {
+          staffRadarHype.dataset.level = "0";
+          staffRadarHype.textContent = "No redemptions yet · build the buzz";
+        }
+        if (staffRadarEl) {
+          staffRadarEl.style.setProperty("--radar-hype-glow", "0");
+        }
         return;
       }
       const venueId = (staffSession.venue || "").toLowerCase();
@@ -25087,6 +25118,23 @@ let onboardingIndex = 0;
           staffRadarMood.textContent = `${baseMood} · check-ins active`;
         }
       }
+      const redemptionCount = recent.length;
+      if (staffRadarHype) {
+        let hypeLevel = 0;
+        let hypeText = "No redemptions yet · build the buzz";
+        if (redemptionCount >= 11) {
+          hypeLevel = 3;
+          hypeText = "11+ redemptions · night is poppin";
+        } else if (redemptionCount >= 6) {
+          hypeLevel = 2;
+          hypeText = "6-10 redemptions · things are getting lit";
+        } else if (redemptionCount >= 1) {
+          hypeLevel = 1;
+          hypeText = "1-5 redemptions · night is warming up";
+        }
+        staffRadarHype.dataset.level = String(hypeLevel);
+        staffRadarHype.textContent = hypeText;
+      }
       const checkInEnergy = Math.min(1, (checkInTotal + recentCheckInSignals * 1.25) / 16);
       const intensity = Math.max(0.18, Math.min(1, ((recent.length + hot.length * 1.4) / 12) + checkInEnergy * 0.55));
       const power = Math.max(0.12, Math.min(1, ((recent.length + hot.length * 0.5) / 10) + checkInEnergy * 0.45));
@@ -25106,6 +25154,8 @@ let onboardingIndex = 0;
         staffRadarEl.style.setProperty("--radar-swirl-speed", `${Math.max(6, 16 - intensity * 8)}s`);
         staffRadarEl.style.setProperty("--radar-swirl-opacity", (0.12 + intensity * 0.45).toFixed(2));
         staffRadarEl.style.setProperty("--radar-particle-opacity", (0.35 + intensity * 0.45).toFixed(2));
+        const hypeGlow = Math.min(1, Math.max(0, redemptionCount / 12));
+        staffRadarEl.style.setProperty("--radar-hype-glow", hypeGlow.toFixed(2));
         staffRadarEl.style.boxShadow = `0 24px 50px rgba(0,0,0,0.5), 0 0 ${24 + power * 26}px rgba(103,232,249,${0.25 + power * 0.35})`;
       }
       if (radarPings) {
