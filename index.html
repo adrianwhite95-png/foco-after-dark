@@ -3104,6 +3104,8 @@
       padding: 12px;
       text-align: left;
       transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+      position: relative;
+      opacity: 0.9;
     }
     .signup-plan-card .plan-name {
       font-size: 13px;
@@ -3122,11 +3124,36 @@
       line-height: 1.35;
     }
     .signup-plan-card.active {
-      border-color: color-mix(in srgb, var(--accent-primary-live) 62%, #a5b4fc);
+      border-color: color-mix(in srgb, var(--accent-primary-live) 72%, #a5b4fc);
       box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 35%, transparent),
-        0 0 16px color-mix(in srgb, var(--accent-primary-live) 30%, transparent);
+        0 0 0 2px color-mix(in srgb, var(--accent-primary-live) 55%, transparent),
+        0 0 26px color-mix(in srgb, var(--accent-primary-live) 50%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 40%, transparent);
       transform: translateY(-1px);
+      opacity: 1;
+      background: linear-gradient(155deg, rgba(8, 15, 30, 0.96), rgba(14, 25, 44, 0.9));
+    }
+    .signup-plan-card:not(.active) {
+      filter: saturate(0.85);
+    }
+    .signup-plan-card .plan-selected-indicator {
+      display: none;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #e2f6ff;
+      background: color-mix(in srgb, var(--accent-primary-live) 45%, #0f172a);
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 70%, #93c5fd);
+      border-radius: 999px;
+      padding: 2px 7px;
+      box-shadow: 0 0 12px color-mix(in srgb, var(--accent-primary-live) 45%, transparent);
+    }
+    .signup-plan-card.active .plan-selected-indicator {
+      display: inline-flex;
+      align-items: center;
     }
     .age-verify-card {
       margin-top: 14px;
@@ -11478,11 +11505,13 @@
               <span class="plan-name">Standard</span>
               <span class="plan-price">$5.00 / month</span>
               <span class="plan-copy">Up to 5 vouchers monthly</span>
+              <span class="plan-selected-indicator" aria-hidden="true">Selected</span>
             </button>
             <button type="button" class="signup-plan-card" data-signup-tier="vip" aria-pressed="false">
               <span class="plan-name">VIP</span>
               <span class="plan-price">$10.00 / month</span>
               <span class="plan-copy">Up to 10 vouchers + VIP drops</span>
+              <span class="plan-selected-indicator" aria-hidden="true">Selected</span>
             </button>
           </div>
           <p class="small" style="margin-top:6px;text-align:left;">
@@ -14825,7 +14854,7 @@
         return false;
       } catch (err) {
         console.warn("startAgeVerificationFlow failed", err);
-        const msg = err?.message || "Could not start ID verification.";
+        const msg = normalizeUiErrorMessage(err, "Could not start ID verification.");
         showToast(msg, 3000);
         return false;
       } finally {
@@ -15615,8 +15644,8 @@
 	      }
 	      showAddHomeGate();
 	    }
-	  } catch (err) {
-        const msg = err?.message || formatAuthError(err);
+      } catch (err) {
+        const msg = normalizeUiErrorMessage(err, formatAuthError(err));
         authError.textContent = msg;
         if (typeof showToast === "function") showToast(msg, 2600);
 	        onboardingMembershipFlow = false;
@@ -15635,6 +15664,20 @@
       }
     }
 
+    function normalizeUiErrorMessage(value, fallback = "Something went wrong. Try again.") {
+      const code = String(value?.code || "");
+      const raw = String(value?.message || value || "").trim();
+      const merged = `${code} ${raw}`.toLowerCase();
+      if (merged.includes("resource-exhausted") || merged.includes("rate limit exceeded") || merged.includes("too-many-requests") || merged.includes("429")) {
+        return "Too many requests right now. Please wait a moment and try again.";
+      }
+      if (merged.includes("network-request-failed") || merged.includes("failed to fetch") || merged.includes("network error")) {
+        return "Connection issue. Check your signal and try again.";
+      }
+      if (!raw) return fallback;
+      return raw;
+    }
+
     function formatAuthError(err) {
       const code = err?.code || "";
       switch (code) {
@@ -15646,7 +15689,7 @@
         case "auth/too-many-requests":
           return "Too many attempts. Try again in a minute.";
         default:
-          return err?.message || "Something went wrong. Try again.";
+          return normalizeUiErrorMessage(err, "Something went wrong. Try again.");
       }
     }
 
@@ -15786,16 +15829,34 @@
       if (confettiLayer) confettiLayer.innerHTML = "";
     }
 
-    async function loadMemberProfileWithTimeout(user, timeoutMs = 800) {
+    async function loadMemberProfileWithTimeout(user, timeoutMs = 5000) {
       if (!allowLocalCache()) {
+        let loadPromise = null;
         try {
-          const profile = await withTimeout(loadMemberProfileForUser(user), timeoutMs);
-          return profile;
+          loadPromise = loadMemberProfileForUser(user);
+          const profile = await withTimeout(loadPromise, timeoutMs);
+          if (profile) return profile;
+          const fallback = buildLocalProfile(user);
+          fallback.profileSyncPending = true;
+          memberProfile = fallback;
+          return fallback;
         } catch (err) {
           console.warn("Profile load failed:", err);
-          memberProfile = null;
-          memberDocRef = null;
-          return null;
+          try {
+            if (loadPromise) {
+              const lateProfile = await loadPromise.catch(() => null);
+              if (lateProfile) return lateProfile;
+            } else {
+              const retryProfile = await loadMemberProfileForUser(user);
+              if (retryProfile) return retryProfile;
+            }
+          } catch (retryErr) {
+            console.warn("Profile load retry failed:", retryErr);
+          }
+          const fallback = buildLocalProfile(user);
+          fallback.profileSyncPending = true;
+          memberProfile = fallback;
+          return fallback;
         }
       }
       const timeoutPromise = new Promise(resolve => {
@@ -20625,7 +20686,11 @@ let onboardingIndex = 0;
         const finalized = String(resp?.data?.username || desired).trim().toLowerCase();
         return { ok: true, username: finalized };
       } catch (err) {
-        return { ok: false, code: err?.code || "", message: err?.message || "Username reservation failed" };
+        return {
+          ok: false,
+          code: err?.code || "",
+          message: normalizeUiErrorMessage(err, "Username reservation failed")
+        };
       }
     }
     async function checkUsernameAvailabilityCloud(username) {
@@ -20645,7 +20710,7 @@ let onboardingIndex = 0;
         return {
           ok: false,
           available: false,
-          message: err?.message || "Username check failed."
+          message: normalizeUiErrorMessage(err, "Username check failed.")
         };
       }
     }
@@ -20676,7 +20741,7 @@ let onboardingIndex = 0;
           ok: false,
           applied: false,
           code: err?.code || "failed",
-          message: err?.message || "Could not apply invite code"
+          message: normalizeUiErrorMessage(err, "Could not apply invite code")
         };
       }
     }
@@ -29589,11 +29654,8 @@ let onboardingIndex = 0;
           if (ceoChatHistory) ceoChatHistory.scrollTop = ceoChatHistory.scrollHeight;
         } catch (err) {
           console.warn("ceoChat failed", err);
-          const msg = err?.message || err?.code || "";
-          const rateLimited = String(msg).includes("429") || String(err?.code || "").includes("resource-exhausted");
-          appendCeoChat("assistant", rateLimited
-            ? "HQ AI is rate-limited right now. Retry in a minute."
-            : `HQ AI is temporarily unavailable (${msg || "request failed"}).`);
+          const msg = normalizeUiErrorMessage(err, "request failed");
+          appendCeoChat("assistant", `HQ AI is temporarily unavailable (${msg}).`);
         } finally {
           ceoChatSend.disabled = false;
           ceoChatSend.textContent = "Send";
