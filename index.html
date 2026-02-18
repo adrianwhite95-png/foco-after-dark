@@ -14489,6 +14489,9 @@
 
     // Auth mode toggle
     let authMode = "signup"; // or "login"
+    let pendingSignupData = null;
+    let signupSelectedTier = "standard";
+    let ageVerificationInFlight = false;
     const authModeText = document.getElementById("authModeText");
     const authToggleText = document.getElementById("authToggleText");
     const authSubmitBtn = document.getElementById("authSubmitBtn");
@@ -14812,9 +14815,6 @@
         renderAgeVerificationState();
       }
     }
-    let pendingSignupData = null;
-    let signupSelectedTier = "standard";
-    let ageVerificationInFlight = false;
     let currentMembershipTier = null;
     let ceoSession = false;
     let ceoPreviewTier = null;
