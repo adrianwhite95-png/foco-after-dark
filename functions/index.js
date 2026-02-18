@@ -3971,6 +3971,25 @@ async function retrieveStripeSubscription(stripe, subscriptionId) {
   }
 }
 
+function readStripeErrorMessage(err) {
+  return String(
+    err?.raw?.message
+    || err?.message
+    || err?.error?.message
+    || ""
+  ).trim();
+}
+
+function isStripePromoError(err) {
+  const msg = readStripeErrorMessage(err).toLowerCase();
+  return (
+    msg.includes("promotion code")
+    || msg.includes("promotion_code")
+    || msg.includes("coupon")
+    || msg.includes("discount")
+  );
+}
+
 async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, uid, email, tier, token, discount, promoTag }) {
   const normalizedTier = normalizeTierKey(tier);
   const customerId = await ensureStripeCustomer({
@@ -4008,7 +4027,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
       });
     }
   } else {
-    subscription = await stripe.subscriptions.create({
+    const createPayload = {
       customer: customerId,
       items: [{ price_data: subscriptionPriceDataForTier(normalizedTier) }],
       payment_behavior: "default_incomplete",
@@ -4016,7 +4035,21 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
       metadata: { uid, tier: normalizedTier, ...promoMeta },
       discounts: discount ? [discount] : undefined,
       expand: ["latest_invoice.payment_intent", "items.data.price"],
-    });
+    };
+    try {
+      subscription = await stripe.subscriptions.create(createPayload);
+    } catch (err) {
+      if (discount && isStripePromoError(err)) {
+        console.warn("Membership promo failed; retrying without discount", readStripeErrorMessage(err));
+        subscription = await stripe.subscriptions.create({
+          ...createPayload,
+          metadata: { uid, tier: normalizedTier },
+          discounts: undefined,
+        });
+      } else {
+        throw err;
+      }
+    }
   }
 
   const paymentIntent = subscription?.latest_invoice?.payment_intent || null;
@@ -4041,49 +4074,64 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
 }
 
 exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
-  const uid = context.auth.uid;
-  const email = (context.auth.token.email || '').toLowerCase();
-  const tier = normalizeTierKey((data?.tier || 'standard').toString());
-  const promoCodeInput = (data?.promoCode || "").toString();
-  const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
-  assertStripeAllowed(context, memberDocData);
-  const stripe = getStripeClient();
-  const { publishable } = getStripeConfig();
-  if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
+  try {
+    if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+    const uid = context.auth.uid;
+    const email = (context.auth.token.email || '').toLowerCase();
+    const tier = normalizeTierKey((data?.tier || 'standard').toString());
+    const promoCodeInput = (data?.promoCode || "").toString();
+    const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
+    assertStripeAllowed(context, memberDocData);
+    const stripe = getStripeClient();
+    const { publishable } = getStripeConfig();
+    if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
 
-  const promoContext = await resolveMembershipPromo({
-    uid,
-    memberDocData,
-    promoCodeInput,
-  });
+    const promoContext = await resolveMembershipPromo({
+      uid,
+      memberDocData,
+      promoCodeInput,
+    });
 
-  const { subscription, paymentIntent } = await upsertMembershipSubscription({
-    stripe,
-    memberRef,
-    memberDocData,
-    uid,
-    email,
-    tier,
-    token: context.auth.token,
-    discount: promoContext.discount,
-    promoTag: promoContext.promoTag,
-  });
+    const { subscription, paymentIntent } = await upsertMembershipSubscription({
+      stripe,
+      memberRef,
+      memberDocData,
+      uid,
+      email,
+      tier,
+      token: context.auth.token,
+      discount: promoContext.discount,
+      promoTag: promoContext.promoTag,
+    });
 
-  if (!paymentIntent?.client_secret) {
+    if (!paymentIntent?.client_secret) {
+      return {
+        publishableKey: publishable,
+        subscriptionId: subscription?.id || null,
+        tier,
+        alreadyActive: true,
+      };
+    }
     return {
+      clientSecret: paymentIntent.client_secret,
       publishableKey: publishable,
       subscriptionId: subscription?.id || null,
       tier,
-      alreadyActive: true,
     };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    const uid = context?.auth?.uid || "unknown";
+    const msg = readStripeErrorMessage(err);
+    const code = String(err?.code || err?.raw?.code || "").trim();
+    console.error("createMembershipPaymentIntent failed", { uid, code, message: msg || String(err || "") });
+    if (isStripePromoError(err)) {
+      throw new HttpsError("failed-precondition", "Promo code is unavailable right now. Leave promo code blank and try again.");
+    }
+    if (msg) {
+      throw new HttpsError("failed-precondition", `Could not start payment. ${msg}`);
+    }
+    throw new HttpsError("internal", "Could not start payment right now.");
   }
-  return {
-    clientSecret: paymentIntent.client_secret,
-    publishableKey: publishable,
-    subscriptionId: subscription?.id || null,
-    tier,
-  };
 });
 
 exports.confirmMembershipActivation = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {

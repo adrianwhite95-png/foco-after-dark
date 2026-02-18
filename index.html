@@ -11690,7 +11690,6 @@
           <div class="error" id="paymentError"></div>
           <div class="payment-actions">
             <button type="submit" class="btn btn-primary" id="paymentSubmit">Start Membership</button>
-            <button type="button" class="btn btn-secondary" id="skipPaymentBtn">Skip for now (Beta)</button>
             <button type="button" class="btn btn-secondary" id="paymentBackBtn">Back</button>
           </div>
         </form>
@@ -14744,6 +14743,7 @@
       return normalizeMembershipTierSelection(raw);
     }
     function continuePostAgeVerification(tier) {
+      suppressAgeVerifyAutoContinue = false;
       const requestedTier = normalizeMembershipTierSelection(tier || getRequestedTier(memberProfile));
       pendingMembershipTier = requestedTier;
       if (isFreeMember(memberProfile)) {
@@ -14822,6 +14822,7 @@
           data?.verified === true
           && currentScreenName === "ageVerify"
           && onboardingMembershipFlow
+          && !suppressAgeVerifyAutoContinue
         ) {
           continuePostAgeVerification(getRequestedTier(memberProfile));
         }
@@ -14841,6 +14842,7 @@
       ageVerificationInFlight = true;
       renderAgeVerificationState();
       try {
+        suppressAgeVerifyAutoContinue = false;
         const tier = normalizeMembershipTierSelection(opts.tier || getRequestedTier());
         const returnUrl = `${window.location.origin}${window.location.pathname}`;
         const fn = httpsCallable(functionsClient, "createAgeVerificationSession");
@@ -14882,6 +14884,7 @@
     let ceoPreviewTier = null;
     let isCeoAccount = false;
     let isBetaAccount = false;
+    let suppressAgeVerifyAutoContinue = false;
     function isFreeMember(profile = memberProfile) {
       const override = (profile?.membershipOverride || profile?.override || "").toString().toUpperCase();
       return Boolean(profile?.freeMembership) || override === "CEO_FREE";
@@ -14924,12 +14927,14 @@
     }
     if (ageVerifyStartBtn) {
       ageVerifyStartBtn.addEventListener("click", async () => {
+        suppressAgeVerifyAutoContinue = false;
         const tier = getRequestedTier();
         await startAgeVerificationFlow({ tier });
       });
     }
     if (ageVerifyRefreshBtn) {
       ageVerifyRefreshBtn.addEventListener("click", async () => {
+        suppressAgeVerifyAutoContinue = false;
         await refreshAgeVerificationStatus(true);
         if (isAgeVerifiedClient(memberProfile)) {
           continuePostAgeVerification(getRequestedTier());
@@ -21338,12 +21343,14 @@ let onboardingIndex = 0;
       }
     });
 
-    skipPaymentBtn.addEventListener("click", () => {
-      const tierToActivate = pendingMembershipTier || "vip";
-      pendingMembershipTier = null;
-      resetPaymentForm();
-      completeMembership(tierToActivate, { force: true });
-    });
+    if (skipPaymentBtn) {
+      skipPaymentBtn.addEventListener("click", () => {
+        const tierToActivate = pendingMembershipTier || "vip";
+        pendingMembershipTier = null;
+        resetPaymentForm();
+        completeMembership(tierToActivate, { force: true });
+      });
+    }
 
     if (venuesTrigger) {
       venuesTrigger.addEventListener("click", () => {
@@ -31419,6 +31426,7 @@ let onboardingIndex = 0;
         const wasOnboarding = onboardingMembershipFlow;
         if (!wasOnboarding) pendingMembershipTier = null;
         resetPaymentForm();
+        if (wasOnboarding) suppressAgeVerifyAutoContinue = true;
         showScreen(wasOnboarding ? "ageVerify" : "membership");
       });
     }
