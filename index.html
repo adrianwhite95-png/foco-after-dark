@@ -14402,6 +14402,7 @@
 
     function updateAuthModeText() {
       const forgotWrap = forgotPasswordLink ? forgotPasswordLink.closest("p") : null;
+      const rememberRow = rememberMe ? rememberMe.closest(".remember-row") : null;
       if (authMode === "signup") {
         authModeText.textContent = "Create your account to get the Nightlife Pass.";
         authToggleText.innerHTML =
@@ -14411,6 +14412,7 @@
         signupOnlyFields.forEach(el => {
           el.style.display = "block";
         });
+        if (rememberRow) rememberRow.style.display = "none";
         if (forgotWrap) forgotWrap.style.display = "none";
       } else {
         authModeText.textContent = "Log in to access your Nightlife Pass.";
@@ -14421,6 +14423,7 @@
         signupOnlyFields.forEach(el => {
           el.style.display = "none";
         });
+        if (rememberRow) rememberRow.style.display = "";
         if (forgotWrap) forgotWrap.style.display = "";
       }
       // Reattach listener because we rewrote innerHTML
