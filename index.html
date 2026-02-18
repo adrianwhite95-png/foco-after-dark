@@ -11681,7 +11681,7 @@
           </div>
           <div class="field">
             <label for="membershipPromoCode">Promo code (optional)</label>
-            <input id="membershipPromoCode" type="text" placeholder="FOCOFAM20" autocomplete="off" />
+            <input id="membershipPromoCode" type="text" placeholder="" autocomplete="off" />
           </div>
           <div class="field">
             <label>Card & payment method</label>
@@ -15651,13 +15651,18 @@
           };
         }
 	      if (onboardingMembershipFlow) {
-          const started = await startAgeVerificationFlow({
-            tier: requestedTier,
-            birthDate: birthDateISO || memberProfile?.birthDate || ""
-          });
-          if (!started) {
+            memberProfile = {
+              ...(memberProfile || {}),
+              requestedTier
+            };
             showScreen("ageVerify");
-          }
+	          const started = await startAgeVerificationFlow({
+	            tier: requestedTier,
+	            birthDate: birthDateISO || memberProfile?.birthDate || ""
+	          });
+	          if (!started) {
+	            showScreen("ageVerify");
+	          }
 	      }
 	      showAddHomeGate();
 	    }
