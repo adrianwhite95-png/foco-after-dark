@@ -30926,6 +30926,7 @@ let onboardingIndex = 0;
     let pendingRedeemCode = null;
     let pendingRedeemPerk = null;
     let pendingRedeemVenue = null;
+    let redeemRequestInFlight = false;
     function getVenueDisplayName(venueId) {
       if (!venueId) return "";
       const key = String(venueId).toLowerCase();
@@ -31027,8 +31028,43 @@ let onboardingIndex = 0;
       });
     }
 
-    function showRedemptionQr(perkLabel, providedCode, requestedVenueId) {
-      const code = providedCode || generateRedemptionCode();
+    function showRedemptionQr(perkLabel, providedCode, requestedVenueId, options = {}) {
+      const provisioning = options?.provisioning === true;
+      const code = String(providedCode || "").trim().toUpperCase();
+      if (provisioning || !code) {
+        redeemCodeDisplay.textContent = "Generating secure code…";
+        if (redeemSuccessTitle) {
+          redeemSuccessTitle.textContent = `${perkLabel} processing`;
+        }
+        pendingRedeemCode = null;
+        pendingRedeemPerk = perkLabel;
+        pendingRedeemVenue = requestedVenueId || null;
+        if (redeemVenueHint) {
+          if (pendingRedeemVenue) {
+            redeemVenueHint.textContent = `Redeeming at ${getVenueDisplayName(pendingRedeemVenue)}`;
+            redeemVenueHint.style.display = "block";
+          } else {
+            redeemVenueHint.style.display = "none";
+          }
+        }
+        if (redeemStatusLine) redeemStatusLine.textContent = "Generating secure code…";
+        if (redeemSuccessBack) {
+          redeemSuccessBack.disabled = true;
+          redeemSuccessBack.style.display = "none";
+        }
+        if (redeemPendingClose) redeemPendingClose.style.display = "none";
+        if (redeemPendingTimer) {
+          clearTimeout(redeemPendingTimer);
+          redeemPendingTimer = null;
+        }
+        if (redeemWatchUnsub) {
+          try { redeemWatchUnsub(); } catch (_) {}
+          redeemWatchUnsub = null;
+        }
+        redeemSuccess.classList.add("active");
+        startConfettiLoop();
+        return "";
+      }
       redeemCodeDisplay.textContent = code;
       if (redeemSuccessTitle) {
         redeemSuccessTitle.textContent = `${perkLabel} pending`;
@@ -31370,6 +31406,10 @@ let onboardingIndex = 0;
       selectedPerkLabel = null;
       stopRedeemPerksListener();
       renderRedemptionOptions();
+      const authUser = firebaseAuth.currentUser;
+      if (authUser) {
+        authUser.getIdToken().catch(() => {});
+      }
       redeemModal.classList.add("active");
     }
 
@@ -31407,6 +31447,14 @@ let onboardingIndex = 0;
 
     redeemClose.addEventListener("click", closeRedeemModal);
     redeemConfirm.addEventListener("click", async () => {
+      if (redeemRequestInFlight) return;
+      const setRedeemRequestBusy = (busy) => {
+        redeemRequestInFlight = !!busy;
+        if (!redeemConfirm) return;
+        redeemConfirm.disabled = !!busy;
+        redeemConfirm.setAttribute("aria-disabled", busy ? "true" : "false");
+        redeemConfirm.textContent = busy ? "Creating..." : "Confirm";
+      };
       if (!guardWriteAction("createRedemption")) {
         creditInfo.textContent = "App is locked (read-only).";
         return;
@@ -31474,8 +31522,10 @@ let onboardingIndex = 0;
         creditInfo.textContent = "No redemptions left for this perk.";
         return;
       }
+      setRedeemRequestBusy(true);
       const perkLabel = ceoActive ? `Executive ${selectedPerkLabel}` : selectedPerkLabel;
       let pendingReserved = false;
+      let movedToDispatchView = false;
       const rollbackPendingReservation = () => {
         if (!pendingReserved || unlimited) return;
         decrementPendingForPass(activePassId, selectedPerkId);
@@ -31487,6 +31537,9 @@ let onboardingIndex = 0;
         pendingReserved = true;
       }
       renderRedemptionOptions();
+      closeRedeemModal();
+      showRedemptionQr(perkLabel, "", requestedVenue, { provisioning: true });
+      movedToDispatchView = true;
       let authUser = firebaseAuth.currentUser;
       if (!authUser) {
         try {
@@ -31496,6 +31549,12 @@ let onboardingIndex = 0;
           rollbackPendingReservation();
           creditInfo.textContent = "Sign in required to redeem.";
           showToast("Sign in required to redeem.", 2400);
+          if (movedToDispatchView) {
+            redeemSuccess.classList.remove("active");
+            stopConfettiLoop();
+            redeemModal.classList.add("active");
+          }
+          setRedeemRequestBusy(false);
           return;
         }
       }
@@ -31507,12 +31566,24 @@ let onboardingIndex = 0;
       if (!functionsClient) {
         rollbackPendingReservation();
         creditInfo.textContent = "Redemption unavailable. Try again.";
+        if (movedToDispatchView) {
+          redeemSuccess.classList.remove("active");
+          stopConfettiLoop();
+          redeemModal.classList.add("active");
+        }
+        setRedeemRequestBusy(false);
         return;
       }
       const perkId = selectedVenuePerkId || selectedPerkId;
       if (!perkId) {
         rollbackPendingReservation();
         creditInfo.textContent = "Select a perk to redeem.";
+        if (movedToDispatchView) {
+          redeemSuccess.classList.remove("active");
+          stopConfettiLoop();
+          redeemModal.classList.add("active");
+        }
+        setRedeemRequestBusy(false);
         return;
       }
       const rewardLabel = selectedPerkId === "reward_shot" ? "Reward: shot perk" : perkLabel;
@@ -31548,10 +31619,16 @@ let onboardingIndex = 0;
       } catch (err) {
         console.warn("[createRedemption] failed", err);
         rollbackPendingReservation();
+        if (movedToDispatchView) {
+          redeemSuccess.classList.remove("active");
+          stopConfettiLoop();
+          redeemModal.classList.add("active");
+        }
         const missing = Array.isArray(err?.details?.missingFields) ? err.details.missingFields : null;
         if (missing && missing.length) {
           showToast(`Redeem failed: missing fields ${missing.join("/")}`, 3200);
           creditInfo.textContent = `Missing: ${missing.join(", ")}`;
+          setRedeemRequestBusy(false);
           return;
         }
         if ((err?.code || "").includes("permission-denied")) {
@@ -31562,12 +31639,19 @@ let onboardingIndex = 0;
           showToast("Internal error (see console details).", 3000);
         }
         creditInfo.textContent = err?.message || "Could not start redemption.";
+        setRedeemRequestBusy(false);
         return;
       }
       const code = (payload?.redemptionId || payload?.code || "").toUpperCase();
       if (!code) {
         rollbackPendingReservation();
         creditInfo.textContent = "Could not start redemption.";
+        if (movedToDispatchView) {
+          redeemSuccess.classList.remove("active");
+          stopConfettiLoop();
+          redeemModal.classList.add("active");
+        }
+        setRedeemRequestBusy(false);
         return;
       }
       const entry = {
@@ -31596,6 +31680,7 @@ let onboardingIndex = 0;
       addRedemptionLogEntry(entry, { skipSync: true });
       closeRedeemModal();
       showRedemptionQr(perkLabel, code, requestedVenue);
+      setRedeemRequestBusy(false);
     });
     redeemModal.addEventListener("click", (e) => {
       if (e.target === redeemModal) closeRedeemModal();
