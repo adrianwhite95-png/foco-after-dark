@@ -5011,18 +5011,16 @@
       font-size: 13px;
     }
     .radar-hype {
-      position: absolute;
-      left: 12px;
-      right: 12px;
-      bottom: 12px;
-      z-index: 12;
+      position: relative;
+      margin-top: 12px;
+      z-index: 2;
       pointer-events: none;
       text-align: center;
-      padding: 8px 10px;
+      padding: 10px 12px;
       border-radius: 12px;
       border: 1px solid color-mix(in srgb, var(--staff-primary, #67e8f9) 42%, rgba(148, 163, 184, 0.35));
       background: linear-gradient(120deg, rgba(4, 10, 24, 0.78), rgba(8, 14, 30, 0.58));
-      font-size: clamp(16px, 2.8vw, 24px);
+      font-size: clamp(15px, 2.4vw, 22px);
       font-weight: 900;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -5041,9 +5039,6 @@
     }
     .radar-hype[data-level="3"] {
       color: color-mix(in srgb, #fca5a5 45%, #fef08a 55%);
-    }
-    .staff-radar .radar-display > .radar-hype {
-      z-index: 12 !important;
     }
     .radar-count {
       color: var(--staff-text);
@@ -11827,8 +11822,8 @@
           <div class="radar-graffiti" id="radarGraffiti"></div>
           <div class="radar-pings" id="radarPings"></div>
           <div class="radar-particles" id="radarParticles"></div>
-          <div class="radar-hype" id="staffRadarHype" data-level="0">No redemptions yet · build the buzz</div>
         </div>
+        <div class="radar-hype" id="staffRadarHype" data-level="0">Build the buzz</div>
         <div class="radar-copy">
           <div class="radar-title">Live floor pulse</div>
           <div class="radar-mood">
@@ -25221,7 +25216,7 @@ let onboardingIndex = 0;
         if (radarList) radarList.innerHTML = '<span class="radar-empty">No scans in last 30m.</span>';
         if (staffRadarHype) {
           staffRadarHype.dataset.level = "0";
-          staffRadarHype.textContent = "No redemptions yet · build the buzz";
+          staffRadarHype.textContent = "Build the buzz";
         }
         if (staffRadarEl) {
           staffRadarEl.style.setProperty("--radar-hype-glow", "0");
@@ -25275,16 +25270,16 @@ let onboardingIndex = 0;
       const redemptionCount = recent.length;
       if (staffRadarHype) {
         let hypeLevel = 0;
-        let hypeText = "No redemptions yet · build the buzz";
+        let hypeText = "Build the buzz";
         if (redemptionCount >= 11) {
           hypeLevel = 3;
-          hypeText = "11+ redemptions · night is poppin";
+          hypeText = "Night is poppin";
         } else if (redemptionCount >= 6) {
           hypeLevel = 2;
-          hypeText = "6-10 redemptions · things are getting lit";
+          hypeText = "Things are getting lit";
         } else if (redemptionCount >= 1) {
           hypeLevel = 1;
-          hypeText = "1-5 redemptions · night is warming up";
+          hypeText = "Night is warming up";
         }
         staffRadarHype.dataset.level = String(hypeLevel);
         staffRadarHype.textContent = hypeText;
