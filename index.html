@@ -5014,6 +5014,8 @@
       position: relative;
       z-index: 18;
       margin-top: 10px;
+      min-height: 44px;
+      display: block;
     }
     .radar-hype {
       position: relative;
@@ -5021,6 +5023,8 @@
       pointer-events: none;
       display: block;
       width: 100%;
+      opacity: 1;
+      visibility: visible;
       text-align: center;
       padding: 10px 12px;
       border-radius: 12px;
@@ -9210,8 +9214,20 @@
       z-index: 0;
     }
     .staff-radar .radar-display > * {
-      position: relative;
       z-index: 2;
+    }
+    .staff-radar .radar-display > :is(
+      .radar-grid,
+      .radar-swirl,
+      .radar-sweep,
+      .radar-streaks,
+      .radar-bursts,
+      .radar-pings,
+      .radar-particles,
+      .radar-graffiti
+    ) {
+      position: absolute !important;
+      inset: 0;
     }
     .staff-radar .radar-grid { opacity: max(0.18, var(--radar-grid-opacity, 0.28)); }
     .staff-radar .radar-swirl { opacity: max(0.14, var(--radar-swirl-opacity, 0.22)); }
