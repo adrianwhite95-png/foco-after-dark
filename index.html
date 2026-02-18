@@ -9220,6 +9220,10 @@
     .staff-radar .radar-display > * {
       z-index: 2;
     }
+    .staff-radar.smooth-enter > * {
+      opacity: 1 !important;
+      transform: none !important;
+    }
     .staff-radar .radar-display > :is(
       .radar-grid,
       .radar-swirl,
@@ -9260,6 +9264,13 @@
       display: block !important;
       position: relative !important;
       z-index: 51 !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+    #staffPortalScreen .staff-radar .radar-copy,
+    #staffPortalScreen .staff-radar .radar-list {
+      position: relative !important;
+      z-index: 50 !important;
       opacity: 1 !important;
       visibility: visible !important;
     }
@@ -9597,11 +9608,6 @@
     #memberIdInput::-webkit-contacts-auto-fill-button {
       visibility: hidden;
       pointer-events: none;
-      position: absolute;
-      right: 0;
-    }
-    #memberIdInput::-webkit-textfield-decoration-container {
-      display: none !important;
     }
     body.ios :where(.btn, .nav-item, .pill, .community-stat, .featured-card, .ceo-nav-item) {
       -webkit-tap-highlight-color: rgba(34, 211, 238, 0.24);
@@ -11847,10 +11853,10 @@
             <div class="small" style="margin-top:6px;">Tap a pending code to confirm.</div>
           </div>
         </div>
-        <form id="memberIdForm" style="margin-top:12px;" autocomplete="off" data-lpignore="true" novalidate>
+        <form id="memberIdForm" style="margin-top:12px;" autocomplete="off" novalidate>
           <div class="field">
             <label for="memberIdInput">Quick member lookup</label>
-            <input id="memberIdInput" name="staff_member_lookup" type="text" placeholder="Pass ID or username (e.g. XYZ789 or username)" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" aria-autocomplete="none" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" />
+            <input id="memberIdInput" name="member_lookup" type="search" placeholder="Pass ID or username (e.g. XYZ789 or username)" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="search" enterkeyhint="search" />
           </div>
           <div class="error" id="memberIdError"></div>
           <p class="support-success" id="memberIdResult">Member is active.</p>
