@@ -11378,10 +11378,6 @@
         <p class="small" style="text-align:left;margin:-2px 0 16px;">
           <span id="forgotPasswordLink" class="linkish" role="button" tabindex="0">Forgot your password?</span>
         </p>
-        <div class="field" style="margin-top:-4px;">
-          <button type="button" class="btn btn-secondary" id="authEnableNotificationsBtn" style="width:100%;">Turn on notifications</button>
-          <p class="small" id="authNotificationsStatus" style="margin-top:6px;text-align:left;color:#94a3b8;">Recommended: enable notifications for live alerts and perk updates.</p>
-        </div>
         <div class="field signup-only" id="birthDateField">
           <label for="birthDate">Birthdate (21+ required)</label>
           <input id="birthDate" type="date" />
@@ -11400,12 +11396,16 @@
         </div>
         <div class="field signup-only" id="signupInviteCodeField">
           <label for="signupInviteCode">CEO issued invite code (optional)</label>
-          <input id="signupInviteCode" type="text" maxlength="28" placeholder="e.g. FREE-AB12CD34" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
+          <input id="signupInviteCode" type="text" maxlength="28" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
         </div>
         <div class="error" id="authError"></div>
         <button type="button" class="btn btn-primary" id="authSubmitBtn">
           Continue
         </button>
+        <div class="field signup-only" id="authNotificationsField" style="margin-top:12px;">
+          <button type="button" class="btn btn-secondary" id="authEnableNotificationsBtn" style="width:100%;">Turn on notifications</button>
+          <p class="small" id="authNotificationsStatus" style="margin-top:6px;text-align:left;color:#94a3b8;">Recommended: enable notifications for live alerts and perk updates.</p>
+        </div>
       </form>
 
       <div class="modal-backdrop" id="signupConfirmModal">
@@ -14401,15 +14401,17 @@
     }
 
     function updateAuthModeText() {
+      const forgotWrap = forgotPasswordLink ? forgotPasswordLink.closest("p") : null;
       if (authMode === "signup") {
         authModeText.textContent = "Create your account to get the Nightlife Pass.";
         authToggleText.innerHTML =
           'Already have an account? <span id="authToggleLink" class="linkish">Log in instead</span>';
-        authSubmitBtn.textContent = "Create account & get pass";
+        authSubmitBtn.textContent = "Create Account and Get Pass";
         if (authEmailLabel) authEmailLabel.textContent = "Email";
         signupOnlyFields.forEach(el => {
           el.style.display = "block";
         });
+        if (forgotWrap) forgotWrap.style.display = "none";
       } else {
         authModeText.textContent = "Log in to access your Nightlife Pass.";
         authToggleText.innerHTML =
@@ -14419,12 +14421,14 @@
         signupOnlyFields.forEach(el => {
           el.style.display = "none";
         });
+        if (forgotWrap) forgotWrap.style.display = "";
       }
       // Reattach listener because we rewrote innerHTML
       document.getElementById("authToggleLink").addEventListener("click", () => {
         authMode = authMode === "signup" ? "login" : "signup";
         updateAuthModeText();
       });
+      applyRememberedEmailToForm();
     }
     function refreshAuthNotificationStatusLine() {
       if (!authNotificationsStatus) return;
@@ -14784,14 +14788,16 @@
       return null;
     }
     function loadRememberedEmail() {
-      const saved = loadRememberedLogin();
-      if (!saved || !authEmail) return;
-      authEmail.value = saved.identifier || "";
-      if (authPassword) authPassword.value = saved.password || "";
-      if (rememberMe) rememberMe.checked = true;
+      applyRememberedEmailToForm();
     }
     function applyRememberedEmailToForm() {
       if (!authEmail || !authPassword) return;
+      if (authMode === "signup") {
+        authEmail.value = "";
+        authPassword.value = "";
+        if (rememberMe) rememberMe.checked = false;
+        return;
+      }
       const saved = loadRememberedLogin();
       if (saved?.remember && saved.identifier) {
         authEmail.value = saved.identifier;
@@ -15208,7 +15214,7 @@
           clearPendingMembershipFlagForUser(cred.user.uid);
           showToast("CEO ISSUED membership activated.");
         } else {
-          const inviteMessage = inviteResult?.message || "Invite code was not accepted.";
+          const inviteMessage = inviteResult?.message || "Invite code not valid. Only CEO generated codes work.";
           showToast(inviteMessage, 3200);
         }
       }
@@ -25727,17 +25733,17 @@ let onboardingIndex = 0;
       }
       persistMemberState({ autoCloseOut: state || {} });
     }
-    function hasSentAutoCloseOutToday(venueId) {
+    function hasSentAutoCloseOutForShift(venueId, shiftKey) {
       if (!venueId) return false;
+      if (!shiftKey) return false;
       const state = loadAutoCloseOutState();
-      const today = new Date().toISOString().slice(0, 10);
-      return state[venueId] === today;
+      return state[venueId] === shiftKey;
     }
-    function markAutoCloseOutSent(venueId) {
+    function markAutoCloseOutSent(venueId, shiftKey) {
       if (!venueId) return;
+      if (!shiftKey) return;
       const state = loadAutoCloseOutState();
-      const today = new Date().toISOString().slice(0, 10);
-      state[venueId] = today;
+      state[venueId] = shiftKey;
       saveAutoCloseOutState(state);
     }
     function msUntilNext3am() {
@@ -25752,7 +25758,8 @@ let onboardingIndex = 0;
     async function attemptAutoCloseOut() {
       if (!staffSession) return;
       const venueId = staffSession.venue;
-      if (hasSentAutoCloseOutToday(venueId)) return;
+      const shiftWindow = getCloseOutWindow();
+      if (hasSentAutoCloseOutForShift(venueId, shiftWindow.shiftKey)) return;
       let report = buildCloseOutReport();
       if (!report) {
         const venueName = venuesInfo[venueId]?.name || venueId || "Venue";
@@ -25761,7 +25768,9 @@ let onboardingIndex = 0;
           venue: venueId,
           venueName,
           generatedAt: new Date().toISOString(),
-          range: "today",
+          range: "shift",
+          shiftKey: shiftWindow.shiftKey || getMstDateKey(new Date()),
+          windowLabel: shiftWindow.windowLabel || "Shift window: 5:00 AM - 2:45 AM",
           totals: { submitted: 0, verified: 0, pending: 0, byPerk: {} },
           items: []
         };
@@ -25770,7 +25779,7 @@ let onboardingIndex = 0;
       persistCloseOutReport(report);
       renderCeoCloseOutReports();
       if (sent) {
-        markAutoCloseOutSent(venueId);
+        markAutoCloseOutSent(venueId, report.shiftKey || shiftWindow.shiftKey);
       }
       if (staffSession?.venue) {
         setStaffShiftStart(staffSession.venue, new Date());
@@ -27509,12 +27518,38 @@ let onboardingIndex = 0;
       updateStaffRadar();
       renderCeoRedemptionLog();
     }
+    function toMstComparableMs(value = Date.now()) {
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) return NaN;
+      const mstLocal = new Date(date.toLocaleString("en-US", { timeZone: "America/Denver" }));
+      return mstLocal.getTime();
+    }
     function getCloseOutWindow() {
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start.getTime());
-      end.setHours(26, 0, 0, 0); // through 2 a.m. next day
-      return { start: start.getTime(), end: end.getTime() };
+      const nowComparable = new Date(toMstComparableMs(Date.now()));
+      if (Number.isNaN(nowComparable.getTime())) {
+        const fallbackStart = Date.now();
+        return {
+          start: fallbackStart,
+          end: fallbackStart + (21.75 * 60 * 60 * 1000),
+          shiftKey: getMstDateKey(new Date()),
+          windowLabel: "Shift window: 5:00 AM - 2:45 AM (next day)"
+        };
+      }
+      const shiftStart = new Date(nowComparable.getTime());
+      if (shiftStart.getHours() < 5) {
+        shiftStart.setDate(shiftStart.getDate() - 1);
+      }
+      shiftStart.setHours(5, 0, 0, 0);
+      const shiftEnd = new Date(shiftStart.getTime());
+      shiftEnd.setDate(shiftEnd.getDate() + 1);
+      shiftEnd.setHours(2, 45, 0, 0);
+      const shiftKey = getMstDateKey(new Date(shiftStart.getTime()));
+      return {
+        start: shiftStart.getTime(),
+        end: shiftEnd.getTime(),
+        shiftKey,
+        windowLabel: `Shift ${shiftKey}: 5:00 AM - 2:45 AM`
+      };
     }
     function buildCloseOutReport() {
       if (!staffSession) return null;
@@ -27523,8 +27558,8 @@ let onboardingIndex = 0;
       const entries = redemptionLog.filter(entry => {
         const matchVenue = entry.venue === venueId;
         if (!matchVenue) return false;
-        const tsDate = new Date(entry.timestamp || Date.now());
-        const ts = Number.isNaN(tsDate.getTime()) ? Date.now() : tsDate.getTime();
+        const ts = toMstComparableMs(entry.timestamp || Date.now());
+        if (!Number.isFinite(ts)) return false;
         return ts >= window.start && ts <= window.end;
       });
       const verified = entries.filter(e => e.status === "verified");
@@ -27539,8 +27574,9 @@ let onboardingIndex = 0;
         venue: venueId,
         venueName: venuesInfo[venueId]?.name || venueId,
         generatedAt: new Date().toISOString(),
-        range: "today",
-        windowLabel: `Window: ${formatMST(window.start)} — ${formatMST(window.end)}`,
+        range: "shift",
+        shiftKey: window.shiftKey || getMstDateKey(new Date()),
+        windowLabel: window.windowLabel || `Shift ${getMstDateKey(new Date())}: 5:00 AM - 2:45 AM`,
         totals: {
           submitted: entries.length,
           verified: verified.length,
@@ -27571,7 +27607,7 @@ let onboardingIndex = 0;
         <div style="background:rgba(10,16,32,0.85);border:1px solid rgba(148,163,184,0.3);border-radius:16px;padding:12px;">
           <div style="color:#cbd5f5;font-weight:700;font-size:15px;margin-bottom:6px;">${report.venueName || "Venue"}</div>
           <div style="color:#94a3b8;font-size:12px;margin-bottom:4px;">Generated: ${formatMST(report.generatedAt)}</div>
-          <div style="color:#94a3b8;font-size:12px;margin-bottom:10px;">${report.windowLabel || "Window: 12a–2a"}</div>
+          <div style="color:#94a3b8;font-size:12px;margin-bottom:10px;">${report.windowLabel || "Shift window: 5:00 AM - 2:45 AM"}</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px;color:#e2e8f0;font-size:13px;">
             <div><strong>${totals.submitted ?? ((totals.verified || 0) + (totals.pending || 0))}</strong><br/><span style="color:#94a3b8;">Submitted</span></div>
             <div><strong>${totals.verified || 0}</strong><br/><span style="color:#94a3b8;">Verified</span></div>
@@ -27609,7 +27645,7 @@ let onboardingIndex = 0;
         "FoCo After Dark Close-out",
         `Venue: ${report.venueName || report.venue || "Venue"}`,
         `Generated (MT): ${formatMST(report.generatedAt)}`,
-        report.windowLabel || "Window: last 24 hours",
+        report.windowLabel || "Shift window: 5:00 AM - 2:45 AM",
         "",
         `Submitted: ${totals.submitted ?? ((totals.verified || 0) + (totals.pending || 0))}  Verified: ${totals.verified || 0}  Pending: ${totals.pending || 0}`,
         "",
@@ -27823,7 +27859,7 @@ let onboardingIndex = 0;
       const report = buildCloseOutReport();
       pendingCloseOutReport = report;
       if (!report) {
-        staffCloseOutSummary.innerHTML = '<p style="color:#94a3b8;">No redemptions yet for this window (12a–2a).</p>';
+        staffCloseOutSummary.innerHTML = '<p style="color:#94a3b8;">No redemptions yet for this shift window (5:00 AM - 2:45 AM).</p>';
       } else {
         renderStaffCloseOutSummary(report);
       }
@@ -28543,7 +28579,7 @@ let onboardingIndex = 0;
           await persistCloseOutReportToCloud(report);
           renderCeoCloseOutReports();
           if (sent) {
-            markAutoCloseOutSent(staffSession?.venue);
+            markAutoCloseOutSent(staffSession?.venue, report.shiftKey || getCloseOutWindow().shiftKey);
           }
           staffCloseOutStatus.textContent = sent ? "Report sent to focoafterdark@gmail.com." : "Report saved locally. Email delivery failed.";
           if (staffSession?.venue) {
