@@ -14641,8 +14641,12 @@
         if (rememberRow) rememberRow.style.display = "";
         if (forgotWrap) forgotWrap.style.display = "";
       }
+      if (skipLoginBetaLink) {
+        skipLoginBetaLink.style.display = (authMode === "signup" && !isLaunched) ? "" : "none";
+      }
       // Reattach listener because we rewrote innerHTML
-      document.getElementById("authToggleLink").addEventListener("click", () => {
+      const authToggleLink = document.getElementById("authToggleLink");
+      if (authToggleLink) authToggleLink.addEventListener("click", () => {
         authMode = authMode === "signup" ? "login" : "signup";
         updateAuthModeText();
       });
@@ -30524,6 +30528,11 @@ let onboardingIndex = 0;
       if (maintenanceBootChecked) return;
       maintenanceBootChecked = true;
       const data = await fetchAppSettingsOnce();
+      isLaunched = !!data?.launched;
+      appLocked = !!data?.appLocked;
+      appLockedAt = data?.appLockedAt || null;
+      applyLaunchModeUI();
+      applyAppLockState();
       if (data?.maintenanceMode === true) {
         renderMaintenanceScreen(data);
         applyMaintenanceModeState();
