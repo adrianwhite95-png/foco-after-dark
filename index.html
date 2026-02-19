@@ -1817,6 +1817,11 @@
       margin-bottom: 4px;
       color: #cbd5f5;
     }
+    .required-asterisk {
+      color: #ef4444;
+      font-weight: 800;
+      margin-left: 4px;
+    }
     .field input {
       width: 100%;
       padding: 10px 12px;
@@ -3112,6 +3117,10 @@
       font-weight: 800;
       letter-spacing: 0.1em;
       text-transform: uppercase;
+    }
+    .signup-plan-card[data-signup-tier="standard"] .plan-name {
+      color: #22c55e;
+      text-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
     }
     .signup-plan-card[data-signup-tier="vip"] .plan-name {
       color: #fbbf24;
@@ -11472,23 +11481,23 @@
 
       <form id="authForm" onsubmit="return false;">
         <div class="field signup-only" id="firstNameField">
-          <label for="firstName">First name</label>
+          <label for="firstName">First name <span class="required-asterisk">*</span></label>
           <input id="firstName" type="text" autocomplete="given-name" />
         </div>
         <div class="field signup-only" id="lastNameField">
-          <label for="lastName">Last name</label>
+          <label for="lastName">Last name <span class="required-asterisk">*</span></label>
           <input id="lastName" type="text" autocomplete="family-name" />
         </div>
         <div class="field signup-only" id="usernameField">
-          <label for="username">Username (public)</label>
+          <label for="username">Username (public) <span class="required-asterisk">*</span></label>
           <input id="username" type="text" autocomplete="nickname" placeholder="yourhandle" />
         </div>
         <div class="field">
-        <label for="authEmail" id="authEmailLabel">Email</label>
+        <label for="authEmail" id="authEmailLabel">Email <span class="required-asterisk">*</span></label>
         <input id="authEmail" type="text" required autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" />
         </div>
         <div class="field">
-          <label for="authPassword">Password</label>
+          <label for="authPassword">Password <span class="required-asterisk">*</span></label>
           <input id="authPassword" type="password" required minlength="6" autocapitalize="none" autocorrect="off" spellcheck="false" />
         </div>
         <div class="remember-row">
@@ -11499,14 +11508,14 @@
           <span id="forgotPasswordLink" class="linkish" role="button" tabindex="0">Forgot your password?</span>
         </p>
         <div class="field signup-only" id="birthDateField">
-          <label for="birthDate">Birthdate (21+ required)</label>
+          <label for="birthDate">Birthdate <span class="required-asterisk">*</span></label>
           <input id="birthDate" type="date" />
           <p class="small" style="margin-top:4px;text-align:left;">
             You must be 21 or older to activate a FoCo After Dark pass.
           </p>
         </div>
         <div class="field signup-only" id="genderField">
-          <label for="genderSelect">Gender</label>
+          <label for="genderSelect">Gender <span class="required-asterisk">*</span></label>
           <select id="genderSelect">
             <option value="" disabled selected>Select an option</option>
             <option value="male">Male</option>
@@ -11519,7 +11528,7 @@
           <input id="signupInviteCode" type="text" maxlength="28" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
         </div>
         <div class="field signup-only" id="signupPlanField">
-          <label>Choose your pass</label>
+          <label>Choose your pass <span class="required-asterisk">*</span></label>
           <div class="signup-plan-grid" id="signupPlanGrid">
             <button type="button" class="signup-plan-card active" data-signup-tier="standard" aria-pressed="true">
               <span class="plan-name">Standard</span>
@@ -15429,8 +15438,20 @@
       let fullName = "";
       let birthDateISO = "";
 
-      if (!email || !password) {
-        const msg = "Please enter email and password.";
+      if (!email && !password) {
+        const msg = "Email and password are required.";
+        authError.textContent = msg;
+        if (typeof showToast === "function") showToast(msg, 2200);
+        return;
+      }
+      if (!email) {
+        const msg = "Email is required.";
+        authError.textContent = msg;
+        if (typeof showToast === "function") showToast(msg, 2200);
+        return;
+      }
+      if (!password) {
+        const msg = "Password is required.";
         authError.textContent = msg;
         if (typeof showToast === "function") showToast(msg, 2200);
         return;
@@ -15438,14 +15459,32 @@
       const remember = !!(rememberMe && rememberMe.checked);
 
       if (authMode === "signup") {
-        if (!firstName || !lastName) {
-          const msg = "First and last name are required for verification.";
+        if (password.length < 6) {
+          const msg = "Password is too short. Use at least 6 characters.";
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2400);
+          return;
+        }
+        if (!firstName && !lastName) {
+          const msg = "First name and last name are required.";
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2400);
+          return;
+        }
+        if (!firstName) {
+          const msg = "First name is required.";
+          authError.textContent = msg;
+          if (typeof showToast === "function") showToast(msg, 2400);
+          return;
+        }
+        if (!lastName) {
+          const msg = "Last name is required.";
           authError.textContent = msg;
           if (typeof showToast === "function") showToast(msg, 2400);
           return;
         }
         if (!birthDateValue) {
-          const msg = "Enter your birthdate to continue.";
+          const msg = "Birthdate is required.";
           authError.textContent = msg;
           if (typeof showToast === "function") showToast(msg, 2200);
           return;
@@ -15465,20 +15504,20 @@
           return;
         }
         if (!usernameAvailability.available) {
-          const msg = "This username already exists. Try another.";
+          const msg = "Username is already taken. Please choose a different one.";
           authError.textContent = msg;
           if (typeof showToast === "function") showToast(msg, 2400);
           return;
         }
         if (!genderValue) {
-          const msg = "Please select your gender.";
+          const msg = "Gender is required.";
           authError.textContent = msg;
           if (typeof showToast === "function") showToast(msg, 2200);
           return;
         }
         const inviteCode = normalizeCeoFreeInviteCode(signupInviteCodeRaw);
         if (signupInviteCodeRaw.trim() && inviteCode.length < 6) {
-          const msg = "Invite code format is invalid.";
+          const msg = "Invite code format is invalid. Use at least 6 characters.";
           authError.textContent = msg;
           if (typeof showToast === "function") showToast(msg, 2200);
           return;
@@ -15832,11 +15871,17 @@
     function formatAuthError(err) {
       const code = err?.code || "";
       switch (code) {
+        case "auth/invalid-email":
+          return "Email format is invalid. Use something like name@email.com.";
         case "auth/invalid-credential":
         case "auth/wrong-password":
           return "Email or password is incorrect. Reset it if you forgot.";
         case "auth/user-not-found":
           return "No account exists for this email. Sign up first.";
+        case "auth/weak-password":
+          return "Password is too short. Use at least 6 characters.";
+        case "auth/email-already-in-use":
+          return "This email is already registered. Log in instead.";
         case "auth/too-many-requests":
           return "Too many attempts. Try again in a minute.";
         default:
@@ -20992,13 +21037,14 @@ let onboardingIndex = 0;
       localStorage.setItem(VENUE_USER_RATINGS_KEY, JSON.stringify(data || {}));
     }
     function validateUsername(name) {
-      if (!name) return { ok: false, message: "Username required." };
+      if (!name) return { ok: false, message: "Username is required (3-10 characters)." };
       const trimmed = name.trim();
-      if (trimmed.length < 3 || trimmed.length > 10) return { ok: false, message: "Use 3-10 characters." };
-      if (!/^[A-Za-z0-9_]+$/.test(trimmed)) return { ok: false, message: "Only letters, numbers, and underscore allowed." };
+      if (trimmed.length < 3) return { ok: false, message: "Username is too short. Use at least 3 characters." };
+      if (trimmed.length > 10) return { ok: false, message: "Username is too long. Use 10 characters max." };
+      if (!/^[A-Za-z0-9_]+$/.test(trimmed)) return { ok: false, message: "Username can only use letters, numbers, and underscores." };
       const lower = trimmed.toLowerCase();
       if (BANNED_USER_WORDS.some(word => lower.includes(word))) {
-        return { ok: false, message: "That username isn’t allowed." };
+        return { ok: false, message: "That username is not allowed. Try a different one." };
       }
       return { ok: true, value: trimmed };
     }
