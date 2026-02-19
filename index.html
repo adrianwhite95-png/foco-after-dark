@@ -1820,7 +1820,7 @@
     .required-asterisk {
       color: #ef4444;
       font-weight: 800;
-      margin-left: 4px;
+      margin-right: 4px;
     }
     .field input {
       width: 100%;
@@ -11481,23 +11481,23 @@
 
       <form id="authForm" onsubmit="return false;">
         <div class="field signup-only" id="firstNameField">
-          <label for="firstName">First name <span class="required-asterisk">*</span></label>
+          <label for="firstName"><span class="required-asterisk">*</span> First name</label>
           <input id="firstName" type="text" autocomplete="given-name" />
         </div>
         <div class="field signup-only" id="lastNameField">
-          <label for="lastName">Last name <span class="required-asterisk">*</span></label>
+          <label for="lastName"><span class="required-asterisk">*</span> Last name</label>
           <input id="lastName" type="text" autocomplete="family-name" />
         </div>
         <div class="field signup-only" id="usernameField">
-          <label for="username">Username (public) <span class="required-asterisk">*</span></label>
+          <label for="username"><span class="required-asterisk">*</span> Username (public)</label>
           <input id="username" type="text" autocomplete="nickname" placeholder="yourhandle" />
         </div>
         <div class="field">
-        <label for="authEmail" id="authEmailLabel">Email <span class="required-asterisk">*</span></label>
+        <label for="authEmail" id="authEmailLabel"><span class="required-asterisk">*</span> Email</label>
         <input id="authEmail" type="text" required autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" />
         </div>
         <div class="field">
-          <label for="authPassword">Password <span class="required-asterisk">*</span></label>
+          <label for="authPassword" id="authPasswordLabel"><span class="required-asterisk">*</span> Password</label>
           <input id="authPassword" type="password" required minlength="6" autocapitalize="none" autocorrect="off" spellcheck="false" />
         </div>
         <div class="remember-row">
@@ -11508,14 +11508,14 @@
           <span id="forgotPasswordLink" class="linkish" role="button" tabindex="0">Forgot your password?</span>
         </p>
         <div class="field signup-only" id="birthDateField">
-          <label for="birthDate">Birthdate <span class="required-asterisk">*</span></label>
+          <label for="birthDate"><span class="required-asterisk">*</span> Birthdate</label>
           <input id="birthDate" type="date" />
           <p class="small" style="margin-top:4px;text-align:left;">
             You must be 21 or older to activate a FoCo After Dark pass.
           </p>
         </div>
         <div class="field signup-only" id="genderField">
-          <label for="genderSelect">Gender <span class="required-asterisk">*</span></label>
+          <label for="genderSelect"><span class="required-asterisk">*</span> Gender</label>
           <select id="genderSelect">
             <option value="" disabled selected>Select an option</option>
             <option value="male">Male</option>
@@ -11528,7 +11528,7 @@
           <input id="signupInviteCode" type="text" maxlength="28" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
         </div>
         <div class="field signup-only" id="signupPlanField">
-          <label>Choose your pass <span class="required-asterisk">*</span></label>
+          <label><span class="required-asterisk">*</span> Choose your pass</label>
           <div class="signup-plan-grid" id="signupPlanGrid">
             <button type="button" class="signup-plan-card active" data-signup-tier="standard" aria-pressed="true">
               <span class="plan-name">Standard</span>
@@ -14586,6 +14586,7 @@
     const authForm = document.getElementById("authForm");
     const authEmailLabel = document.getElementById("authEmailLabel");
     const authEmail = document.getElementById("authEmail");
+    const authPasswordLabel = document.getElementById("authPasswordLabel");
     const authPassword = document.getElementById("authPassword");
     const authEnableNotificationsBtn = document.getElementById("authEnableNotificationsBtn");
     const authNotificationsStatus = document.getElementById("authNotificationsStatus");
@@ -14666,7 +14667,8 @@
         authToggleText.innerHTML =
           'Already have an account? <span id="authToggleLink" class="linkish">Log in instead</span>';
         authSubmitBtn.textContent = "Create Account and Verify ID";
-        if (authEmailLabel) authEmailLabel.textContent = "Email";
+        if (authEmailLabel) authEmailLabel.innerHTML = '<span class="required-asterisk">*</span> Email';
+        if (authPasswordLabel) authPasswordLabel.innerHTML = '<span class="required-asterisk">*</span> Password';
         signupOnlyFields.forEach(el => {
           el.style.display = "block";
         });
@@ -14679,6 +14681,7 @@
           'Need an account? <span id="authToggleLink" class="linkish">Sign up instead</span>';
         authSubmitBtn.textContent = "Log in";
         if (authEmailLabel) authEmailLabel.textContent = "Email or Username";
+        if (authPasswordLabel) authPasswordLabel.textContent = "Password";
         signupOnlyFields.forEach(el => {
           el.style.display = "none";
         });
