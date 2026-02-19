@@ -3091,7 +3091,7 @@
       margin-top: 4px;
     }
     .signup-plan-card {
-      min-height: 112px;
+      min-height: 136px;
       border-radius: 14px;
       border: 1px solid rgba(148, 163, 184, 0.35);
       background: linear-gradient(155deg, rgba(6, 12, 24, 0.92), rgba(11, 17, 33, 0.84));
@@ -3122,6 +3122,9 @@
       font-size: 11px;
       color: #94a3b8;
       line-height: 1.35;
+    }
+    .signup-plan-card .plan-copy + .plan-copy {
+      margin-top: 2px;
     }
     .signup-plan-card.active {
       border-color: color-mix(in srgb, var(--accent-primary-live) 72%, #a5b4fc);
@@ -3792,6 +3795,19 @@
     }
     .modal-backdrop.active {
       display: flex;
+    }
+    #signupConfirmModal {
+      z-index: 3600;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    #signupConfirmModal .modal-card {
+      width: min(560px, calc(100% - 20px));
+      max-width: 560px;
+      box-shadow:
+        0 26px 60px rgba(2, 6, 23, 0.74),
+        0 0 24px color-mix(in srgb, var(--accent-primary-live) 28%, transparent);
     }
     .modal-card {
       width: calc(100% - 28px);
@@ -11504,13 +11520,17 @@
             <button type="button" class="signup-plan-card active" data-signup-tier="standard" aria-pressed="true">
               <span class="plan-name">Standard</span>
               <span class="plan-price">$5.00 / month</span>
-              <span class="plan-copy">Up to 5 vouchers monthly</span>
+              <span class="plan-copy">5 monthly tokens</span>
+              <span class="plan-copy">2 Night Wheel spins per month</span>
+              <span class="plan-copy">Live alerts + points rewards</span>
               <span class="plan-selected-indicator" aria-hidden="true">Selected</span>
             </button>
             <button type="button" class="signup-plan-card" data-signup-tier="vip" aria-pressed="false">
               <span class="plan-name">VIP</span>
               <span class="plan-price">$10.00 / month</span>
-              <span class="plan-copy">Up to 10 vouchers + VIP drops</span>
+              <span class="plan-copy">10 monthly tokens</span>
+              <span class="plan-copy">4 Night Wheel spins per month</span>
+              <span class="plan-copy">Exclusive VIP venue perks + drops</span>
               <span class="plan-selected-indicator" aria-hidden="true">Selected</span>
             </button>
           </div>
@@ -14430,6 +14450,13 @@
       if (name !== "landing" && name !== "auth" && name !== "maintenance") {
         requestBadgeClear();
       }
+      try {
+        const activeScreen = screens[name];
+        if (activeScreen) activeScreen.scrollTop = 0;
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      } catch (_) {}
     }
 
     // Stagger reveal for containers marked with `.smooth-enter`
@@ -14702,7 +14729,13 @@
     }
 
     function showSignupConfirmModal() {
-      if (signupConfirmModal) signupConfirmModal.classList.add("active");
+      if (!signupConfirmModal) return;
+      signupConfirmModal.classList.add("active");
+      try {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      } catch (_) {}
     }
     function hideSignupConfirmModal() {
       if (signupConfirmModal) signupConfirmModal.classList.remove("active");
@@ -17861,9 +17894,21 @@
     }
 
     function isPendingRedemptionFresh(entry, now = new Date(), maxMs = PENDING_REDEMPTION_TIMEOUT_MS) {
+      const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
+      const rawExpires = entry?.expiresAt;
+      const expiresMs = rawExpires?.toMillis
+        ? rawExpires.toMillis()
+        : (rawExpires instanceof Date
+          ? rawExpires.getTime()
+          : (typeof rawExpires === "number"
+            ? rawExpires
+            : (rawExpires ? new Date(rawExpires).getTime() : null)));
+      if (Number.isFinite(expiresMs)) {
+        return expiresMs > nowMs;
+      }
       const stamp = getRedemptionEntryDate(entry);
       if (!stamp) return false;
-      return (now.getTime() - stamp.getTime()) <= maxMs;
+      return (nowMs - stamp.getTime()) <= maxMs;
     }
 
     function getVoucherCycleWindow(billing = {}) {
@@ -18712,6 +18757,7 @@
             vibeKey: data.vibeKey || null,
             ceo: !!data.ceo,
             status: data.status || "pending",
+            expiresAt: data.expiresAt?.toMillis ? data.expiresAt.toMillis() : (data.expiresAt ? new Date(data.expiresAt).getTime() : null),
             timestamp: toIso(data.createdAt || data.timestamp),
             verifiedAt: toIso(data.verifiedAt || data.createdAt || data.timestamp),
           };
@@ -19372,6 +19418,7 @@
                 vibeKey: data.vibeKey || null,
                 ceo: !!data.ceo,
                 status: data.status || "pending",
+                expiresAt: data.expiresAt?.toMillis ? data.expiresAt.toMillis() : (data.expiresAt ? new Date(data.expiresAt).getTime() : null),
                 timestamp: toIso(data.createdAt || data.timestamp),
                 verifiedAt: toIso(data.verifiedAt || data.createdAt || data.timestamp),
               });
@@ -26082,6 +26129,7 @@ let onboardingIndex = 0;
           ceo: !!data.ceo,
           tier: data.tier || null,
           status: data.status || "pending",
+          expiresAt: data.expiresAt?.toMillis ? data.expiresAt.toMillis() : (data.expiresAt ? new Date(data.expiresAt).getTime() : null),
           timestamp: toIso(data.createdAt || data.timestamp),
           verifiedAt: toIso(data.verifiedAt || data.timestamp),
         });
@@ -26724,7 +26772,7 @@ let onboardingIndex = 0;
       const entries = redemptionLog.filter(entry => {
         if (!entryMatchesVenue(entry, venueId)) return false;
         const status = (entry.status || "pending").toLowerCase();
-        if (!["pending", "verified", "approved", "confirmed"].includes(status)) return false;
+        if (!["pending", "requested", "expired", "verified", "approved", "confirmed"].includes(status)) return false;
         const ts = new Date(entry.verifiedAt || entry.timestamp || entry.createdAt || Date.now()).getTime();
         return ts >= shiftStart;
       }).sort((a, b) => {
@@ -26735,7 +26783,10 @@ let onboardingIndex = 0;
         if (aPending !== bPending) return aPending ? -1 : 1;
         return bTs - aTs;
       });
-      const pendingCount = entries.filter(entry => (entry.status || "pending").toLowerCase() === "pending").length;
+      const pendingCount = entries.filter(entry => {
+        const status = String(entry.status || "pending").toLowerCase();
+        return status === "pending" || status === "requested" || status === "expired";
+      }).length;
       staffPendingCount.textContent = pendingCount === entries.length
         ? `${pendingCount} pending`
         : `${pendingCount} pending · ${entries.length} total`;
@@ -26744,7 +26795,8 @@ let onboardingIndex = 0;
         return;
       }
       staffPendingList.innerHTML = entries.map(entry => {
-        const isPending = (entry.status || "pending").toLowerCase() === "pending";
+        const status = String(entry.status || "pending").toLowerCase();
+        const isPending = status === "pending" || status === "requested" || status === "expired";
         const statusLabel = isPending ? "pending" : "confirmed";
         const statusClass = isPending ? "pending" : "verified";
         const perkLabel = entry.venuePerkLabel || entry.perk || entry.perkKey || "Perk";
@@ -27388,6 +27440,7 @@ let onboardingIndex = 0;
               vibeKey: data.vibeKey || null,
               ceo: !!data.ceo,
               status: data.status || "pending",
+              expiresAt: data.expiresAt?.toMillis ? data.expiresAt.toMillis() : (data.expiresAt ? new Date(data.expiresAt).getTime() : null),
               timestamp: toIso(data.createdAt || data.timestamp),
               verifiedAt: toIso(data.verifiedAt || data.createdAt || data.timestamp),
             };
@@ -28055,6 +28108,7 @@ let onboardingIndex = 0;
           ceo: !!data.ceo,
           tier: data.tier || null,
           status: data.status || "pending",
+          expiresAt: data.expiresAt?.toMillis ? data.expiresAt.toMillis() : (data.expiresAt ? new Date(data.expiresAt).getTime() : null),
           timestamp: toIso(data.timestamp) || new Date().toISOString(),
           verifiedAt: toIso(data.verifiedAt),
         };
@@ -28106,12 +28160,21 @@ let onboardingIndex = 0;
         const tb = new Date(b.timestamp || Date.now()).getTime();
         return tb - ta;
       });
-      const isVerifiedStatus = (status) => {
+      const normalizeStaffLogStatus = (status) => {
         const normalized = String(status || "").toLowerCase();
+        if (normalized === "expired" || normalized === "requested") return "pending";
+        return normalized;
+      };
+      const isVerifiedStatus = (status) => {
+        const normalized = normalizeStaffLogStatus(status);
         return normalized === "verified" || normalized === "approved" || normalized === "confirmed";
       };
+      const isPendingStatus = (status) => {
+        const normalized = normalizeStaffLogStatus(status);
+        return normalized === "pending";
+      };
       const verifiedEntries = filtered.filter(entry => isVerifiedStatus(entry.status));
-      const pendingEntries = filtered.filter(entry => String(entry.status || "").toLowerCase() === "pending");
+      const pendingEntries = filtered.filter(entry => isPendingStatus(entry.status));
       const categoryTotals = { drink: 0, deal: 0, other: 0 };
       verifiedEntries.forEach((entry) => {
         const key = normalizePerkKey(entry);
@@ -28140,7 +28203,7 @@ let onboardingIndex = 0;
       const grouped = Object.values(buckets).sort((a, b) => b.latest - a.latest);
       const groupedWithCounts = grouped.map((group) => {
         const verified = group.items.filter(item => isVerifiedStatus(item.status)).length;
-        const pending = group.items.filter(item => String(item.status || "").toLowerCase() === "pending").length;
+        const pending = group.items.filter(item => isPendingStatus(item.status)).length;
         return { ...group, verified, pending };
       });
 
@@ -28167,7 +28230,8 @@ let onboardingIndex = 0;
               : entry.perkKey === "reward_shot"
                 ? "Reward: shot perk"
                 : (entry.perkKey || "Perk");
-            const statusAttrs = entry.status === "pending"
+            const displayStatus = normalizeStaffLogStatus(entry.status);
+            const statusAttrs = displayStatus === "pending"
               ? `data-code="${entry.code}" data-pass="${entry.passId || ""}" data-perk="${entry.perkKey || ""}"`
               : "";
             return `
@@ -28177,7 +28241,7 @@ let onboardingIndex = 0;
                 ${venueText}
                 <div class="log-meta">
                   <span>${date}</span>
-                  <span class="status-pill-sm ${entry.status}" ${statusAttrs}>${entry.status}</span>
+                  <span class="status-pill-sm ${displayStatus}" ${statusAttrs}>${displayStatus}</span>
                 </div>
               </div>
             `;
@@ -28232,7 +28296,7 @@ let onboardingIndex = 0;
                 <div>${getEntryMemberDisplay(entry)}</div>
                 <div class="log-meta">
                   <span>${date}</span>
-                  <span class="status-pill-sm ${entry.status}">${entry.status}</span>
+                  <span class="status-pill-sm ${normalizeStaffLogStatus(entry.status)}">${normalizeStaffLogStatus(entry.status)}</span>
                 </div>
               </div>
             `;
@@ -31929,6 +31993,9 @@ let onboardingIndex = 0;
         vibeKey: payload.vibeKey || null,
         ceo: !!payload.ceo,
         status: payload.status || "pending",
+        expiresAt: payload.expiresAt?.toMillis
+          ? payload.expiresAt.toMillis()
+          : (payload.expiresAt ? new Date(payload.expiresAt).getTime() : null),
         timestamp: toIso(payload.createdAt || payload.timestamp),
         verifiedAt: toIso(payload.verifiedAt || payload.createdAt || payload.timestamp),
       });
@@ -32696,6 +32763,7 @@ let onboardingIndex = 0;
           vibeKey: data.vibeKey || null,
           ceo: !!data.ceo,
           status: data.status || "pending",
+          expiresAt: data.expiresAt?.toMillis ? data.expiresAt.toMillis() : (data.expiresAt ? new Date(data.expiresAt).getTime() : null),
           timestamp: toIso(data.createdAt || data.timestamp),
           verifiedAt: toIso(data.verifiedAt || data.createdAt || data.timestamp),
         };
@@ -33343,6 +33411,9 @@ let onboardingIndex = 0;
         vibeLabel: payload?.vibeLabel || vibeLabel || null,
         vibeKey: payload?.vibeKey || vibeKey || null,
         status: payload?.status || "pending",
+        expiresAt: payload?.expiresAt?.toMillis
+          ? payload.expiresAt.toMillis()
+          : (payload?.expiresAt ? new Date(payload.expiresAt).getTime() : null),
         timestamp: payload?.createdAt?.toDate
           ? payload.createdAt.toDate().toISOString()
           : (payload?.createdAt?.seconds

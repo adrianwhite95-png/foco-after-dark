@@ -612,6 +612,132 @@ function toMillis(value) {
 const MAX_VOUCHER_CARRYOVER = 3;
 const VOUCHER_LIMITS = { standard: 5, vip: 10 };
 const PENDING_REDEMPTION_TIMEOUT_MS = 60 * 60 * 1000;
+const BUSINESS_TIME_ZONE = "America/Denver";
+const SHIFT_START_HOUR = 5;
+const SHIFT_END_HOUR = 2;
+const SHIFT_END_MINUTE = 45;
+
+const DENVER_PARTS_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false
+});
+
+function getTimeZoneParts(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = DENVER_PARTS_FORMATTER.formatToParts(date);
+  const mapped = {};
+  parts.forEach((part) => {
+    if (part.type === "literal") return;
+    mapped[part.type] = part.value;
+  });
+  const year = Number(mapped.year);
+  const month = Number(mapped.month);
+  const day = Number(mapped.day);
+  const hour = Number(mapped.hour);
+  const minute = Number(mapped.minute);
+  const second = Number(mapped.second);
+  if (
+    !Number.isFinite(year)
+    || !Number.isFinite(month)
+    || !Number.isFinite(day)
+    || !Number.isFinite(hour)
+    || !Number.isFinite(minute)
+    || !Number.isFinite(second)
+  ) {
+    return null;
+  }
+  return { year, month, day, hour, minute, second };
+}
+
+function shiftCalendarDay(parts, deltaDays = 0) {
+  const base = Date.UTC(parts.year, parts.month - 1, parts.day);
+  const shifted = new Date(base + (deltaDays * 24 * 60 * 60 * 1000));
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate()
+  };
+}
+
+function getTimeZoneOffsetMs(date) {
+  const parts = getTimeZoneParts(date);
+  if (!parts) return 0;
+  const asUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    0
+  );
+  return asUtc - date.getTime();
+}
+
+function toUtcMillisForTimeZone(parts) {
+  const baseUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    Number(parts.hour || 0),
+    Number(parts.minute || 0),
+    Number(parts.second || 0),
+    Number(parts.millisecond || 0)
+  );
+  if (!Number.isFinite(baseUtc)) return NaN;
+  let utcMs = baseUtc;
+  for (let i = 0; i < 3; i += 1) {
+    const offset = getTimeZoneOffsetMs(new Date(utcMs));
+    const next = baseUtc - offset;
+    if (Math.abs(next - utcMs) < 1) {
+      utcMs = next;
+      break;
+    }
+    utcMs = next;
+  }
+  return utcMs;
+}
+
+function getPendingRedemptionExpiryMs(nowValue = new Date()) {
+  const now = nowValue instanceof Date ? nowValue : new Date(nowValue);
+  if (Number.isNaN(now.getTime())) {
+    return Date.now() + PENDING_REDEMPTION_TIMEOUT_MS;
+  }
+  const localNow = getTimeZoneParts(now);
+  if (!localNow) {
+    return now.getTime() + PENDING_REDEMPTION_TIMEOUT_MS;
+  }
+  const shiftStartDay = shiftCalendarDay(localNow, localNow.hour < SHIFT_START_HOUR ? -1 : 0);
+  let shiftEndDay = shiftCalendarDay(shiftStartDay, 1);
+  let expiryMs = toUtcMillisForTimeZone({
+    ...shiftEndDay,
+    hour: SHIFT_END_HOUR,
+    minute: SHIFT_END_MINUTE,
+    second: 0,
+    millisecond: 0
+  });
+  if (!Number.isFinite(expiryMs)) {
+    return now.getTime() + PENDING_REDEMPTION_TIMEOUT_MS;
+  }
+  if (expiryMs <= now.getTime()) {
+    shiftEndDay = shiftCalendarDay(shiftEndDay, 1);
+    expiryMs = toUtcMillisForTimeZone({
+      ...shiftEndDay,
+      hour: SHIFT_END_HOUR,
+      minute: SHIFT_END_MINUTE,
+      second: 0,
+      millisecond: 0
+    });
+  }
+  return Number.isFinite(expiryMs) ? expiryMs : (now.getTime() + PENDING_REDEMPTION_TIMEOUT_MS);
+}
 
 function toDateSafe(value) {
   if (!value) return null;
@@ -733,9 +859,15 @@ function getRedemptionEntryDate(entry = {}) {
 }
 
 function isPendingRedemptionFresh(entry, now = new Date(), maxMs = PENDING_REDEMPTION_TIMEOUT_MS) {
+  const nowDate = now instanceof Date ? now : new Date(now);
+  const nowMs = Number.isFinite(nowDate.getTime()) ? nowDate.getTime() : Date.now();
+  const expiresAtMs = toMillis(entry?.expiresAt);
+  if (Number.isFinite(expiresAtMs)) {
+    return expiresAtMs > nowMs;
+  }
   const stamp = getRedemptionEntryDate(entry);
   if (!stamp) return false;
-  return (now.getTime() - stamp.getTime()) <= maxMs;
+  return (nowMs - stamp.getTime()) <= maxMs;
 }
 
 function countRedemptionsInWindow(entries = [], window, options = {}) {
@@ -1078,7 +1210,8 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
           if (resolved.memberPassUpdate) {
             tx.set(resolved.memberRef, resolved.memberPassUpdate, { merge: true });
           }
-          const expiresAt = admin.firestore.Timestamp.fromMillis(now.toMillis() + PENDING_REDEMPTION_TIMEOUT_MS);
+          const expiresAtMs = getPendingRedemptionExpiryMs(now.toDate());
+          const expiresAt = admin.firestore.Timestamp.fromMillis(expiresAtMs);
           const storedPayload = {
             redemptionId,
             passCode: resolvedPassCode || passCode,
