@@ -13073,8 +13073,8 @@
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Maintenance windows & downtime</h4>
         <p>FoCo After Dark may enter scheduled or emergency maintenance to protect platform stability, security, and data integrity. During these windows, some or all app features may be temporarily unavailable. Membership fees are billed for access to the service over the billing period as a whole, and short maintenance interruptions do not automatically create credits, refunds, or prorated adjustments except where required by law.</p>
 
-        <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Beta features & changes</h4>
-        <p>During beta, features, pricing, perks, and availability may change without notice. Some data or features may reset or be removed when the product launches live.</p>
+        <h4 class="beta-ui" style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Beta features & changes</h4>
+        <p class="beta-ui">During beta, features, pricing, perks, and availability may change without notice. Some data or features may reset or be removed when the product launches live.</p>
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Billing & cancellations</h4>
         <p>Memberships renew on the billing date associated with your account. Failed charges may be retried. If you cancel, access may remain active until the end of the current billing cycle. Payment processing is handled by Stripe or other third-party processors; FoCo After Dark does not store full card numbers.</p>
@@ -13277,8 +13277,8 @@
   </div>
   <div class="app-lock-overlay" id="appLockOverlay">
     <div class="app-lock-card">
-      <h4>Beta Closed / App Locked</h4>
-      <p>The FoCo After Dark beta is temporarily locked. Please check back later.</p>
+      <h4>App Temporarily Locked</h4>
+      <p>FoCo After Dark is temporarily locked. Please check back later.</p>
       <button type="button" class="btn btn-secondary" id="appLockCeoAccess">CEO access</button>
     </div>
   </div>
@@ -28836,10 +28836,13 @@ let onboardingIndex = 0;
     function applyStaffSession(venueId) {
       const resolved = resolveVenueId(venueId);
       if (!resolved) return { success: false, message: "Enter a venue code." };
+      if (isLaunched && isBetaVenueId(resolved)) {
+        return { success: false, message: "Beta staff login is disabled in live mode." };
+      }
       staffSession = { venue: resolved, at: new Date().toISOString() };
       localStorage.setItem("staffSession", JSON.stringify(staffSession));
       const venueExists = venuesInfo[resolved];
-      const venueName = venueExists ? venuesInfo[resolved].name : (resolved === "beta" ? "FoCo Beta Venue" : "Your venue");
+      const venueName = venueExists ? venuesInfo[resolved].name : "Your venue";
       staffVenueLabel.textContent = venueName;
       if (staffPortalTitle) staffPortalTitle.innerHTML = `<span>${venueName}</span> Dashboard`;
       if (staffPortalTagline) staffPortalTagline.textContent = `Live perks, redemptions, and alerts for ${venueName}.`;
@@ -29023,6 +29026,10 @@ let onboardingIndex = 0;
         return;
       }
       let venueId = resolveVenueId(venue);
+      if (isLaunched && isBetaVenueId(venueId || venue)) {
+        staffLoginError.textContent = "Beta staff login is disabled in live mode.";
+        return;
+      }
       let token = null;
       try {
         const fn = httpsCallable(functionsClient, "getStaffLoginToken");
@@ -29043,7 +29050,7 @@ let onboardingIndex = 0;
         } else if (code.includes("failed-precondition")) {
           staffLoginError.textContent = err?.message || "Staff login is not configured yet.";
         } else if (code.includes("not-found")) {
-          staffLoginError.textContent = "Unknown venue code. Use 'beta' to demo.";
+          staffLoginError.textContent = "Unknown venue code.";
         } else {
           staffLoginError.textContent = err?.message || "Staff login failed. Try again.";
         }
@@ -29068,7 +29075,7 @@ let onboardingIndex = 0;
       }
       console.info("[staff] applyStaffSession", { venueId });
       showToast(`Staff session set: ${venueId}`, 1400);
-      const venueName = venuesInfo[venueId]?.name || (venueId === "beta" ? "FoCo Beta Venue" : "Your venue");
+      const venueName = venuesInfo[venueId]?.name || "Your venue";
       if (staffVenueChip) staffVenueChip.textContent = venueName;
       if (staffVenueLabel) staffVenueLabel.textContent = venueName;
       if (staffPortalTitle) staffPortalTitle.innerHTML = `<span>${venueName}</span> Dashboard`;
@@ -29941,6 +29948,21 @@ let onboardingIndex = 0;
       });
       // Update top-level body class for any CSS hooks
       document.body.classList.toggle("live-mode", hideBeta);
+      if (hideBeta) {
+        if (staffVenueInput && isBetaVenueId(staffVenueInput.value)) {
+          staffVenueInput.value = "";
+        }
+        if (staffLoginError && /beta/i.test(staffLoginError.textContent || "")) {
+          staffLoginError.textContent = "";
+        }
+        if (pendingStaffVenueId && isBetaVenueId(pendingStaffVenueId)) {
+          pendingStaffVenueId = null;
+        }
+        if (staffSession?.venue && isBetaVenueId(staffSession.venue)) {
+          staffSession = null;
+          localStorage.removeItem("staffSession");
+        }
+      }
       if (hideBeta && betaPassMode) {
         exitBetaPassMode();
         localStorage.removeItem("betaSkipActive");
@@ -32568,10 +32590,13 @@ let onboardingIndex = 0;
     let pendingRedeemPerk = null;
     let pendingRedeemVenue = null;
     let redeemRequestInFlight = false;
+    function isBetaVenueId(venueId) {
+      return String(venueId || "").trim().toLowerCase() === "beta";
+    }
     function getVenueDisplayName(venueId) {
       if (!venueId) return "";
       const key = String(venueId).toLowerCase();
-      if (key === "beta") return "FoCo Beta Venue";
+      if (key === "beta") return isLaunched ? "FoCo Venue" : "FoCo Beta Venue";
       return venuesInfo?.[key]?.name || venueId;
     }
     let redeemPendingTimer = null;

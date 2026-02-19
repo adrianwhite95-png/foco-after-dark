@@ -170,17 +170,35 @@ async function queueMembershipConfirmationEmail({
   if (!email || !email.includes("@")) return;
   const tierLabel = membershipTierLabel(normalizeTierKey(tier));
   const renewalText = nextRenewalIso ? new Date(nextRenewalIso).toLocaleDateString("en-US") : "your renewal date";
+  const logoUrl = "https://foco-after-dark.web.app/foco-logo.png";
   const trialLine = trialDays > 0
     ? `Your first ${trialDays} days are free. Billing starts after ${renewalText}.`
     : `Your membership is active. Billing renews on ${renewalText}.`;
   const subject = `FoCo After Dark • ${tierLabel} membership active`;
   const text = [
-    `Your FoCo After Dark ${tierLabel} membership is active.`,
+    `Welcome to FoCo After Dark — your ${tierLabel} membership is active.`,
+    "Congrats on joining the pass.",
     trialLine,
     "",
     "If you did not authorize this, contact support immediately."
   ].join("\n");
-  const html = `<p>Your FoCo After Dark <strong>${tierLabel}</strong> membership is active.</p><p>${trialLine}</p><p>If you did not authorize this, contact support immediately.</p>`;
+  const html = `
+    <div style="font-family:Arial,sans-serif;background:#070d1f;color:#eaf2ff;padding:24px;border-radius:14px;max-width:560px;margin:0 auto;border:1px solid rgba(34,211,238,0.28);">
+      <div style="text-align:center;margin-bottom:12px;">
+        <img src="${logoUrl}" alt="FoCo After Dark logo" width="112" height="112" style="display:inline-block;border-radius:20px;box-shadow:0 0 22px rgba(34,211,238,0.45);" />
+      </div>
+      <h2 style="margin:0 0 8px 0;font-size:24px;line-height:1.3;color:#f7fbff;text-align:center;">Welcome to FoCo After Dark</h2>
+      <p style="margin:0 0 10px 0;font-size:16px;line-height:1.5;text-align:center;">Congrats on signing up — your <strong>${tierLabel}</strong> membership is now active.</p>
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;text-align:center;color:#cbd5f5;">${trialLine}</p>
+      <div style="margin:14px 0 0 0;padding:12px 14px;background:rgba(15,23,42,0.7);border:1px solid rgba(148,163,184,0.25);border-radius:12px;">
+        <div style="font-size:13px;line-height:1.6;color:#dbe8ff;">
+          <strong>Plan:</strong> ${tierLabel}<br />
+          <strong>Renewal:</strong> ${renewalText}
+        </div>
+      </div>
+      <p style="margin:16px 0 0 0;font-size:12px;line-height:1.6;color:#94a3b8;">If you did not authorize this, contact support immediately.</p>
+    </div>
+  `.trim();
   try {
     await db.collection("mail").add({
       to: email,
