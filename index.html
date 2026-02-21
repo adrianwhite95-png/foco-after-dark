@@ -11837,113 +11837,122 @@
           </div>
           <div class="landing-wrapper">
             <div class="landing-strobe" aria-hidden="true"></div>
-            <button id="landingRefreshBtn" class="refresh-btn" title="Reload">Reload</button>
-            <div class="brand-logo brand-logo-landing">
-              <img src="foco-logo.png" alt="FoCo After Dark neon logo" class="brand-logo-img" />
+            <div class="landing-top-row">
+              <div class="landing-live-chip">Live in Old Town</div>
+              <button id="landingRefreshBtn" class="refresh-btn" title="Reload">Reload</button>
             </div>
-            <div class="app-title"><span>FoCo</span> After Dark 21+</div>
-            <div class="tagline" id="landingTagline">
-              Your all-in-one nightlife pass for Fort Collins. Live deals, fast redemption, and real-time savings.
-            </div>
-      <div class="hero-highlight hero-animated">
-        <div class="hero-point neon-card flip-card" role="button" tabindex="0">
-          <div class="hero-point-inner">
-            <div class="hero-point-face hero-point-front">
-              <div class="hero-point-icon pulse">1</div>
-              <div>
-                <strong>Tonight’s perks</strong>
-                <p>See what each venue is offering now, then claim in seconds.</p>
+            <div class="landing-hero-shell">
+              <div class="brand-logo brand-logo-landing">
+                <img src="foco-logo.png" alt="FoCo After Dark neon logo" class="brand-logo-img" />
+              </div>
+              <div class="app-title"><span>FoCo</span> After Dark 21+</div>
+              <div class="tagline" id="landingTagline">
+                Your all-in-one nightlife pass for Fort Collins. Live deals, fast redemption, and real-time savings.
+              </div>
+              <div class="hero-highlight hero-animated">
+                <div class="hero-point neon-card flip-card" role="button" tabindex="0">
+                  <div class="hero-point-inner">
+                    <div class="hero-point-face hero-point-front">
+                      <div class="hero-point-icon pulse">1</div>
+                      <div>
+                        <strong>Tonight’s perks</strong>
+                        <p>See what each venue is offering now, then claim in seconds.</p>
+                      </div>
+                    </div>
+                    <div class="hero-point-face hero-point-back">
+                      <div class="hero-point-icon ghost">1</div>
+                      <div>
+                        <span class="hero-point-back-title">Perks update live</span>
+                        <p>Venue updates publish live so members always see the current offers.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="hero-point neon-card flip-card" role="button" tabindex="0">
+                  <div class="hero-point-inner">
+                    <div class="hero-point-face hero-point-front">
+                      <div class="hero-point-icon pulse">2</div>
+                      <div>
+                        <strong>Instant redemption</strong>
+                        <p>Show your pass, get verified by staff, and watch balance update instantly.</p>
+                      </div>
+                    </div>
+                    <div class="hero-point-face hero-point-back">
+                      <div class="hero-point-icon ghost">2</div>
+                      <div>
+                        <span class="hero-point-back-title">Verified & tracked</span>
+                        <p>Every redemption syncs to your profile for accurate nights and voucher history.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="hero-point neon-card flip-card" role="button" tabindex="0">
+                  <div class="hero-point-inner">
+                    <div class="hero-point-face hero-point-front">
+                      <div class="hero-point-icon pulse">3</div>
+                      <div>
+                        <strong>Built with venues</strong>
+                        <p>Local bars control perks directly, and every redemption is verified live.</p>
+                      </div>
+                    </div>
+                    <div class="hero-point-face hero-point-back">
+                      <div class="hero-point-icon ghost">3</div>
+                      <div>
+                        <span class="hero-point-back-title">Venue controlled</span>
+                        <p>Each venue controls Standard/VIP quantities so offers stay fair and current.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="landing-feature-grid">
+                <div class="landing-feature-card">
+                  <strong>Scan-ready pass card</strong>
+                  <p>Your pass and profile are always one tap away.</p>
+                </div>
+                <div class="landing-feature-card">
+                  <strong>Real-time venue updates</strong>
+                  <p>Perks and tonight alerts update live from staff.</p>
+                </div>
+                <div class="landing-feature-card">
+                  <strong>Track savings and nights</strong>
+                  <p>See your redemption history and monthly value.</p>
+                </div>
+              </div>
+              <div class="landing-cta-stack">
+                <button id="landingGetPassBtn" class="btn btn-primary">
+                  Create account and get pass
+                </button>
+                <button id="addToHomeBtn" class="btn btn-primary cta-shimmer">
+                  Add to Home Screen
+                </button>
+              </div>
+              <div class="landing-access-grid">
+                <div class="landing-login-row">
+                  <div class="landing-login-label">Already a member?</div>
+                  <span id="landingLoginLink" class="linkish">Log in</span>
+                </div>
+                <div class="landing-login-row">
+                  <div class="landing-login-label">Venue portal?</div>
+                  <button id="landingStaffLogin" class="linkish linkish-btn" type="button">Log in as venue staff</button>
+                </div>
+              </div>
+              <div class="insta-cta-wrap">
+                <div class="insta-cta">
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="5" ry="5" stroke="url(#igGradient)" stroke-width="1.6" fill="rgba(15,23,42,0.35)"/>
+                    <defs>
+                      <linearGradient id="igGradient" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#22d3ee"/><stop offset="1" stop-color="#ec4899"/>
+                      </linearGradient>
+                    </defs>
+                    <circle cx="12" cy="12" r="4.2" stroke="url(#igGradient)" stroke-width="1.6"/>
+                    <circle cx="17" cy="7" r="1.2" fill="#22d3ee"/>
+                  </svg>
+                  <a href="https://www.instagram.com/focoafterdark/" target="_blank" rel="noopener">Add us on Instagram</a>
+                </div>
               </div>
             </div>
-            <div class="hero-point-face hero-point-back">
-              <div class="hero-point-icon ghost">1</div>
-              <div>
-                <span class="hero-point-back-title">Perks update live</span>
-                <p>Venue updates publish live so members always see the current offers.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="hero-point neon-card flip-card" role="button" tabindex="0">
-          <div class="hero-point-inner">
-            <div class="hero-point-face hero-point-front">
-              <div class="hero-point-icon pulse">2</div>
-              <div>
-                <strong>Instant redemption</strong>
-                <p>Show your pass, get verified by staff, and watch balance update instantly.</p>
-              </div>
-            </div>
-            <div class="hero-point-face hero-point-back">
-              <div class="hero-point-icon ghost">2</div>
-              <div>
-                <span class="hero-point-back-title">Verified & tracked</span>
-                <p>Every redemption syncs to your profile for accurate nights and voucher history.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="hero-point neon-card flip-card" role="button" tabindex="0">
-          <div class="hero-point-inner">
-            <div class="hero-point-face hero-point-front">
-              <div class="hero-point-icon pulse">3</div>
-              <div>
-                <strong>Built with venues</strong>
-                <p>Local bars control perks directly, and every redemption is verified live.</p>
-              </div>
-            </div>
-            <div class="hero-point-face hero-point-back">
-              <div class="hero-point-icon ghost">3</div>
-              <div>
-                <span class="hero-point-back-title">Venue controlled</span>
-                <p>Each venue controls Standard/VIP quantities so offers stay fair and current.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="landing-feature-grid">
-        <div class="landing-feature-card">
-          <strong>Your pass is always ready</strong>
-          <p>Open the app and show your pass ID at the bar for fast verification.</p>
-        </div>
-        <div class="landing-feature-card">
-          <strong>Live venue deals</strong>
-          <p>Deals update in real time as venues post alerts and monthly perks.</p>
-        </div>
-        <div class="landing-feature-card">
-          <strong>Track savings + nights</strong>
-          <p>See vouchers redeemed, nights out, and estimated savings from one profile view.</p>
-        </div>
-      </div>
-      <button id="landingGetPassBtn" class="btn btn-primary">
-        Get the Nightlife Pass · 21+
-      </button>
-      <button id="addToHomeBtn" class="btn btn-primary cta-shimmer" style="margin-top:18px;margin-bottom:18px;background:linear-gradient(120deg,#22d3ee,#f472b6);color:#0b1222;font-weight:800;letter-spacing:0.06em;box-shadow:0 12px 32px rgba(34,211,238,0.35),0 0 28px rgba(244,114,182,0.35);border:none;">
-        Add to Home Screen
-      </button>
-      <div class="landing-login-row">
-        <div class="landing-login-label">Already a member?</div>
-        <span id="landingLoginLink" class="linkish">Log in</span>
-      </div>
-      <div class="landing-login-row">
-        <div class="landing-login-label">Venue portal?</div>
-        <button id="landingStaffLogin" class="linkish linkish-btn" type="button">Log in as venue staff</button>
-      </div>
-      <div class="insta-cta-wrap">
-        <div class="insta-cta">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <rect x="3" y="3" width="18" height="18" rx="5" ry="5" stroke="url(#igGradient)" stroke-width="1.6" fill="rgba(15,23,42,0.35)"/>
-            <defs>
-              <linearGradient id="igGradient" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#22d3ee"/><stop offset="1" stop-color="#ec4899"/>
-              </linearGradient>
-            </defs>
-            <circle cx="12" cy="12" r="4.2" stroke="url(#igGradient)" stroke-width="1.6"/>
-            <circle cx="17" cy="7" r="1.2" fill="#22d3ee"/>
-          </svg>
-          <a href="https://www.instagram.com/focoafterdark/" target="_blank" rel="noopener">Add us on Instagram</a>
-        </div>
-      </div>
       </div>
     </div>
 
