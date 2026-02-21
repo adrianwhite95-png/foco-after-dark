@@ -18242,10 +18242,16 @@
       { perk: "Shot perk voucher", member: "FoCo Tester", passId: "TEST713" },
       { perk: "Guest entry perk", member: "VIP Preview", passId: "PREV999" }
     ];
+    const FIXED_BASELINE_PRICE = 7.70;
     const DEAL_BASELINE_PRICING = {
-      beer: 7,
-      shot: 6,
-      cocktail: 10
+      beer: FIXED_BASELINE_PRICE,
+      shot: FIXED_BASELINE_PRICE,
+      cocktail: FIXED_BASELINE_PRICE
+    };
+    const ROI_DEFAULTS = {
+      pVisit: 0.45,
+      aovIncremental: 18,
+      margin: 0.72
     };
     const MEMBERSHIP_FEES = {
       standard: 5,
@@ -19262,8 +19268,84 @@
     }
 
     function getBaselineForCategory(category = "cocktail") {
-      const normalized = String(category || "cocktail").toLowerCase();
-      return Number(DEAL_BASELINE_PRICING[normalized] ?? DEAL_BASELINE_PRICING.cocktail);
+      return Number(FIXED_BASELINE_PRICE);
+    }
+
+    function parseDealCategoryFromText(text = "") {
+      const value = String(text || "").toLowerCase();
+      if (value.includes("shot")) return "shot";
+      if (value.includes("beer") || value.includes("lager") || value.includes("ipa") || value.includes("ale") || value.includes("pilsner")) return "beer";
+      return "cocktail";
+    }
+
+    function parseDealPriceFromText(text = "") {
+      const value = String(text || "").toLowerCase();
+      if (!value) return 0;
+      if (value.includes("free")) return 0;
+      const dollarMatch = value.match(/\$\s*(\d+(?:\.\d{1,2})?)/);
+      if (dollarMatch) return Math.max(0, Number(dollarMatch[1]) || 0);
+      return 0;
+    }
+
+    function computeEstimatedDealRoi({
+      redemptions = 0,
+      baselinePrice = 0,
+      dealPrice = 0,
+      pVisit = ROI_DEFAULTS.pVisit,
+      aovIncremental = ROI_DEFAULTS.aovIncremental,
+      margin = ROI_DEFAULTS.margin
+    } = {}) {
+      const count = Math.max(0, Number(redemptions) || 0);
+      const baseline = Math.max(0, Number(baselinePrice) || 0);
+      const deal = Math.max(0, Number(dealPrice) || 0);
+      const visitProb = Math.max(0, Number(pVisit) || 0);
+      const aov = Math.max(0, Number(aovIncremental) || 0);
+      const grossMargin = Math.max(0, Number(margin) || 0);
+      const grossCost = count * Math.max(0, baseline - deal) * grossMargin;
+      const grossUplift = count * visitProb * aov * grossMargin;
+      if (grossCost <= 0) {
+        return { valid: false, roi: 0, grossCost, grossUplift };
+      }
+      return {
+        valid: true,
+        roi: (grossUplift - grossCost) / grossCost,
+        grossCost,
+        grossUplift
+      };
+    }
+
+    function getAlertRedemptionCount(alert, entries = [], activeAlertCountForVenue = 1) {
+      const list = Array.isArray(entries) ? entries : [];
+      const venueId = String(alert?.venueId || "").toLowerCase();
+      if (!venueId) return 0;
+      const startMs = Number(alert?.createdAt || alert?.createdAtMs || 0) || 0;
+      const endMs = Number(alert?.expiresAt || 0) || Number.MAX_SAFE_INTEGER;
+      const title = String(alert?.title || "").toLowerCase().trim();
+      const detail = String(alert?.detail || "").toLowerCase().trim();
+      const scoped = list.filter((entry) => {
+        const status = String(entry?.status || "").toLowerCase();
+        if (!["verified", "approved", "confirmed"].includes(status)) return false;
+        if (!entryMatchesVenue(entry, venueId)) return false;
+        const ts = new Date(entry?.verifiedAt || entry?.timestamp || entry?.createdAt || Date.now()).getTime();
+        if (!Number.isFinite(ts)) return false;
+        return ts >= startMs && ts <= endMs;
+      });
+      if (!scoped.length) return 0;
+      if (!title && !detail) return scoped.length;
+      const directMatches = scoped.filter((entry) => {
+        const hay = `${entry?.perk || ""} ${entry?.venuePerkLabel || ""}`.toLowerCase();
+        if (title && hay.includes(title)) return true;
+        if (detail && hay.includes(detail)) return true;
+        return false;
+      });
+      if (directMatches.length) return directMatches.length;
+      return activeAlertCountForVenue === 1 ? scoped.length : 0;
+    }
+
+    function formatRoiPercent(value) {
+      const pct = (Number(value) || 0) * 100;
+      const sign = pct > 0 ? "+" : "";
+      return `${sign}${pct.toFixed(1)}%`;
     }
 
     function getDealPriceFromEntry(entry = {}) {
@@ -19273,12 +19355,7 @@
         || entry?.perkLabel
         || ""
       ).toLowerCase();
-      if (!text) return 0;
-      if (text.includes("free")) return 0;
-      const dollarMatch = text.match(/\$\s*(\d+(?:\.\d{1,2})?)/);
-      if (dollarMatch) return Math.max(0, Number(dollarMatch[1]) || 0);
-      // When a price isn't present in the perk label, treat voucher deal as free for savings math.
-      return 0;
+      return parseDealPriceFromText(text);
     }
 
     function computeSavingsMetrics(entries = [], tier = null) {
@@ -28939,24 +29016,54 @@ let onboardingIndex = 0;
         staffDealCodeList.innerHTML = '<p style="color:#94a3b8;">No active deals to generate codes for.</p>';
         return;
       }
+      const venueVerifiedEntries = (Array.isArray(redemptionLog) ? redemptionLog : []).filter((entry) => {
+        const status = String(entry?.status || "").toLowerCase();
+        if (!["verified", "approved", "confirmed"].includes(status)) return false;
+        return entryMatchesVenue(entry, staffSession.venue || "");
+      });
       staffDealCodeList.innerHTML = activeAlerts.map(alert => {
         const expiresText = alert.expiresAt ? formatMST(alert.expiresAt) : "No expiry";
         const codesForAlert = Object.entries(dealCodes || {}).filter(([, val]) => val.alertId === alert.id && val.venue === staffSession.venue);
         const codesLine = codesForAlert.length
           ? `<span style="color:#34d399;">Codes: ${codesForAlert.map(([c]) => c).join(", ")}</span>`
           : '<span style="color:#94a3b8;">No codes yet</span>';
+        const dealText = `${alert.title || ""} ${alert.detail || ""}`.trim();
+        const category = parseDealCategoryFromText(dealText);
+        const baselinePrice = getBaselineForCategory(category);
+        const dealPrice = parseDealPriceFromText(dealText);
+        const redemptions = getAlertRedemptionCount(alert, venueVerifiedEntries, activeAlerts.length);
+        const roi = computeEstimatedDealRoi({
+          redemptions,
+          baselinePrice,
+          dealPrice,
+          pVisit: ROI_DEFAULTS.pVisit,
+          aovIncremental: ROI_DEFAULTS.aovIncremental,
+          margin: ROI_DEFAULTS.margin
+        });
+        const roiColor = roi.valid ? (roi.roi >= 0 ? "#34d399" : "#f87171") : "#fbbf24";
+        const roiLine = roi.valid
+          ? `<span style="color:${roiColor};font-weight:700;">Estimated ROI: ${formatRoiPercent(roi.roi)}</span>`
+          : '<span style="color:#fbbf24;">Estimated ROI: unavailable (deal price is at/above baseline)</span>';
         return `
           <div class="log-row">
             <strong>${alert.title || "Tonight's deal"}</strong><br/>
             <span style="color:#cbd5f5;">${alert.detail || ""}</span><br/>
             <span style="color:#93c5fd;font-size:11px;">Expires ${expiresText}</span>
             <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
+              <span style="color:#cbd5f5;">${redemptions} redeemed</span>
+              ${roiLine}
+            </div>
+            <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
               <button class="btn btn-primary" data-gen-deal="${alert.id}">Generate code</button>
               ${codesLine}
             </div>
           </div>
         `;
-      }).join("");
+      }).join("") + `
+        <div class="small" style="margin-top:8px;color:#94a3b8;">
+          ROI assumptions: baseline $${FIXED_BASELINE_PRICE.toFixed(2)} · p_visit ${ROI_DEFAULTS.pVisit} · incremental spend $${ROI_DEFAULTS.aovIncremental} · margin ${ROI_DEFAULTS.margin}
+        </div>
+      `;
     }
 
     function updateStaffKpis(alertCount = 0, vipActive = false) {
@@ -29295,6 +29402,57 @@ let onboardingIndex = 0;
     function renderCeoAnalytics() {
       if (!ceoAnalyticsContent) return;
       const snapshot = computeAnalyticsSnapshot();
+      const nowMs = Date.now();
+      const liveAlerts = (Array.isArray(tonightAlerts) ? tonightAlerts : []).filter((alert) => !alert.expiresAt || alert.expiresAt > nowMs);
+      const verifiedEntries = getCeoRedemptions().filter((entry) => {
+        const status = String(entry?.status || "").toLowerCase();
+        return ["verified", "approved", "confirmed"].includes(status);
+      });
+      const liveAlertCountByVenue = liveAlerts.reduce((acc, alert) => {
+        const venueId = String(alert?.venueId || "").toLowerCase();
+        if (!venueId) return acc;
+        acc[venueId] = (acc[venueId] || 0) + 1;
+        return acc;
+      }, {});
+      const venueRoiMap = {};
+      liveAlerts.forEach((alert) => {
+        const venueId = String(alert?.venueId || "").toLowerCase();
+        if (!venueId) return;
+        const dealText = `${alert.title || ""} ${alert.detail || ""}`.trim();
+        const category = parseDealCategoryFromText(dealText);
+        const baselinePrice = getBaselineForCategory(category);
+        const dealPrice = parseDealPriceFromText(dealText);
+        const redemptions = getAlertRedemptionCount(alert, verifiedEntries, liveAlertCountByVenue[venueId] || 1);
+        const roi = computeEstimatedDealRoi({
+          redemptions,
+          baselinePrice,
+          dealPrice,
+          pVisit: ROI_DEFAULTS.pVisit,
+          aovIncremental: ROI_DEFAULTS.aovIncremental,
+          margin: ROI_DEFAULTS.margin
+        });
+        if (!venueRoiMap[venueId]) {
+          venueRoiMap[venueId] = {
+            venueId,
+            venueName: getVenueDisplayName(venueId),
+            redemptions: 0,
+            grossCost: 0,
+            grossUplift: 0
+          };
+        }
+        venueRoiMap[venueId].redemptions += redemptions;
+        venueRoiMap[venueId].grossCost += Number(roi.grossCost || 0);
+        venueRoiMap[venueId].grossUplift += Number(roi.grossUplift || 0);
+      });
+      const venueRoiLines = Object.values(venueRoiMap)
+        .sort((a, b) => b.redemptions - a.redemptions)
+        .map((row) => {
+          if (row.grossCost <= 0) {
+            return `${row.venueName}: ${row.redemptions} redeemed · ROI unavailable`;
+          }
+          const roi = (row.grossUplift - row.grossCost) / row.grossCost;
+          return `${row.venueName}: ${row.redemptions} redeemed · ROI ${formatRoiPercent(roi)}`;
+        });
       ceoAnalyticsLatestSnapshot = snapshot;
       upsertWeeklyAnalyticsSnapshot(snapshot);
       const weeklyHistory = Object.values(loadWeeklyAnalyticsSnapshots())
@@ -29356,6 +29514,13 @@ let onboardingIndex = 0;
               <li>${snapshot.tokenSummary.tokens} tokens sold</li>
               <li>$${snapshot.tokenSummary.revenue.toFixed(2)} revenue</li>
             </ul>
+          </div>
+          <div class="analytics-section">
+            <h5>Estimated ROI by venue (Tonight Deals)</h5>
+            <ul>${(venueRoiLines.length ? venueRoiLines : ["No live deal ROI yet."]).map(item => `<li>${item}</li>`).join("")}</ul>
+            <div class="small" style="margin-top:6px;color:#94a3b8;">
+              Assumptions: baseline $${FIXED_BASELINE_PRICE.toFixed(2)} · p_visit ${ROI_DEFAULTS.pVisit} · incremental spend $${ROI_DEFAULTS.aovIncremental} · margin ${ROI_DEFAULTS.margin}
+            </div>
           </div>
         </div>
         <div class="analytics-section">
@@ -29739,6 +29904,7 @@ let onboardingIndex = 0;
         }
       }
       updateStaffRadar();
+      renderStaffDealCodes();
       renderCeoRedemptionLog();
     }
     function toMstComparableMs(value = Date.now()) {
