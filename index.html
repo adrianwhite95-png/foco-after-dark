@@ -8215,8 +8215,12 @@
       flex-wrap: wrap;
     }
     .profile-summary .username-chip {
-      min-height: 44px;
-      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 0 12px;
+      width: fit-content;
       border-radius: 15px;
       border: 1px solid color-mix(in srgb, var(--accent-secondary-live) 42%, var(--border));
       background:
@@ -8227,6 +8231,8 @@
         inset 0 0 14px color-mix(in srgb, var(--accent-secondary-live) 12%, transparent);
       font-weight: 700;
       letter-spacing: 0.03em;
+      text-align: center;
+      line-height: 1;
     }
     .profile-summary .username-edit {
       min-width: 54px;
