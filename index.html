@@ -8467,9 +8467,27 @@
         linear-gradient(150deg, rgba(10, 18, 36, 0.94), rgba(10, 14, 28, 0.9));
       box-shadow:
         0 20px 44px rgba(2, 6, 18, 0.55),
-        inset 0 0 28px color-mix(in srgb, var(--accent-primary-live) 12%, transparent);
+        inset 0 0 28px color-mix(in srgb, var(--accent-primary-live) 12%, transparent),
+        0 0 34px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
       padding: 18px 18px 16px;
       text-align: left;
+    }
+    .launch-hero-main::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background:
+        radial-gradient(circle at 72% 50%, rgba(255, 255, 255, 0.08), transparent 46%),
+        url("foco-logo.png") 78% 58% / 220px no-repeat;
+      opacity: 0.22;
+      filter: saturate(1.08) drop-shadow(0 0 22px color-mix(in srgb, var(--accent-primary-live) 45%, transparent));
+      pointer-events: none;
+      z-index: 1;
+    }
+    .launch-hero-main > * {
+      position: relative;
+      z-index: 2;
     }
     .launch-hero-title {
       margin: 6px 0 6px;
@@ -8578,6 +8596,19 @@
       gap: 10px;
       margin-top: 14px;
       margin-bottom: 12px;
+    }
+    .launch-actions .btn {
+      box-shadow:
+        0 14px 30px rgba(2, 6, 18, 0.55),
+        0 0 28px color-mix(in srgb, var(--accent-primary-live) 35%, transparent),
+        inset 0 0 18px color-mix(in srgb, var(--accent-primary-live) 18%, transparent) !important;
+      border-color: color-mix(in srgb, var(--accent-primary-live) 56%, rgba(255,255,255,0.22)) !important;
+    }
+    .launch-actions .btn:hover {
+      box-shadow:
+        0 16px 34px rgba(2, 6, 18, 0.62),
+        0 0 34px color-mix(in srgb, var(--accent-primary-live) 45%, transparent),
+        inset 0 0 22px color-mix(in srgb, var(--accent-primary-live) 24%, transparent) !important;
     }
     .launch-actions #landingGetPassBtn,
     .launch-actions #addToHomeBtn {
@@ -8690,6 +8721,12 @@
       100% { transform: translateX(260%) rotate(12deg); }
     }
     @media (max-width: 920px) {
+      .launch-hero-main::before {
+        background:
+          radial-gradient(circle at 76% 48%, rgba(255, 255, 255, 0.08), transparent 46%),
+          url("foco-logo.png") 82% 56% / 150px no-repeat;
+        opacity: 0.2;
+      }
       .launch-hero-grid,
       .launch-entry-row {
         grid-template-columns: 1fr;
@@ -12367,7 +12404,7 @@
             <div class="launch-hero-grid">
               <div class="launch-hero-main">
                 <div class="micro-label">Tonight starts here</div>
-                <h2 class="launch-hero-title">Hit the lights. Claim the perks. Own the night.</h2>
+                <h2 class="launch-hero-title">Tonight’s damage, discounted. Unlock perks that hit harder than last call. Your nightlife — upgraded.</h2>
                 <p class="launch-hero-copy">
                   See what is active right now, redeem in seconds, and track every verified perk in one profile.
                 </p>
