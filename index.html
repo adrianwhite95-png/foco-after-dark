@@ -2251,6 +2251,32 @@
       border-color: rgba(248, 113, 113, 0.6);
       box-shadow: 0 0 12px rgba(248, 113, 113, 0.35);
     }
+    .ceo-preview-exit {
+      position: fixed;
+      top: 12px;
+      left: 14px;
+      z-index: 13060;
+      display: none;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(251, 191, 36, 0.68);
+      background: linear-gradient(130deg, rgba(71, 44, 4, 0.92), rgba(120, 53, 15, 0.86));
+      color: #fde68a;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      box-shadow:
+        0 10px 24px rgba(2, 6, 18, 0.62),
+        0 0 22px rgba(251, 191, 36, 0.32);
+      cursor: pointer;
+    }
+    body.ceo-preview-active .ceo-preview-exit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
     @media (max-width: 720px) {
       .realtime-pill {
         top: 10px;
@@ -2946,6 +2972,11 @@
       background: linear-gradient(120deg, rgba(244, 63, 94, 0.24), rgba(239, 68, 68, 0.18));
       border-color: rgba(244, 63, 94, 0.48);
       color: #fecdd3;
+    }
+    .accent-chip[data-accent="paloma"] {
+      background: linear-gradient(120deg, rgba(251, 146, 60, 0.24), rgba(236, 72, 153, 0.18));
+      border-color: rgba(251, 146, 60, 0.5);
+      color: #fed7aa;
     }
     .accent-chip[data-accent="ceo"] {
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(148, 212, 255, 0.32));
@@ -8499,6 +8530,21 @@
       padding: 12px 14px;
       text-align: left;
       min-height: 108px;
+      position: relative;
+      overflow: hidden;
+      animation: launchCardFloat 7.2s ease-in-out infinite;
+      animation-delay: calc(var(--live-card-index, 0) * 0.55s);
+    }
+    .launch-live-card::after {
+      content: "";
+      position: absolute;
+      inset: -40% auto -40% -80%;
+      width: 60%;
+      background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+      transform: rotate(12deg);
+      pointer-events: none;
+      animation: launchCardSweep 5.8s linear infinite;
+      opacity: 0.6;
     }
     .launch-live-tag {
       display: inline-flex;
@@ -8570,8 +8616,24 @@
       text-transform: none !important;
       letter-spacing: 0 !important;
       padding: 12px 14px !important;
+      display: flex;
+      flex-direction: column;
       align-items: flex-start;
-      justify-content: flex-start;
+      justify-content: center;
+      gap: 5px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    #landingScreen .launch-entry-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 38%, transparent);
+      pointer-events: none;
+      opacity: 0.55;
+      box-shadow: 0 0 24px color-mix(in srgb, var(--accent-primary-live) 28%, transparent);
     }
     #landingScreen .launch-entry-card .launch-entry-title {
       display: block;
@@ -8587,12 +8649,45 @@
       line-height: 1.35;
       color: #9fb0c8;
       letter-spacing: 0.01em;
+      max-width: 96%;
     }
     #landingScreen .launch-entry-card.launch-entry-card-staff {
       border-color: color-mix(in srgb, #a78bfa 54%, var(--border)) !important;
       box-shadow:
         0 12px 26px rgba(2, 6, 18, 0.5),
         inset 0 0 18px color-mix(in srgb, #a78bfa 22%, transparent) !important;
+    }
+    #landingScreen .launch-entry-card:hover {
+      transform: translateY(-1px);
+      border-color: color-mix(in srgb, var(--accent-primary-live) 64%, var(--border)) !important;
+      box-shadow:
+        0 16px 30px rgba(2, 6, 18, 0.58),
+        0 0 30px color-mix(in srgb, var(--accent-primary-live) 34%, transparent),
+        inset 0 0 24px color-mix(in srgb, var(--accent-primary-live) 20%, transparent) !important;
+    }
+    .launch-kpi-chip,
+    .launch-hero-main {
+      position: relative;
+      overflow: hidden;
+    }
+    .launch-kpi-chip::after,
+    .launch-hero-main::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 36%, transparent);
+      box-shadow: 0 0 26px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
+      opacity: 0.6;
+    }
+    @keyframes launchCardFloat {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-3px); }
+    }
+    @keyframes launchCardSweep {
+      0% { transform: translateX(0) rotate(12deg); }
+      100% { transform: translateX(260%) rotate(12deg); }
     }
     @media (max-width: 920px) {
       .launch-hero-grid,
@@ -12230,14 +12325,15 @@
         <div class="club-haze"></div>
       </div>
       <div class="realtime-pill" id="realtimeStatusPill" data-state="syncing">Syncing</div>
+      <button type="button" class="ceo-preview-exit" id="ceoPreviewExitBtn">Return to CEO</button>
       <div id="statusBanner" class="status-banner" style="display:none;"></div>
       <div id="app">
         <!-- MAINTENANCE SCREEN -->
         <div id="maintenanceScreen" class="screen maintenance-screen">
           <div class="maintenance-card">
             <img src="foco-logo.png" alt="FoCo After Dark logo" />
-            <div class="maintenance-title">Maintenance mode</div>
-            <div class="maintenance-message" id="maintenanceMessage">🍺 Keg is tapped — maintenance in progress.</div>
+            <div class="maintenance-title">Last Call Tune-Up</div>
+            <div class="maintenance-message" id="maintenanceMessage">🍺 The keg is tapped and bar-backs are on it. Quick tune-up in progress.</div>
             <div class="maintenance-subtext" id="maintenanceSubtext">Please check back in a few minutes.</div>
             <button type="button" class="maintenance-retry" id="maintenanceRetryBtn">Retry</button>
           </div>
@@ -12271,7 +12367,7 @@
             <div class="launch-hero-grid">
               <div class="launch-hero-main">
                 <div class="micro-label">Tonight starts here</div>
-                <h2 class="launch-hero-title">One pass. Every venue. Live all night.</h2>
+                <h2 class="launch-hero-title">Hit the lights. Claim the perks. Own the night.</h2>
                 <p class="launch-hero-copy">
                   See what is active right now, redeem in seconds, and track every verified perk in one profile.
                 </p>
@@ -12282,17 +12378,17 @@
                 </div>
               </div>
               <div class="launch-live-grid">
-                <article class="launch-live-card">
+                <article class="launch-live-card" style="--live-card-index:0;">
                   <span class="launch-live-tag">Live alerts</span>
                   <strong>Venue posts hit instantly</strong>
                   <p>When a venue posts tonight’s alert, members see it immediately and can act fast.</p>
                 </article>
-                <article class="launch-live-card">
+                <article class="launch-live-card" style="--live-card-index:1;">
                   <span class="launch-live-tag">Pass ready</span>
                   <strong>Verification built for speed</strong>
                   <p>Show your pass, get confirmed by staff, and keep your night moving without delays.</p>
                 </article>
-                <article class="launch-live-card">
+                <article class="launch-live-card" style="--live-card-index:2;">
                   <span class="launch-live-tag">Membership tiers</span>
                   <strong>Standard, VIP, or Explorer</strong>
                   <p>Choose your level and unlock the perks that match how you go out.</p>
@@ -12422,7 +12518,7 @@
             </button>
           </div>
           <p class="small" style="margin-top:6px;text-align:left;">
-            Standard/VIP continue to secure 21+ ID verification before billing. Explorer skips billing and opens in limited preview mode.
+            All memberships complete secure 21+ ID verification. Standard/VIP continue to billing, Explorer activates after verification with no payment required.
           </p>
         </div>
         <div class="error" id="authError"></div>
@@ -12624,15 +12720,16 @@
               <div class="nav-accent">
                 <div class="nav-accent-title">Accent</div>
                 <div class="nav-accent-buttons">
-                  <button type="button" class="accent-chip" data-accent="cyan">Neon blue</button>
-                  <button type="button" class="accent-chip" data-accent="magenta">Magenta</button>
-                  <button type="button" class="accent-chip" data-accent="gold">Gold</button>
-                  <button type="button" class="accent-chip" data-accent="jade">Jade pulse</button>
-                  <button type="button" class="accent-chip" data-accent="electric">Electric iris</button>
-                  <button type="button" class="accent-chip" data-accent="ember">Ember bloom</button>
-                  <button type="button" class="accent-chip" data-accent="glass">Glass</button>
-                  <button type="button" class="accent-chip" data-accent="neon_lime">Neon lime</button>
-                  <button type="button" class="accent-chip" data-accent="ruby_night">Ruby night</button>
+                  <button type="button" class="accent-chip" data-accent="cyan">Margarita Lime</button>
+                  <button type="button" class="accent-chip" data-accent="magenta">Cosmo Crush</button>
+                  <button type="button" class="accent-chip" data-accent="gold">Whiskey Gold</button>
+                  <button type="button" class="accent-chip" data-accent="jade">Mojito Mint</button>
+                  <button type="button" class="accent-chip" data-accent="electric">Blue Lagoon</button>
+                  <button type="button" class="accent-chip" data-accent="ember">Tequila Sunrise</button>
+                  <button type="button" class="accent-chip" data-accent="glass">Gin Fizz</button>
+                  <button type="button" class="accent-chip" data-accent="neon_lime">Midori Sour</button>
+                  <button type="button" class="accent-chip" data-accent="ruby_night">Cherry Bourbon</button>
+                  <button type="button" class="accent-chip" data-accent="paloma">Paloma Pop</button>
                   <button type="button" class="accent-chip ceo-only" data-accent="ceo">CEO</button>
                 </div>
               </div>
@@ -13133,15 +13230,16 @@
       <div class="menu-card card-hd">
         <div class="menu-card-title">Accent theme</div>
         <div class="menu-accent-grid" id="menuAccentGrid">
-          <button type="button" class="accent-chip" data-accent="cyan">Neon blue</button>
-          <button type="button" class="accent-chip" data-accent="magenta">Magenta</button>
-          <button type="button" class="accent-chip" data-accent="gold">Gold</button>
-          <button type="button" class="accent-chip" data-accent="jade">Jade pulse</button>
-          <button type="button" class="accent-chip" data-accent="electric">Electric iris</button>
-          <button type="button" class="accent-chip" data-accent="ember">Ember bloom</button>
-          <button type="button" class="accent-chip" data-accent="glass">Glass</button>
-          <button type="button" class="accent-chip" data-accent="neon_lime">Neon lime</button>
-          <button type="button" class="accent-chip" data-accent="ruby_night">Ruby night</button>
+          <button type="button" class="accent-chip" data-accent="cyan">Margarita Lime</button>
+          <button type="button" class="accent-chip" data-accent="magenta">Cosmo Crush</button>
+          <button type="button" class="accent-chip" data-accent="gold">Whiskey Gold</button>
+          <button type="button" class="accent-chip" data-accent="jade">Mojito Mint</button>
+          <button type="button" class="accent-chip" data-accent="electric">Blue Lagoon</button>
+          <button type="button" class="accent-chip" data-accent="ember">Tequila Sunrise</button>
+          <button type="button" class="accent-chip" data-accent="glass">Gin Fizz</button>
+          <button type="button" class="accent-chip" data-accent="neon_lime">Midori Sour</button>
+          <button type="button" class="accent-chip" data-accent="ruby_night">Cherry Bourbon</button>
+          <button type="button" class="accent-chip" data-accent="paloma">Paloma Pop</button>
           <button type="button" class="accent-chip ceo-only" data-accent="ceo">CEO</button>
         </div>
       </div>
@@ -13281,15 +13379,16 @@
     <div class="staff-accent-row">
       <label class="staff-accent-label" for="staffAccentSelect">Accent</label>
       <select id="staffAccentSelect" class="staff-accent-select">
-        <option value="cyan">Neon blue</option>
-        <option value="magenta">Magenta</option>
-        <option value="gold">Gold</option>
-        <option value="jade">Jade pulse</option>
-        <option value="electric">Electric iris</option>
-        <option value="ember">Ember bloom</option>
-        <option value="glass">Glass</option>
-        <option value="neon_lime">Neon lime</option>
-        <option value="ruby_night">Ruby night</option>
+        <option value="cyan">Margarita Lime</option>
+        <option value="magenta">Cosmo Crush</option>
+        <option value="gold">Whiskey Gold</option>
+        <option value="jade">Mojito Mint</option>
+        <option value="electric">Blue Lagoon</option>
+        <option value="ember">Tequila Sunrise</option>
+        <option value="glass">Gin Fizz</option>
+        <option value="neon_lime">Midori Sour</option>
+        <option value="ruby_night">Cherry Bourbon</option>
+        <option value="paloma">Paloma Pop</option>
       </select>
     </div>
     <div class="staff-board">
@@ -14037,15 +14136,15 @@
 
   <div class="modal-backdrop force-update-backdrop" id="forceUpdateModal">
     <div class="modal-card force-update-card">
-      <div class="force-update-title">Update required</div>
+      <div class="force-update-title">Fresh Pour Required 🍸</div>
       <div class="force-update-copy" id="forceUpdateCopy">
-        A new version is ready. Update now to keep FoCo After Dark in sync.
+        New round is ready. Update now to refill your glass and keep everything in sync.
       </div>
       <div class="force-update-track">
         <div class="force-update-fill" id="forceUpdateFill"></div>
       </div>
-      <div class="force-update-status" id="forceUpdateStatus">Ready to update.</div>
-      <button type="button" class="btn btn-primary" id="forceUpdateBtn">Click here to update</button>
+      <div class="force-update-status" id="forceUpdateStatus">Ready to pour the update.</div>
+      <button type="button" class="btn btn-primary" id="forceUpdateBtn">Pour latest update</button>
     </div>
   </div>
 
@@ -15825,7 +15924,7 @@
       });
       if (signupConfirmTierNote) {
         if (signupSelectedTier === "explorer") {
-          signupConfirmTierNote.textContent = "Selected pass: Explorer. No billing required. You'll enter limited preview mode after signup.";
+          signupConfirmTierNote.textContent = "Selected pass: Explorer. Next step is secure ID verification. Billing is skipped after verification.";
         } else {
           signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupSelectedTier)}. Next step is secure ID verification.`;
         }
@@ -15948,10 +16047,42 @@
         showScreen("pass");
         return;
       }
+      if (requestedTier === "explorer") {
+        onboardingMembershipFlow = false;
+        forceMembershipScreen = false;
+        clearPendingMembershipFlagForUser(firebaseAuth?.currentUser?.uid || "");
+        memberProfile = {
+          ...(memberProfile || {}),
+          tier: "explorer",
+          requestedTier: "explorer",
+          paymentStatus: "active",
+          membershipStatus: "explorer",
+          ageVerificationRequired: false,
+          ageVerificationStatus: "verified",
+          ageVerified21: true
+        };
+        if (firebaseAuth?.currentUser) {
+          updateMemberProfile({
+            requestedTier: "explorer",
+            tier: "explorer",
+            membershipStatus: "explorer",
+            paymentStatus: "active",
+            ageVerificationRequired: false,
+            ageVerificationStatus: "verified",
+            ageVerified21: true
+          }).catch((err) => console.warn("Explorer activation profile update failed", err));
+        }
+        applyMembershipToPass("explorer");
+        updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
+        showToast("Explorer activated. Upgrade anytime for full redemption access.", 2600);
+        showScreen("tonight");
+        return;
+      }
       updatePaymentSummary(requestedTier);
       resetPaymentForm();
-      prepareStripePayment(requestedTier);
       showScreen("payment");
+      showToast("Loading secure billing…", 1200);
+      prepareStripePayment(requestedTier);
     }
     function renderAgeVerificationState(statusOverride = "") {
       if (!ageVerifyStatus || !ageVerifyPlan) return;
@@ -15963,9 +16094,6 @@
       if (status === "processing") {
         statusText = "Verification in progress.";
         hintText = "Complete the ID check in Stripe Identity, then tap Check Status and Continue to Billing.";
-      } else if (status === "skipped_explorer" || tier === "explorer") {
-        statusText = "Explorer mode selected.";
-        hintText = "Explorer accounts skip billing and open in limited preview mode.";
       } else if (status === "requires_input") {
         statusText = "More ID input required.";
         hintText = "Open verification again and submit a clearer ID photo.";
@@ -15979,10 +16107,17 @@
         if (isFreeMember(memberProfile)) {
           statusText = "Age verified. CEO issued pass activated.";
           hintText = "Your pass is now active without billing.";
+        } else if (tier === "explorer") {
+          statusText = "Age verified. Explorer is ready.";
+          hintText = "Explorer activates now with no billing required.";
         } else {
           statusText = "Age verified. Continue to payment.";
           hintText = "Your age is confirmed. Finish membership activation.";
         }
+      }
+      if (ageVerificationInFlight) {
+        statusText = "Opening secure ID check…";
+        hintText = "Stripe Identity is loading. This can take a few seconds.";
       }
       ageVerifyStatus.textContent = statusText;
       if (ageVerifyHint) ageVerifyHint.textContent = hintText;
@@ -15997,7 +16132,7 @@
     }
     function ageVerificationStatusToast(statusRaw) {
       const status = String(statusRaw || "").toLowerCase();
-      if (status === "verified") return "ID verified. Moving to billing.";
+      if (status === "verified") return "ID verified. Continuing…";
       if (status === "processing") return "ID check is still processing.";
       if (status === "requires_input") return "ID check needs more input.";
       if (status === "canceled") return "ID verification was canceled.";
@@ -16127,9 +16262,8 @@
           return;
         }
         hideSignupConfirmModal();
-        const selectedTier = normalizeMembershipTierSelection(pendingSignupData?.tier || signupSelectedTier || "standard");
-        onboardingMembershipFlow = selectedTier !== "explorer";
-        forceMembershipScreen = selectedTier !== "explorer";
+        onboardingMembershipFlow = true;
+        forceMembershipScreen = true;
         try {
           await completeSignup(pendingSignupData);
         } catch (err) {
@@ -16147,7 +16281,15 @@
     if (ageVerifyRefreshBtn) {
       ageVerifyRefreshBtn.addEventListener("click", async () => {
         suppressAgeVerifyAutoContinue = false;
-        await refreshAgeVerificationStatus(true, { autoContinue: true, showStatusToast: true });
+        const original = ageVerifyRefreshBtn.textContent;
+        ageVerifyRefreshBtn.disabled = true;
+        ageVerifyRefreshBtn.textContent = "Checking…";
+        try {
+          await refreshAgeVerificationStatus(true, { autoContinue: true, showStatusToast: true });
+        } finally {
+          ageVerifyRefreshBtn.textContent = original;
+          ageVerifyRefreshBtn.disabled = ageVerificationInFlight;
+        }
       });
     }
     if (ageVerifyLogoutBtn) {
@@ -16659,7 +16801,7 @@
         };
         if (signupConfirmTierNote) {
           if (signupTier === "explorer") {
-            signupConfirmTierNote.textContent = "Selected pass: Explorer. No billing required. You'll enter limited preview mode after signup.";
+            signupConfirmTierNote.textContent = "Selected pass: Explorer. Next step is secure ID verification. Billing is skipped after verification.";
           } else {
             signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupTier)}. Next step is secure ID verification.`;
           }
@@ -16810,7 +16952,6 @@
         return;
       }
       const requestedTier = normalizeMembershipTierSelection(tier || "standard");
-      const isExplorerSignup = requestedTier === "explorer";
       let signupAppliedFreeInvite = false;
       let createdUser = null;
       let completedPostAuthBootstrap = false;
@@ -16830,16 +16971,11 @@
           if (fullName) profilePayload.legalName = fullName;
           if (gender) profilePayload.gender = gender;
           profilePayload.requestedTier = requestedTier;
-          profilePayload.ageVerificationRequired = !isExplorerSignup;
-          profilePayload.ageVerificationStatus = isExplorerSignup ? "skipped_explorer" : "required";
+          profilePayload.ageVerificationRequired = true;
+          profilePayload.ageVerificationStatus = "required";
           profilePayload.ageVerified21 = false;
-          profilePayload.onboardingEligible = isExplorerSignup;
+          profilePayload.onboardingEligible = true;
           profilePayload.onboardingComplete = false;
-          if (isExplorerSignup) {
-            profilePayload.tier = "explorer";
-            profilePayload.paymentStatus = "active";
-            profilePayload.membershipStatus = "explorer";
-          }
           let finalizedUsername = "";
           if (username && email) {
             const reserved = await reserveUsernameCloud(username);
@@ -16917,19 +17053,7 @@
 	          if (!started) {
 	            showScreen("ageVerify");
 	          }
-	      } else if (isExplorerSignup && !signupAppliedFreeInvite && !isFreeMember(memberProfile)) {
-          memberProfile = {
-            ...(memberProfile || {}),
-            tier: "explorer",
-            requestedTier: "explorer",
-            paymentStatus: "active",
-            membershipStatus: "explorer",
-            ageVerificationRequired: false,
-            ageVerificationStatus: "skipped_explorer"
-          };
-          applyMembershipToPass("explorer");
-          showScreen("tonight");
-        }
+	      }
 	      showAddHomeGate();
 	    }
       } catch (err) {
@@ -17379,8 +17503,9 @@
         clearPassLoading();
         updatePaymentSummary(requestedTier);
         resetPaymentForm();
-        prepareStripePayment(requestedTier);
         showScreen("payment");
+        showToast("Loading secure billing…", 1200);
+        prepareStripePayment(requestedTier);
         return;
       }
 
@@ -17469,6 +17594,7 @@
     const landingTagline = document.getElementById("landingTagline");
     const passBrandTagline = document.getElementById("passBrandTagline");
     const addToHomeBtn = document.getElementById("addToHomeBtn");
+    const ceoPreviewExitBtn = document.getElementById("ceoPreviewExitBtn");
     const currentUsersCount = document.getElementById("currentUsersCount");
     let deferredInstallPrompt = null;
     const addToHomeOverlay = document.getElementById("addToHomeOverlay");
@@ -22769,6 +22895,20 @@ let onboardingIndex = 0;
     }
     function renderPassIdentity(user = firebaseAuth.currentUser) {
       if (!user) return;
+      if (ceoSession && ceoPreviewTier) {
+        if (passUserName) passUserName.textContent = "Preview Member";
+        const initials = ceoPreviewTier === "vip" ? "VP" : (ceoPreviewTier === "explorer" ? "EX" : "ST");
+        if (avatarText) avatarText.textContent = initials;
+        if (userUsername) userUsername.textContent = "@preview";
+        if (userMiniDisplay) userMiniDisplay.textContent = "@preview";
+        if (mobileProfileDot) mobileProfileDot.textContent = initials;
+        if (passIdTop) passIdTop.textContent = "Pass ID: PREVIEW";
+        if (memberSinceText) memberSinceText.textContent = "Preview mode";
+        if (expiryText) expiryText.textContent = "Preview mode";
+        if (lastCheckinText) lastCheckinText.textContent = "Preview mode";
+        if (userTaglineEl) userTaglineEl.textContent = "Visual test account for CEO preview.";
+        return;
+      }
       const email = user.email || "";
       const displayName = preferredMemberName(user);
       if (passUserName) passUserName.textContent = displayName;
@@ -23890,8 +24030,9 @@ let onboardingIndex = 0;
           pendingMembershipTier = tier;
           updatePaymentSummary(tier);
           resetPaymentForm();
-          prepareStripePayment(tier);
           showScreen("payment");
+          showToast("Loading secure billing…", 1200);
+          prepareStripePayment(tier);
           return false;
         }
         showToast("Membership update failed.");
@@ -24700,6 +24841,8 @@ let onboardingIndex = 0;
     const POINTS_KEY = "pointsLedger";
     const LOGIN_SESSION_PREFIX = "loginSessionSeen_";
     const USERNAME_CHANGE_KEY = "usernameChange";
+    const USERNAME_CHANGE_LAST_KEY = "usernameChangeLast";
+    const USERNAME_CHANGE_COOLDOWN_MS = 45 * 24 * 60 * 60 * 1000;
     const USERNAME_EMAIL_MAP = "usernameEmailMap";
     const VENUE_RATINGS_KEY = "venueRatings";
     const VENUE_USER_RATINGS_KEY = "venueUserRatings";
@@ -25214,6 +25357,14 @@ let onboardingIndex = 0;
           surface: "rgba(244, 63, 94, 0.14)",
           shadow: "0 25px 60px rgba(20, 2, 8, 0.78), 0 0 38px rgba(244, 63, 94, 0.34)"
         },
+        paloma: {
+          primary: "#fb923c",
+          secondary: "#ec4899",
+          glow: "rgba(251, 146, 60, 0.48)",
+          border: "rgba(251, 146, 60, 0.44)",
+          surface: "rgba(251, 146, 60, 0.14)",
+          shadow: "0 25px 60px rgba(24, 8, 2, 0.78), 0 0 38px rgba(251, 146, 60, 0.34)"
+        },
         ceo: {
           primary: "#ffd700",
           secondary: "#00f7ff",
@@ -25241,7 +25392,7 @@ let onboardingIndex = 0;
       root.style.setProperty("--accent-glow-live", palette.glow);
       root.style.setProperty("--accent-surface-live", palette.surface);
       root.style.setProperty("--accent-shadow-live", palette.shadow);
-      document.body.classList.remove("theme-cyan", "theme-magenta", "theme-gold", "theme-jade", "theme-electric", "theme-ember", "theme-glass", "theme-neon_lime", "theme-ruby_night", "theme-ceo");
+      document.body.classList.remove("theme-cyan", "theme-magenta", "theme-gold", "theme-jade", "theme-electric", "theme-ember", "theme-glass", "theme-neon_lime", "theme-ruby_night", "theme-paloma", "theme-ceo");
       document.body.classList.add(`theme-${theme}`);
       currentAccentTheme = theme;
       if (currentPassCode) {
@@ -25499,6 +25650,7 @@ let onboardingIndex = 0;
         glass: 200,
         neon_lime: 92,
         ruby_night: 348,
+        paloma: 18,
         ceo: 48
       };
       return map[theme] ?? 185;
@@ -25655,6 +25807,9 @@ let onboardingIndex = 0;
     function usernameChangeCountsKey(code) {
       return `${USERNAME_CHANGE_KEY}_${code}`;
     }
+    function usernameChangeLastKey(code) {
+      return `${USERNAME_CHANGE_LAST_KEY}_${code}`;
+    }
     function normalizeUsernameChangeCounts(raw) {
       if (!raw) return {};
       if (typeof raw === "string") {
@@ -25694,14 +25849,25 @@ let onboardingIndex = 0;
       });
       return counts;
     }
-    function getUsernameChangesThisMonth(code) {
-      const counts = loadUsernameChangeCounts(code);
-      return Number(counts[getMonthToken()] || 0);
+    function resolveUsernameChangedAtMs(code) {
+      const profileMs = new Date(memberProfile?.usernameChangedAt || 0).getTime();
+      const localMs = Number(localStorage.getItem(usernameChangeLastKey(code)) || 0) || 0;
+      if (Number.isFinite(profileMs) && profileMs > 0) {
+        return Math.max(profileMs, localMs);
+      }
+      return localMs;
+    }
+    function getUsernameChangeRemainingMs(code) {
+      if (!code) return 0;
+      const lastChangedAt = resolveUsernameChangedAtMs(code);
+      if (!lastChangedAt) return 0;
+      return Math.max(0, (lastChangedAt + USERNAME_CHANGE_COOLDOWN_MS) - Date.now());
     }
     function usernameChangeLimitMessage(code) {
-      const remaining = Math.max(0, 2 - getUsernameChangesThisMonth(code));
-      if (!remaining) return "You can change your username twice per month.";
-      return `You can change your username ${remaining} more time${remaining === 1 ? "" : "s"} this month.`;
+      const remainingMs = getUsernameChangeRemainingMs(code);
+      if (!remainingMs) return "You can change your username once every 45 days.";
+      const days = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
+      return `You can change your username again in ${days} day${days === 1 ? "" : "s"}.`;
     }
     function recordUsernameChange(code) {
       if (!code) return null;
@@ -25709,6 +25875,7 @@ let onboardingIndex = 0;
       const token = getMonthToken();
       counts[token] = Number(counts[token] || 0) + 1;
       localStorage.setItem(usernameChangeCountsKey(code), JSON.stringify(counts));
+      localStorage.setItem(usernameChangeLastKey(code), String(Date.now()));
       return counts;
     }
     async function applyUsernameChange(code, finalName) {
@@ -25769,7 +25936,7 @@ let onboardingIndex = 0;
     function canChangeUsername(code) {
       if (!code) return true;
       if (hasUnlimitedUsernameChanges()) return true;
-      return getUsernameChangesThisMonth(code) < 2;
+      return getUsernameChangeRemainingMs(code) <= 0;
     }
     function isUsernameTaken(candidate) {
       if (!candidate) return false;
@@ -31888,6 +32055,9 @@ let onboardingIndex = 0;
     if (ceoPreviewReturnBtn) {
       ceoPreviewReturnBtn.addEventListener("click", endCeoPreview);
     }
+    if (ceoPreviewExitBtn) {
+      ceoPreviewExitBtn.addEventListener("click", endCeoPreview);
+    }
     function collectBetaResetSelections() {
       const toggles = Array.from(document.querySelectorAll(".beta-reset-toggle"));
       const selected = {};
@@ -32183,8 +32353,8 @@ let onboardingIndex = 0;
     function applyMaintenanceModeState() {
       if (ceoMaintenanceStatus) {
         ceoMaintenanceStatus.textContent = maintenanceModeActive
-          ? "MAINTENANCE ACTIVE: users are signed out and blocked."
-          : "LIVE: maintenance mode is off.";
+          ? "LAST CALL TUNE-UP ACTIVE: users are signed out and paused."
+          : "LIVE: taps are open.";
       }
       if (ceoMaintenanceToggle) {
         ceoMaintenanceToggle.textContent = maintenanceModeActive ? "Disable maintenance" : "Enable maintenance";
@@ -32231,6 +32401,13 @@ let onboardingIndex = 0;
       }
       if (!authReady || !firebaseAuth.currentUser) {
         logRealtime("blockedWrite: no-auth", actionLabel);
+        return false;
+      }
+      if (ceoSession && ceoPreviewTier) {
+        logRealtime("blockedWrite: ceo-preview", actionLabel);
+        if (!options.silent) {
+          showToast("Preview mode is visual-only. Return to CEO to make changes.", 2600);
+        }
         return false;
       }
       if (isAppReadOnlyMode()) {
@@ -32360,7 +32537,7 @@ let onboardingIndex = 0;
       if (!releaseMs) return;
       if (releaseMs <= maintenanceReleaseSeenAtMs) return;
       const releaseVersion = `maint-${releaseMs}`;
-      markUpdateAvailable("Maintenance complete. Update required before continuing.", {
+      markUpdateAvailable("🍻 Bar reopened. Pull the latest pour before heading back in.", {
         version: releaseVersion,
         force: true
       });
@@ -32383,10 +32560,10 @@ let onboardingIndex = 0;
       if (maintenanceModeActive && !canBypassMaintenance()) return;
       if (forceUpdateCopy) {
         const versionText = requiredUpdateVersion ? `v${requiredUpdateVersion}` : "latest";
-        forceUpdateCopy.textContent = requiredUpdateMessage || `A new app version (${versionText}) is ready. Update now to continue.`;
+        forceUpdateCopy.textContent = requiredUpdateMessage || `🍹 Fresh build (${versionText}) is on deck. Update to keep the night flowing.`;
       }
       if (!forceUpdateInFlight) {
-        setForcedUpdateProgress(6, "Ready to update.");
+        setForcedUpdateProgress(6, "Ready to pour the update.");
       }
       forceUpdateModal.classList.add("active");
     }
@@ -32395,7 +32572,7 @@ let onboardingIndex = 0;
         forceUpdateModal.classList.remove("active");
       }
     }
-    function markUpdateAvailable(message = "Update available — tap Reload.", options = {}) {
+    function markUpdateAvailable(message = "🍸 New pour ready — tap to update.", options = {}) {
       updateAvailable = true;
       const version = String(options?.version || "").trim();
       const force = options?.force === true;
@@ -32433,7 +32610,7 @@ let onboardingIndex = 0;
       forceUpdateInFlight = true;
       if (forceUpdateBtn) forceUpdateBtn.disabled = true;
       try {
-        setForcedUpdateProgress(12, "Checking for latest build...");
+        setForcedUpdateProgress(12, "Checking the tap...");
         let reg = null;
         if ("serviceWorker" in navigator) {
           reg = await navigator.serviceWorker.getRegistration();
@@ -32441,18 +32618,18 @@ let onboardingIndex = 0;
             reg = await navigator.serviceWorker.register("/sw.js");
           }
           await reg.update().catch(() => {});
-          setForcedUpdateProgress(44, "Downloading update...");
+          setForcedUpdateProgress(44, "Pulling latest pour...");
           if (reg.waiting) {
             reg.waiting.postMessage({ type: "SKIP_WAITING" });
           }
           const changed = await waitForControllerChange(5000);
-          setForcedUpdateProgress(changed ? 72 : 64, changed ? "Applying update..." : "Preparing refresh...");
+          setForcedUpdateProgress(changed ? 72 : 64, changed ? "Pouring update..." : "Chilling refresh...");
         }
         if ("caches" in window) {
           const keys = await caches.keys();
           await Promise.all(keys.map((key) => caches.delete(key)));
         }
-        setForcedUpdateProgress(90, "Reloading app...");
+        setForcedUpdateProgress(90, "Reopening the bar...");
         if (requiredUpdateVersion) {
           saveAppliedServerVersion(requiredUpdateVersion);
         }
@@ -32466,9 +32643,9 @@ let onboardingIndex = 0;
         }, 220);
       } catch (err) {
         console.warn("Force update failed", err);
-        setForcedUpdateProgress(8, "Update failed. Tap to retry.");
+        setForcedUpdateProgress(8, "Pour failed. Tap to retry.");
         if (typeof showToast === "function") {
-          showToast("Update failed. Check connection and try again.", 3200);
+          showToast("Update pour failed. Check connection and try again.", 3200);
         }
         forceUpdateInFlight = false;
         if (forceUpdateBtn) forceUpdateBtn.disabled = false;
@@ -32482,10 +32659,11 @@ let onboardingIndex = 0;
       const serverVersion = String(serverVersionRaw || "").trim();
       if (!serverVersion) return;
       const fromVersionJson = source === "version_json";
+      const fromSettingsDoc = source === "settings";
       const hasPendingRequired = !!(requiredUpdateVersion && requiredUpdateVersion !== appliedServerVersion);
 
-      // Only version.json drives forced update prompts.
-      if (!fromVersionJson) {
+      // Version checks from version.json and settings doc can both drive forced update prompts.
+      if (!fromVersionJson && !fromSettingsDoc) {
         if (!appliedServerVersion) {
           saveAppliedServerVersion(serverVersion);
         }
@@ -32503,7 +32681,7 @@ let onboardingIndex = 0;
       }
 
       if (serverVersion !== appliedServerVersion) {
-        markUpdateAvailable("A new app build is ready. Update is required.", { version: serverVersion, force: true });
+        markUpdateAvailable("🍹 New build landed. Update before your next round.", { version: serverVersion, force: true });
         return;
       }
 
@@ -32525,7 +32703,7 @@ let onboardingIndex = 0;
       maintenanceModeActive = true;
       maintenanceSettingsCache = { ...(data || {}) };
       hideForcedUpdateModal();
-      const msg = data.maintenanceMessage || "🍺 Keg is tapped — maintenance in progress.";
+      const msg = data.maintenanceMessage || "🍺 The keg is tapped and bar-backs are on it. Quick tune-up in progress.";
       const until = data.maintenanceUntil?.toDate ? data.maintenanceUntil.toDate() : (data.maintenanceUntil ? new Date(data.maintenanceUntil) : null);
       if (maintenanceMessage) maintenanceMessage.textContent = msg;
       if (maintenanceSubtext) {
@@ -32835,7 +33013,7 @@ let onboardingIndex = 0;
           return;
         }
         if (signature !== lastSeenIndexSignature) {
-          markUpdateAvailable("A new app build is ready. Update is required.", {
+          markUpdateAvailable("🍹 New build landed. Update before your next round.", {
             version: `idx-${simpleTextHash(signature)}`,
             force: true
           });
@@ -32901,7 +33079,7 @@ let onboardingIndex = 0;
             ceoLaunchStatus.textContent = isLaunched ? "Live mode (affects non-CEO users)" : "Beta mode (affects non-CEO users)";
           }
           applyLaunchModeUI();
-          markUpdateAvailable("Mode updated — tap Reload.");
+          markUpdateAvailable("🍻 House mode changed. Pull the latest pour.", { force: false });
         } catch (err) {
           console.warn("setLaunchMode failed", err);
           showToast("Could not update launch mode");
@@ -32988,12 +33166,12 @@ let onboardingIndex = 0;
           const resp = await fn({
             enabled: enableMaintenance,
             message: enableMaintenance
-              ? "FoCo After Dark is currently undergoing maintenance."
-              : "Maintenance complete. FoCo After Dark is back online."
+              ? "🍺 The keg is tapped and bar-backs are on it. Quick tune-up in progress."
+              : "🍻 Bar back open. Fresh pour is ready."
           });
           maintenanceModeActive = resp?.data?.maintenanceMode === true;
           applyMaintenanceModeState();
-          showToast(maintenanceModeActive ? "Maintenance mode enabled." : "Maintenance mode disabled.");
+          showToast(maintenanceModeActive ? "Last call tune-up enabled." : "Tune-up finished. Bar is open.");
         } catch (err) {
           console.warn("setMaintenanceMode failed", err);
           const errCode = err?.code || err?.message || "";
@@ -34095,6 +34273,10 @@ let onboardingIndex = 0;
       updateExtraVoucherUI();
       currentPerkState = null;
       applyMembershipToPass(tier);
+      if (passUserName) passUserName.textContent = "Preview Member";
+      if (avatarText) avatarText.textContent = "PM";
+      if (userUsername) userUsername.textContent = "@preview";
+      if (passIdTop) passIdTop.textContent = "Pass ID: PREVIEW";
       updateCeoPassUI();
       showScreen("tonight");
       showToast(`Previewing ${tierLabelFromKey(tier)} experience`, 2000);
@@ -34107,6 +34289,10 @@ let onboardingIndex = 0;
       updateExtraVoucherUI();
       currentPerkState = null;
       applyMembershipToPass("vip");
+      if (passUserName) passUserName.textContent = "FoCo CEO";
+      if (avatarText) avatarText.textContent = "CEO";
+      if (userUsername) userUsername.textContent = "@foco-ceo";
+      if (passIdTop) passIdTop.textContent = `Pass ID: ${ensureCeoCardCode()}`;
       updateCeoPassUI();
       showScreen("pass");
     }
@@ -35801,8 +35987,9 @@ let onboardingIndex = 0;
         pendingMembershipTier = tier;
         updatePaymentSummary(tier);
         resetPaymentForm();
-        prepareStripePayment(tier);
         showScreen("payment");
+        showToast("Loading secure billing…", 1200);
+        prepareStripePayment(tier);
       });
     });
     if (statusPill) {
@@ -36392,7 +36579,7 @@ let onboardingIndex = 0;
         });
         navigator.serviceWorker.addEventListener("controllerchange", () => {
           if (typeof showToast === "function") {
-            showToast("Update ready — tap Reload.", 2200);
+            showToast("🍹 Fresh pour ready — update to keep the night flowing.", 2400);
           }
           updateAvailable = true;
         });
