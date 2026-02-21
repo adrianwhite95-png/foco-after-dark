@@ -11683,6 +11683,18 @@
       border-color: color-mix(in srgb, var(--accent-primary-live) 42%, rgba(148, 163, 184, 0.28));
       box-shadow: 0 8px 18px rgba(2, 8, 22, 0.32);
     }
+
+    /* Keep pass menu above all portal layers */
+    #passScreen .pass-top,
+    #passScreen .nav-dropdown {
+      position: relative;
+      z-index: 12000 !important;
+      isolation: isolate;
+      overflow: visible !important;
+    }
+    #passScreen .nav-menu {
+      z-index: 12001 !important;
+    }
   </style>
   <link rel="stylesheet" href="styles/tokens.css" />
   <link rel="stylesheet" href="styles/components.css" />
@@ -14969,7 +14981,8 @@
       }
       const memberPrimaryScreens = new Set(["tonight", "pass", "venues", "map", "profileActivity"]);
       if (bottomNav) {
-        const shouldShowBottomNav = memberPrimaryScreens.has(name) && !ceoSession && !staffSession;
+        const hasAuthedMember = !!firebaseAuth?.currentUser;
+        const shouldShowBottomNav = hasAuthedMember && memberPrimaryScreens.has(name) && !ceoSession && !staffSession;
         bottomNav.style.display = shouldShowBottomNav ? "grid" : "none";
         bottomNavItems.forEach((item) => {
           item.classList.toggle("active", item.dataset.bottomNav === name);
@@ -18276,6 +18289,7 @@
     }
     function renderTonightHub() {
       if (!tonightMiniName) return;
+      const log = Array.isArray(redemptionLog) ? redemptionLog : [];
       const tierRaw = normalizeMembershipTierSelection(memberProfile?.tier || currentMembershipTier || "standard");
       const tierLabel = tierRaw === "vip" ? "VIP" : tierRaw === "free" ? "CEO ISSUED" : tierRaw === "ceo" ? "Founder Mode" : "Standard";
       tonightMiniName.textContent = preferredMemberName(firebaseAuth.currentUser || {});
@@ -18301,7 +18315,7 @@
 
       if (tonightRecentRedeemed) {
         const passId = String(currentPassCode || "").toUpperCase();
-        const last = redemptionLog.find((entry) => String(entry.passId || "").toUpperCase() === passId && String(entry.status || "").toLowerCase() === "verified");
+        const last = log.find((entry) => String(entry.passId || "").toUpperCase() === passId && String(entry.status || "").toLowerCase() === "verified");
         tonightRecentRedeemed.textContent = last
           ? `${last.perk || last.perkKey || "Perk"} · ${getVenueDisplayName(last.venue || "")} · ${new Date(last.timestamp || Date.now()).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
           : "No verified redemptions yet.";
@@ -18323,6 +18337,7 @@
     }
     function renderProfileActivity() {
       if (!profileActivityName) return;
+      const log = Array.isArray(redemptionLog) ? redemptionLog : [];
       const displayName = preferredMemberName(firebaseAuth.currentUser || {});
       const tierRaw = normalizeMembershipTierSelection(memberProfile?.tier || currentMembershipTier || "standard");
       const tierLabel = tierRaw === "vip" ? "VIP" : tierRaw === "free" ? "CEO ISSUED" : tierRaw === "ceo" ? "Founder Mode" : "Standard";
@@ -18335,7 +18350,7 @@
       profileActivityNights.textContent = String(Number((statActiveDays?.textContent || "0").replace(/[^\d]/g, "")) || 0);
       if (profileActivityHistory) {
         const passId = String(currentPassCode || "").toUpperCase();
-        const items = redemptionLog
+        const items = log
           .filter((entry) => String(entry.passId || "").toUpperCase() === passId)
           .slice(0, 6);
         profileActivityHistory.innerHTML = items.length
@@ -30951,14 +30966,14 @@ let onboardingIndex = 0;
         ceoHealthUnsub = null;
       }
     }
-    let updateAvailable = false;
-    let requiredUpdateVersion = "";
-    let requiredUpdateMessage = "";
-    let forceUpdateInFlight = false;
-    let appliedServerVersion = "";
-    let lastSeenServerVersion = "";
-    let lastSeenIndexSignature = "";
-    let maintenanceReleaseSeenAtMs = 0;
+    var updateAvailable = false;
+    var requiredUpdateVersion = "";
+    var requiredUpdateMessage = "";
+    var forceUpdateInFlight = false;
+    var appliedServerVersion = "";
+    var lastSeenServerVersion = "";
+    var lastSeenIndexSignature = "";
+    var maintenanceReleaseSeenAtMs = 0;
     const FORCE_UPDATE_PENDING_KEY = "force_update_pending_version";
     const FORCE_UPDATE_APPLIED_VERSION_KEY = "force_update_applied_version";
     const FORCE_UPDATE_LAST_SEEN_VERSION_KEY = "force_update_last_seen_server_version";
