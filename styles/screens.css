@@ -236,6 +236,10 @@ body.ios .ceo-hq-nav {
 .bottom-nav-item.danger {
   border-color: rgba(248, 113, 113, 0.45);
   color: #fecaca;
+  box-shadow:
+    0 10px 24px rgba(2, 6, 18, 0.52),
+    0 0 calc(24px * var(--fx-glow-strength)) rgba(248, 113, 113, 0.55),
+    inset 0 0 14px rgba(248, 113, 113, 0.2);
 }
 .bottom-nav-item.active {
   color: #f8fbff;
