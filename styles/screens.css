@@ -113,3 +113,149 @@ body.ios .ceo-hq-nav {
 :is(.member-hero, .profile-summary, .staff-radar, .ceo-hq-panel, .landing-feature-card, .hero-point) {
   contain: layout paint style;
 }
+
+/* Smart filter chips (UI-only) */
+.smart-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+.smart-chip {
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 26%, rgba(148, 163, 184, 0.4));
+  border-radius: 999px;
+  background: linear-gradient(140deg, rgba(6, 13, 28, 0.86), rgba(10, 17, 35, 0.76));
+  color: #cfe5ff;
+  padding: 5px 10px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform var(--ds-dur-fast) var(--ds-ease-standard), box-shadow var(--ds-dur-fast) ease;
+}
+.smart-chip.active {
+  color: #f3fbff;
+  border-color: color-mix(in srgb, var(--accent-primary-live) 68%, #93c5fd);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary-live) 26%, transparent);
+}
+
+/* Mobile sticky action bar */
+.mobile-action-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  transform: translateX(-50%);
+  width: min(96vw, 480px);
+  z-index: 3400;
+  display: none;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 16px;
+  background: linear-gradient(140deg, rgba(4, 10, 23, 0.9), rgba(6, 14, 31, 0.82));
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 24%, rgba(148, 163, 184, 0.28));
+  box-shadow: 0 14px 28px rgba(1, 7, 20, 0.44), 0 0 22px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+}
+.mobile-action-btn {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, rgba(148, 163, 184, 0.28));
+  background: rgba(10, 17, 34, 0.86);
+  color: #e5efff;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.mobile-action-btn.primary {
+  background: linear-gradient(120deg, #22d3ee, #22c55e);
+  color: #051426;
+  border: none;
+}
+.mobile-action-btn.icon,
+.mobile-action-btn.profile {
+  width: 46px;
+  padding: 0;
+}
+.mobile-action-btn.profile {
+  display: grid;
+  place-items: center;
+}
+.profile-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-primary-live) 42%, #0f172a), color-mix(in srgb, var(--accent-secondary-live) 38%, #020617));
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 800;
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 62%, transparent);
+}
+
+@media (max-width: 900px) {
+  #passScreen.active .mobile-action-bar {
+    display: grid;
+  }
+}
+
+/* Quick actions command palette */
+.quick-actions-card {
+  max-width: 620px;
+}
+.quick-actions-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.quick-action-item {
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, rgba(148, 163, 184, 0.3));
+  background: linear-gradient(140deg, rgba(6, 13, 28, 0.9), rgba(10, 16, 34, 0.8));
+  color: #e5efff;
+  padding: 12px;
+  text-align: left;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  cursor: pointer;
+}
+.quick-action-item:hover {
+  border-color: color-mix(in srgb, var(--accent-primary-live) 55%, #93c5fd);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
+}
+
+/* Skeleton loaders */
+.skeleton-list {
+  display: grid;
+  gap: 8px;
+}
+.skeleton-item {
+  position: relative;
+  border-radius: 12px;
+  min-height: 58px;
+  background: linear-gradient(110deg, rgba(17, 24, 39, 0.82) 20%, rgba(30, 41, 59, 0.65) 42%, rgba(17, 24, 39, 0.82) 64%);
+  background-size: 220% 100%;
+  animation: skeletonSweep 1.1s linear infinite;
+  overflow: hidden;
+}
+.skeleton-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+@keyframes skeletonSweep {
+  0% { background-position: 150% 0; }
+  100% { background-position: -60% 0; }
+}
+
+@media (max-width: 620px) {
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+}

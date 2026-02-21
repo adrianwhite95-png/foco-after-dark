@@ -482,6 +482,9 @@
       position: relative;
       overflow: hidden;
     }
+    #passScreen {
+      overflow: visible;
+    }
     .screen.active {
       display: block;
     }
@@ -6286,12 +6289,13 @@
     }
     #passScreen .pass-top {
       z-index: 40;
+      isolation: isolate;
     }
     #passScreen .nav-dropdown {
-      z-index: 50;
+      z-index: 1200;
     }
     #passScreen .nav-menu {
-      z-index: 60;
+      z-index: 1300;
     }
     .landing-wrapper {
       background: rgba(255,255,255,0.02);
@@ -11587,25 +11591,6 @@
       animation: none !important;
     }
 
-    /* Landing conversion strip: trust + speed cues */
-    .landing-conversion-strip {
-      margin-top: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 8px;
-    }
-    .conversion-chip {
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 24%, rgba(148, 163, 184, 0.35));
-      background: linear-gradient(140deg, rgba(5, 12, 28, 0.84), rgba(8, 16, 34, 0.78));
-      color: #dbeafe;
-      font-size: 10px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      box-shadow: 0 8px 16px rgba(1, 7, 20, 0.32);
-    }
     #landingGetPassBtn {
       position: relative;
       isolation: isolate;
@@ -11833,11 +11818,6 @@
       <button id="landingGetPassBtn" class="btn btn-primary">
         Get the Nightlife Pass · 21+
       </button>
-      <div class="landing-conversion-strip" aria-hidden="true">
-        <span class="conversion-chip">Fast signup</span>
-        <span class="conversion-chip">ID verified 21+</span>
-        <span class="conversion-chip">Perks live nightly</span>
-      </div>
       <button id="addToHomeBtn" class="btn btn-primary cta-shimmer" style="margin-top:18px;margin-bottom:18px;background:linear-gradient(120deg,#22d3ee,#f472b6);color:#0b1222;font-weight:800;letter-spacing:0.06em;box-shadow:0 12px 32px rgba(34,211,238,0.35),0 0 28px rgba(244,114,182,0.35);border:none;">
         Add to Home Screen
       </button>
@@ -12142,6 +12122,7 @@
             <button class="nav-item" data-nav="membership">Upgrade / Downgrade membership</button>
             <button class="nav-item" data-nav="support">Need help? Contact support</button>
             <button class="nav-item" data-nav="review">Leave a review</button>
+            <button class="nav-item" data-nav="quickActions">Quick actions</button>
             <button class="nav-item" data-nav="about" id="navAboutItem">About</button>
               <button class="nav-item danger" data-nav="cancelMembership">Cancel membership</button>
               <div class="nav-accent">
@@ -12315,6 +12296,11 @@
             <div class="profile-side-col">
               <div class="alerts-card">
                 <h4>Tonight’s alerts <span id="alertsNewPill" class="pill-new">New</span></h4>
+                <div class="smart-chip-row" id="alertsSmartChips">
+                  <button type="button" class="smart-chip active">Open now</button>
+                  <button type="button" class="smart-chip">VIP perk</button>
+                  <button type="button" class="smart-chip">Closest</button>
+                </div>
                 <ul id="alertsList">
                   <li>
                     <strong>Social Underground</strong>
@@ -12468,6 +12454,14 @@
         <span id="testimonialSource">– Ava S., VIP member</span>
       </div>
 
+      <div class="mobile-action-bar" id="mobileActionBar" aria-label="Quick actions">
+        <button type="button" class="mobile-action-btn primary" data-mobile-action="redeem">Redeem</button>
+        <button type="button" class="mobile-action-btn icon" data-mobile-action="quick" aria-label="Quick actions">⚡</button>
+        <button type="button" class="mobile-action-btn profile" data-mobile-action="profile" aria-label="Go to profile">
+          <span class="profile-dot" id="mobileProfileDot">•</span>
+        </button>
+      </div>
+
       <div class="modal-backdrop" id="redeemModal">
         <div class="modal-card">
           <div class="modal-header">
@@ -12491,6 +12485,22 @@
           <p class="credit-info small" id="redeemVoucherBalance" style="margin-top:6px;"></p>
           <div class="modal-actions">
             <button class="btn btn-secondary" type="button" id="redeemConfirm">Confirm</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-backdrop" id="quickActionsModal">
+        <div class="modal-card quick-actions-card">
+          <div class="modal-header">
+            <div class="modal-title">Quick actions</div>
+            <button class="modal-close" id="quickActionsClose" type="button">Close</button>
+          </div>
+          <div class="quick-actions-grid">
+            <button type="button" class="quick-action-item" data-quick-nav="pass">My pass</button>
+            <button type="button" class="quick-action-item" data-quick-nav="venues">Featured venues</button>
+            <button type="button" class="quick-action-item" data-quick-nav="rewards">Voucher rewards</button>
+            <button type="button" class="quick-action-item" data-quick-nav="membership">Membership</button>
+            <button type="button" class="quick-action-item" data-quick-nav="support">Support</button>
+            <button type="button" class="quick-action-item" data-quick-nav="review">Leave review</button>
           </div>
         </div>
       </div>
@@ -12541,6 +12551,12 @@
         <div class="venues-card card-hd no-tilt smooth-enter">
       <div class="featured-venues" id="featuredVenues">
         <h4>Featured venues <span id="featuredVenuesNewPill" class="pill-new">New</span></h4>
+        <div class="smart-chip-row" id="venuesSmartChips">
+          <button type="button" class="smart-chip active">Open now</button>
+          <button type="button" class="smart-chip">No cover</button>
+          <button type="button" class="smart-chip">VIP perk</button>
+          <button type="button" class="smart-chip">Closest</button>
+        </div>
         <div class="featured-grid" id="featuredVenuesGrid"></div>
       </div>
       <button class="btn btn-secondary back-btn" id="venuesBackBtn">Back to pass</button>
@@ -14864,6 +14880,7 @@
       if (name !== "landing" && name !== "auth" && name !== "maintenance") {
         requestBadgeClear();
       }
+      pulseScreenSkeletons(name);
       try {
         const activeScreen = screens[name];
         if (activeScreen) activeScreen.scrollTop = 0;
@@ -17160,6 +17177,13 @@
     const navMenu = document.getElementById("navMenu");
     const navItems = navMenu ? navMenu.querySelectorAll("[data-nav]") : [];
     const accentChips = navMenu ? navMenu.querySelectorAll(".accent-chip") : [];
+    const quickActionsModal = document.getElementById("quickActionsModal");
+    const quickActionsClose = document.getElementById("quickActionsClose");
+    const quickActionItems = quickActionsModal ? quickActionsModal.querySelectorAll("[data-quick-nav]") : [];
+    const mobileActionBar = document.getElementById("mobileActionBar");
+    const mobileProfileDot = document.getElementById("mobileProfileDot");
+    const alertsSmartChips = document.getElementById("alertsSmartChips");
+    const venuesSmartChips = document.getElementById("venuesSmartChips");
     const cancelMembershipModal = document.getElementById("cancelMembershipModal");
     const cancelMembershipConfirm = document.getElementById("cancelMembershipConfirm");
     const cancelMembershipAbort = document.getElementById("cancelMembershipAbort");
@@ -20774,6 +20798,54 @@ let onboardingIndex = 0;
       if (navMenu) navMenu.classList.remove("active");
     }
 
+    function openQuickActionsModal() {
+      if (!quickActionsModal) return;
+      quickActionsModal.classList.add("active");
+      closeNavMenu();
+    }
+    function closeQuickActionsModal() {
+      if (!quickActionsModal) return;
+      quickActionsModal.classList.remove("active");
+    }
+
+    function setSkeletonList(target, rows = 3) {
+      if (!target) return;
+      const count = Math.max(1, Math.min(6, Number(rows) || 3));
+      target.innerHTML = `<div class="skeleton-list">${Array.from({ length: count }).map(() => '<div class="skeleton-item"></div>').join("")}</div>`;
+    }
+
+    function pulseScreenSkeletons(name) {
+      if (name === "pass") {
+        setSkeletonList(alertsList, 3);
+        setTimeout(() => {
+          renderAlertsList();
+        }, 320);
+      } else if (name === "venues") {
+        setSkeletonList(featuredVenuesGrid, 6);
+        setTimeout(() => {
+          renderFeaturedVenuesGrid();
+        }, 360);
+      } else if (name === "staffPortal") {
+        setSkeletonList(staffPendingList, 3);
+        setTimeout(() => {
+          renderStaffPendingQueue();
+        }, 320);
+      }
+    }
+
+    function initSmartChipRows() {
+      [alertsSmartChips, venuesSmartChips].forEach((row) => {
+        if (!row) return;
+        row.addEventListener("click", (event) => {
+          const btn = event.target?.closest?.(".smart-chip");
+          if (!btn) return;
+          row.querySelectorAll(".smart-chip").forEach((chip) => chip.classList.remove("active"));
+          btn.classList.add("active");
+        });
+      });
+    }
+    initSmartChipRows();
+
     function showCancelModal() {
       if (cancelMembershipModal) cancelMembershipModal.classList.add("active");
       closeNavMenu();
@@ -21035,6 +21107,9 @@ let onboardingIndex = 0;
               const reviewBtn = document.getElementById("leaveReviewBtn");
               if (reviewBtn) reviewBtn.click();
               break;
+            case "quickActions":
+              openQuickActionsModal();
+              break;
             case "featuredVenues":
               markLiveFeedSeen("featured");
               markMemberFeedSeen();
@@ -21079,6 +21154,66 @@ let onboardingIndex = 0;
       if (navMenu.contains(e.target) || navMenuToggle.contains(e.target)) return;
       closeNavMenu();
     });
+    if (quickActionsClose) {
+      quickActionsClose.addEventListener("click", closeQuickActionsModal);
+    }
+    if (quickActionsModal) {
+      quickActionsModal.addEventListener("click", (e) => {
+        if (e.target === quickActionsModal) closeQuickActionsModal();
+      });
+    }
+    if (quickActionItems.length) {
+      quickActionItems.forEach((item) => {
+        item.addEventListener("click", () => {
+          const nav = item.dataset.quickNav;
+          if (nav === "pass") {
+            showScreen("pass");
+          } else if (nav === "venues") {
+            showScreen("venues");
+          } else if (nav === "support") {
+            resetSupportForm();
+            showScreen("support");
+          } else if (nav === "membership") {
+            openMembershipChooser();
+          } else if (nav === "review") {
+            const reviewBtn = document.getElementById("leaveReviewBtn");
+            if (reviewBtn) reviewBtn.click();
+          } else if (nav === "rewards") {
+            if (rewardsTrigger) rewardsTrigger.click();
+          }
+          closeQuickActionsModal();
+        });
+      });
+    }
+    document.addEventListener("keydown", (event) => {
+      const isCmdK = (event.metaKey || event.ctrlKey) && String(event.key || "").toLowerCase() === "k";
+      if (!isCmdK) return;
+      event.preventDefault();
+      if (currentScreenName === "pass") openQuickActionsModal();
+    });
+    if (mobileActionBar) {
+      mobileActionBar.addEventListener("click", (event) => {
+        const btn = event.target?.closest?.("[data-mobile-action]");
+        if (!btn) return;
+        const action = btn.dataset.mobileAction;
+        if (action === "redeem") {
+          if (redeemTrigger) redeemTrigger.click();
+          return;
+        }
+        if (action === "quick") {
+          openQuickActionsModal();
+          return;
+        }
+        if (action === "profile") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          const profileCard = document.querySelector("#passScreen .profile-summary");
+          if (profileCard) {
+            profileCard.classList.add("stat-flash");
+            setTimeout(() => profileCard.classList.remove("stat-flash"), 650);
+          }
+        }
+      });
+    }
     const aboutClose = document.getElementById("aboutClose");
     if (aboutClose) {
       aboutClose.addEventListener("click", () => {
@@ -21464,6 +21599,7 @@ let onboardingIndex = 0;
         const targetText = customInitials ? customInitials.slice(0, 3).toUpperCase() : initialsFromName(displayName);
         if (avatarText) avatarText.textContent = targetText;
         else avatarInitials.textContent = targetText;
+        if (mobileProfileDot) mobileProfileDot.textContent = targetText.slice(0, 2);
       }
       if (!memberProfile) memberProfile = {};
       if (displayName && !memberProfile.legalName) {
