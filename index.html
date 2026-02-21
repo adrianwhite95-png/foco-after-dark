@@ -12789,9 +12789,6 @@
         <div class="activity-title">Recent redemptions</div>
         <div class="activity-log" id="profileActivityHistory">No redemptions yet.</div>
       </div>
-      <div class="activity-actions">
-        <button type="button" class="btn btn-secondary" id="profileActivitySupport">Support</button>
-      </div>
     </div>
   </div>
   <div id="menuScreen" class="screen">
@@ -17552,7 +17549,6 @@
     const profileActivitySavings = document.getElementById("profileActivitySavings");
     const profileActivityNights = document.getElementById("profileActivityNights");
     const profileActivityHistory = document.getElementById("profileActivityHistory");
-    const profileActivitySupport = document.getElementById("profileActivitySupport");
     const menuAccentGrid = document.getElementById("menuAccentGrid");
     const menuScreen = document.getElementById("menuScreen");
     const cancelMembershipModal = document.getElementById("cancelMembershipModal");
@@ -21872,12 +21868,6 @@ let onboardingIndex = 0;
     if (tonightRedeemBtn) {
       tonightRedeemBtn.addEventListener("click", () => {
         if (redeemTrigger) redeemTrigger.click();
-      });
-    }
-    if (profileActivitySupport) {
-      profileActivitySupport.addEventListener("click", () => {
-        resetSupportForm();
-        showScreen("support");
       });
     }
     if (menuScreen) {

@@ -273,6 +273,16 @@ body.ios .ceo-hq-nav {
     0 14px 30px rgba(1, 8, 22, 0.46),
     0 0 calc(30px * var(--fx-glow-strength)) color-mix(in srgb, var(--accent-primary-live) 34%, transparent);
 }
+.bottom-nav-item.danger,
+.bottom-nav-item.danger:hover {
+  color: #fecaca !important;
+  border-color: rgba(248, 113, 113, 0.7) !important;
+  background: linear-gradient(120deg, rgba(127, 29, 29, 0.58), rgba(69, 10, 10, 0.68)) !important;
+  box-shadow:
+    0 12px 28px rgba(2, 6, 18, 0.58),
+    0 0 calc(32px * var(--fx-glow-strength)) rgba(248, 113, 113, 0.72),
+    inset 0 0 16px rgba(248, 113, 113, 0.28) !important;
+}
 
 /* Give fixed nav breathing room */
 #passScreen,
