@@ -11797,6 +11797,15 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
     }
+    #menuScreen .menu-card-title {
+      margin: 0 0 10px;
+      padding: 2px 4px;
+      line-height: 1.2;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      position: relative;
+      z-index: 2;
+    }
     #menuScreen .menu-action-btn {
       min-height: 56px;
       white-space: normal;
@@ -12699,6 +12708,8 @@
         title="FoCo After Dark venue map"
         id="venueMapFrame"
         loading="lazy"
+        allowfullscreen
+        allow="fullscreen"
         referrerpolicy="no-referrer-when-downgrade"
         src="https://www.google.com/maps?q=Old+Town+Fort+Collins+bars&output=embed">
       </iframe>
@@ -18010,6 +18021,7 @@
       const force = options?.force === true;
       const code = String(passCode || currentPassCode || memberProfile?.passCode || "").trim().toUpperCase();
       if (!code || !functionsClient || SAFE_MODE || !firebaseAuth.currentUser) return;
+      if (isCeoActive() || isCeoAccount || ceoSession || staffSession?.venue) return;
       if (onboardingMembershipFlow || requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) return;
       if (alertCheckinsCloudSyncPromise) return alertCheckinsCloudSyncPromise;
       const now = Date.now();
@@ -18521,11 +18533,9 @@
       activeMapVenueId = venueId;
       const info = venuesInfo[venueId] || {};
       if (venueMapFrame) {
-        const query = [info.name, info.address].filter(Boolean).join(", ");
-        const nextSrc = `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=16&output=embed`;
-        if (venueMapFrame.src !== nextSrc) {
-          venueMapFrame.src = nextSrc;
-        }
+        const query = [info.name, info.address, "Fort Collins, CO"].filter(Boolean).join(", ");
+        const nextSrc = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(query)}&t=m&z=16&output=embed`;
+        venueMapFrame.src = nextSrc;
       }
       renderMapVenueList();
     }
@@ -32617,7 +32627,7 @@ let onboardingIndex = 0;
     }
     function startMemberNoticesListener(uid = "") {
       stopMemberNoticesListener();
-      if (!db || !uid || isCeoAccount || staffSession?.venue) return;
+      if (!db || !uid || isCeoAccount || isCeoActive() || ceoSession || staffSession?.venue) return;
       try {
         const seen = getSeenMemberNoticeSet(uid);
         const q = query(collection(db, "memberMessages"), where("uid", "==", uid), limit(25));

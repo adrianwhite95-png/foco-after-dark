@@ -450,6 +450,38 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // CEO → member notices/messages
+    match /memberMessages/{id} {
+      // CEO/admin can read all. Members can read only their own messages.
+      allow read: if isSignedIn() && (
+        isAdmin()
+        || isCeo()
+        || (request.auth.uid == resource.data.uid)
+      );
+
+      // Only CEO/admin can create outbound member messages.
+      allow create: if isSignedIn()
+        && canWriteApp()
+        && (isAdmin() || isCeo())
+        && request.resource.data.uid is string
+        && request.resource.data.message is string;
+
+      // Members may only mark their own message as read.
+      // CEO/admin may update any message.
+      allow update: if isSignedIn() && (
+        (
+          isAdmin() || isCeo()
+        )
+        || (
+          request.auth.uid == resource.data.uid
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(["read", "readAt"])
+        )
+      );
+
+      allow delete: if isAdmin() || isCeo();
+    }
+
     // Venue ratings
     match /venueRatings/{venueId} {
       allow read: if true;
