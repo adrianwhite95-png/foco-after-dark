@@ -195,8 +195,163 @@ body.ios .ceo-hq-nav {
 }
 
 @media (max-width: 900px) {
-  #passScreen.active .mobile-action-bar {
-    display: grid;
+  #passScreen.active .mobile-action-bar { display: none !important; }
+}
+
+/* Primary app bottom nav */
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  width: min(96vw, 720px);
+  display: none;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  z-index: 3450;
+  padding: 8px;
+  border-radius: 16px;
+  background: linear-gradient(140deg, rgba(4, 10, 23, 0.92), rgba(6, 14, 30, 0.85));
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, rgba(148, 163, 184, 0.3));
+  box-shadow: 0 14px 28px rgba(1, 7, 20, 0.44), 0 0 20px color-mix(in srgb, var(--accent-primary-live) 20%, transparent);
+}
+.bottom-nav-item {
+  min-height: 40px;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 20%, rgba(148, 163, 184, 0.3));
+  background: rgba(9, 16, 34, 0.84);
+  color: #cfe3ff;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--ds-dur-fast) var(--ds-ease-standard), box-shadow var(--ds-dur-fast) ease;
+}
+.bottom-nav-item.active {
+  color: #f8fbff;
+  border-color: color-mix(in srgb, var(--accent-primary-live) 70%, #93c5fd);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent-primary-live) 22%, #0f172a), color-mix(in srgb, var(--accent-secondary-live) 18%, #0b1220));
+}
+
+/* Give fixed nav breathing room */
+#passScreen,
+#tonightScreen,
+#venuesScreen,
+#mapScreen,
+#profileActivityScreen {
+  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Tonight hub */
+.tonight-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.tonight-mini-pass,
+.tonight-card,
+.activity-card,
+.map-venue-list {
+  padding: 14px;
+}
+.tonight-mini-pass {
+  text-align: left;
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 34%, rgba(148, 163, 184, 0.3));
+  background: linear-gradient(140deg, rgba(6, 14, 30, 0.9), rgba(10, 18, 38, 0.82));
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+}
+.tonight-mini-pass strong { font-size: 18px; color: #f2f7ff; }
+.tonight-mini-pass span { font-size: 12px; color: #cfe3ff; }
+.tonight-mini-pass .tonight-mini-hint { color: #7dd3fc; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.tonight-card { border: 1px solid color-mix(in srgb, var(--accent-primary-live) 20%, rgba(148, 163, 184, 0.3)); }
+.tonight-card-title {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #9ec9f4;
+  margin-bottom: 8px;
+}
+.tonight-list { display: grid; gap: 8px; }
+.tonight-list-item {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(10, 16, 32, 0.7);
+}
+.tonight-list-item strong { display: block; color: #eaf3ff; font-size: 13px; }
+.tonight-list-item span { color: #b6c6df; font-size: 12px; }
+.tonight-featured-perk,
+.tonight-recent { color: #d5e2f5; font-size: 13px; line-height: 1.45; }
+
+/* Map screen */
+.map-wrap {
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 22%, rgba(148, 163, 184, 0.3));
+  overflow: hidden;
+}
+#venueMapFrame {
+  width: 100%;
+  height: min(46vh, 380px);
+  border: 0;
+  display: block;
+  filter: saturate(1.05) contrast(1.02);
+}
+.map-venue-list { margin-top: 10px; display: grid; gap: 8px; }
+.map-venue-item {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(10, 16, 32, 0.68);
+}
+.map-venue-item strong { display: block; color: #ecf5ff; font-size: 13px; }
+.map-venue-item span { color: #b9cbe4; font-size: 12px; }
+
+/* Profile activity */
+.profile-activity-grid { display: grid; gap: 10px; }
+.activity-title {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #9ec9f4;
+  margin-bottom: 8px;
+}
+.activity-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+.activity-line span { color: #9fb2cd; font-size: 12px; }
+.activity-line strong { color: #edf5ff; font-size: 13px; }
+.activity-log { display: grid; gap: 8px; color: #c7d7ec; font-size: 12px; }
+.activity-log-row {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(10, 16, 32, 0.68);
+}
+.activity-log-row strong { display: block; color: #edf6ff; font-size: 12px; }
+.activity-log-row span { color: #b0c5df; font-size: 11px; }
+.activity-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .tonight-grid {
+    grid-template-columns: 1fr;
+  }
+  .bottom-nav {
+    width: min(98vw, 560px);
+  }
+  .bottom-nav-item {
+    font-size: 10px;
+    letter-spacing: 0.06em;
   }
 }
 

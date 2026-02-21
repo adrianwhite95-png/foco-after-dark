@@ -12531,6 +12531,81 @@
       </div>
     </div>
   </div>
+  <div id="tonightScreen" class="screen">
+    <div class="app-title"><span>Tonight</span> Hub</div>
+    <div class="tagline">Live snapshot of where to go and what to redeem right now.</div>
+    <div class="tonight-grid">
+      <button type="button" class="tonight-mini-pass card-hd" id="tonightMiniPass">
+        <div class="micro-label">Mini pass</div>
+        <strong id="tonightMiniName">FoCo Member</strong>
+        <span id="tonightMiniTier">Standard</span>
+        <span id="tonightMiniCode">Pass ID: —</span>
+        <span class="tonight-mini-hint">Tap for full pass</span>
+      </button>
+      <div class="tonight-card card-hd">
+        <div class="tonight-card-title">Open now venues</div>
+        <div class="tonight-list" id="tonightOpenNowList"></div>
+      </div>
+      <div class="tonight-card card-hd">
+        <div class="tonight-card-title">Featured perk</div>
+        <div class="tonight-featured-perk" id="tonightFeaturedPerk">No perk posted yet.</div>
+      </div>
+      <div class="tonight-card card-hd">
+        <div class="tonight-card-title">Recently redeemed</div>
+        <div class="tonight-recent" id="tonightRecentRedeemed">No redemptions yet tonight.</div>
+      </div>
+      <div class="tonight-card card-hd">
+        <div class="tonight-card-title">Nearby venues</div>
+        <div class="tonight-list" id="tonightNearbyList"></div>
+      </div>
+    </div>
+  </div>
+  <div id="mapScreen" class="screen">
+    <div class="app-title"><span>Venue</span> Map</div>
+    <div class="tagline">Participating venues around Old Town Fort Collins.</div>
+    <div class="map-wrap card-hd">
+      <iframe
+        title="FoCo After Dark venue map"
+        id="venueMapFrame"
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade"
+        src="https://www.google.com/maps?q=Old+Town+Fort+Collins+bars&output=embed">
+      </iframe>
+    </div>
+    <div class="map-venue-list card-hd" id="mapVenueList"></div>
+  </div>
+  <div id="profileActivityScreen" class="screen">
+    <div class="app-title"><span>Profile</span> Activity</div>
+    <div class="tagline">Membership, savings, and redemption history.</div>
+    <div class="profile-activity-grid">
+      <div class="activity-card card-hd">
+        <div class="activity-title">Member profile</div>
+        <div class="activity-line"><span>Name</span><strong id="profileActivityName">—</strong></div>
+        <div class="activity-line"><span>Tier</span><strong id="profileActivityTier">—</strong></div>
+        <div class="activity-line"><span>Pass ID</span><strong id="profileActivityPass">—</strong></div>
+      </div>
+      <div class="activity-card card-hd">
+        <div class="activity-title">Savings tracker</div>
+        <div class="activity-line"><span>Estimated savings</span><strong id="profileActivitySavings">$0.00</strong></div>
+        <div class="activity-line"><span>Nights out count</span><strong id="profileActivityNights">0</strong></div>
+      </div>
+      <div class="activity-card card-hd">
+        <div class="activity-title">Recent redemptions</div>
+        <div class="activity-log" id="profileActivityHistory">No redemptions yet.</div>
+      </div>
+      <div class="activity-actions">
+        <button type="button" class="btn btn-secondary" id="profileActivitySupport">Support</button>
+        <button type="button" class="btn btn-secondary" id="profileActivitySettings">Settings</button>
+      </div>
+    </div>
+  </div>
+  <nav class="bottom-nav" id="bottomNav" aria-label="Primary">
+    <button type="button" class="bottom-nav-item active" data-bottom-nav="tonight">Tonight</button>
+    <button type="button" class="bottom-nav-item" data-bottom-nav="pass">Pass</button>
+    <button type="button" class="bottom-nav-item" data-bottom-nav="venues">Venues</button>
+    <button type="button" class="bottom-nav-item" data-bottom-nav="map">Map</button>
+    <button type="button" class="bottom-nav-item" data-bottom-nav="profileActivity">Profile</button>
+  </nav>
   <div id="scanConfirmScreen" class="screen">
     <div class="app-title"><span>FoCo</span> Pass Scan</div>
     <div class="tagline">
@@ -14642,8 +14717,11 @@
       maintenance: document.getElementById("maintenanceScreen"),
       membership: document.getElementById("membershipScreen"),
       payment: document.getElementById("paymentScreen"),
+      tonight: document.getElementById("tonightScreen"),
       pass: document.getElementById("passScreen"),
       venues: document.getElementById("venuesScreen"),
+      map: document.getElementById("mapScreen"),
+      profileActivity: document.getElementById("profileActivityScreen"),
       support: document.getElementById("supportScreen"),
       staffLogin: document.getElementById("staffLoginScreen"),
       staffPortal: document.getElementById("staffPortalScreen"),
@@ -14813,7 +14891,7 @@
       ) {
         name = "ageVerify";
       }
-      if (name === "pass" && requiresMembershipSelection()) {
+      if ((name === "pass" || name === "tonight" || name === "map" || name === "profileActivity") && requiresMembershipSelection()) {
         name = "membership";
       }
       currentScreenName = name;
@@ -14836,6 +14914,15 @@
       if (name === "pass") {
         setPassBrandTagline();
         applyProfileTierMode(currentMembershipTier || memberProfile?.tier || "standard");
+      }
+      if (name === "tonight") {
+        renderTonightHub();
+      }
+      if (name === "map") {
+        renderMapVenueList();
+      }
+      if (name === "profileActivity") {
+        renderProfileActivity();
       }
       if (name === "auth") {
         applyRememberedEmailToForm();
@@ -14879,6 +14966,14 @@
       }
       if (name !== "landing" && name !== "auth" && name !== "maintenance") {
         requestBadgeClear();
+      }
+      const memberPrimaryScreens = new Set(["tonight", "pass", "venues", "map", "profileActivity"]);
+      if (bottomNav) {
+        const shouldShowBottomNav = memberPrimaryScreens.has(name) && !ceoSession && !staffSession;
+        bottomNav.style.display = shouldShowBottomNav ? "grid" : "none";
+        bottomNavItems.forEach((item) => {
+          item.classList.toggle("active", item.dataset.bottomNav === name);
+        });
       }
       pulseScreenSkeletons(name);
       try {
@@ -16616,7 +16711,7 @@
         ensurePassCode();
         applyCachedStats();
         loadAccentTheme();
-        showScreen("pass");
+        showScreen("tonight");
         clearPassLoading();
         return;
       }
@@ -16688,7 +16783,7 @@
         showScreen("membership");
         return;
       }
-      showScreen("pass");
+      showScreen("tonight");
     }
 
     // Pass screen elements
@@ -17184,6 +17279,25 @@
     const mobileProfileDot = document.getElementById("mobileProfileDot");
     const alertsSmartChips = document.getElementById("alertsSmartChips");
     const venuesSmartChips = document.getElementById("venuesSmartChips");
+    const bottomNav = document.getElementById("bottomNav");
+    const bottomNavItems = bottomNav ? bottomNav.querySelectorAll("[data-bottom-nav]") : [];
+    const tonightMiniPass = document.getElementById("tonightMiniPass");
+    const tonightMiniName = document.getElementById("tonightMiniName");
+    const tonightMiniTier = document.getElementById("tonightMiniTier");
+    const tonightMiniCode = document.getElementById("tonightMiniCode");
+    const tonightOpenNowList = document.getElementById("tonightOpenNowList");
+    const tonightFeaturedPerk = document.getElementById("tonightFeaturedPerk");
+    const tonightRecentRedeemed = document.getElementById("tonightRecentRedeemed");
+    const tonightNearbyList = document.getElementById("tonightNearbyList");
+    const mapVenueList = document.getElementById("mapVenueList");
+    const profileActivityName = document.getElementById("profileActivityName");
+    const profileActivityTier = document.getElementById("profileActivityTier");
+    const profileActivityPass = document.getElementById("profileActivityPass");
+    const profileActivitySavings = document.getElementById("profileActivitySavings");
+    const profileActivityNights = document.getElementById("profileActivityNights");
+    const profileActivityHistory = document.getElementById("profileActivityHistory");
+    const profileActivitySupport = document.getElementById("profileActivitySupport");
+    const profileActivitySettings = document.getElementById("profileActivitySettings");
     const cancelMembershipModal = document.getElementById("cancelMembershipModal");
     const cancelMembershipConfirm = document.getElementById("cancelMembershipConfirm");
     const cancelMembershipAbort = document.getElementById("cancelMembershipAbort");
@@ -18155,8 +18269,79 @@
       featuredVenuesData = next;
       renderFeaturedVenuesGrid();
       renderPassFeaturedGrid();
+      renderTonightHub();
+      renderMapVenueList();
       setHeroSlideActive(0);
       refreshLiveNewBadges();
+    }
+    function renderTonightHub() {
+      if (!tonightMiniName) return;
+      const tierRaw = normalizeMembershipTierSelection(memberProfile?.tier || currentMembershipTier || "standard");
+      const tierLabel = tierRaw === "vip" ? "VIP" : tierRaw === "free" ? "CEO ISSUED" : tierRaw === "ceo" ? "Founder Mode" : "Standard";
+      tonightMiniName.textContent = preferredMemberName(firebaseAuth.currentUser || {});
+      tonightMiniTier.textContent = tierLabel;
+      tonightMiniCode.textContent = `Pass ID: ${(currentPassCode || "—").toUpperCase()}`;
+
+      if (tonightOpenNowList) {
+        const open = featuredVenuesData.slice(0, 4);
+        tonightOpenNowList.innerHTML = open.length
+          ? open.map((v) => `<div class="tonight-list-item"><strong>${v.name}</strong><span>${v.detail || "Perks pending"}</span></div>`).join("")
+          : '<div class="tonight-list-item"><strong>No live venues yet</strong><span>Venues update here as perks go live.</span></div>';
+      }
+
+      if (tonightFeaturedPerk) {
+        const withPerks = featuredVenuesData.find((v) => Array.isArray(getActiveVenuePerks(v.venueId)) && getActiveVenuePerks(v.venueId).length);
+        if (!withPerks) {
+          tonightFeaturedPerk.textContent = "No perk posted yet.";
+        } else {
+          const perk = getActiveVenuePerks(withPerks.venueId)[0];
+          tonightFeaturedPerk.textContent = `${withPerks.name} · ${perk?.label || "Perk live now"}`;
+        }
+      }
+
+      if (tonightRecentRedeemed) {
+        const passId = String(currentPassCode || "").toUpperCase();
+        const last = redemptionLog.find((entry) => String(entry.passId || "").toUpperCase() === passId && String(entry.status || "").toLowerCase() === "verified");
+        tonightRecentRedeemed.textContent = last
+          ? `${last.perk || last.perkKey || "Perk"} · ${getVenueDisplayName(last.venue || "")} · ${new Date(last.timestamp || Date.now()).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+          : "No verified redemptions yet.";
+      }
+
+      if (tonightNearbyList) {
+        const nearby = featuredVenuesData.slice(0, 3);
+        tonightNearbyList.innerHTML = nearby.length
+          ? nearby.map((v) => `<div class="tonight-list-item"><strong>${v.name}</strong><span>Tap Venues to view details</span></div>`).join("")
+          : '<div class="tonight-list-item"><strong>No venues available</strong><span>Check back soon.</span></div>';
+      }
+    }
+    function renderMapVenueList() {
+      if (!mapVenueList) return;
+      const entries = featuredVenuesData.slice(0, 8);
+      mapVenueList.innerHTML = entries.length
+        ? entries.map((v) => `<div class="map-venue-item"><strong>${v.name}</strong><span>${(venuesInfo[v.venueId] || {}).address || "Fort Collins"}</span></div>`).join("")
+        : '<div class="map-venue-item"><strong>No venues loaded</strong><span>Venue list appears here when available.</span></div>';
+    }
+    function renderProfileActivity() {
+      if (!profileActivityName) return;
+      const displayName = preferredMemberName(firebaseAuth.currentUser || {});
+      const tierRaw = normalizeMembershipTierSelection(memberProfile?.tier || currentMembershipTier || "standard");
+      const tierLabel = tierRaw === "vip" ? "VIP" : tierRaw === "free" ? "CEO ISSUED" : tierRaw === "ceo" ? "Founder Mode" : "Standard";
+      profileActivityName.textContent = displayName || "FoCo Member";
+      profileActivityTier.textContent = tierLabel;
+      profileActivityPass.textContent = (currentPassCode || "—").toUpperCase();
+      const verifiedCount = countVerifiedForPass((currentPassCode || "").toUpperCase());
+      const estimatedSavings = Math.max(0, verifiedCount * 8);
+      profileActivitySavings.textContent = `$${estimatedSavings.toFixed(2)}`;
+      profileActivityNights.textContent = String(Number((statActiveDays?.textContent || "0").replace(/[^\d]/g, "")) || 0);
+      if (profileActivityHistory) {
+        const passId = String(currentPassCode || "").toUpperCase();
+        const items = redemptionLog
+          .filter((entry) => String(entry.passId || "").toUpperCase() === passId)
+          .slice(0, 6);
+        profileActivityHistory.innerHTML = items.length
+          ? items.map((entry) => `<div class="activity-log-row"><strong>${entry.perk || entry.perkKey || "Perk"}</strong><span>${getVenueDisplayName(entry.venue || "")} · ${new Date(entry.timestamp || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></div>`).join("")
+          : "No redemption history yet.";
+      }
     }
     function setHeroSlideActive(index) {
       if (!heroCarousel || !featuredVenuesData.length) return;
@@ -19965,6 +20150,8 @@
       syncRewardsFromEntries(localEntries);
       renderProfileBadges();
       evaluateAchievements(localEntries);
+      renderTonightHub();
+      renderProfileActivity();
       if (
         useCloudProfile() &&
         navigator.onLine &&
@@ -21185,6 +21372,34 @@ let onboardingIndex = 0;
         });
       });
     }
+    if (bottomNavItems.length) {
+      bottomNavItems.forEach((item) => {
+        item.addEventListener("click", () => {
+          const target = item.dataset.bottomNav;
+          if (!target) return;
+          if (target === "venues") {
+            markLiveFeedSeen("featured");
+            markMemberFeedSeen();
+          }
+          showScreen(target);
+        });
+      });
+    }
+    if (tonightMiniPass) {
+      tonightMiniPass.addEventListener("click", () => showScreen("pass"));
+    }
+    if (profileActivitySupport) {
+      profileActivitySupport.addEventListener("click", () => {
+        resetSupportForm();
+        showScreen("support");
+      });
+    }
+    if (profileActivitySettings) {
+      profileActivitySettings.addEventListener("click", () => {
+        toggleNavMenu(true);
+        showScreen("pass");
+      });
+    }
     document.addEventListener("keydown", (event) => {
       const isCmdK = (event.metaKey || event.ctrlKey) && String(event.key || "").toLowerCase() === "k";
       if (!isCmdK) return;
@@ -22107,7 +22322,7 @@ let onboardingIndex = 0;
       venuesBackBtn.addEventListener("click", async () => {
         closeVenueDetail();
         await syncFreeFlagForCurrentPass();
-        showScreen("pass");
+        showScreen("tonight");
       });
     }
     const membershipBackBtn = document.getElementById("membershipBackBtn");
