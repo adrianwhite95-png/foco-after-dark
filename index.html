@@ -11446,6 +11446,18 @@
         max-height: min(80vh, 760px);
         border-radius: 20px;
       }
+      /* Keep CEO->member support message centered and readable on iOS */
+      #memberNoticeModal.modal-backdrop {
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        z-index: 4200;
+      }
+      #memberNoticeModal .modal-card {
+        width: min(100%, 520px);
+        max-height: min(78vh, 720px);
+        border-radius: 20px;
+      }
     }
 
     /* Keep visual energy but reduce cognitive noise */
