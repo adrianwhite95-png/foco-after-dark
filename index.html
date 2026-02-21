@@ -11309,6 +11309,144 @@
         animation: none !important;
       }
     }
+
+    /* ===== Next-level UX polish layer (visual only) ===== */
+    :root {
+      --ui-space-1: 8px;
+      --ui-space-2: 12px;
+      --ui-space-3: 16px;
+      --ui-space-4: 24px;
+      --ui-type-hero: clamp(1.45rem, 1.25rem + 1vw, 2rem);
+      --ui-type-title: clamp(1.1rem, 1.02rem + 0.36vw, 1.35rem);
+      --ui-type-body: 0.98rem;
+      --ui-type-meta: 0.78rem;
+      --ui-motion-fast: 140ms;
+      --ui-motion-med: 220ms;
+      --ui-ease: cubic-bezier(0.2, 0.88, 0.26, 1);
+    }
+
+    .app-title {
+      font-size: var(--ui-type-hero);
+      letter-spacing: 0.12em;
+      line-height: 1.08;
+    }
+    .tagline {
+      font-size: var(--ui-type-body);
+      line-height: 1.5;
+      color: color-mix(in srgb, var(--text-secondary) 88%, #ffffff 12%);
+    }
+    .small,
+    .meta,
+    .field label {
+      font-size: var(--ui-type-meta);
+      letter-spacing: 0.08em;
+    }
+
+    .screen {
+      gap: var(--ui-space-3);
+      padding: var(--ui-space-3);
+    }
+    .pass-card,
+    .staff-form,
+    .ceo-hq-panel,
+    .modal-card,
+    .alerts-card,
+    .member-command-deck,
+    .landing-feature-card,
+    .hero-point {
+      border-radius: 18px;
+      overflow: clip;
+    }
+
+    .btn,
+    .nav-item,
+    .nav-toggle,
+    .pill-ghost,
+    .chip {
+      transition:
+        transform var(--ui-motion-fast) var(--ui-ease),
+        box-shadow var(--ui-motion-fast) ease,
+        filter var(--ui-motion-fast) ease,
+        opacity var(--ui-motion-fast) ease !important;
+    }
+    .btn:focus-visible,
+    .nav-item:focus-visible,
+    .nav-toggle:focus-visible,
+    .chip:focus-visible,
+    .pill-ghost:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--accent-primary-live) 72%, #ffffff);
+      outline-offset: 2px;
+    }
+
+    /* Cleaner hierarchy: tertiary actions stay quieter */
+    .btn.btn-secondary,
+    .btn-secondary {
+      box-shadow: 0 6px 14px rgba(1, 8, 22, 0.36);
+      border-color: color-mix(in srgb, var(--accent-primary-live) 28%, rgba(148, 163, 184, 0.45));
+    }
+    .btn.btn-secondary:hover,
+    .btn-secondary:hover {
+      filter: saturate(1.08);
+      box-shadow:
+        0 8px 18px rgba(1, 9, 24, 0.42),
+        0 0 14px color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
+    }
+
+    /* Member HQ summary reads like a native folder header */
+    #passScreen .member-command-folder-summary {
+      min-height: 54px;
+      border-bottom: 1px solid color-mix(in srgb, var(--accent-primary-live) 16%, transparent);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    #passScreen .member-command-folder-body {
+      padding: 12px 14px 15px;
+    }
+
+    /* Sticky thumb-zone action rail on phones for faster redemption */
+    @media (max-width: 900px) {
+      #passScreen #memberActionButtons {
+        position: sticky;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+        z-index: 24;
+        padding: 8px;
+        border-radius: 14px;
+        background: linear-gradient(140deg, rgba(4, 10, 23, 0.86), rgba(6, 14, 30, 0.8));
+        border: 1px solid color-mix(in srgb, var(--accent-primary-live) 20%, rgba(148, 163, 184, 0.3));
+        box-shadow: 0 12px 26px rgba(0, 0, 0, 0.34), 0 0 22px color-mix(in srgb, var(--accent-primary-live) 20%, transparent);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+    }
+
+    /* iOS native-feel sheets */
+    @supports (-webkit-touch-callout: none) {
+      .modal-backdrop {
+        align-items: flex-end;
+        padding: 0 0 calc(env(safe-area-inset-bottom, 0px) + 8px);
+      }
+      .modal-card {
+        width: min(100%, 760px);
+        max-height: min(82vh, 920px);
+        border-radius: 20px 20px 14px 14px;
+        border-top: 1px solid color-mix(in srgb, var(--accent-primary-live) 34%, rgba(148, 163, 184, 0.35));
+      }
+    }
+
+    /* Keep visual energy but reduce cognitive noise */
+    .landing-feature-card p,
+    .hero-point p,
+    .alerts-card li,
+    .member-command-subline {
+      color: color-mix(in srgb, var(--text-secondary) 90%, #fff 10%);
+    }
+    .landing-feature-card strong,
+    .hero-point strong,
+    .member-command-title,
+    .alerts-card h4 {
+      color: #f2f7ff;
+      text-shadow: 0 0 8px rgba(34, 211, 238, 0.12);
+    }
   </style>
 </head>
   <body>
