@@ -4670,16 +4670,16 @@
     }
     .venue-stars {
       display: inline-flex;
-      gap: 4px;
+      gap: 3px;
     }
     .venue-stars button {
       border: 1px solid rgba(148, 163, 184, 0.4);
       background: rgba(15, 23, 42, 0.85);
       color: #fcd34d;
       border-radius: 6px;
-      width: 32px;
-      height: 28px;
-      font-size: 14px;
+      width: 26px;
+      height: 22px;
+      font-size: 12px;
       cursor: pointer;
       transition: transform 0.15s ease, box-shadow 0.15s ease, border 0.15s ease;
     }
@@ -11753,10 +11753,12 @@
       left: 50%;
       transform: translateX(-50%);
       bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
-      width: min(96vw, 720px);
-      grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+      width: min(97vw, 900px);
+      grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
       gap: 8px;
-      z-index: 9300;
+      z-index: 12050;
+      pointer-events: auto;
+      touch-action: manipulation;
     }
     #bottomNav .bottom-nav-item {
       width: 100% !important;
@@ -12662,10 +12664,6 @@
         <div class="tonight-card-title">Recently redeemed</div>
         <div class="tonight-recent" id="tonightRecentRedeemed">No redemptions yet tonight.</div>
       </div>
-      <div class="tonight-card card-hd">
-        <div class="tonight-card-title">Nearby venues</div>
-        <div class="tonight-list" id="tonightNearbyList"></div>
-      </div>
     </div>
   </div>
   <div id="mapScreen" class="screen">
@@ -12733,7 +12731,6 @@
           <button type="button" class="menu-action-btn" data-menu-action="review">Leave review</button>
           <button type="button" class="menu-action-btn" data-menu-action="about">About / Legal</button>
           <button type="button" class="menu-action-btn danger" data-menu-action="cancelMembership">Cancel membership</button>
-          <button type="button" class="menu-action-btn danger" id="menuLogoutBtn">Log out</button>
         </div>
       </div>
       <div class="menu-card card-hd">
@@ -12758,6 +12755,7 @@
     <button type="button" class="bottom-nav-item" data-bottom-nav="map">Map</button>
     <button type="button" class="bottom-nav-item" data-bottom-nav="profileActivity">Profile</button>
     <button type="button" class="bottom-nav-item" data-bottom-nav="menu">Menu</button>
+    <button type="button" class="bottom-nav-item danger" data-bottom-nav="logout">Logout</button>
   </nav>
   <div id="scanConfirmScreen" class="screen">
     <div class="app-title"><span>FoCo</span> Pass Scan</div>
@@ -17465,7 +17463,6 @@
     const tonightOpenNowList = document.getElementById("tonightOpenNowList");
     const tonightFeaturedPerk = document.getElementById("tonightFeaturedPerk");
     const tonightRecentRedeemed = document.getElementById("tonightRecentRedeemed");
-    const tonightNearbyList = document.getElementById("tonightNearbyList");
     const mapVenueList = document.getElementById("mapVenueList");
     const venueMapFrame = document.getElementById("venueMapFrame");
     const profileActivityName = document.getElementById("profileActivityName");
@@ -17478,7 +17475,6 @@
     const profileActivitySettings = document.getElementById("profileActivitySettings");
     const menuAccentGrid = document.getElementById("menuAccentGrid");
     const menuScreen = document.getElementById("menuScreen");
-    const menuLogoutBtn = document.getElementById("menuLogoutBtn");
     const cancelMembershipModal = document.getElementById("cancelMembershipModal");
     const cancelMembershipConfirm = document.getElementById("cancelMembershipConfirm");
     const cancelMembershipAbort = document.getElementById("cancelMembershipAbort");
@@ -18587,17 +18583,6 @@
           : "No verified redemptions yet.";
       }
 
-      if (tonightNearbyList) {
-        const nearby = featuredVenuesData.slice(0, 6);
-        tonightNearbyList.innerHTML = nearby.length
-          ? nearby.map((v) => `
-            <button type="button" class="tonight-list-item tonight-venue-btn" data-tonight-venue="${v.venueId}">
-              <strong>${v.name}</strong>
-              <span>${getVenuePerksStatus(v.venueId)} · Tap to view details</span>
-            </button>
-          `).join("")
-          : '<div class="tonight-list-item"><strong>No venues available</strong><span>Check back soon.</span></div>';
-      }
     }
     function renderMapVenueList() {
       if (!mapVenueList) return;
@@ -21683,6 +21668,10 @@ let onboardingIndex = 0;
         item.addEventListener("click", () => {
           const target = item.dataset.bottomNav;
           if (!target) return;
+          if (target === "logout") {
+            signOutToLanding();
+            return;
+          }
           if (target === "pass") {
             showScreen("pass");
             return;
@@ -21716,22 +21705,8 @@ let onboardingIndex = 0;
         runMemberMenuAction(actionBtn.dataset.menuAction || "");
       });
     }
-    if (menuLogoutBtn) {
-      menuLogoutBtn.addEventListener("click", async () => {
-        await signOutToLanding();
-      });
-    }
     if (tonightOpenNowList) {
       tonightOpenNowList.addEventListener("click", (event) => {
-        const btn = event.target?.closest?.("[data-tonight-venue]");
-        if (!btn) return;
-        const venueId = String(btn.dataset.tonightVenue || "").trim();
-        if (!venueId) return;
-        showVenueDetail(venueId);
-      });
-    }
-    if (tonightNearbyList) {
-      tonightNearbyList.addEventListener("click", (event) => {
         const btn = event.target?.closest?.("[data-tonight-venue]");
         if (!btn) return;
         const venueId = String(btn.dataset.tonightVenue || "").trim();

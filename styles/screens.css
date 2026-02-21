@@ -367,16 +367,19 @@ body.ios .ceo-hq-nav {
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
-  width: min(96vw, 720px);
+  width: min(97vw, 900px);
   display: none;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
-  z-index: 3450;
+  z-index: 12050;
   padding: 8px;
   border-radius: 16px;
   background: linear-gradient(140deg, rgba(4, 10, 23, 0.92), rgba(6, 14, 30, 0.85));
   border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, rgba(148, 163, 184, 0.3));
   box-shadow: 0 14px 28px rgba(1, 7, 20, 0.44), 0 0 20px color-mix(in srgb, var(--accent-primary-live) 20%, transparent);
+  pointer-events: auto;
+  touch-action: manipulation;
+  isolation: isolate;
 }
 .bottom-nav-item {
   min-height: 40px;
@@ -390,6 +393,12 @@ body.ios .ceo-hq-nav {
   font-weight: 700;
   cursor: pointer;
   transition: transform var(--ds-dur-fast) var(--ds-ease-standard), box-shadow var(--ds-dur-fast) ease;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+.bottom-nav-item.danger {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fecaca;
 }
 .bottom-nav-item.active {
   color: #f8fbff;
@@ -564,10 +573,10 @@ body.ios .ceo-hq-nav {
 /* Menu screen */
 .menu-screen-grid {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 .menu-card {
-  padding: 14px;
+  padding: 16px;
   border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, rgba(148, 163, 184, 0.28));
   background: linear-gradient(140deg, rgba(6, 14, 30, 0.9), rgba(10, 18, 38, 0.8));
   box-shadow:
@@ -584,16 +593,16 @@ body.ios .ceo-hq-nav {
 .menu-action-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 .menu-action-btn {
-  min-height: 42px;
-  border-radius: 12px;
+  min-height: 56px;
+  border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--accent-primary-live) 30%, rgba(148, 163, 184, 0.28));
-  background: rgba(9, 16, 34, 0.86);
+  background: linear-gradient(140deg, rgba(9, 16, 34, 0.92), rgba(8, 18, 39, 0.84));
   color: #e5efff;
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   font-weight: 700;
   cursor: pointer;
@@ -607,12 +616,12 @@ body.ios .ceo-hq-nav {
 }
 .menu-accent-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 .menu-accent-grid .accent-chip {
   width: 100%;
-  min-height: 40px;
+  min-height: 46px;
   justify-content: center;
 }
 
@@ -624,8 +633,8 @@ body.ios .ceo-hq-nav {
     width: min(98vw, 560px);
   }
   .bottom-nav-item {
-    font-size: 10px;
-    letter-spacing: 0.06em;
+    font-size: 9px;
+    letter-spacing: 0.04em;
   }
   .menu-action-grid,
   .menu-accent-grid {
