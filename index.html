@@ -11695,10 +11695,98 @@
     #passScreen .nav-menu {
       z-index: 12001 !important;
     }
+
+    /* Tonight / Map polish fallback (critical inline so it always renders cleanly) */
+    .experience-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .experience-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid rgba(34, 211, 238, 0.5);
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.35);
+      background: rgba(2, 8, 23, 0.9);
+    }
+    #tonightScreen .tonight-grid {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 12px !important;
+      align-items: stretch;
+    }
+    #tonightScreen .tonight-mini-pass {
+      grid-column: 1 / -1;
+      width: 100%;
+      text-align: left;
+    }
+    #tonightScreen .tonight-list-item,
+    #mapScreen .map-venue-item {
+      display: grid;
+      gap: 4px;
+      align-content: start;
+    }
+    #tonightScreen .tonight-list-item strong,
+    #mapScreen .map-venue-item strong {
+      display: block !important;
+      line-height: 1.25;
+    }
+    #tonightScreen .tonight-list-item span,
+    #mapScreen .map-venue-item span {
+      display: block;
+      line-height: 1.35;
+    }
+    #mapScreen .map-wrap {
+      overflow: hidden;
+      border-radius: 16px;
+    }
+    #venueMapFrame {
+      width: 100% !important;
+      min-height: 320px !important;
+      height: min(46vh, 380px) !important;
+      border: 0 !important;
+      display: block !important;
+    }
+    #bottomNav {
+      display: none;
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+      width: min(96vw, 720px);
+      grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+      gap: 8px;
+      z-index: 9300;
+    }
+    #bottomNav .bottom-nav-item {
+      width: 100% !important;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 8px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    @media (max-width: 900px) {
+      #tonightScreen .tonight-grid {
+        grid-template-columns: 1fr !important;
+      }
+      #bottomNav {
+        width: min(98vw, 560px);
+      }
+      #bottomNav .bottom-nav-item {
+        font-size: 10px;
+        letter-spacing: 0.06em;
+      }
+    }
   </style>
-  <link rel="stylesheet" href="styles/tokens.css" />
-  <link rel="stylesheet" href="styles/components.css" />
-  <link rel="stylesheet" href="styles/screens.css" />
+  <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
+  <link rel="stylesheet" href="/styles/components.css?v=2026.02.21.2" />
+  <link rel="stylesheet" href="/styles/screens.css?v=2026.02.21.2" />
 </head>
   <body>
       <div class="club-atmosphere" aria-hidden="true">
@@ -12544,6 +12632,10 @@
     </div>
   </div>
   <div id="tonightScreen" class="screen">
+    <div class="experience-header">
+      <img src="foco-logo.png" alt="FoCo After Dark logo" class="experience-logo" />
+      <div class="micro-label">Live Nightlife Console</div>
+    </div>
     <div class="app-title"><span>Tonight</span> Hub</div>
     <div class="tagline">Live snapshot of where to go and what to redeem right now.</div>
     <div class="tonight-grid">
@@ -12573,6 +12665,10 @@
     </div>
   </div>
   <div id="mapScreen" class="screen">
+    <div class="experience-header">
+      <img src="foco-logo.png" alt="FoCo After Dark logo" class="experience-logo" />
+      <div class="micro-label">Partner Venue Grid</div>
+    </div>
     <div class="app-title"><span>Venue</span> Map</div>
     <div class="tagline">Participating venues around Old Town Fort Collins.</div>
     <div class="map-wrap card-hd">
