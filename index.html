@@ -3134,7 +3134,7 @@
     }
     .signup-plan-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
       margin-top: 4px;
     }
@@ -3168,6 +3168,10 @@
     .signup-plan-card[data-signup-tier="vip"] .plan-name {
       color: #fbbf24;
       text-shadow: 0 0 12px rgba(251, 191, 36, 0.28);
+    }
+    .signup-plan-card[data-signup-tier="explorer"] .plan-name {
+      color: #93c5fd;
+      text-shadow: 0 0 12px rgba(147, 197, 253, 0.28);
     }
     .signup-plan-card .plan-price {
       font-size: 13px;
@@ -3213,6 +3217,52 @@
     .signup-plan-card.active .plan-selected-indicator {
       display: inline-flex;
       align-items: center;
+    }
+    .explorer-lock-banner {
+      display: none;
+      margin-top: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(251, 191, 36, 0.42);
+      background: linear-gradient(135deg, rgba(31, 41, 55, 0.86), rgba(30, 27, 75, 0.78));
+      padding: 10px 12px;
+      box-shadow: 0 0 22px rgba(251, 191, 36, 0.18);
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .explorer-lock-banner .lock-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .explorer-lock-banner .lock-copy strong {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fde68a;
+    }
+    .explorer-lock-banner .lock-copy span {
+      font-size: 11px;
+      color: #cbd5f5;
+      line-height: 1.35;
+    }
+    .explorer-lock-icon {
+      font-size: 18px;
+      color: #fbbf24;
+      filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.35));
+    }
+    #passScreen .pass-card.explorer-locked .pass-security,
+    #passScreen .pass-card.explorer-locked .pass-security-stripe,
+    #passScreen .pass-card.explorer-locked #passQrImage,
+    #passScreen .pass-card.explorer-locked #passCodeText,
+    #passScreen .pass-card.explorer-locked #passIdTop {
+      filter: blur(5px);
+      opacity: 0.45;
+      pointer-events: none;
+      user-select: none;
+    }
+    #passScreen .pass-card.explorer-locked .explorer-lock-banner {
+      display: flex;
     }
     .age-verify-card {
       margin-top: 14px;
@@ -11802,6 +11852,30 @@
       display: block;
       line-height: 1.35;
     }
+    #tonightScreen .tonight-alerts-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+    }
+    #tonightScreen .tonight-alerts-list li {
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.02);
+      display: grid;
+      gap: 2px;
+    }
+    #tonightScreen .tonight-alerts-list li strong {
+      font-size: 13px;
+      color: var(--text);
+      letter-spacing: 0.02em;
+    }
+    #tonightScreen .tonight-alerts-list .alerts-meta {
+      font-size: 11px;
+      opacity: 0.78;
+    }
     #mapScreen .map-wrap {
       overflow: hidden;
       border-radius: 16px;
@@ -11868,6 +11942,20 @@
     }
     #passScreen .nav-dropdown {
       display: none !important;
+    }
+    #passScreen .top-right-logout {
+      display: none !important;
+    }
+    #passScreen .profile-summary .user-row {
+      justify-content: center;
+      text-align: center;
+    }
+    #passScreen .profile-summary .user-details {
+      align-items: center;
+      text-align: center;
+    }
+    #passScreen .profile-summary .username-row {
+      justify-content: center;
     }
     /* Menu fallback layout (ensures clean card grid even if external CSS is stale) */
     #menuScreen .menu-screen-grid {
@@ -12170,9 +12258,17 @@
               <span class="plan-copy">Earn redemption points toward monthly pass savings</span>
               <span class="plan-selected-indicator" aria-hidden="true">Selected</span>
             </button>
+            <button type="button" class="signup-plan-card" data-signup-tier="explorer" aria-pressed="false">
+              <span class="plan-name">Explorer</span>
+              <span class="plan-price">Free</span>
+              <span class="plan-copy">Browse venues, map, and locked perk previews</span>
+              <span class="plan-copy">No digital pass or redemption access</span>
+              <span class="plan-copy">Upgrade anytime to Standard or VIP</span>
+              <span class="plan-selected-indicator" aria-hidden="true">Selected</span>
+            </button>
           </div>
           <p class="small" style="margin-top:6px;text-align:left;">
-            After account creation, you'll complete secure 21+ ID verification before billing starts.
+            Standard/VIP continue to secure 21+ ID verification before billing. Explorer skips billing and opens in limited preview mode.
           </p>
         </div>
         <div class="error" id="authError"></div>
@@ -12400,7 +12496,7 @@
         </div>
       </div>
       <div class="hero-carousel" id="heroCarousel"></div>
-        <div class="pass-card">
+        <div class="pass-card" id="passCard">
           <div class="pass-inner">
           <div class="pass-header">
             <div class="pass-brand">
@@ -12426,6 +12522,14 @@
             <div class="pass-holo"></div>
           </div>
           <div class="pass-security-stripe" aria-hidden="true"></div>
+          <div class="explorer-lock-banner" id="explorerLockBanner">
+            <div class="lock-copy">
+              <strong>Explorer access</strong>
+              <span>Perk redemption is locked. Upgrade to Standard or VIP to unlock your live pass.</span>
+            </div>
+            <span class="explorer-lock-icon" aria-hidden="true">🔒</span>
+            <button type="button" class="btn btn-primary" id="explorerUpgradeBtn" style="width:auto;padding:8px 12px;min-height:36px;">Upgrade</button>
+          </div>
           <div class="ceo-pass-banner" id="ceoPassBanner">
             <div>
               <strong>CEO BLACK CARD</strong>
@@ -12798,7 +12902,9 @@
       </div>
       <div class="tonight-card card-hd">
         <div class="tonight-card-title">Tonight's alerts</div>
-        <div class="tonight-featured-perk" id="tonightFeaturedPerk">No live alerts posted yet.</div>
+        <ul class="tonight-alerts-list" id="tonightAlertsList">
+          <li class="empty"><span>No live alerts posted yet.</span></li>
+        </ul>
       </div>
       <div class="tonight-card card-hd">
         <div class="tonight-card-title">Recently redeemed</div>
@@ -13436,6 +13542,7 @@
             <div class="beta-switcher-buttons">
               <button type="button" class="btn btn-secondary" id="ceoPreviewStandard">Preview Standard (beta)</button>
               <button type="button" class="btn btn-secondary" id="ceoPreviewVip">Preview VIP (beta)</button>
+              <button type="button" class="btn btn-secondary" id="ceoPreviewExplorer">Preview Explorer (beta)</button>
               <button type="button" class="btn btn-secondary" id="ceoPreviewReturn">Return to CEO (beta)</button>
             </div>
           </div>
@@ -14995,11 +15102,17 @@
         if (memberProfile?.ceo || isCeoActive()) {
           statusPill.classList.add("ceo");
           text = "CEO";
+        } else if (isExplorerMember()) {
+          statusPill.classList.add("danger");
+          text = "Explorer";
+          detail = "Preview mode: upgrade to unlock pass + redemption.";
         } else if (currentMembershipTier === "vip") {
           statusPill.classList.add("vip-status");
           text = "VIP Member";
+          detail = "Status: Active";
+        } else {
+          detail = "Status: Active";
         }
-        detail = "Status: Active";
       }
       statusPill.textContent = text;
       if (document.getElementById("membershipStatusDetail")) {
@@ -15104,7 +15217,7 @@
     let nightWheelLastSummary = "";
 
     function requiresMembershipSelection() {
-      if (isCeoActive() || isFreeMember() || isBetaAccount || betaPassMode) return false;
+      if (isCeoActive() || isFreeMember() || isExplorerMember() || isBetaAccount || betaPassMode) return false;
       return !!(
         forceMembershipScreen ||
         onboardingMembershipFlow ||
@@ -15536,10 +15649,16 @@
       }
     }
     function normalizeMembershipTierSelection(rawTier) {
-      return String(rawTier || "").toLowerCase() === "vip" ? "vip" : "standard";
+      const value = String(rawTier || "").toLowerCase();
+      if (value === "vip") return "vip";
+      if (value === "explorer") return "explorer";
+      return "standard";
     }
     function tierLabelForUi(tier) {
-      return normalizeMembershipTierSelection(tier) === "vip" ? "VIP" : "Standard";
+      const normalized = normalizeMembershipTierSelection(tier);
+      if (normalized === "vip") return "VIP";
+      if (normalized === "explorer") return "Explorer";
+      return "Standard";
     }
     function setSignupTierSelection(tier) {
       signupSelectedTier = normalizeMembershipTierSelection(tier);
@@ -15550,7 +15669,11 @@
         btn.setAttribute("aria-pressed", isActive ? "true" : "false");
       });
       if (signupConfirmTierNote) {
-        signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupSelectedTier)}. Next step is secure ID verification.`;
+        if (signupSelectedTier === "explorer") {
+          signupConfirmTierNote.textContent = "Selected pass: Explorer. No billing required. You'll enter limited preview mode after signup.";
+        } else {
+          signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupSelectedTier)}. Next step is secure ID verification.`;
+        }
       }
     }
     updateAuthModeText();
@@ -15685,6 +15808,9 @@
       if (status === "processing") {
         statusText = "Verification in progress.";
         hintText = "Complete the ID check in Stripe Identity, then tap Check Status and Continue to Billing.";
+      } else if (status === "skipped_explorer" || tier === "explorer") {
+        statusText = "Explorer mode selected.";
+        hintText = "Explorer accounts skip billing and open in limited preview mode.";
       } else if (status === "requires_input") {
         statusText = "More ID input required.";
         hintText = "Open verification again and submit a clearer ID photo.";
@@ -15814,6 +15940,10 @@
       const override = (profile?.membershipOverride || profile?.override || "").toString().toUpperCase();
       return Boolean(profile?.freeMembership) || override === "CEO_FREE";
     }
+    function isExplorerMember(profile = memberProfile) {
+      const tier = normalizeTierKey(profile?.tier || currentMembershipTier || "");
+      return tier === "explorer";
+    }
     function isStripeExcludedMember(profile = memberProfile) {
       const override = (profile?.membershipOverride || "").toString().toUpperCase();
       const email = (profile?.email || firebaseAuth?.currentUser?.email || "").toLowerCase();
@@ -15821,6 +15951,7 @@
         isCeoActive()
         || profile?.ceo === true
         || isFreeMember(profile)
+        || isExplorerMember(profile)
         || email === "ceo@gmail.com"
         || override === "CEO_FREE"
       );
@@ -15841,8 +15972,9 @@
           return;
         }
         hideSignupConfirmModal();
-        onboardingMembershipFlow = true;
-        forceMembershipScreen = true;
+        const selectedTier = normalizeMembershipTierSelection(pendingSignupData?.tier || signupSelectedTier || "standard");
+        onboardingMembershipFlow = selectedTier !== "explorer";
+        forceMembershipScreen = selectedTier !== "explorer";
         try {
           await completeSignup(pendingSignupData);
         } catch (err) {
@@ -16371,7 +16503,11 @@
           tier: signupTier
         };
         if (signupConfirmTierNote) {
-          signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupTier)}. Next step is secure ID verification.`;
+          if (signupTier === "explorer") {
+            signupConfirmTierNote.textContent = "Selected pass: Explorer. No billing required. You'll enter limited preview mode after signup.";
+          } else {
+            signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupTier)}. Next step is secure ID verification.`;
+          }
         }
         showSignupConfirmModal();
         return;
@@ -16519,6 +16655,7 @@
         return;
       }
       const requestedTier = normalizeMembershipTierSelection(tier || "standard");
+      const isExplorerSignup = requestedTier === "explorer";
       let signupAppliedFreeInvite = false;
       let createdUser = null;
       let completedPostAuthBootstrap = false;
@@ -16538,11 +16675,16 @@
           if (fullName) profilePayload.legalName = fullName;
           if (gender) profilePayload.gender = gender;
           profilePayload.requestedTier = requestedTier;
-          profilePayload.ageVerificationRequired = true;
-          profilePayload.ageVerificationStatus = "required";
+          profilePayload.ageVerificationRequired = !isExplorerSignup;
+          profilePayload.ageVerificationStatus = isExplorerSignup ? "skipped_explorer" : "required";
           profilePayload.ageVerified21 = false;
-          profilePayload.onboardingEligible = false;
+          profilePayload.onboardingEligible = isExplorerSignup;
           profilePayload.onboardingComplete = false;
+          if (isExplorerSignup) {
+            profilePayload.tier = "explorer";
+            profilePayload.paymentStatus = "active";
+            profilePayload.membershipStatus = "explorer";
+          }
           let finalizedUsername = "";
           if (username && email) {
             const reserved = await reserveUsernameCloud(username);
@@ -16620,7 +16762,19 @@
 	          if (!started) {
 	            showScreen("ageVerify");
 	          }
-	      }
+	      } else if (isExplorerSignup && !signupAppliedFreeInvite && !isFreeMember(memberProfile)) {
+          memberProfile = {
+            ...(memberProfile || {}),
+            tier: "explorer",
+            requestedTier: "explorer",
+            paymentStatus: "active",
+            membershipStatus: "explorer",
+            ageVerificationRequired: false,
+            ageVerificationStatus: "skipped_explorer"
+          };
+          applyMembershipToPass("explorer");
+          showScreen("tonight");
+        }
 	      showAddHomeGate();
 	    }
       } catch (err) {
@@ -17053,6 +17207,9 @@
       const pendingUid = localStorage.getItem(PENDING_MEMBERSHIP_STORAGE_KEY);
       let storedTier = memberProfile?.tier || (allowLocalCache() && user.uid ? localStorage.getItem(`membership_${user.uid}`) : null);
       if (memberProfile?.freeMembership) storedTier = "free";
+      if (!storedTier && normalizeTierKey(memberProfile?.requestedTier) === "explorer") {
+        storedTier = "explorer";
+      }
       if (pendingUid && pendingUid === user.uid) {
         onboardingMembershipFlow = true;
       }
@@ -17121,6 +17278,9 @@
     const passTierText = document.getElementById("passTierText");
     const profileBadges = document.getElementById("profileBadges");
     const statusPill = document.getElementById("statusPill");
+    const passCard = document.getElementById("passCard");
+    const explorerLockBanner = document.getElementById("explorerLockBanner");
+    const explorerUpgradeBtn = document.getElementById("explorerUpgradeBtn");
     const perksListEl = document.getElementById("perksList");
     const passQrImage = document.getElementById("passQrImage");
     const passCodeText = document.getElementById("passCodeText");
@@ -17585,7 +17745,6 @@
       });
     }
     const achievementsNewPill = document.getElementById("achievementsNewPill");
-    const passCard = document.querySelector(".pass-card");
     const navMenu = document.getElementById("navMenu");
     const navItems = navMenu ? navMenu.querySelectorAll("[data-nav]") : [];
     const accentChips = navMenu ? navMenu.querySelectorAll(".accent-chip") : [];
@@ -17604,7 +17763,7 @@
     const tonightMiniTier = document.getElementById("tonightMiniTier");
     const tonightMiniCode = document.getElementById("tonightMiniCode");
     const tonightOpenNowList = document.getElementById("tonightOpenNowList");
-    const tonightFeaturedPerk = document.getElementById("tonightFeaturedPerk");
+    const tonightAlertsList = document.getElementById("tonightAlertsList");
     const tonightRecentRedeemed = document.getElementById("tonightRecentRedeemed");
     const mapVenueList = document.getElementById("mapVenueList");
     const venueMapFrame = document.getElementById("venueMapFrame");
@@ -17766,6 +17925,7 @@
     const ceoPreviewLabel = document.getElementById("ceoPreviewLabel");
     const ceoPreviewStandardBtn = document.getElementById("ceoPreviewStandard");
     const ceoPreviewVipBtn = document.getElementById("ceoPreviewVip");
+    const ceoPreviewExplorerBtn = document.getElementById("ceoPreviewExplorer");
     const ceoPreviewReturnBtn = document.getElementById("ceoPreviewReturn");
     const betaResetBtn = document.getElementById("betaResetBtn");
     const ceoRedemptionBtn = document.getElementById("ceoRedemptionBtn");
@@ -18587,6 +18747,7 @@
     function tierLabelFromKey(tierRaw = "standard") {
       if (tierRaw === "vip") return "VIP";
       if (tierRaw === "free") return "CEO ISSUED";
+      if (tierRaw === "explorer") return "Explorer";
       if (tierRaw === "ceo") return "Founder Mode";
       return "Standard";
     }
@@ -18670,11 +18831,14 @@
         const hasPerks = perks.length > 0;
         const primary = hasPerks ? perks[0] : null;
         const info = venuesInfo[venueId] || {};
+        const explorerDetail = hasPerks
+          ? `🔒 ${formatFeaturedDetail(primary)} · Upgrade to redeem`
+          : "This venue hasn't posted perks yet";
         list.push({
           venueId,
           name: info.name || getVenueDisplayName(venueId),
           badge: hasPerks ? formatFeaturedBadge(primary.label) : "Perks pending",
-          detail: hasPerks ? formatFeaturedDetail(primary) : "This venue hasn't posted perks yet"
+          detail: isExplorerMember() ? explorerDetail : (hasPerks ? formatFeaturedDetail(primary) : "This venue hasn't posted perks yet")
         });
       });
       return list;
@@ -18696,7 +18860,9 @@
       const tierLabel = tierLabelFromKey(tierRaw);
       tonightMiniName.textContent = preferredMemberName(firebaseAuth.currentUser || {});
       tonightMiniTier.textContent = tierLabel;
-      tonightMiniCode.textContent = `Pass ID: ${(currentPassCode || "—").toUpperCase()}`;
+      tonightMiniCode.textContent = tierRaw === "explorer"
+        ? "Pass locked · Upgrade to redeem"
+        : `Pass ID: ${(currentPassCode || "—").toUpperCase()}`;
 
       if (tonightOpenNowList) {
         const open = featuredVenuesData.filter((v) => isVenueOpenNow(v.venueId)).slice(0, 6);
@@ -18710,16 +18876,12 @@
           : '<div class="tonight-list-item"><strong>No venues currently open</strong><span>Check back later tonight.</span></div>';
       }
 
-      if (tonightFeaturedPerk) {
-        const activeAlerts = getActiveAlertsForMember();
-        if (!activeAlerts.length) {
-          tonightFeaturedPerk.textContent = "No live alerts posted yet.";
-        } else {
-          const top = activeAlerts[0];
-          const stamp = top.expiresAt ? formatAlertCountdown(top.expiresAt - Date.now()) : "Live now";
-          const venue = top.venueName || getVenueDisplayName(top.venueId || "");
-          tonightFeaturedPerk.textContent = `${top.title || "Tonight alert"} · ${venue || "FoCo venue"} · ${stamp}`;
-        }
+      if (tonightAlertsList) {
+        const visibleAlerts = getVisibleActiveAlerts(3).map((alert) => ({
+          ...alert,
+          meta: alert.meta || alert.venueName || getVenueDisplayName(alert.venueId || "")
+        }));
+        tonightAlertsList.innerHTML = buildAlertFeedHtml(visibleAlerts);
       }
 
       if (tonightRecentRedeemed) {
@@ -18753,9 +18915,17 @@
       const passId = String(currentPassCode || "").toUpperCase();
       profileActivityName.textContent = displayName || "FoCo Member";
       profileActivityTier.textContent = tierLabel;
-      profileActivityPass.textContent = (currentPassCode || "—").toUpperCase();
+      profileActivityPass.textContent = tierRaw === "explorer" ? "Locked" : (currentPassCode || "—").toUpperCase();
       const savingsEntries = log.filter((entry) => String(entry.passId || "").toUpperCase() === passId);
       const tier = normalizeTierKey(currentMembershipTier || memberProfile?.tier || tierRaw);
+      if (tier === "explorer") {
+        profileActivitySavings.textContent = "Locked";
+        profileActivityNights.textContent = "0";
+        if (profileActivityHistory) {
+          profileActivityHistory.innerHTML = "Explorer mode does not include redemption history. Upgrade to Standard or VIP to unlock.";
+        }
+        return;
+      }
       const savings = computeSavingsMetrics(savingsEntries, tier);
       profileActivitySavings.textContent = `$${savings.netSavings.toFixed(2)}`;
       profileActivityNights.textContent = String(Number((statActiveDays?.textContent || "0").replace(/[^\d]/g, "")) || 0);
@@ -18860,19 +19030,19 @@
     function updateRewardsUI() {
       if (!rewardsProgress) return;
       syncRewardsCycle();
-      const rewardsDisabled = isCeoActive() || isFreeMember() || memberProfile?.ceo === true;
+      const rewardsDisabled = isCeoActive() || isFreeMember() || isExplorerMember() || memberProfile?.ceo === true;
       if (rewardsDisabled) {
         if (rewardsProgressFill) rewardsProgressFill.style.width = "100%";
-        if (rewardsProgressText) rewardsProgressText.textContent = "Unlimited vouchers on this account";
-        if (rewardsNextText) rewardsNextText.textContent = "Voucher rewards are not needed for CEO / CEO_FREE accounts.";
+        if (rewardsProgressText) rewardsProgressText.textContent = isExplorerMember() ? "Explorer preview mode" : "Unlimited vouchers on this account";
+        if (rewardsNextText) rewardsNextText.textContent = isExplorerMember() ? "Upgrade to Standard or VIP to unlock voucher rewards." : "Voucher rewards are not needed for CEO / CEO_FREE accounts.";
         if (rewardsRedeemBtn) rewardsRedeemBtn.disabled = true;
         if (rewardsError) rewardsError.textContent = "";
         if (rewardsTrigger) {
-          rewardsTrigger.textContent = "Voucher rewards (unlimited)";
+          rewardsTrigger.textContent = isExplorerMember() ? "Voucher rewards (locked)" : "Voucher rewards (unlimited)";
           rewardsTrigger.classList.remove("reward-ready");
         }
         if (navRewardsItem) {
-          navRewardsItem.textContent = "Voucher rewards (unlimited)";
+          navRewardsItem.textContent = isExplorerMember() ? "Voucher rewards (locked)" : "Voucher rewards (unlimited)";
           navRewardsItem.classList.remove("reward-ready");
         }
         return;
@@ -18963,6 +19133,7 @@
     function getVoucherLimitForTier(tier) {
       if (!tier) return 0;
       if (tier === "ceo" || tier === "free") return Infinity;
+      if (tier === "explorer") return 0;
       return VOUCHER_LIMITS[tier] || VOUCHER_LIMITS.standard;
     }
 
@@ -19045,6 +19216,7 @@
     function getVoucherTier() {
       if (isCeoActive()) return "ceo";
       if (isFreeMember()) return "free";
+      if (isExplorerMember()) return "explorer";
       return normalizeTierKey(currentMembershipTier)
         || normalizeTierKey(memberProfile?.tier)
         || "standard";
@@ -19209,6 +19381,12 @@
 
     function updateVoucherBalanceUI() {
       if (!statVouchersLeft && !voucherBalanceNote && !redeemVoucherBalance) return;
+      if (isExplorerMember()) {
+        if (statVouchersLeft) statVouchersLeft.textContent = "Locked";
+        if (voucherBalanceNote) voucherBalanceNote.textContent = "Explorer mode active. Upgrade to unlock vouchers and redemptions.";
+        if (redeemVoucherBalance) redeemVoucherBalance.textContent = "Explorer mode has no voucher balance.";
+        return;
+      }
       const tier = getVoucherTier();
       const balance = getVoucherBalanceForTier(tier);
       if (balance.unlimited) {
@@ -19507,7 +19685,7 @@
 
     function getMonthlyFeeForTier(tier) {
       if (!tier) return 0;
-      if (tier === "ceo" || tier === "free" || tier === "issued") return 0;
+      if (tier === "ceo" || tier === "free" || tier === "issued" || tier === "explorer") return 0;
       return MEMBERSHIP_FEES[tier] || 0;
     }
 
@@ -20804,22 +20982,26 @@
       return memberAlertCheckins.has(id);
     }
 
-    function renderAlertsList() {
-      if (!alertsList) return;
+    function getVisibleActiveAlerts(limit = 3) {
       const activeAlerts = getActiveAlertsForMember();
-      if (!activeAlerts.length) {
-        alertsList.innerHTML = `
+      if (!activeAlerts.length) return [];
+      const max = Math.max(1, Number(limit) || 1);
+      const visible = [];
+      for (let i = 0; i < Math.min(max, activeAlerts.length); i += 1) {
+        visible.push(activeAlerts[(alertsRotationIndex + i) % activeAlerts.length]);
+      }
+      return visible;
+    }
+
+    function buildAlertFeedHtml(alerts = []) {
+      if (!alerts.length) {
+        return `
           <li class="empty">
             <span>No alerts tonight. Check back when venues post live perks.</span>
           </li>
         `;
-        return;
       }
-      const visible = [];
-      for (let i = 0; i < Math.min(3, activeAlerts.length); i++) {
-        visible.push(activeAlerts[(alertsRotationIndex + i) % activeAlerts.length]);
-      }
-      alertsList.innerHTML = visible.map(alert => {
+      return alerts.map(alert => {
         let timer = "";
         if (alert.expiresAt) {
           const diff = alert.expiresAt - Date.now();
@@ -20836,29 +21018,35 @@
             `;
           }
         }
-      const checkInCount = Math.max(0, Number(alert.checkInCount || 0));
-      const checkedIn = isAlertCheckedIn(alert.id);
-      const checkInBusy = alertCheckinInFlight.has(String(alert.id || "").trim());
-      const checkInAction = alert.type === "general" && alert.id
-        ? `
-          <div class="alert-actions">
-            <button type="button" class="alert-checkin-btn ${checkedIn ? "is-checked" : ""}" data-alert-checkin="${alert.id}" ${(checkedIn || checkInBusy) ? "disabled" : ""}>
-              ${checkedIn ? "Checked in" : (checkInBusy ? "Checking in..." : "Check in")}
-            </button>
-            <span class="alert-checkin-count">${checkInCount} user${checkInCount === 1 ? "" : "s"} checked in for this alert</span>
-          </div>
-        `
-        : "";
-      return `
-        <li>
-          <strong>${alert.title}</strong>
-          <span>${alert.detail}</span>
-          <span class="alerts-meta">${alert.meta || ""}${alert.type === "vip" ? " • VIP" : ""}</span>
-          ${timer}
-          ${checkInAction}
-        </li>
-      `;
-    }).join("");
+        const checkInCount = Math.max(0, Number(alert.checkInCount || 0));
+        const checkedIn = isAlertCheckedIn(alert.id);
+        const checkInBusy = alertCheckinInFlight.has(String(alert.id || "").trim());
+        const checkInAction = alert.type === "general" && alert.id
+          ? `
+            <div class="alert-actions">
+              <button type="button" class="alert-checkin-btn ${checkedIn ? "is-checked" : ""}" data-alert-checkin="${alert.id}" ${(checkedIn || checkInBusy) ? "disabled" : ""}>
+                ${checkedIn ? "Checked in" : (checkInBusy ? "Checking in..." : "Check in")}
+              </button>
+              <span class="alert-checkin-count">${checkInCount} user${checkInCount === 1 ? "" : "s"} checked in for this alert</span>
+            </div>
+          `
+          : "";
+        return `
+          <li>
+            <strong>${alert.title}</strong>
+            <span>${alert.detail}</span>
+            <span class="alerts-meta">${alert.meta || ""}${alert.type === "vip" ? " • VIP" : ""}</span>
+            ${timer}
+            ${checkInAction}
+          </li>
+        `;
+      }).join("");
+    }
+
+    function renderAlertsList() {
+      if (!alertsList) return;
+      const visible = getVisibleActiveAlerts(3);
+      alertsList.innerHTML = buildAlertFeedHtml(visible);
     }
 
     function refreshAlertsTicker() {
@@ -21806,6 +21994,22 @@ let onboardingIndex = 0;
         markMemberFeedSeen();
       });
     }
+    if (tonightAlertsList) {
+      tonightAlertsList.addEventListener("click", (event) => {
+        const checkInBtn = event?.target?.closest?.("[data-alert-checkin]");
+        if (checkInBtn) {
+          event.preventDefault();
+          event.stopPropagation();
+          markLiveFeedSeen("alerts");
+          markMemberFeedSeen();
+          const alertId = checkInBtn.getAttribute("data-alert-checkin");
+          submitAlertCheckIn(alertId);
+          return;
+        }
+        markLiveFeedSeen("alerts");
+        markMemberFeedSeen();
+      });
+    }
 
     if (navMenuToggle) {
       navMenuToggle.addEventListener("click", () => toggleNavMenu());
@@ -22071,8 +22275,8 @@ let onboardingIndex = 0;
     if (rewardsRedeemBtn) {
       rewardsRedeemBtn.addEventListener("click", () => {
         syncRewardsCycle();
-        if (isCeoActive() || isFreeMember() || memberProfile?.ceo === true) {
-          if (rewardsError) rewardsError.textContent = "This account has unlimited vouchers.";
+        if (isCeoActive() || isFreeMember() || isExplorerMember() || memberProfile?.ceo === true) {
+          if (rewardsError) rewardsError.textContent = isExplorerMember() ? "Explorer mode is preview-only. Upgrade to earn voucher rewards." : "This account has unlimited vouchers.";
           return;
         }
         if (!rewardsProgress.available) {
@@ -24305,6 +24509,7 @@ let onboardingIndex = 0;
       const val = String(rawTier).toLowerCase();
       if (val.includes("ceo")) return "ceo";
       if (val.includes("free")) return "free";
+      if (val.includes("explorer")) return "explorer";
       if (val.includes("vip")) return "vip";
       if (val.includes("standard")) return "standard";
       return null;
@@ -27867,14 +28072,23 @@ let onboardingIndex = 0;
         syncAlertCheckinsFromCloud(currentPassCode);
       }
       syncPendingForCurrentPass();
-      if (passCodeText && currentPassCode) {
-        passCodeText.textContent = `Pass ID: ${currentPassCode}`;
+      const explorerActive = isExplorerMember();
+      if (passCodeText) {
+        passCodeText.textContent = explorerActive
+          ? "Pass ID: Locked"
+          : (currentPassCode ? `Pass ID: ${currentPassCode}` : "Pass ID:");
       }
-      if (passIdTop && currentPassCode) {
-        passIdTop.textContent = `Pass ID: ${currentPassCode}`;
+      if (passIdTop) {
+        passIdTop.textContent = explorerActive
+          ? "Pass ID: Locked"
+          : (currentPassCode ? `Pass ID: ${currentPassCode}` : "Pass ID:");
       }
       updatePulseBand();
-      if (passQrImage && currentPassCode) {
+      if (passQrImage && explorerActive) {
+        passQrImage.src = "foco-logo.png";
+        passQrImage.alt = "Explorer access locked pass";
+        setOfflineReadyStatus(false, "Upgrade to unlock your digital pass.");
+      } else if (passQrImage && currentPassCode) {
         const baseOrigin = window.location.origin && window.location.origin.startsWith("http")
           ? window.location.origin
           : "https://foco-after-dark.web.app";
@@ -27959,6 +28173,25 @@ let onboardingIndex = 0;
         selectedVenuePerkId = null;
         selectedPerkLabel = null;
         creditInfo.textContent = "This venue hasn’t released this month’s perks yet.";
+        setRedeemConfirmDisabled(true);
+        return;
+      }
+      if (tier === "explorer") {
+        redemptionOptionsGrid.innerHTML = config.map((perk) => {
+          const std = Number(perk.standardQty || 0);
+          const vip = Number(perk.vipQty || 0);
+          return `
+            <div class="perk-option disabled">
+              <span class="perk-label">🔒 ${perk.label || "Venue perk"}</span>
+              <span class="perk-remaining">Standard ${std} · VIP ${vip} · Upgrade to redeem</span>
+            </div>
+          `;
+        }).join("\n");
+        selectedPerkId = null;
+        selectedVenuePerkId = null;
+        selectedPerkLabel = null;
+        if (creditInfo) creditInfo.textContent = "Explorer mode: perks are visible in preview only. Upgrade to redeem.";
+        if (redeemVoucherBalance) redeemVoucherBalance.textContent = "Explorer mode has no voucher balance.";
         setRedeemConfirmDisabled(true);
         return;
       }
@@ -29141,23 +29374,7 @@ let onboardingIndex = 0;
           const codesLine = codesForAlert.length
             ? `<span style="color:#34d399;">Codes: ${codesForAlert.map(([c]) => c).join(", ")}</span>`
             : '<span style="color:#94a3b8;">No codes yet</span>';
-          const dealText = `${alert.title || ""} ${alert.detail || ""}`.trim();
-          const category = parseDealCategoryFromText(dealText);
-          const baselinePrice = getBaselineForCategory(category);
-          const dealPrice = parseDealPriceFromText(dealText);
           const redemptions = getAlertRedemptionCount(alert, venueVerifiedEntries, activeAlerts.length);
-          const roi = computeEstimatedDealRoi({
-            redemptions,
-            baselinePrice,
-            dealPrice,
-            pVisit: ROI_DEFAULTS.pVisit,
-            aovIncremental: ROI_DEFAULTS.aovIncremental,
-            margin: ROI_DEFAULTS.margin
-          });
-          const roiColor = roi.valid ? (roi.roi >= 0 ? "#34d399" : "#f87171") : "#fbbf24";
-          const roiLine = roi.valid
-            ? `<span style="color:${roiColor};font-weight:700;">Estimated ROI: ${formatRoiPercent(roi.roi)}</span>`
-            : '<span style="color:#fbbf24;">Estimated ROI: unavailable (deal price is at/above baseline)</span>';
           return `
             <div class="log-row">
               <strong>${alert.title || "Tonight's deal"}</strong><br/>
@@ -29165,7 +29382,6 @@ let onboardingIndex = 0;
               <span style="color:#93c5fd;font-size:11px;">Expires ${expiresText}</span>
               <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
                 <span style="color:#cbd5f5;">${redemptions} redeemed</span>
-                ${roiLine}
               </div>
               <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
                 <button class="btn btn-primary" data-gen-deal="${alert.id}">Generate code</button>
@@ -29173,11 +29389,7 @@ let onboardingIndex = 0;
               </div>
             </div>
           `;
-        }).join("") + `
-          <div class="small" style="margin-top:8px;color:#94a3b8;">
-            ROI assumptions: baseline $${FIXED_BASELINE_PRICE.toFixed(2)} · p_visit ${ROI_DEFAULTS.pVisit} · incremental spend $${ROI_DEFAULTS.aovIncremental} · margin ${ROI_DEFAULTS.margin}
-          </div>
-        `;
+        }).join("");
       }
       renderStaffRoiPanel();
     }
@@ -29201,11 +29413,15 @@ let onboardingIndex = 0;
       const row = (label, metrics) => {
         const color = metrics.valid ? (metrics.roi >= 0 ? "#34d399" : "#f87171") : "#fbbf24";
         const roiText = metrics.valid ? formatRoiPercent(metrics.roi) : "Unavailable";
+        const roiDollars = metrics.valid ? (metrics.grossUplift - metrics.grossCost) : 0;
+        const roiDollarText = metrics.valid
+          ? `${roiDollars >= 0 ? "+" : "-"}$${Math.abs(roiDollars).toFixed(2)}`
+          : "n/a";
         return `
           <div class="log-meta" style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(148,163,184,0.18);">
             <span style="color:#e2e8f0;font-weight:700;">${label}</span>
             <span style="color:#cbd5f5;">${metrics.redemptions} redeemed</span>
-            <span style="color:${color};font-weight:700;">ROI ${roiText}</span>
+            <span style="color:${color};font-weight:700;">ROI ${roiText} (${roiDollarText})</span>
           </div>
         `;
       };
@@ -29214,9 +29430,6 @@ let onboardingIndex = 0;
           <h5 class="roi-live-title">Estimated ROI (Live)</h5>
           ${row("Vouchers", voucherRoi)}
           ${row("Tonight's Deal", dealRoi)}
-          <div class="small" style="margin-top:6px;color:#94a3b8;">
-            Assumptions: baseline $${FIXED_BASELINE_PRICE.toFixed(2)} · p_visit ${ROI_DEFAULTS.pVisit} · incremental spend $${ROI_DEFAULTS.aovIncremental} · margin ${ROI_DEFAULTS.margin}
-          </div>
         </div>
       `;
     }
@@ -29653,9 +29866,6 @@ let onboardingIndex = 0;
           <div class="analytics-section">
             <h5>Estimated ROI by venue (Vouchers + Tonight's Deal)</h5>
             <ul>${(venueRoiLines.length ? venueRoiLines : ["No verified ROI data yet."]).map(item => `<li>${item}</li>`).join("")}</ul>
-            <div class="small" style="margin-top:6px;color:#94a3b8;">
-              Assumptions: baseline $${FIXED_BASELINE_PRICE.toFixed(2)} · p_visit ${ROI_DEFAULTS.pVisit} · incremental spend $${ROI_DEFAULTS.aovIncremental} · margin ${ROI_DEFAULTS.margin}
-            </div>
           </div>
         </div>
         <div class="analytics-section">
@@ -31208,8 +31418,9 @@ let onboardingIndex = 0;
       staffDealCodeList.addEventListener("click", (e) => {
         const btn = e.target.closest("button[data-gen-deal]");
         if (!btn || !staffSession) return;
-        const alertId = btn.dataset.genDeal;
-        const alert = tonightAlerts.find(a => a.id === alertId);
+        const alertId = String(btn.dataset.genDeal || "").trim();
+        const alert = (Array.isArray(tonightAlerts) ? tonightAlerts : [])
+          .find((a) => String(a?.id || "").trim() === alertId);
         if (!alert) return;
         const code = generateVenueDealCode(alert);
         renderStaffDealCodes();
@@ -31514,6 +31725,9 @@ let onboardingIndex = 0;
     }
     if (ceoPreviewVipBtn) {
       ceoPreviewVipBtn.addEventListener("click", () => startCeoPreview("vip"));
+    }
+    if (ceoPreviewExplorerBtn) {
+      ceoPreviewExplorerBtn.addEventListener("click", () => startCeoPreview("explorer"));
     }
     if (ceoPreviewReturnBtn) {
       ceoPreviewReturnBtn.addEventListener("click", endCeoPreview);
@@ -35067,6 +35281,13 @@ let onboardingIndex = 0;
 
     redeemTrigger.addEventListener("click", () => {
       updateExpiryDisplay();
+      if (isExplorerMember()) {
+        if (typeof showToast === "function") {
+          showToast("Explorer mode is preview-only. Upgrade to unlock redemption.", 2400);
+        }
+        openMembershipChooser();
+        return;
+      }
       if (isMembershipExpired()) {
         if (typeof showToast === "function") {
           showToast("Membership expired. Update billing to redeem.");
@@ -35429,6 +35650,11 @@ let onboardingIndex = 0;
         openMembershipChooser();
       });
     }
+    if (explorerUpgradeBtn) {
+      explorerUpgradeBtn.addEventListener("click", () => {
+        openMembershipChooser();
+      });
+    }
     tierModalAction.addEventListener("click", async () => {
       const targetTier = tierModalAction.dataset.targetTier;
       if (!targetTier) {
@@ -35448,6 +35674,7 @@ let onboardingIndex = 0;
       const tier = normalizeTierKey(tierRaw) || String(tierRaw || "").toLowerCase();
       if (tier === "ceo") return "ceo";
       if (tier === "free" || tier === "ceo_free") return "ceo_free";
+      if (tier === "explorer") return "explorer";
       if (tier === "vip") return "vip";
       return "standard";
     }
@@ -35458,6 +35685,7 @@ let onboardingIndex = 0;
       if (profileExperienceTag) {
         if (mode === "ceo") profileExperienceTag.textContent = "Founder Mode";
         else if (mode === "ceo_free") profileExperienceTag.textContent = "CEO ISSUED";
+        else if (mode === "explorer") profileExperienceTag.textContent = "Explorer";
         else if (mode === "vip") profileExperienceTag.textContent = "VIP";
         else profileExperienceTag.textContent = "Standard";
       }
@@ -35475,9 +35703,14 @@ let onboardingIndex = 0;
       }
       currentMembershipTier = tier;
       applyProfileTierMode(tier);
+      if (statusPill) statusPill.classList.remove("danger");
       if (memberProfile && !ceoPreviewTier) {
         const freeFlag = tier === "free";
         const updates = { tier, freeMembership: freeFlag };
+        if (tier === "explorer") {
+          updates.membershipStatus = "explorer";
+          updates.paymentStatus = memberProfile?.paymentStatus || "active";
+        }
         if (memberProfile.tier !== tier && firebaseAuth.currentUser) {
           updateMemberProfile(updates);
         }
@@ -35528,8 +35761,34 @@ let onboardingIndex = 0;
         `;
         statusPill.textContent = ceoActive ? "CEO" : "VIP";
         passTierText.textContent = ceoActive ? "CEO Black Card" : "Nightlife Pass • VIP";
+      } else if (tier === "explorer") {
+        statusPill.classList.remove("vip-status", "ceo");
+        statusPill.classList.add("danger");
+        perksListEl.innerHTML = `
+          <li class="perk-row"><span class="perk-dot"></span> Browse participating venues and map</li>
+          <li class="perk-row"><span class="perk-dot"></span> Preview Standard + VIP perks in locked mode</li>
+          <li class="perk-row"><span class="perk-dot"></span> Upgrade to unlock pass + redemptions</li>
+        `;
+        statusPill.textContent = "Explorer";
+        passTierText.textContent = "Nightlife Pass • Explorer";
+        if (expiryText) expiryText.textContent = "Upgrade to activate digital pass";
       } else {
         statusPill.classList.remove("vip-status", "ceo");
+      }
+      if (passCard) {
+        passCard.classList.toggle("explorer-locked", tier === "explorer");
+      }
+      if (explorerLockBanner) {
+        explorerLockBanner.style.display = tier === "explorer" ? "flex" : "none";
+      }
+      if (redeemTrigger) {
+        redeemTrigger.textContent = tier === "explorer" ? "Unlock redemption" : "Redeem a perk";
+      }
+      if (tonightRedeemBtn) {
+        tonightRedeemBtn.querySelector(".tonight-redeem-title")?.replaceChildren(document.createTextNode(tier === "explorer" ? "Upgrade to Redeem" : "Redeem a Perk"));
+      }
+      if (buyDrinksBtn) {
+        buyDrinksBtn.style.display = tier === "explorer" ? "none" : "";
       }
       if (tier === "free") {
         localStorage.setItem(`${FREE_NOTICE_PREFIX}${(currentPassCode || "").toUpperCase()}`, "1");
