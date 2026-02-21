@@ -8133,6 +8133,102 @@
     }
     .user-name { font-size: 18px; }
     .user-tier { font-size: 11px; letter-spacing: 0.16em; opacity: 0.9; }
+    .profile-summary .user-details {
+      min-width: 0;
+      gap: 8px;
+    }
+    .profile-summary .pass-id-row {
+      margin-top: 4px;
+    }
+    .profile-summary .pass-id-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 0 18px;
+      position: relative;
+      border-radius: 16px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 45%, var(--border));
+      background:
+        linear-gradient(140deg, rgba(9, 14, 28, 0.96), rgba(12, 16, 30, 0.9));
+      box-shadow:
+        0 12px 28px rgba(2, 6, 18, 0.56),
+        0 0 22px color-mix(in srgb, var(--accent-primary-live) 28%, transparent),
+        inset 0 0 18px color-mix(in srgb, var(--accent-primary-live) 14%, transparent);
+      letter-spacing: 0.08em;
+      font-weight: 800;
+    }
+    .profile-summary .pass-id-chip::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: linear-gradient(105deg, transparent 8%, rgba(255,255,255,0.12) 38%, transparent 64%);
+      opacity: 0.35;
+      mix-blend-mode: screen;
+    }
+    .profile-summary .username-row {
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .profile-summary .username-chip {
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 15px;
+      border: 1px solid color-mix(in srgb, var(--accent-secondary-live) 42%, var(--border));
+      background:
+        linear-gradient(130deg, rgba(9, 13, 24, 0.95), rgba(11, 15, 29, 0.9));
+      box-shadow:
+        0 10px 24px rgba(2, 6, 18, 0.5),
+        0 0 20px color-mix(in srgb, var(--accent-secondary-live) 22%, transparent),
+        inset 0 0 14px color-mix(in srgb, var(--accent-secondary-live) 12%, transparent);
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .profile-summary .username-edit {
+      min-width: 54px;
+      min-height: 44px;
+      border-radius: 15px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 45%, var(--border));
+      background: linear-gradient(130deg, rgba(17, 22, 38, 0.94), rgba(18, 24, 42, 0.9));
+      box-shadow:
+        0 12px 24px rgba(2, 6, 18, 0.5),
+        0 0 22px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
+        inset 0 0 14px color-mix(in srgb, var(--accent-primary-live) 14%, transparent);
+    }
+    .profile-summary .user-tagline {
+      margin-top: 2px;
+      font-size: clamp(16px, 2vw, 22px);
+      color: #e2e8f0 !important;
+      text-shadow:
+        0 0 16px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
+        0 0 34px color-mix(in srgb, var(--accent-secondary-live) 18%, transparent);
+    }
+    .profile-summary .tagline-edit-hint {
+      letter-spacing: 0.16em;
+      color: color-mix(in srgb, var(--accent-primary-live) 60%, #94a3b8);
+    }
+    .profile-summary .avatar-tools {
+      margin-top: 10px;
+    }
+    .profile-summary .avatar-edit-btn {
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 18px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 45%, var(--border));
+      background: linear-gradient(135deg, rgba(16, 22, 40, 0.94), rgba(13, 18, 34, 0.9));
+      color: #eaf4ff;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      box-shadow:
+        0 14px 30px rgba(2, 6, 18, 0.5),
+        0 0 24px color-mix(in srgb, var(--accent-primary-live) 26%, transparent),
+        inset 0 0 14px color-mix(in srgb, var(--accent-primary-live) 14%, transparent);
+    }
     .meta-row.profile-meta {
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;

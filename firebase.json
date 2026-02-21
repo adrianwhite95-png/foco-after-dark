@@ -3,7 +3,7 @@
     "site": "foco-after-dark",
     "public": ".",
     "predeploy": [
-      "bash -lc \"VERSION=$(date -u +%Y.%m.%d).manual-$(date -u +%H%M%S); printf '{\\n  \\\"version\\\": \\\"%s\\\"\\n}\\n' \\\"$VERSION\\\" > version.json; echo Stamped version.json: $VERSION\""
+      "bash ./scripts/stamp-version.sh"
     ],
     "ignore": [
       "firebase.json",
