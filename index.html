@@ -11586,6 +11586,118 @@
     body.mobile-performance .pill-new.active {
       animation: none !important;
     }
+
+    /* Landing conversion strip: trust + speed cues */
+    .landing-conversion-strip {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+    .conversion-chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 24%, rgba(148, 163, 184, 0.35));
+      background: linear-gradient(140deg, rgba(5, 12, 28, 0.84), rgba(8, 16, 34, 0.78));
+      color: #dbeafe;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      box-shadow: 0 8px 16px rgba(1, 7, 20, 0.32);
+    }
+    #landingGetPassBtn {
+      position: relative;
+      isolation: isolate;
+    }
+    #landingGetPassBtn::before {
+      content: "";
+      position: absolute;
+      inset: -3px;
+      border-radius: inherit;
+      background: linear-gradient(120deg, rgba(34, 211, 238, 0.3), rgba(244, 114, 182, 0.28), rgba(34, 197, 94, 0.24));
+      filter: blur(9px);
+      z-index: -1;
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    /* Member redeem flow: clearer selection + action certainty */
+    #redeemModal .modal-card {
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 30%, rgba(148, 163, 184, 0.28));
+      box-shadow:
+        0 16px 32px rgba(0, 0, 0, 0.44),
+        0 0 26px color-mix(in srgb, var(--accent-primary-live) 20%, transparent);
+    }
+    #redeemModal .perk-grid {
+      gap: 10px;
+      max-height: min(40vh, 340px);
+      overflow: auto;
+      padding-right: 3px;
+    }
+    #redeemModal .perk-option {
+      min-height: 64px;
+      border-width: 1px;
+      border-color: color-mix(in srgb, var(--accent-primary-live) 20%, rgba(148, 163, 184, 0.34));
+      background: linear-gradient(145deg, rgba(7, 14, 30, 0.86), rgba(10, 16, 34, 0.76));
+      transition: transform var(--ui-motion-fast) var(--ui-ease), box-shadow var(--ui-motion-fast) ease, border-color var(--ui-motion-fast) ease;
+    }
+    #redeemModal .perk-option:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(3, 10, 24, 0.3);
+    }
+    #redeemModal .perk-option.selected {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 76%, #93c5fd);
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 52%, transparent),
+        0 0 20px color-mix(in srgb, var(--accent-primary-live) 28%, transparent);
+    }
+    #redeemModal #redeemConfirm {
+      min-height: 46px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* Staff verify flow: high-legibility, fast actions, calmer backlog list */
+    #verifyCard .staff-verify-title {
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    #verifyCard #verifyCode,
+    #verifyCard #memberIdInput {
+      font-size: 15px;
+      letter-spacing: 0.07em;
+      border-color: color-mix(in srgb, var(--accent-primary-live) 34%, rgba(148, 163, 184, 0.5));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 12%, transparent);
+    }
+    #verifyCard #verifyForm .btn.btn-primary,
+    #verifyCard #memberIdForm .btn.btn-primary {
+      min-height: 44px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    #verifyCard .staff-pending {
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 22%, rgba(148, 163, 184, 0.34));
+      background: linear-gradient(145deg, rgba(7, 13, 28, 0.82), rgba(9, 15, 32, 0.74));
+      box-shadow: inset 0 0 16px color-mix(in srgb, var(--accent-primary-live) 8%, transparent);
+    }
+    #verifyCard .staff-pending-count {
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 42%, transparent);
+      background: color-mix(in srgb, var(--accent-primary-live) 18%, rgba(15, 23, 42, 0.66));
+      font-size: 11px;
+      letter-spacing: 0.08em;
+    }
+    #verifyCard .staff-pending-row {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 22%, rgba(148, 163, 184, 0.26));
+    }
+    #verifyCard .staff-pending-row:hover {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 42%, rgba(148, 163, 184, 0.28));
+      box-shadow: 0 8px 18px rgba(2, 8, 22, 0.32);
+    }
   </style>
 </head>
   <body>
@@ -11718,6 +11830,11 @@
       <button id="landingGetPassBtn" class="btn btn-primary">
         Get the Nightlife Pass · 21+
       </button>
+      <div class="landing-conversion-strip" aria-hidden="true">
+        <span class="conversion-chip">Fast signup</span>
+        <span class="conversion-chip">ID verified 21+</span>
+        <span class="conversion-chip">Perks live nightly</span>
+      </div>
       <button id="addToHomeBtn" class="btn btn-primary cta-shimmer" style="margin-top:18px;margin-bottom:18px;background:linear-gradient(120deg,#22d3ee,#f472b6);color:#0b1222;font-weight:800;letter-spacing:0.06em;box-shadow:0 12px 32px rgba(34,211,238,0.35),0 0 28px rgba(244,114,182,0.35);border:none;">
         Add to Home Screen
       </button>
