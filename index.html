@@ -11447,6 +11447,145 @@
       color: #f2f7ff;
       text-shadow: 0 0 8px rgba(34, 211, 238, 0.12);
     }
+
+    /* Unified chips / badges for cleaner scanning */
+    .pill,
+    .pill-ghost,
+    .pill-new,
+    .status-pill,
+    .status-pill-sm,
+    .chip {
+      border-radius: 999px;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .pill-new,
+    .pill-new.active {
+      background: linear-gradient(120deg, rgba(239, 68, 68, 0.28), rgba(248, 113, 113, 0.18));
+      border: 1px solid rgba(248, 113, 113, 0.52);
+      color: #ffe4e6;
+      box-shadow: 0 0 14px rgba(239, 68, 68, 0.24);
+      animation: pillPulse 2.1s ease-in-out infinite;
+    }
+    @keyframes pillPulse {
+      0%, 100% { transform: translateY(0); box-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
+      50% { transform: translateY(-1px); box-shadow: 0 0 18px rgba(239, 68, 68, 0.3); }
+    }
+
+    /* Better progressive disclosure affordance */
+    details.member-command-deck > summary,
+    details.staff-more > summary {
+      position: relative;
+      padding-right: 40px;
+    }
+    details.member-command-deck > summary::after,
+    details.staff-more > summary::after {
+      content: "▾";
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: color-mix(in srgb, var(--accent-primary-live) 78%, #fff);
+      font-size: 12px;
+      transition: transform var(--ui-motion-fast) var(--ui-ease);
+      opacity: 0.9;
+    }
+    details.member-command-deck[open] > summary::after,
+    details.staff-more[open] > summary::after {
+      transform: translateY(-50%) rotate(180deg);
+    }
+
+    /* Native-like dropdown polish */
+    .field select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, #8fd3ff 50%),
+        linear-gradient(135deg, #8fd3ff 50%, transparent 50%);
+      background-position:
+        calc(100% - 18px) calc(50% - 2px),
+        calc(100% - 12px) calc(50% - 2px);
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 34px;
+    }
+
+    /* Live cards feel active without overload */
+    #passScreen .alerts-card,
+    #staffPortalScreen .staff-radar,
+    #ceoPortalScreen .ceo-status-card {
+      box-shadow:
+        0 14px 30px rgba(2, 8, 24, 0.46),
+        inset 0 0 22px color-mix(in srgb, var(--accent-primary-live) 12%, transparent),
+        0 0 20px color-mix(in srgb, var(--accent-primary-live) 16%, transparent);
+    }
+    #passScreen .alerts-card h4,
+    #staffPortalScreen .radar-title,
+    #ceoPortalScreen .ceo-status-card h4 {
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* Shared section header style */
+    .member-hero-title,
+    .member-command-title,
+    .nav-accent-title,
+    .staff-section-title,
+    .ceo-section-title {
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    /* Compact density on phones, comfortable on web */
+    body[data-density="compact"] .screen {
+      padding: 12px;
+      gap: 12px;
+    }
+    body[data-density="compact"] .btn {
+      min-height: 42px;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+    }
+    body[data-density="compact"] .pass-card,
+    body[data-density="compact"] .staff-form,
+    body[data-density="compact"] .ceo-hq-panel,
+    body[data-density="compact"] .modal-card {
+      border-radius: 15px;
+    }
+    body[data-density="compact"] .community-stat strong {
+      font-size: 15px;
+    }
+    body[data-density="comfortable"] .screen {
+      padding: 16px;
+      gap: 16px;
+    }
+
+    /* Prevent small-screen overlap bleed in high-motion sections */
+    .member-hero,
+    .profile-summary,
+    .staff-radar,
+    .ceo-hq-panel,
+    .landing-feature-card,
+    .hero-point {
+      contain: layout paint style;
+    }
+
+    /* Keep scrolling smooth on iOS */
+    body.ios .screen,
+    body.ios .modal-card,
+    body.ios .ceo-hq-nav {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+
+    /* Respect reduced perf mode */
+    body.mobile-performance .pill-new,
+    body.mobile-performance .pill-new.active {
+      animation: none !important;
+    }
   </style>
 </head>
   <body>
@@ -34189,6 +34328,16 @@ let onboardingIndex = 0;
       el.textContent = cheersQuotes[idx];
     }, intervalMs);
   }
+
+  function applyUiDensityMode() {
+    const width = window.innerWidth || document.documentElement.clientWidth || 1024;
+    const density = width <= 900 ? "compact" : "comfortable";
+    document.body.setAttribute("data-density", density);
+  }
+  applyUiDensityMode();
+  window.addEventListener("resize", () => {
+    window.requestAnimationFrame(applyUiDensityMode);
+  }, { passive: true });
 
   // One-time hooks
   attachCopyHandlers();
