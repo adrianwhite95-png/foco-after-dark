@@ -8423,6 +8423,189 @@
       color: color-mix(in srgb, var(--text) 86%, var(--muted));
       opacity: 0.92;
     }
+    .launch-hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: 14px;
+      margin-top: 8px;
+    }
+    .launch-hero-main {
+      border-radius: 20px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 22%, var(--border));
+      background:
+        linear-gradient(150deg, rgba(10, 18, 36, 0.94), rgba(10, 14, 28, 0.9));
+      box-shadow:
+        0 20px 44px rgba(2, 6, 18, 0.55),
+        inset 0 0 28px color-mix(in srgb, var(--accent-primary-live) 12%, transparent);
+      padding: 18px 18px 16px;
+      text-align: left;
+    }
+    .launch-hero-title {
+      margin: 6px 0 6px;
+      font-size: clamp(22px, 2.8vw, 30px);
+      line-height: 1.2;
+      letter-spacing: 0.01em;
+      color: #f8fafc;
+      text-shadow: 0 0 16px color-mix(in srgb, var(--accent-primary-live) 20%, transparent);
+    }
+    .launch-hero-copy {
+      margin: 0;
+      color: color-mix(in srgb, var(--text) 84%, #cbd5e1);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+    .launch-kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .launch-kpi-chip {
+      border-radius: 12px;
+      padding: 10px 10px 9px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 25%, var(--border));
+      background: rgba(9, 14, 28, 0.88);
+      box-shadow: inset 0 0 14px color-mix(in srgb, var(--accent-primary-live) 10%, transparent);
+      text-align: left;
+      min-height: 64px;
+    }
+    .launch-kpi-chip span {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .launch-kpi-chip strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.25;
+      color: #e2e8f0;
+      letter-spacing: 0.02em;
+    }
+    .launch-live-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .launch-live-card {
+      border-radius: 16px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 20%, var(--border));
+      background:
+        linear-gradient(145deg, rgba(9, 14, 28, 0.95), rgba(9, 12, 24, 0.9));
+      box-shadow:
+        0 14px 28px rgba(2, 6, 18, 0.52),
+        inset 0 0 16px color-mix(in srgb, var(--accent-secondary-live) 12%, transparent);
+      padding: 12px 14px;
+      text-align: left;
+      min-height: 108px;
+    }
+    .launch-live-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 35%, var(--border));
+      background: rgba(8, 18, 36, 0.74);
+      color: color-mix(in srgb, var(--accent-primary-live) 72%, #e2e8f0);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .launch-live-card strong {
+      display: block;
+      color: #f1f5f9;
+      font-size: 14px;
+      line-height: 1.25;
+      margin-bottom: 4px;
+    }
+    .launch-live-card p {
+      margin: 0;
+      color: #94a3b8;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .launch-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+      margin-bottom: 12px;
+    }
+    .launch-actions #landingGetPassBtn,
+    .launch-actions #addToHomeBtn {
+      width: 100% !important;
+      margin: 0 !important;
+    }
+    #addToHomeBtn.cta-shimmer {
+      margin: 0 !important;
+      border: 1px solid color-mix(in srgb, var(--accent-secondary-live) 52%, rgba(255,255,255,0.25)) !important;
+      background: linear-gradient(120deg, #22d3ee, #f472b6) !important;
+      color: #0b1222 !important;
+      box-shadow:
+        0 12px 28px rgba(2, 6, 18, 0.5),
+        0 0 26px rgba(244, 114, 182, 0.34),
+        0 0 20px rgba(34, 211, 238, 0.3) !important;
+    }
+    .launch-entry-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 2px;
+      width: 100%;
+    }
+    #landingScreen .launch-entry-card {
+      width: 100%;
+      min-height: 92px;
+      border-radius: 16px !important;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 44%, var(--border)) !important;
+      background:
+        linear-gradient(145deg, rgba(9, 16, 34, 0.96), rgba(8, 14, 28, 0.92)) !important;
+      box-shadow:
+        0 12px 26px rgba(2, 6, 18, 0.5),
+        inset 0 0 18px color-mix(in srgb, var(--accent-primary-live) 16%, transparent) !important;
+      color: #e2e8f0 !important;
+      text-align: left;
+      text-transform: none !important;
+      letter-spacing: 0 !important;
+      padding: 12px 14px !important;
+      align-items: flex-start;
+      justify-content: flex-start;
+    }
+    #landingScreen .launch-entry-card .launch-entry-title {
+      display: block;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #f8fafc;
+      margin-bottom: 4px;
+    }
+    #landingScreen .launch-entry-card .launch-entry-sub {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+      color: #9fb0c8;
+      letter-spacing: 0.01em;
+    }
+    #landingScreen .launch-entry-card.launch-entry-card-staff {
+      border-color: color-mix(in srgb, #a78bfa 54%, var(--border)) !important;
+      box-shadow:
+        0 12px 26px rgba(2, 6, 18, 0.5),
+        inset 0 0 18px color-mix(in srgb, #a78bfa 22%, transparent) !important;
+    }
+    @media (max-width: 920px) {
+      .launch-hero-grid,
+      .launch-entry-row {
+        grid-template-columns: 1fr;
+      }
+      .launch-actions {
+        grid-template-columns: 1fr;
+      }
+      .launch-kpi-strip {
+        grid-template-columns: 1fr;
+      }
+    }
     .hero-highlight {
       gap: 10px;
       padding: 14px;
@@ -11946,6 +12129,12 @@
     #passScreen .top-right-logout {
       display: none !important;
     }
+    body.ceo-active #passScreen .top-right-logout {
+      display: flex !important;
+    }
+    body.ceo-preview-active #passScreen .top-right-logout {
+      display: none !important;
+    }
     #passScreen .profile-summary .user-row {
       justify-content: center;
       text-align: center;
@@ -12077,91 +12266,56 @@
             </div>
             <div class="app-title"><span>FoCo</span> After Dark 21+</div>
             <div class="tagline" id="landingTagline">
-              Your all-in-one nightlife pass for Fort Collins. Live deals, fast redemption, and real-time savings.
+              Fort Collins nightlife, redesigned: instant perks, live venue alerts, and a pass built to move with your night.
             </div>
-            <div class="hero-highlight hero-animated">
-              <div class="hero-point neon-card flip-card" role="button" tabindex="0">
-                <div class="hero-point-inner">
-                  <div class="hero-point-face hero-point-front">
-                    <div class="hero-point-icon pulse">1</div>
-                    <div>
-                      <strong>Tonight’s perks</strong>
-                      <p>See what each venue is offering now, then claim in seconds.</p>
-                    </div>
-                  </div>
-                  <div class="hero-point-face hero-point-back">
-                    <div class="hero-point-icon ghost">1</div>
-                    <div>
-                      <span class="hero-point-back-title">Perks update live</span>
-                      <p>Venue updates publish live so members always see the current offers.</p>
-                    </div>
-                  </div>
+            <div class="launch-hero-grid">
+              <div class="launch-hero-main">
+                <div class="micro-label">Tonight starts here</div>
+                <h2 class="launch-hero-title">One pass. Every venue. Live all night.</h2>
+                <p class="launch-hero-copy">
+                  See what is active right now, redeem in seconds, and track every verified perk in one profile.
+                </p>
+                <div class="launch-kpi-strip">
+                  <div class="launch-kpi-chip"><span>Real-time</span><strong>Venue alerts</strong></div>
+                  <div class="launch-kpi-chip"><span>Fast flow</span><strong>Instant redeem</strong></div>
+                  <div class="launch-kpi-chip"><span>Member value</span><strong>Track savings</strong></div>
                 </div>
               </div>
-              <div class="hero-point neon-card flip-card" role="button" tabindex="0">
-                <div class="hero-point-inner">
-                  <div class="hero-point-face hero-point-front">
-                    <div class="hero-point-icon pulse">2</div>
-                    <div>
-                      <strong>Instant redemption</strong>
-                      <p>Show your pass, get verified by staff, and watch balance update instantly.</p>
-                    </div>
-                  </div>
-                  <div class="hero-point-face hero-point-back">
-                    <div class="hero-point-icon ghost">2</div>
-                    <div>
-                      <span class="hero-point-back-title">Verified & tracked</span>
-                      <p>Every redemption syncs to your profile for accurate nights and voucher history.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="hero-point neon-card flip-card" role="button" tabindex="0">
-                <div class="hero-point-inner">
-                  <div class="hero-point-face hero-point-front">
-                    <div class="hero-point-icon pulse">3</div>
-                    <div>
-                      <strong>Built with venues</strong>
-                      <p>Local bars control perks directly, and every redemption is verified live.</p>
-                    </div>
-                  </div>
-                  <div class="hero-point-face hero-point-back">
-                    <div class="hero-point-icon ghost">3</div>
-                    <div>
-                      <span class="hero-point-back-title">Venue controlled</span>
-                      <p>Each venue controls Standard/VIP quantities so offers stay fair and current.</p>
-                    </div>
-                  </div>
-                </div>
+              <div class="launch-live-grid">
+                <article class="launch-live-card">
+                  <span class="launch-live-tag">Live alerts</span>
+                  <strong>Venue posts hit instantly</strong>
+                  <p>When a venue posts tonight’s alert, members see it immediately and can act fast.</p>
+                </article>
+                <article class="launch-live-card">
+                  <span class="launch-live-tag">Pass ready</span>
+                  <strong>Verification built for speed</strong>
+                  <p>Show your pass, get confirmed by staff, and keep your night moving without delays.</p>
+                </article>
+                <article class="launch-live-card">
+                  <span class="launch-live-tag">Membership tiers</span>
+                  <strong>Standard, VIP, or Explorer</strong>
+                  <p>Choose your level and unlock the perks that match how you go out.</p>
+                </article>
               </div>
             </div>
-            <div class="landing-feature-grid">
-              <div class="landing-feature-card">
-                <strong>Your pass is always ready</strong>
-                <p>Open the app and show your pass ID at the bar for fast verification.</p>
-              </div>
-              <div class="landing-feature-card">
-                <strong>Live venue deals</strong>
-                <p>Deals update in real time as venues post alerts and monthly perks.</p>
-              </div>
-              <div class="landing-feature-card">
-                <strong>Track savings + nights</strong>
-                <p>See vouchers redeemed, nights out, and estimated savings from one profile view.</p>
-              </div>
+            <div class="launch-actions">
+              <button id="landingGetPassBtn" class="btn btn-primary">
+                Get the Nightlife Pass · 21+
+              </button>
+              <button id="addToHomeBtn" class="btn btn-primary cta-shimmer">
+                Add to Home Screen
+              </button>
             </div>
-            <button id="landingGetPassBtn" class="btn btn-primary">
-              Get the Nightlife Pass · 21+
-            </button>
-            <button id="addToHomeBtn" class="btn btn-primary cta-shimmer" style="margin-top:18px;margin-bottom:18px;background:linear-gradient(120deg,#22d3ee,#f472b6);color:#0b1222;font-weight:800;letter-spacing:0.06em;box-shadow:0 12px 32px rgba(34,211,238,0.35),0 0 28px rgba(244,114,182,0.35);border:none;">
-              Add to Home Screen
-            </button>
-            <div class="landing-login-row">
-              <div class="landing-login-label">Already a member?</div>
-              <span id="landingLoginLink" class="linkish">Log in</span>
-            </div>
-            <div class="landing-login-row">
-              <div class="landing-login-label">Venue portal?</div>
-              <button id="landingStaffLogin" class="linkish linkish-btn" type="button">Log in as venue staff</button>
+            <div class="launch-entry-row">
+              <button id="landingLoginLink" class="launch-entry-card" type="button">
+                <span class="launch-entry-title">Member Login</span>
+                <span class="launch-entry-sub">Already have a pass? Jump straight into your profile.</span>
+              </button>
+              <button id="landingStaffLogin" class="launch-entry-card launch-entry-card-staff" type="button">
+                <span class="launch-entry-title">Venue Staff Portal</span>
+                <span class="launch-entry-sub">Verify vouchers, post alerts, and run your venue in real time.</span>
+              </button>
             </div>
             <div class="insta-cta-wrap">
               <div class="insta-cta">
@@ -15393,13 +15547,14 @@
       const memberPrimaryScreens = new Set(["tonight", "pass", "venues", "map", "profileActivity", "menu"]);
       if (bottomNav) {
         const hasAuthedMember = !!firebaseAuth?.currentUser;
-        const shouldShowBottomNav = hasAuthedMember && memberPrimaryScreens.has(name) && !ceoSession && !staffSession;
+        const ceoInPreview = !!(ceoSession && ceoPreviewTier);
+        const shouldShowBottomNav = hasAuthedMember && memberPrimaryScreens.has(name) && !staffSession && (!ceoSession || ceoInPreview);
         bottomNav.style.display = shouldShowBottomNav ? "grid" : "none";
         bottomNavItems.forEach((item) => {
           item.classList.toggle("active", item.dataset.bottomNav === name);
         });
       }
-      if (firebaseAuth?.currentUser && memberPrimaryScreens.has(name) && !ceoSession && !staffSession) {
+      if (firebaseAuth?.currentUser && memberPrimaryScreens.has(name) && !staffSession && (!ceoSession || !!ceoPreviewTier)) {
         startMemberNoticesListener(firebaseAuth.currentUser.uid || "");
       } else if (name === "landing" || name === "auth" || ceoSession || staffSession) {
         stopMemberNoticesListener();
@@ -21962,6 +22117,7 @@ let onboardingIndex = 0;
       alertCheckinsCloudSyncAt = 0;
       alertCheckinsCloudSyncPass = "";
       document.body.classList.remove("ceo-active");
+      document.body.classList.remove("ceo-preview-active");
       clearPendingMembershipFlagForUser(currentUid);
       applyRememberedEmailToForm();
       showScreen("landing");
@@ -33940,6 +34096,8 @@ let onboardingIndex = 0;
       currentPerkState = null;
       applyMembershipToPass(tier);
       updateCeoPassUI();
+      showScreen("tonight");
+      showToast(`Previewing ${tierLabelFromKey(tier)} experience`, 2000);
     }
 
     function endCeoPreview() {
@@ -33950,6 +34108,7 @@ let onboardingIndex = 0;
       currentPerkState = null;
       applyMembershipToPass("vip");
       updateCeoPassUI();
+      showScreen("pass");
     }
 
     if (voucherChargeOnFile) {
@@ -35181,21 +35340,23 @@ let onboardingIndex = 0;
 
     function updateCeoPassUI() {
       const ceoActive = isCeoActive();
+      const ceoPreviewActive = !!ceoPreviewTier;
       const canCeoRealtime = authClaimsReady && hasCeoClaim() && !SAFE_MODE;
       if (ceoPassBanner) {
-        ceoPassBanner.classList.toggle("active", isCeoAccount);
+        ceoPassBanner.classList.toggle("active", ceoActive);
       }
       if (memberActionButtons) {
         memberActionButtons.style.display = ceoActive ? "none" : "";
       }
+      document.body.classList.toggle("ceo-preview-active", ceoPreviewActive);
       if (ceoBetaSwitcher) {
         ceoBetaSwitcher.classList.toggle("active", isCeoAccount);
       }
       if (ceoResetCard) {
-        ceoResetCard.style.display = isCeoAccount ? "" : "none";
+        ceoResetCard.style.display = ceoActive ? "" : "none";
       }
       if (ceoChatCard) {
-        ceoChatCard.style.display = isCeoAccount ? "" : "none";
+        ceoChatCard.style.display = ceoActive ? "" : "none";
       }
       if (ceoPreviewLabel) {
         ceoPreviewLabel.textContent = ceoPreviewTier
@@ -35203,38 +35364,38 @@ let onboardingIndex = 0;
           : "Live CEO view";
       }
       if (ceoRedemptionBtn) {
-        ceoRedemptionBtn.style.display = isCeoAccount ? "" : "none";
+        ceoRedemptionBtn.style.display = ceoActive ? "" : "none";
       }
       if (ceoReviewBtn) {
-        ceoReviewBtn.style.display = isCeoAccount ? "" : "none";
+        ceoReviewBtn.style.display = ceoActive ? "" : "none";
       }
       if (ceoAnalyticsBtn) {
-        ceoAnalyticsBtn.style.display = isCeoAccount ? "" : "none";
+        ceoAnalyticsBtn.style.display = ceoActive ? "" : "none";
       }
       if (ceoPitchToggle) {
-        ceoPitchToggle.style.display = isCeoAccount ? "" : "none";
+        ceoPitchToggle.style.display = ceoActive ? "" : "none";
       }
       if (ceoMembersCard) {
-        ceoMembersCard.style.display = isCeoAccount ? "" : "none";
-        if (isCeoAccount && canCeoRealtime) startCeoMembersRealtime();
+        ceoMembersCard.style.display = ceoActive ? "" : "none";
+        if (ceoActive && canCeoRealtime) startCeoMembersRealtime();
       }
       if (ceoLaunchCard) {
-        ceoLaunchCard.style.display = isCeoAccount ? "" : "none";
-        if (isCeoAccount && canCeoRealtime) loadLaunchMode();
+        ceoLaunchCard.style.display = ceoActive ? "" : "none";
+        if (ceoActive && canCeoRealtime) loadLaunchMode();
       }
       if (ceoAppLockCard) {
-        ceoAppLockCard.style.display = isCeoAccount ? "" : "none";
+        ceoAppLockCard.style.display = ceoActive ? "" : "none";
       }
       if (ceoMaintenanceCard) {
-        ceoMaintenanceCard.style.display = isCeoAccount ? "" : "none";
+        ceoMaintenanceCard.style.display = ceoActive ? "" : "none";
       }
       if (ceoSystemHealthCard) {
-        ceoSystemHealthCard.style.display = isCeoAccount ? "" : "none";
-        if (isCeoAccount && canCeoRealtime) startHealthWatch();
+        ceoSystemHealthCard.style.display = ceoActive ? "" : "none";
+        if (ceoActive && canCeoRealtime) startHealthWatch();
       } else {
         stopHealthWatch();
       }
-      if (isCeoAccount && canCeoRealtime) {
+      if (ceoActive && canCeoRealtime) {
         attachCeoRedemptionsRealtime();
         attachCloseOutReportsRealtime();
       } else {
