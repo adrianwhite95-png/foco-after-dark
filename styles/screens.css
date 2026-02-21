@@ -1,0 +1,115 @@
+/* Screen layer: portal-specific atmosphere and density */
+
+.screen {
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-3);
+}
+
+body[data-density="compact"] .screen {
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2);
+}
+
+/* Portal hero scenes (visual storytelling) */
+#passScreen.active::before,
+#staffPortalScreen.active::before,
+#ceoPortalScreen.active::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.32;
+}
+
+#passScreen.active::before {
+  background:
+    radial-gradient(70% 50% at 15% 18%, color-mix(in srgb, var(--accent-primary-live) 26%, transparent), transparent 72%),
+    radial-gradient(55% 45% at 84% 82%, color-mix(in srgb, var(--accent-secondary-live) 22%, transparent), transparent 76%);
+}
+
+#staffPortalScreen.active::before {
+  background:
+    radial-gradient(64% 46% at 18% 14%, rgba(56, 189, 248, 0.2), transparent 72%),
+    radial-gradient(52% 44% at 86% 82%, rgba(34, 197, 94, 0.18), transparent 76%);
+}
+
+#ceoPortalScreen.active::before {
+  background:
+    radial-gradient(68% 48% at 14% 16%, rgba(251, 191, 36, 0.2), transparent 72%),
+    radial-gradient(56% 42% at 84% 84%, rgba(96, 165, 250, 0.16), transparent 76%);
+}
+
+#passScreen.active > *,
+#staffPortalScreen.active > *,
+#ceoPortalScreen.active > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Landing conversion clarity */
+.landing-feature-grid {
+  gap: var(--ds-space-2);
+}
+
+#landingGetPassBtn {
+  box-shadow:
+    0 16px 28px rgba(1, 7, 20, 0.36),
+    0 0 calc(28px * var(--fx-glow-strength)) rgba(34, 211, 238, 0.3),
+    0 0 calc(22px * var(--fx-glow-strength)) rgba(244, 114, 182, 0.26);
+}
+
+/* Member redeem path */
+#redeemModal .modal-card {
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, rgba(148, 163, 184, 0.3));
+}
+
+#redeemModal .perk-grid {
+  gap: var(--ds-space-1);
+  max-height: min(42vh, 360px);
+  overflow: auto;
+}
+
+/* Staff verify path */
+#verifyCard .staff-pending {
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 20%, rgba(148, 163, 184, 0.32));
+  box-shadow: inset 0 0 16px color-mix(in srgb, var(--accent-primary-live) 7%, transparent);
+}
+
+#verifyCard .staff-pending-row:hover {
+  border-color: color-mix(in srgb, var(--accent-primary-live) 42%, rgba(148, 163, 184, 0.3));
+}
+
+/* Performance budget controls (visual only) */
+body[data-perf-tier="safe"] :is(
+  .pass-card, .member-hero, .profile-summary, .alerts-card, .member-command-deck,
+  .staff-form, .staff-radar, .staff-more,
+  .ceo-hq-panel, .ceo-status-card, .ceo-kpi-card, .ceo-reset-card,
+  .landing-feature-card, .hero-point, .modal-card
+) {
+  backdrop-filter: blur(calc(8px * var(--fx-blur-strength))) !important;
+  -webkit-backdrop-filter: blur(calc(8px * var(--fx-blur-strength))) !important;
+}
+
+body[data-perf-tier="lite"] :is(
+  .pass-card, .member-hero, .profile-summary, .alerts-card, .member-command-deck,
+  .staff-form, .staff-radar, .staff-more,
+  .ceo-hq-panel, .ceo-status-card, .ceo-kpi-card, .ceo-reset-card,
+  .landing-feature-card, .hero-point, .modal-card
+) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 8px 16px rgba(1, 8, 22, 0.38) !important;
+}
+
+/* iOS smoothness and overlap safety */
+body.ios .screen,
+body.ios .modal-card,
+body.ios .ceo-hq-nav {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+:is(.member-hero, .profile-summary, .staff-radar, .ceo-hq-panel, .landing-feature-card, .hero-point) {
+  contain: layout paint style;
+}

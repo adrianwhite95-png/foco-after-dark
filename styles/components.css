@@ -1,0 +1,104 @@
+/* Component layer: shared card/button/chip semantics */
+
+.app-title {
+  font-size: var(--ds-font-hero);
+  line-height: 1.08;
+}
+
+.tagline {
+  font-size: var(--ds-font-body);
+  line-height: 1.52;
+}
+
+.small,
+.meta,
+.field label {
+  font-size: var(--ds-font-meta);
+}
+
+:is(.pass-card, .staff-form, .ceo-hq-panel, .modal-card, .alerts-card, .member-command-deck, .landing-feature-card, .hero-point) {
+  border-radius: var(--ds-radius-lg);
+  overflow: clip;
+}
+
+:is(.btn, .nav-item, .nav-toggle, .pill, .pill-ghost, .chip, .status-pill, .status-pill-sm) {
+  transition:
+    transform calc(var(--ds-dur-fast) * var(--fx-motion-strength)) var(--ds-ease-standard),
+    box-shadow var(--ds-dur-fast) ease,
+    filter var(--ds-dur-fast) ease,
+    opacity var(--ds-dur-fast) ease !important;
+  min-height: 42px;
+}
+
+:is(.btn, .nav-item, .nav-toggle, .pill, .pill-ghost, .chip, .status-pill, .status-pill-sm):focus-visible {
+  outline: 2px solid var(--ds-focus-ring);
+  outline-offset: var(--ds-outline-offset);
+}
+
+.btn.btn-secondary,
+.btn-secondary {
+  box-shadow:
+    0 6px 14px rgba(1, 8, 22, 0.36),
+    0 0 calc(10px * var(--fx-glow-strength)) color-mix(in srgb, var(--accent-primary-live) 14%, transparent);
+}
+
+.btn.btn-secondary:hover,
+.btn-secondary:hover {
+  box-shadow:
+    0 8px 18px rgba(1, 9, 24, 0.42),
+    0 0 calc(16px * var(--fx-glow-strength)) color-mix(in srgb, var(--accent-primary-live) 22%, transparent);
+}
+
+.pill,
+.pill-ghost,
+.status-pill,
+.status-pill-sm,
+.chip {
+  border-radius: var(--ds-radius-pill);
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.pill-new,
+.pill-new.active {
+  border-radius: var(--ds-radius-pill);
+  background: linear-gradient(120deg, rgba(239, 68, 68, 0.28), rgba(248, 113, 113, 0.2));
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  box-shadow: 0 0 calc(14px * var(--fx-glow-strength)) rgba(239, 68, 68, 0.24);
+}
+
+/* Strong visual hierarchy */
+:is(.member-hero-title, .member-command-title, .nav-accent-title, .staff-section-title, .ceo-section-title, .alerts-card h4) {
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+/* Selects look native and clearer */
+.field select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #8fd3ff 50%),
+    linear-gradient(135deg, #8fd3ff 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 34px;
+}
+
+/* Accessibility and touch hit areas */
+@media (hover: none) and (pointer: coarse) {
+  :is(.btn, .nav-item, .chip, .pill, .pill-ghost, .status-pill) {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.btn, .nav-item, .nav-toggle, .pill, .chip, .status-pill, .status-pill-sm, .pill-new) {
+    transition: none !important;
+    animation: none !important;
+  }
+}

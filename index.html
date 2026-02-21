@@ -11699,6 +11699,9 @@
       box-shadow: 0 8px 18px rgba(2, 8, 22, 0.32);
     }
   </style>
+  <link rel="stylesheet" href="styles/tokens.css" />
+  <link rel="stylesheet" href="styles/components.css" />
+  <link rel="stylesheet" href="styles/screens.css" />
 </head>
   <body>
       <div class="club-atmosphere" aria-hidden="true">
@@ -34455,6 +34458,24 @@ let onboardingIndex = 0;
   window.addEventListener("resize", () => {
     window.requestAnimationFrame(applyUiDensityMode);
   }, { passive: true });
+
+  function applyExperienceTiers() {
+    try {
+      const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document.body.setAttribute("data-motion-tier", reducedMotion ? "calm" : "full");
+
+      const memory = Number(navigator.deviceMemory || 0);
+      const cores = Number(navigator.hardwareConcurrency || 0);
+      let perfTier = "full";
+      if (LOW_PERF_MODE || reducedMotion) perfTier = "safe";
+      if ((memory && memory <= 2) || (cores && cores <= 4)) perfTier = "lite";
+      document.body.setAttribute("data-perf-tier", perfTier);
+    } catch (_) {
+      document.body.setAttribute("data-motion-tier", "full");
+      document.body.setAttribute("data-perf-tier", LOW_PERF_MODE ? "safe" : "full");
+    }
+  }
+  applyExperienceTiers();
 
   // One-time hooks
   attachCopyHandlers();

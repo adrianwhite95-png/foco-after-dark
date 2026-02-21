@@ -1,0 +1,49 @@
+:root {
+  --ds-space-1: 8px;
+  --ds-space-2: 12px;
+  --ds-space-3: 16px;
+  --ds-space-4: 20px;
+  --ds-space-5: 24px;
+  --ds-space-6: 32px;
+
+  --ds-radius-sm: 12px;
+  --ds-radius-md: 16px;
+  --ds-radius-lg: 20px;
+  --ds-radius-pill: 999px;
+
+  --ds-font-hero: clamp(1.45rem, 1.22rem + 1.05vw, 2.05rem);
+  --ds-font-title: clamp(1.02rem, 0.95rem + 0.4vw, 1.3rem);
+  --ds-font-body: 0.98rem;
+  --ds-font-meta: 0.79rem;
+
+  --ds-dur-fast: 130ms;
+  --ds-dur-mid: 220ms;
+  --ds-dur-slow: 360ms;
+  --ds-ease-standard: cubic-bezier(0.2, 0.88, 0.26, 1);
+
+  --ds-focus-ring: color-mix(in srgb, var(--accent-primary-live) 72%, #ffffff);
+  --ds-outline-offset: 2px;
+
+  --fx-glow-strength: 1;
+  --fx-blur-strength: 1;
+  --fx-motion-strength: 1;
+}
+
+body[data-motion-tier="calm"] {
+  --fx-motion-strength: 0.65;
+}
+
+body[data-perf-tier="safe"] {
+  --fx-glow-strength: 0.55;
+  --fx-blur-strength: 0.72;
+}
+
+body[data-perf-tier="lite"] {
+  --fx-glow-strength: 0.35;
+  --fx-blur-strength: 0.55;
+}
+
+body[data-density="compact"] {
+  --ds-font-body: 0.94rem;
+  --ds-font-meta: 0.75rem;
+}
