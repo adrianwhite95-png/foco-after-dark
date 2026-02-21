@@ -1012,6 +1012,36 @@
       margin: 0 auto;
       width: 100%;
     }
+    #codesCard::before,
+    #codesCard::after {
+      z-index: 0;
+    }
+    #codesCard > * {
+      position: relative;
+      z-index: 2;
+    }
+    #staffRoiPanel {
+      position: relative;
+      z-index: 3;
+      margin-top: 12px;
+      display: block;
+    }
+    #staffRoiPanel .roi-live-card {
+      border-radius: 14px;
+      border: 1px solid color-mix(in srgb, var(--staff-primary, #7dd3fc) 38%, rgba(148, 163, 184, 0.34));
+      background: linear-gradient(145deg, rgba(8, 14, 30, 0.9), rgba(7, 12, 26, 0.86));
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--staff-primary, #7dd3fc) 24%, transparent) inset,
+        0 0 22px color-mix(in srgb, var(--staff-primary, #7dd3fc) 24%, transparent);
+      padding: 12px;
+    }
+    #staffRoiPanel .roi-live-title {
+      margin: 0 0 8px;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #e2e8f0;
+    }
     .staff-perk-row .perk-limit {
       max-width: 140px;
     }
@@ -2906,6 +2936,16 @@
       background: linear-gradient(120deg, rgba(125, 211, 252, 0.22), rgba(167, 139, 250, 0.16));
       border-color: rgba(148, 163, 184, 0.45);
       color: #e2e8f0;
+    }
+    .accent-chip[data-accent="neon_lime"] {
+      background: linear-gradient(120deg, rgba(163, 230, 53, 0.24), rgba(16, 185, 129, 0.16));
+      border-color: rgba(163, 230, 53, 0.48);
+      color: #d9f99d;
+    }
+    .accent-chip[data-accent="ruby_night"] {
+      background: linear-gradient(120deg, rgba(244, 63, 94, 0.24), rgba(239, 68, 68, 0.18));
+      border-color: rgba(244, 63, 94, 0.48);
+      color: #fecdd3;
     }
     .accent-chip[data-accent="ceo"] {
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(148, 212, 255, 0.32));
@@ -11796,6 +11836,24 @@
       text-align: center;
       white-space: nowrap;
     }
+    #bottomNav .bottom-nav-item.danger {
+      border-color: rgba(239, 68, 68, 0.72) !important;
+      color: #fecaca !important;
+      background: linear-gradient(130deg, rgba(69, 10, 10, 0.82), rgba(127, 29, 29, 0.65)) !important;
+      box-shadow:
+        0 0 0 1px rgba(239, 68, 68, 0.45) inset,
+        0 0 16px rgba(239, 68, 68, 0.5),
+        0 0 30px rgba(127, 29, 29, 0.5) !important;
+    }
+    #bottomNav .bottom-nav-item.danger.active,
+    #bottomNav .bottom-nav-item.danger:hover {
+      border-color: rgba(248, 113, 113, 0.88) !important;
+      color: #fff1f2 !important;
+      box-shadow:
+        0 0 0 1px rgba(248, 113, 113, 0.56) inset,
+        0 0 20px rgba(248, 113, 113, 0.62),
+        0 0 38px rgba(127, 29, 29, 0.62) !important;
+    }
     @media (max-width: 900px) {
       #tonightScreen .tonight-grid {
         grid-template-columns: 1fr !important;
@@ -12323,6 +12381,8 @@
                   <button type="button" class="accent-chip" data-accent="electric">Electric iris</button>
                   <button type="button" class="accent-chip" data-accent="ember">Ember bloom</button>
                   <button type="button" class="accent-chip" data-accent="glass">Glass</button>
+                  <button type="button" class="accent-chip" data-accent="neon_lime">Neon lime</button>
+                  <button type="button" class="accent-chip" data-accent="ruby_night">Ruby night</button>
                   <button type="button" class="accent-chip ceo-only" data-accent="ceo">CEO</button>
                 </div>
               </div>
@@ -12820,6 +12880,8 @@
           <button type="button" class="accent-chip" data-accent="electric">Electric iris</button>
           <button type="button" class="accent-chip" data-accent="ember">Ember bloom</button>
           <button type="button" class="accent-chip" data-accent="glass">Glass</button>
+          <button type="button" class="accent-chip" data-accent="neon_lime">Neon lime</button>
+          <button type="button" class="accent-chip" data-accent="ruby_night">Ruby night</button>
           <button type="button" class="accent-chip ceo-only" data-accent="ceo">CEO</button>
         </div>
       </div>
@@ -12966,6 +13028,8 @@
         <option value="electric">Electric iris</option>
         <option value="ember">Ember bloom</option>
         <option value="glass">Glass</option>
+        <option value="neon_lime">Neon lime</option>
+        <option value="ruby_night">Ruby night</option>
       </select>
     </div>
     <div class="staff-board">
@@ -13096,6 +13160,7 @@
         <h4>Tonight’s deal codes</h4>
         <p class="small" style="color:#cbd5f5;">Generate a code for each active deal at this venue. Codes expire with the deal.</p>
         <div id="staffDealCodeList"></div>
+        <div id="staffRoiPanel" style="margin-top:10px;"></div>
       </div>
 
       <!-- Card 6: Message Foco Help -->
@@ -17588,6 +17653,7 @@
     const staffCloseOutDone = document.getElementById("staffCloseOutDone");
     const staffCloseOutDoneFooter = document.getElementById("staffCloseOutDoneFooter");
     const staffDealCodeList = document.getElementById("staffDealCodeList");
+    const staffRoiPanel = document.getElementById("staffRoiPanel");
     const staffPerksList = document.getElementById("staffPerksList");
     const staffAddPerkBtn = document.getElementById("staffAddPerkBtn");
     const staffSavePerksBtn = document.getElementById("staffSavePerksBtn");
@@ -19283,6 +19349,21 @@
       return 0;
     }
 
+    function classifyRedemptionCategory(entry = {}) {
+      const perkKey = String(entry?.perkKey || "").toLowerCase();
+      const text = `${entry?.perk || ""} ${entry?.venuePerkLabel || ""}`.toLowerCase();
+      if (
+        perkKey === "deal"
+        || perkKey === "tonight_deal"
+        || perkKey === "tonights_deal"
+        || perkKey === "alert_deal"
+        || text.includes("tonight")
+      ) {
+        return "deal";
+      }
+      return "voucher";
+    }
+
     function computeEstimatedDealRoi({
       redemptions = 0,
       baselinePrice = 0,
@@ -19342,6 +19423,30 @@
       const pct = (Number(value) || 0) * 100;
       const sign = pct > 0 ? "+" : "";
       return `${sign}${pct.toFixed(1)}%`;
+    }
+
+    function computeEstimatedRoiFromEntries(entries = []) {
+      const list = Array.isArray(entries) ? entries : [];
+      const redemptions = list.length;
+      if (!redemptions) {
+        return { redemptions: 0, valid: false, roi: 0, grossCost: 0, grossUplift: 0 };
+      }
+      const grossCost = list.reduce((sum, entry) => {
+        const baseline = getBaselineForCategory(parseDealCategoryFromText(`${entry?.perk || ""} ${entry?.venuePerkLabel || ""}`));
+        const dealPrice = getDealPriceFromEntry(entry);
+        return sum + (Math.max(0, baseline - dealPrice) * ROI_DEFAULTS.margin);
+      }, 0);
+      const grossUplift = redemptions * ROI_DEFAULTS.pVisit * ROI_DEFAULTS.aovIncremental * ROI_DEFAULTS.margin;
+      if (grossCost <= 0) {
+        return { redemptions, valid: false, roi: 0, grossCost, grossUplift };
+      }
+      return {
+        redemptions,
+        valid: true,
+        roi: (grossUplift - grossCost) / grossCost,
+        grossCost,
+        grossUplift
+      };
     }
 
     function getDealPriceFromEntry(entry = {}) {
@@ -24732,6 +24837,22 @@ let onboardingIndex = 0;
           surface: "rgba(125, 211, 252, 0.12)",
           shadow: "0 25px 60px rgba(2, 8, 23, 0.75), 0 0 34px rgba(125, 211, 252, 0.26)"
         },
+        neon_lime: {
+          primary: "#a3e635",
+          secondary: "#10b981",
+          glow: "rgba(163, 230, 53, 0.46)",
+          border: "rgba(163, 230, 53, 0.42)",
+          surface: "rgba(163, 230, 53, 0.12)",
+          shadow: "0 25px 60px rgba(8, 18, 0, 0.78), 0 0 38px rgba(163, 230, 53, 0.34)"
+        },
+        ruby_night: {
+          primary: "#f43f5e",
+          secondary: "#ef4444",
+          glow: "rgba(244, 63, 94, 0.48)",
+          border: "rgba(244, 63, 94, 0.44)",
+          surface: "rgba(244, 63, 94, 0.14)",
+          shadow: "0 25px 60px rgba(20, 2, 8, 0.78), 0 0 38px rgba(244, 63, 94, 0.34)"
+        },
         ceo: {
           primary: "#ffd700",
           secondary: "#00f7ff",
@@ -24759,7 +24880,7 @@ let onboardingIndex = 0;
       root.style.setProperty("--accent-glow-live", palette.glow);
       root.style.setProperty("--accent-surface-live", palette.surface);
       root.style.setProperty("--accent-shadow-live", palette.shadow);
-      document.body.classList.remove("theme-cyan", "theme-magenta", "theme-gold", "theme-jade", "theme-electric", "theme-ember", "theme-glass", "theme-ceo");
+      document.body.classList.remove("theme-cyan", "theme-magenta", "theme-gold", "theme-jade", "theme-electric", "theme-ember", "theme-glass", "theme-neon_lime", "theme-ruby_night", "theme-ceo");
       document.body.classList.add(`theme-${theme}`);
       currentAccentTheme = theme;
       if (currentPassCode) {
@@ -25015,6 +25136,8 @@ let onboardingIndex = 0;
         electric: 265,
         ember: 20,
         glass: 200,
+        neon_lime: 92,
+        ruby_night: 348,
         ceo: 48
       };
       return map[theme] ?? 185;
@@ -28996,6 +29119,7 @@ let onboardingIndex = 0;
       cleanDealCodes();
       if (!staffSession) {
         staffDealCodeList.innerHTML = '<p style="color:#94a3b8;">Log in to generate codes for tonight’s deals.</p>';
+        if (staffRoiPanel) staffRoiPanel.innerHTML = "";
         return;
       }
       const now = Date.now();
@@ -29004,54 +29128,95 @@ let onboardingIndex = 0;
         .sort((a, b) => (a.expiresAt || Number.MAX_SAFE_INTEGER) - (b.expiresAt || Number.MAX_SAFE_INTEGER));
       if (!activeAlerts.length) {
         staffDealCodeList.innerHTML = '<p style="color:#94a3b8;">No active deals to generate codes for.</p>';
-        return;
       }
-      const venueVerifiedEntries = (Array.isArray(redemptionLog) ? redemptionLog : []).filter((entry) => {
-        const status = String(entry?.status || "").toLowerCase();
-        if (!["verified", "approved", "confirmed"].includes(status)) return false;
-        return entryMatchesVenue(entry, staffSession.venue || "");
-      });
-      staffDealCodeList.innerHTML = activeAlerts.map(alert => {
-        const expiresText = alert.expiresAt ? formatMST(alert.expiresAt) : "No expiry";
-        const codesForAlert = Object.entries(dealCodes || {}).filter(([, val]) => val.alertId === alert.id && val.venue === staffSession.venue);
-        const codesLine = codesForAlert.length
-          ? `<span style="color:#34d399;">Codes: ${codesForAlert.map(([c]) => c).join(", ")}</span>`
-          : '<span style="color:#94a3b8;">No codes yet</span>';
-        const dealText = `${alert.title || ""} ${alert.detail || ""}`.trim();
-        const category = parseDealCategoryFromText(dealText);
-        const baselinePrice = getBaselineForCategory(category);
-        const dealPrice = parseDealPriceFromText(dealText);
-        const redemptions = getAlertRedemptionCount(alert, venueVerifiedEntries, activeAlerts.length);
-        const roi = computeEstimatedDealRoi({
-          redemptions,
-          baselinePrice,
-          dealPrice,
-          pVisit: ROI_DEFAULTS.pVisit,
-          aovIncremental: ROI_DEFAULTS.aovIncremental,
-          margin: ROI_DEFAULTS.margin
+      if (activeAlerts.length) {
+        const venueVerifiedEntries = (Array.isArray(redemptionLog) ? redemptionLog : []).filter((entry) => {
+          const status = String(entry?.status || "").toLowerCase();
+          if (!["verified", "approved", "confirmed"].includes(status)) return false;
+          return entryMatchesVenue(entry, staffSession.venue || "");
         });
-        const roiColor = roi.valid ? (roi.roi >= 0 ? "#34d399" : "#f87171") : "#fbbf24";
-        const roiLine = roi.valid
-          ? `<span style="color:${roiColor};font-weight:700;">Estimated ROI: ${formatRoiPercent(roi.roi)}</span>`
-          : '<span style="color:#fbbf24;">Estimated ROI: unavailable (deal price is at/above baseline)</span>';
-        return `
-          <div class="log-row">
-            <strong>${alert.title || "Tonight's deal"}</strong><br/>
-            <span style="color:#cbd5f5;">${alert.detail || ""}</span><br/>
-            <span style="color:#93c5fd;font-size:11px;">Expires ${expiresText}</span>
-            <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
-              <span style="color:#cbd5f5;">${redemptions} redeemed</span>
-              ${roiLine}
+        staffDealCodeList.innerHTML = activeAlerts.map(alert => {
+          const expiresText = alert.expiresAt ? formatMST(alert.expiresAt) : "No expiry";
+          const codesForAlert = Object.entries(dealCodes || {}).filter(([, val]) => val.alertId === alert.id && val.venue === staffSession.venue);
+          const codesLine = codesForAlert.length
+            ? `<span style="color:#34d399;">Codes: ${codesForAlert.map(([c]) => c).join(", ")}</span>`
+            : '<span style="color:#94a3b8;">No codes yet</span>';
+          const dealText = `${alert.title || ""} ${alert.detail || ""}`.trim();
+          const category = parseDealCategoryFromText(dealText);
+          const baselinePrice = getBaselineForCategory(category);
+          const dealPrice = parseDealPriceFromText(dealText);
+          const redemptions = getAlertRedemptionCount(alert, venueVerifiedEntries, activeAlerts.length);
+          const roi = computeEstimatedDealRoi({
+            redemptions,
+            baselinePrice,
+            dealPrice,
+            pVisit: ROI_DEFAULTS.pVisit,
+            aovIncremental: ROI_DEFAULTS.aovIncremental,
+            margin: ROI_DEFAULTS.margin
+          });
+          const roiColor = roi.valid ? (roi.roi >= 0 ? "#34d399" : "#f87171") : "#fbbf24";
+          const roiLine = roi.valid
+            ? `<span style="color:${roiColor};font-weight:700;">Estimated ROI: ${formatRoiPercent(roi.roi)}</span>`
+            : '<span style="color:#fbbf24;">Estimated ROI: unavailable (deal price is at/above baseline)</span>';
+          return `
+            <div class="log-row">
+              <strong>${alert.title || "Tonight's deal"}</strong><br/>
+              <span style="color:#cbd5f5;">${alert.detail || ""}</span><br/>
+              <span style="color:#93c5fd;font-size:11px;">Expires ${expiresText}</span>
+              <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
+                <span style="color:#cbd5f5;">${redemptions} redeemed</span>
+                ${roiLine}
+              </div>
+              <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
+                <button class="btn btn-primary" data-gen-deal="${alert.id}">Generate code</button>
+                ${codesLine}
+              </div>
             </div>
-            <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
-              <button class="btn btn-primary" data-gen-deal="${alert.id}">Generate code</button>
-              ${codesLine}
-            </div>
+          `;
+        }).join("") + `
+          <div class="small" style="margin-top:8px;color:#94a3b8;">
+            ROI assumptions: baseline $${FIXED_BASELINE_PRICE.toFixed(2)} · p_visit ${ROI_DEFAULTS.pVisit} · incremental spend $${ROI_DEFAULTS.aovIncremental} · margin ${ROI_DEFAULTS.margin}
           </div>
         `;
-      }).join("") + `
-        <div class="small" style="margin-top:8px;color:#94a3b8;">
-          ROI assumptions: baseline $${FIXED_BASELINE_PRICE.toFixed(2)} · p_visit ${ROI_DEFAULTS.pVisit} · incremental spend $${ROI_DEFAULTS.aovIncremental} · margin ${ROI_DEFAULTS.margin}
+      }
+      renderStaffRoiPanel();
+    }
+
+    function renderStaffRoiPanel() {
+      if (!staffRoiPanel) return;
+      if (!staffSession) {
+        staffRoiPanel.innerHTML = "";
+        return;
+      }
+      const venueId = (staffSession.venue || "").toLowerCase();
+      const verifiedEntries = (Array.isArray(redemptionLog) ? redemptionLog : []).filter((entry) => {
+        const status = String(entry?.status || "").toLowerCase();
+        if (!["verified", "approved", "confirmed"].includes(status)) return false;
+        return entryMatchesVenue(entry, venueId);
+      });
+      const voucherEntries = verifiedEntries.filter((entry) => classifyRedemptionCategory(entry) === "voucher");
+      const dealEntries = verifiedEntries.filter((entry) => classifyRedemptionCategory(entry) === "deal");
+      const voucherRoi = computeEstimatedRoiFromEntries(voucherEntries);
+      const dealRoi = computeEstimatedRoiFromEntries(dealEntries);
+      const row = (label, metrics) => {
+        const color = metrics.valid ? (metrics.roi >= 0 ? "#34d399" : "#f87171") : "#fbbf24";
+        const roiText = metrics.valid ? formatRoiPercent(metrics.roi) : "Unavailable";
+        return `
+          <div class="log-meta" style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(148,163,184,0.18);">
+            <span style="color:#e2e8f0;font-weight:700;">${label}</span>
+            <span style="color:#cbd5f5;">${metrics.redemptions} redeemed</span>
+            <span style="color:${color};font-weight:700;">ROI ${roiText}</span>
+          </div>
+        `;
+      };
+      staffRoiPanel.innerHTML = `
+        <div class="roi-live-card">
+          <h5 class="roi-live-title">Estimated ROI (Live)</h5>
+          ${row("Vouchers", voucherRoi)}
+          ${row("Tonight's Deal", dealRoi)}
+          <div class="small" style="margin-top:6px;color:#94a3b8;">
+            Assumptions: baseline $${FIXED_BASELINE_PRICE.toFixed(2)} · p_visit ${ROI_DEFAULTS.pVisit} · incremental spend $${ROI_DEFAULTS.aovIncremental} · margin ${ROI_DEFAULTS.margin}
+          </div>
         </div>
       `;
     }
@@ -29392,57 +29557,37 @@ let onboardingIndex = 0;
     function renderCeoAnalytics() {
       if (!ceoAnalyticsContent) return;
       const snapshot = computeAnalyticsSnapshot();
-      const nowMs = Date.now();
-      const liveAlerts = (Array.isArray(tonightAlerts) ? tonightAlerts : []).filter((alert) => !alert.expiresAt || alert.expiresAt > nowMs);
       const verifiedEntries = getCeoRedemptions().filter((entry) => {
         const status = String(entry?.status || "").toLowerCase();
         return ["verified", "approved", "confirmed"].includes(status);
       });
-      const liveAlertCountByVenue = liveAlerts.reduce((acc, alert) => {
-        const venueId = String(alert?.venueId || "").toLowerCase();
-        if (!venueId) return acc;
-        acc[venueId] = (acc[venueId] || 0) + 1;
-        return acc;
-      }, {});
       const venueRoiMap = {};
-      liveAlerts.forEach((alert) => {
-        const venueId = String(alert?.venueId || "").toLowerCase();
+      verifiedEntries.forEach((entry) => {
+        const venueId = String(entry?.venue || entry?.requestedVenue || "").toLowerCase();
         if (!venueId) return;
-        const dealText = `${alert.title || ""} ${alert.detail || ""}`.trim();
-        const category = parseDealCategoryFromText(dealText);
-        const baselinePrice = getBaselineForCategory(category);
-        const dealPrice = parseDealPriceFromText(dealText);
-        const redemptions = getAlertRedemptionCount(alert, verifiedEntries, liveAlertCountByVenue[venueId] || 1);
-        const roi = computeEstimatedDealRoi({
-          redemptions,
-          baselinePrice,
-          dealPrice,
-          pVisit: ROI_DEFAULTS.pVisit,
-          aovIncremental: ROI_DEFAULTS.aovIncremental,
-          margin: ROI_DEFAULTS.margin
-        });
         if (!venueRoiMap[venueId]) {
           venueRoiMap[venueId] = {
-            venueId,
             venueName: getVenueDisplayName(venueId),
-            redemptions: 0,
-            grossCost: 0,
-            grossUplift: 0
+            vouchers: [],
+            deals: []
           };
         }
-        venueRoiMap[venueId].redemptions += redemptions;
-        venueRoiMap[venueId].grossCost += Number(roi.grossCost || 0);
-        venueRoiMap[venueId].grossUplift += Number(roi.grossUplift || 0);
+        if (classifyRedemptionCategory(entry) === "deal") {
+          venueRoiMap[venueId].deals.push(entry);
+        } else {
+          venueRoiMap[venueId].vouchers.push(entry);
+        }
       });
-      const venueRoiLines = Object.values(venueRoiMap)
-        .sort((a, b) => b.redemptions - a.redemptions)
-        .map((row) => {
-          if (row.grossCost <= 0) {
-            return `${row.venueName}: ${row.redemptions} redeemed · ROI unavailable`;
-          }
-          const roi = (row.grossUplift - row.grossCost) / row.grossCost;
-          return `${row.venueName}: ${row.redemptions} redeemed · ROI ${formatRoiPercent(roi)}`;
-        });
+      const venueRoiLines = Object.values(venueRoiMap).map((row) => {
+        const vouchers = computeEstimatedRoiFromEntries(row.vouchers);
+        const deals = computeEstimatedRoiFromEntries(row.deals);
+        const voucherText = vouchers.valid ? `${formatRoiPercent(vouchers.roi)} (${vouchers.redemptions})` : `Unavailable (${vouchers.redemptions})`;
+        const dealText = deals.valid ? `${formatRoiPercent(deals.roi)} (${deals.redemptions})` : `Unavailable (${deals.redemptions})`;
+        const total = vouchers.redemptions + deals.redemptions;
+        return { line: `${row.venueName}: Vouchers ROI ${voucherText} · Tonight's Deal ROI ${dealText}`, total };
+      })
+        .sort((a, b) => b.total - a.total)
+        .map((item) => item.line);
       ceoAnalyticsLatestSnapshot = snapshot;
       upsertWeeklyAnalyticsSnapshot(snapshot);
       const weeklyHistory = Object.values(loadWeeklyAnalyticsSnapshots())
@@ -29506,8 +29651,8 @@ let onboardingIndex = 0;
             </ul>
           </div>
           <div class="analytics-section">
-            <h5>Estimated ROI by venue (Tonight Deals)</h5>
-            <ul>${(venueRoiLines.length ? venueRoiLines : ["No live deal ROI yet."]).map(item => `<li>${item}</li>`).join("")}</ul>
+            <h5>Estimated ROI by venue (Vouchers + Tonight's Deal)</h5>
+            <ul>${(venueRoiLines.length ? venueRoiLines : ["No verified ROI data yet."]).map(item => `<li>${item}</li>`).join("")}</ul>
             <div class="small" style="margin-top:6px;color:#94a3b8;">
               Assumptions: baseline $${FIXED_BASELINE_PRICE.toFixed(2)} · p_visit ${ROI_DEFAULTS.pVisit} · incremental spend $${ROI_DEFAULTS.aovIncremental} · margin ${ROI_DEFAULTS.margin}
             </div>
@@ -29765,15 +29910,13 @@ let onboardingIndex = 0;
       };
       const verifiedEntries = filtered.filter(entry => isVerifiedStatus(entry.status));
       const pendingEntries = filtered.filter(entry => isPendingStatus(entry.status));
-      const categoryTotals = { drink: 0, deal: 0, other: 0 };
+      const categoryTotals = { vouchers: 0, deal: 0 };
       verifiedEntries.forEach((entry) => {
-        const key = normalizePerkKey(entry);
-        if (key === "drink") {
-          categoryTotals.drink += 1;
-        } else if (key === "deal") {
+        const key = classifyRedemptionCategory(entry);
+        if (key === "deal") {
           categoryTotals.deal += 1;
         } else {
-          categoryTotals.other += 1;
+          categoryTotals.vouchers += 1;
         }
       });
       const groupBy = (range === "year" || range === "all") ? "month" : "day";
@@ -29842,9 +29985,8 @@ let onboardingIndex = 0;
               ${rangeLabel} · ${verifiedEntries.length} verified · ${pendingEntries.length} pending
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 10px;">
-              <span class="pill-ghost">Drink ${categoryTotals.drink}</span>
+              <span class="pill-ghost">Vouchers ${categoryTotals.vouchers}</span>
               <span class="pill-ghost">Tonight's Deal ${categoryTotals.deal}</span>
-              <span class="pill-ghost">Other ${categoryTotals.other}</span>
             </div>
             ${groupedWithCounts.map(group => {
               return `
