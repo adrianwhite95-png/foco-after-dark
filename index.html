@@ -6960,6 +6960,28 @@
       .tagline-edit-hint {
         text-align: left;
       }
+      .profile-summary .user-name {
+        max-width: min(100%, 255px);
+      }
+      .profile-summary .pass-id-row {
+        display: inline-flex;
+        width: auto;
+      }
+      .profile-summary .pass-id-chip {
+        flex: 0 1 auto;
+        width: fit-content;
+        max-width: min(100%, 285px);
+      }
+      .profile-summary .username-row {
+        display: flex;
+        align-items: center;
+        width: 100%;
+      }
+      .profile-summary .username-chip {
+        flex: 0 1 auto;
+        width: fit-content;
+        max-width: min(100%, 215px);
+      }
       .username-row {
         flex-wrap: wrap;
       }
@@ -8131,7 +8153,25 @@
         opacity: 1;
       }
     }
-    .user-name { font-size: 18px; }
+    .user-name {
+      font-size: 18px;
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      max-width: 100%;
+      padding: 6px 12px;
+      border-radius: 14px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 42%, var(--border));
+      background: linear-gradient(130deg, rgba(10, 16, 30, 0.94), rgba(13, 20, 36, 0.9));
+      box-shadow:
+        0 12px 28px rgba(2, 6, 18, 0.52),
+        0 0 26px color-mix(in srgb, var(--accent-primary-live) 30%, transparent),
+        inset 0 0 16px color-mix(in srgb, var(--accent-primary-live) 14%, transparent);
+      text-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .user-tier { font-size: 11px; letter-spacing: 0.16em; opacity: 0.9; }
     .profile-summary .user-details {
       min-width: 0;
