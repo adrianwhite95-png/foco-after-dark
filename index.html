@@ -11479,12 +11479,10 @@
     }
 
     /* Better progressive disclosure affordance */
-    details.member-command-deck > summary,
     details.staff-more > summary {
       position: relative;
       padding-right: 40px;
     }
-    details.member-command-deck > summary::after,
     details.staff-more > summary::after {
       content: "▾";
       position: absolute;
@@ -11496,7 +11494,6 @@
       transition: transform var(--ui-motion-fast) var(--ui-ease);
       opacity: 0.9;
     }
-    details.member-command-deck[open] > summary::after,
     details.staff-more[open] > summary::after {
       transform: translateY(-50%) rotate(180deg);
     }
@@ -11757,7 +11754,7 @@
       transform: translateX(-50%);
       bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
       width: min(96vw, 720px);
-      grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+      grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
       gap: 8px;
       z-index: 9300;
     }
@@ -11782,6 +11779,9 @@
         font-size: 10px;
         letter-spacing: 0.06em;
       }
+    }
+    #passScreen .nav-dropdown {
+      display: none !important;
     }
   </style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
@@ -11843,7 +11843,7 @@
             </div>
             <div class="app-title"><span>FoCo</span> After Dark 21+</div>
             <div class="tagline" id="landingTagline">
-              The nightlife pass for Fort Collins. Redeem perks at local bars, track your nights out, and keep vouchers ready on your phone.
+              Your all-in-one nightlife pass for Fort Collins. Live deals, fast redemption, and real-time savings.
             </div>
       <div class="hero-highlight hero-animated">
         <div class="hero-point neon-card flip-card" role="button" tabindex="0">
@@ -11852,14 +11852,14 @@
               <div class="hero-point-icon pulse">1</div>
               <div>
                 <strong>Tonight’s perks</strong>
-                <p>See what each venue is offering right now and redeem in seconds.</p>
+                <p>See what each venue is offering now, then claim in seconds.</p>
               </div>
             </div>
             <div class="hero-point-face hero-point-back">
               <div class="hero-point-icon ghost">1</div>
               <div>
                 <span class="hero-point-back-title">Perks update live</span>
-                <p>Perks are set monthly by venues and appear the moment they’re published.</p>
+                <p>Venue updates publish live so members always see the current offers.</p>
               </div>
             </div>
           </div>
@@ -11870,14 +11870,14 @@
               <div class="hero-point-icon pulse">2</div>
               <div>
                 <strong>Instant redemption</strong>
-                <p>Show your pass. Staff verifies live so your balance updates immediately.</p>
+                <p>Show your pass, get verified by staff, and watch balance update instantly.</p>
               </div>
             </div>
             <div class="hero-point-face hero-point-back">
               <div class="hero-point-icon ghost">2</div>
               <div>
                 <span class="hero-point-back-title">Verified & tracked</span>
-                <p>Every redemption syncs to your profile, tracking nights active and vouchers used.</p>
+                <p>Every redemption syncs to your profile for accurate nights and voucher history.</p>
               </div>
             </div>
           </div>
@@ -11888,14 +11888,14 @@
               <div class="hero-point-icon pulse">3</div>
               <div>
                 <strong>Built with venues</strong>
-                <p>Perks are set by local bars each month with verified redemptions.</p>
+                <p>Local bars control perks directly, and every redemption is verified live.</p>
               </div>
             </div>
             <div class="hero-point-face hero-point-back">
               <div class="hero-point-icon ghost">3</div>
               <div>
                 <span class="hero-point-back-title">Venue controlled</span>
-                <p>Each bar controls perk quantities by tier, so offers stay fair and current.</p>
+                <p>Each venue controls Standard/VIP quantities so offers stay fair and current.</p>
               </div>
             </div>
           </div>
@@ -11903,16 +11903,16 @@
       </div>
       <div class="landing-feature-grid">
         <div class="landing-feature-card">
-          <strong>Pass on your phone</strong>
-          <p>Your FoCo After Dark pass is always ready. Tap to copy your ID and redeem quickly at the bar.</p>
+          <strong>Your pass is always ready</strong>
+          <p>Open the app and show your pass ID at the bar for fast verification.</p>
         </div>
         <div class="landing-feature-card">
-          <strong>Real-time perks</strong>
-          <p>Perks update live as venues change their offers. Pick a venue and redeem in seconds.</p>
+          <strong>Live venue deals</strong>
+          <p>Deals update in real time as venues post alerts and monthly perks.</p>
         </div>
         <div class="landing-feature-card">
-          <strong>Track your nights</strong>
-          <p>See your voucher balance, nights active, and rewards progress all in one profile.</p>
+          <strong>Track savings + nights</strong>
+          <p>See vouchers redeemed, nights out, and estimated savings from one profile view.</p>
         </div>
       </div>
       <button id="landingGetPassBtn" class="btn btn-primary">
@@ -12396,11 +12396,6 @@
             <div class="profile-side-col">
               <div class="alerts-card">
                 <h4>Tonight’s alerts <span id="alertsNewPill" class="pill-new">New</span></h4>
-                <div class="smart-chip-row" id="alertsSmartChips">
-                  <button type="button" class="smart-chip active">Open now</button>
-                  <button type="button" class="smart-chip">VIP perk</button>
-                  <button type="button" class="smart-chip">Closest</button>
-                </div>
                 <ul id="alertsList">
                   <li>
                     <strong>Social Underground</strong>
@@ -12651,8 +12646,8 @@
         <div class="tonight-list" id="tonightOpenNowList"></div>
       </div>
       <div class="tonight-card card-hd">
-        <div class="tonight-card-title">Featured perk</div>
-        <div class="tonight-featured-perk" id="tonightFeaturedPerk">No perk posted yet.</div>
+        <div class="tonight-card-title">Tonight's alerts</div>
+        <div class="tonight-featured-perk" id="tonightFeaturedPerk">No live alerts posted yet.</div>
       </div>
       <div class="tonight-card card-hd">
         <div class="tonight-card-title">Recently redeemed</div>
@@ -12683,6 +12678,10 @@
     <div class="map-venue-list card-hd" id="mapVenueList"></div>
   </div>
   <div id="profileActivityScreen" class="screen">
+    <div class="experience-header">
+      <img src="foco-logo.png" alt="FoCo After Dark logo" class="experience-logo" />
+      <div class="micro-label">Member Analytics</div>
+    </div>
     <div class="app-title"><span>Profile</span> Activity</div>
     <div class="tagline">Membership, savings, and redemption history.</div>
     <div class="profile-activity-grid">
@@ -12707,12 +12706,49 @@
       </div>
     </div>
   </div>
+  <div id="menuScreen" class="screen">
+    <div class="experience-header">
+      <img src="foco-logo.png" alt="FoCo After Dark logo" class="experience-logo" />
+      <div class="micro-label">Account Controls</div>
+    </div>
+    <div class="app-title"><span>Member</span> Menu</div>
+    <div class="tagline">Manage your account, support, and profile theme.</div>
+    <div class="menu-screen-grid">
+      <div class="menu-card card-hd">
+        <div class="menu-card-title">Quick actions</div>
+        <div class="menu-action-grid">
+          <button type="button" class="menu-action-btn" data-menu-action="rewards">Voucher rewards</button>
+          <button type="button" class="menu-action-btn" data-menu-action="featuredVenues">Featured venues</button>
+          <button type="button" class="menu-action-btn" data-menu-action="membership">Membership</button>
+          <button type="button" class="menu-action-btn" data-menu-action="support">Support</button>
+          <button type="button" class="menu-action-btn" data-menu-action="review">Leave review</button>
+          <button type="button" class="menu-action-btn" data-menu-action="about">About / Legal</button>
+          <button type="button" class="menu-action-btn danger" data-menu-action="cancelMembership">Cancel membership</button>
+          <button type="button" class="menu-action-btn danger" id="menuLogoutBtn">Log out</button>
+        </div>
+      </div>
+      <div class="menu-card card-hd">
+        <div class="menu-card-title">Accent theme</div>
+        <div class="menu-accent-grid" id="menuAccentGrid">
+          <button type="button" class="accent-chip" data-accent="cyan">Neon blue</button>
+          <button type="button" class="accent-chip" data-accent="magenta">Magenta</button>
+          <button type="button" class="accent-chip" data-accent="gold">Gold</button>
+          <button type="button" class="accent-chip" data-accent="jade">Jade pulse</button>
+          <button type="button" class="accent-chip" data-accent="electric">Electric iris</button>
+          <button type="button" class="accent-chip" data-accent="ember">Ember bloom</button>
+          <button type="button" class="accent-chip" data-accent="glass">Glass</button>
+          <button type="button" class="accent-chip ceo-only" data-accent="ceo">CEO</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <nav class="bottom-nav" id="bottomNav" aria-label="Primary">
     <button type="button" class="bottom-nav-item active" data-bottom-nav="tonight">Tonight</button>
     <button type="button" class="bottom-nav-item" data-bottom-nav="pass">Pass</button>
     <button type="button" class="bottom-nav-item" data-bottom-nav="venues">Venues</button>
     <button type="button" class="bottom-nav-item" data-bottom-nav="map">Map</button>
     <button type="button" class="bottom-nav-item" data-bottom-nav="profileActivity">Profile</button>
+    <button type="button" class="bottom-nav-item" data-bottom-nav="menu">Menu</button>
   </nav>
   <div id="scanConfirmScreen" class="screen">
     <div class="app-title"><span>FoCo</span> Pass Scan</div>
@@ -12734,12 +12770,6 @@
         <div class="venues-card card-hd no-tilt smooth-enter">
       <div class="featured-venues" id="featuredVenues">
         <h4>Featured venues <span id="featuredVenuesNewPill" class="pill-new">New</span></h4>
-        <div class="smart-chip-row" id="venuesSmartChips">
-          <button type="button" class="smart-chip active">Open now</button>
-          <button type="button" class="smart-chip">No cover</button>
-          <button type="button" class="smart-chip">VIP perk</button>
-          <button type="button" class="smart-chip">Closest</button>
-        </div>
         <div class="featured-grid" id="featuredVenuesGrid"></div>
       </div>
       <button class="btn btn-secondary back-btn" id="venuesBackBtn">Back to pass</button>
@@ -12756,6 +12786,7 @@
       </p>
       <p id="venueDetailPhone"></p>
       <p id="venueDetailHours"></p>
+      <p id="venueDetailPerks"></p>
       <div class="venue-rating-row">
         <span class="venue-rating-pill" id="venueDetailRating" style="display:none;"></span>
         <div class="venue-stars" id="venueStars">
@@ -13199,6 +13230,8 @@
                       <th>Gender</th>
                       <th>Joined</th>
                       <th>Last active</th>
+                      <th>Redeemed</th>
+                      <th>Nights</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -13851,7 +13884,23 @@
         </div>
         <div class="meta-note">Member sees a one-time message on next login.</div>
         <p class="support-success" id="ceoMemberVoucherGrantStatus" style="display:none;"></p>
+        <div class="ceo-member-preview-action-title" style="margin-top:10px;">Message this member</div>
+        <textarea id="ceoMemberMessageInput" rows="3" placeholder="Send a support warning or account notice..." style="width:100%;margin-bottom:8px;"></textarea>
+        <div class="ceo-member-preview-action-row">
+          <button type="button" class="btn btn-secondary" id="ceoMemberMessageSendBtn">Send message</button>
+        </div>
+        <p class="support-success" id="ceoMemberMessageStatus" style="display:none;"></p>
       </div>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="memberNoticeModal">
+    <div class="modal-card" style="max-width:480px;">
+      <div class="modal-header">
+        <div class="modal-title">Message from FoCo Support</div>
+        <button class="modal-close" id="memberNoticeClose" type="button">Close</button>
+      </div>
+      <p id="memberNoticeBody" style="color:#e2e8f0;line-height:1.5;margin:10px 0 16px;"></p>
+      <button class="btn btn-primary" id="memberNoticeAcknowledge" type="button" style="width:100%;">Understood</button>
     </div>
   </div>
   <div class="modal-backdrop" id="voucherGrantModal">
@@ -14688,6 +14737,8 @@
     let ceoMemberPreviewUnsub = null;
     let ceoMemberPreviewUid = null;
     let ceoMemberPreviewPassCode = "";
+    let memberNoticesUnsub = null;
+    let memberNoticeQueue = [];
     let closeOutReportsUnsub = null;
     let staffRedemptionUnsubs = [];
     let ceoRedemptionsUnsub = null;
@@ -14738,7 +14789,7 @@
       idleActive = false;
     }
     async function handleIdleTimeout() {
-      if (currentScreenName === "staffPortal" || staffSession?.venue) {
+      if (currentScreenName === "staffPortal" || staffSession?.venue || isCeoAccount || ceoSession) {
         return;
       }
       stopIdleTimer();
@@ -14756,6 +14807,7 @@
       isCeoAccount = false;
       ceoPreviewTier = null;
       updateCeoPassUI();
+      stopMemberNoticesListener();
       pendingMembershipTier = null;
       resetPaymentForm();
       resetSupportForm();
@@ -14808,7 +14860,7 @@
     }
     function startIdleTimer() {
       stopIdleTimer();
-      if (currentScreenName === "staffPortal" || staffSession?.venue) {
+      if (currentScreenName === "staffPortal" || staffSession?.venue || isCeoAccount || ceoSession) {
         return;
       }
       idleActive = true;
@@ -14830,6 +14882,7 @@
       venues: document.getElementById("venuesScreen"),
       map: document.getElementById("mapScreen"),
       profileActivity: document.getElementById("profileActivityScreen"),
+      menu: document.getElementById("menuScreen"),
       support: document.getElementById("supportScreen"),
       staffLogin: document.getElementById("staffLoginScreen"),
       staffPortal: document.getElementById("staffPortalScreen"),
@@ -14999,7 +15052,7 @@
       ) {
         name = "ageVerify";
       }
-      if ((name === "pass" || name === "tonight" || name === "map" || name === "profileActivity") && requiresMembershipSelection()) {
+      if ((name === "pass" || name === "tonight" || name === "map" || name === "profileActivity" || name === "menu") && requiresMembershipSelection()) {
         name = "membership";
       }
       currentScreenName = name;
@@ -15075,7 +15128,7 @@
       if (name !== "landing" && name !== "auth" && name !== "maintenance") {
         requestBadgeClear();
       }
-      const memberPrimaryScreens = new Set(["tonight", "pass", "venues", "map", "profileActivity"]);
+      const memberPrimaryScreens = new Set(["tonight", "pass", "venues", "map", "profileActivity", "menu"]);
       if (bottomNav) {
         const hasAuthedMember = !!firebaseAuth?.currentUser;
         const shouldShowBottomNav = hasAuthedMember && memberPrimaryScreens.has(name) && !ceoSession && !staffSession;
@@ -15083,6 +15136,11 @@
         bottomNavItems.forEach((item) => {
           item.classList.toggle("active", item.dataset.bottomNav === name);
         });
+      }
+      if (firebaseAuth?.currentUser && memberPrimaryScreens.has(name) && !ceoSession && !staffSession) {
+        startMemberNoticesListener(firebaseAuth.currentUser.uid || "");
+      } else if (name === "landing" || name === "auth" || ceoSession || staffSession) {
+        stopMemberNoticesListener();
       }
       pulseScreenSkeletons(name);
       try {
@@ -17067,6 +17125,7 @@
     const venueDetailAddress = document.getElementById("venueDetailAddress");
     const venueDetailPhone = document.getElementById("venueDetailPhone");
     const venueDetailHours = document.getElementById("venueDetailHours");
+    const venueDetailPerks = document.getElementById("venueDetailPerks");
     const navMenuToggle = document.getElementById("navMenuToggle");
     // Visual helpers: motion & perf gating, parallax + confetti
     function prefersReducedMotion() {
@@ -17399,6 +17458,7 @@
     const tonightRecentRedeemed = document.getElementById("tonightRecentRedeemed");
     const tonightNearbyList = document.getElementById("tonightNearbyList");
     const mapVenueList = document.getElementById("mapVenueList");
+    const venueMapFrame = document.getElementById("venueMapFrame");
     const profileActivityName = document.getElementById("profileActivityName");
     const profileActivityTier = document.getElementById("profileActivityTier");
     const profileActivityPass = document.getElementById("profileActivityPass");
@@ -17407,6 +17467,9 @@
     const profileActivityHistory = document.getElementById("profileActivityHistory");
     const profileActivitySupport = document.getElementById("profileActivitySupport");
     const profileActivitySettings = document.getElementById("profileActivitySettings");
+    const menuAccentGrid = document.getElementById("menuAccentGrid");
+    const menuScreen = document.getElementById("menuScreen");
+    const menuLogoutBtn = document.getElementById("menuLogoutBtn");
     const cancelMembershipModal = document.getElementById("cancelMembershipModal");
     const cancelMembershipConfirm = document.getElementById("cancelMembershipConfirm");
     const cancelMembershipAbort = document.getElementById("cancelMembershipAbort");
@@ -17578,6 +17641,13 @@
     const ceoMemberVoucherAmount = document.getElementById("ceoMemberVoucherAmount");
     const ceoMemberVoucherGrantBtn = document.getElementById("ceoMemberVoucherGrantBtn");
     const ceoMemberVoucherGrantStatus = document.getElementById("ceoMemberVoucherGrantStatus");
+    const ceoMemberMessageInput = document.getElementById("ceoMemberMessageInput");
+    const ceoMemberMessageSendBtn = document.getElementById("ceoMemberMessageSendBtn");
+    const ceoMemberMessageStatus = document.getElementById("ceoMemberMessageStatus");
+    const memberNoticeModal = document.getElementById("memberNoticeModal");
+    const memberNoticeBody = document.getElementById("memberNoticeBody");
+    const memberNoticeClose = document.getElementById("memberNoticeClose");
+    const memberNoticeAcknowledge = document.getElementById("memberNoticeAcknowledge");
     const voucherGrantModal = document.getElementById("voucherGrantModal");
     const voucherGrantBody = document.getElementById("voucherGrantBody");
     const voucherGrantClose = document.getElementById("voucherGrantClose");
@@ -18350,6 +18420,90 @@
       if (label && counts) return `${label} • ${counts}`;
       return label || "Monthly perk live";
     }
+    function getEffectiveTierForDisplay() {
+      if (isCeoActive()) return "ceo";
+      if (isFreeMember()) return "free";
+      return normalizeMembershipTierSelection(
+        memberProfile?.tier
+        || currentMembershipTier
+        || memberProfile?.membershipType
+        || "standard"
+      );
+    }
+    function tierLabelFromKey(tierRaw = "standard") {
+      if (tierRaw === "vip") return "VIP";
+      if (tierRaw === "free") return "CEO ISSUED";
+      if (tierRaw === "ceo") return "Founder Mode";
+      return "Standard";
+    }
+    function parseClockToMinutes(value = "") {
+      const input = String(value || "").trim();
+      if (!input) return null;
+      const m = input.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+      if (!m) return null;
+      let hour = Number(m[1]);
+      const minute = Number(m[2]);
+      const meridiem = (m[3] || "").toUpperCase();
+      if (minute < 0 || minute > 59) return null;
+      if (meridiem) {
+        if (hour === 12) hour = 0;
+        if (meridiem === "PM") hour += 12;
+      }
+      if (hour < 0 || hour > 23) return null;
+      return (hour * 60) + minute;
+    }
+    function getVenueHoursRangeForDay(venueId, dayIndex) {
+      const info = venuesInfo?.[venueId];
+      const map = info?.hoursByDay || {};
+      const raw = map?.[dayIndex] || map?.[String(dayIndex)];
+      if (!Array.isArray(raw) || raw.length < 2) return null;
+      const startMin = parseClockToMinutes(raw[0]);
+      const endMin = parseClockToMinutes(raw[1]);
+      if (startMin == null || endMin == null) return null;
+      return { startMin, endMin };
+    }
+    function isVenueOpenNow(venueId, at = new Date()) {
+      const now = at instanceof Date ? at : new Date(at);
+      const day = now.getDay();
+      const minuteNow = (now.getHours() * 60) + now.getMinutes();
+      const todayRange = getVenueHoursRangeForDay(venueId, day);
+      if (todayRange) {
+        const { startMin, endMin } = todayRange;
+        if (endMin > startMin) {
+          if (minuteNow >= startMin && minuteNow < endMin) return true;
+        } else if (minuteNow >= startMin) {
+          return true;
+        }
+      }
+      const prevDay = (day + 6) % 7;
+      const prevRange = getVenueHoursRangeForDay(venueId, prevDay);
+      if (prevRange && prevRange.endMin <= prevRange.startMin && minuteNow < prevRange.endMin) {
+        return true;
+      }
+      return false;
+    }
+    function formatVenueOpenStatus(venueId, at = new Date()) {
+      return isVenueOpenNow(venueId, at) ? "Open now" : "Closed right now";
+    }
+    function getVenuePerksStatus(venueId) {
+      const activeCount = getActiveVenuePerks(venueId).length;
+      if (activeCount <= 0) return "No active perks";
+      return activeCount === 1 ? "1 active perk" : `${activeCount} active perks`;
+    }
+    let activeMapVenueId = "";
+    function setActiveMapVenue(venueId) {
+      if (!venueId || !venuesInfo?.[venueId]) return;
+      activeMapVenueId = venueId;
+      const info = venuesInfo[venueId] || {};
+      if (venueMapFrame) {
+        const query = [info.name, info.address].filter(Boolean).join(", ");
+        const nextSrc = `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=16&output=embed`;
+        if (venueMapFrame.src !== nextSrc) {
+          venueMapFrame.src = nextSrc;
+        }
+      }
+      renderMapVenueList();
+    }
     function getActiveVenuePerks(venueId) {
       if (!venueId) return [];
       const cached = venuePerksCache[venueId];
@@ -18386,26 +18540,33 @@
     function renderTonightHub() {
       if (!tonightMiniName) return;
       const log = Array.isArray(redemptionLog) ? redemptionLog : [];
-      const tierRaw = normalizeMembershipTierSelection(memberProfile?.tier || currentMembershipTier || "standard");
-      const tierLabel = tierRaw === "vip" ? "VIP" : tierRaw === "free" ? "CEO ISSUED" : tierRaw === "ceo" ? "Founder Mode" : "Standard";
+      const tierRaw = getEffectiveTierForDisplay();
+      const tierLabel = tierLabelFromKey(tierRaw);
       tonightMiniName.textContent = preferredMemberName(firebaseAuth.currentUser || {});
       tonightMiniTier.textContent = tierLabel;
       tonightMiniCode.textContent = `Pass ID: ${(currentPassCode || "—").toUpperCase()}`;
 
       if (tonightOpenNowList) {
-        const open = featuredVenuesData.slice(0, 4);
+        const open = featuredVenuesData.filter((v) => isVenueOpenNow(v.venueId)).slice(0, 6);
         tonightOpenNowList.innerHTML = open.length
-          ? open.map((v) => `<div class="tonight-list-item"><strong>${v.name}</strong><span>${v.detail || "Perks pending"}</span></div>`).join("")
-          : '<div class="tonight-list-item"><strong>No live venues yet</strong><span>Venues update here as perks go live.</span></div>';
+          ? open.map((v) => `
+            <button type="button" class="tonight-list-item tonight-venue-btn" data-tonight-venue="${v.venueId}">
+              <strong>${v.name}</strong>
+              <span>${formatVenueOpenStatus(v.venueId)} · ${getVenuePerksStatus(v.venueId)}</span>
+            </button>
+          `).join("")
+          : '<div class="tonight-list-item"><strong>No venues currently open</strong><span>Check back later tonight.</span></div>';
       }
 
       if (tonightFeaturedPerk) {
-        const withPerks = featuredVenuesData.find((v) => Array.isArray(getActiveVenuePerks(v.venueId)) && getActiveVenuePerks(v.venueId).length);
-        if (!withPerks) {
-          tonightFeaturedPerk.textContent = "No perk posted yet.";
+        const activeAlerts = getActiveAlertsForMember();
+        if (!activeAlerts.length) {
+          tonightFeaturedPerk.textContent = "No live alerts posted yet.";
         } else {
-          const perk = getActiveVenuePerks(withPerks.venueId)[0];
-          tonightFeaturedPerk.textContent = `${withPerks.name} · ${perk?.label || "Perk live now"}`;
+          const top = activeAlerts[0];
+          const stamp = top.expiresAt ? formatAlertCountdown(top.expiresAt - Date.now()) : "Live now";
+          const venue = top.venueName || getVenueDisplayName(top.venueId || "");
+          tonightFeaturedPerk.textContent = `${top.title || "Tonight alert"} · ${venue || "FoCo venue"} · ${stamp}`;
         }
       }
 
@@ -18418,25 +18579,36 @@
       }
 
       if (tonightNearbyList) {
-        const nearby = featuredVenuesData.slice(0, 3);
+        const nearby = featuredVenuesData.slice(0, 6);
         tonightNearbyList.innerHTML = nearby.length
-          ? nearby.map((v) => `<div class="tonight-list-item"><strong>${v.name}</strong><span>Tap Venues to view details</span></div>`).join("")
+          ? nearby.map((v) => `
+            <button type="button" class="tonight-list-item tonight-venue-btn" data-tonight-venue="${v.venueId}">
+              <strong>${v.name}</strong>
+              <span>${getVenuePerksStatus(v.venueId)} · Tap to view details</span>
+            </button>
+          `).join("")
           : '<div class="tonight-list-item"><strong>No venues available</strong><span>Check back soon.</span></div>';
       }
     }
     function renderMapVenueList() {
       if (!mapVenueList) return;
-      const entries = featuredVenuesData.slice(0, 8);
+      const entries = featuredVenuesData.slice();
       mapVenueList.innerHTML = entries.length
-        ? entries.map((v) => `<div class="map-venue-item"><strong>${v.name}</strong><span>${(venuesInfo[v.venueId] || {}).address || "Fort Collins"}</span></div>`).join("")
+        ? entries.map((v) => `
+          <button type="button" class="map-venue-item ${activeMapVenueId === v.venueId ? "active" : ""}" data-map-venue="${v.venueId}">
+            <strong>${v.name}</strong>
+            <span>${(venuesInfo[v.venueId] || {}).address || "Fort Collins"}</span>
+            <span>${formatVenueOpenStatus(v.venueId)} · ${getVenuePerksStatus(v.venueId)}</span>
+          </button>
+        `).join("")
         : '<div class="map-venue-item"><strong>No venues loaded</strong><span>Venue list appears here when available.</span></div>';
     }
     function renderProfileActivity() {
       if (!profileActivityName) return;
       const log = Array.isArray(redemptionLog) ? redemptionLog : [];
       const displayName = preferredMemberName(firebaseAuth.currentUser || {});
-      const tierRaw = normalizeMembershipTierSelection(memberProfile?.tier || currentMembershipTier || "standard");
-      const tierLabel = tierRaw === "vip" ? "VIP" : tierRaw === "free" ? "CEO ISSUED" : tierRaw === "ceo" ? "Founder Mode" : "Standard";
+      const tierRaw = getEffectiveTierForDisplay();
+      const tierLabel = tierLabelFromKey(tierRaw);
       profileActivityName.textContent = displayName || "FoCo Member";
       profileActivityTier.textContent = tierLabel;
       profileActivityPass.textContent = (currentPassCode || "—").toUpperCase();
@@ -20414,6 +20586,7 @@
 
     function refreshAlertsTicker() {
       renderAlertsList();
+      renderTonightHub();
       const activeCount = getActiveAlertsForMember().length;
       if (activeCount > 3) {
         if (!window.__alertsRotationHandle) {
@@ -21308,6 +21481,7 @@ let onboardingIndex = 0;
       ceoPreviewTier = null;
       stopCeoMessagesListener();
       stopCloseOutReportsListener();
+      stopMemberNoticesListener();
       updateCeoPassUI();
       pendingMembershipTier = null;
       resetPaymentForm();
@@ -21390,41 +21564,45 @@ let onboardingIndex = 0;
         window.location.reload();
       });
     }
+    function runMemberMenuAction(action = "") {
+      switch (String(action || "")) {
+        case "support":
+          if (supportTrigger) supportTrigger.click();
+          break;
+        case "rewards":
+          if (rewardsTrigger) rewardsTrigger.click();
+          break;
+        case "review": {
+          const reviewBtn = document.getElementById("leaveReviewBtn");
+          if (reviewBtn) reviewBtn.click();
+          break;
+        }
+        case "quickActions":
+          openQuickActionsModal();
+          break;
+        case "featuredVenues":
+          markLiveFeedSeen("featured");
+          markMemberFeedSeen();
+          showScreen("venues");
+          break;
+        case "membership":
+          openMembershipChooser();
+          break;
+        case "cancelMembership":
+          showCancelModal();
+          break;
+        case "about":
+          if (aboutModal) aboutModal.classList.add("active");
+          break;
+        default:
+          break;
+      }
+    }
     if (navItems.length) {
       navItems.forEach(item => {
         item.addEventListener("click", () => {
           const action = item.dataset.nav;
-          switch (action) {
-            case "support":
-              if (supportTrigger) supportTrigger.click();
-              break;
-            case "rewards":
-              if (rewardsTrigger) rewardsTrigger.click();
-              break;
-            case "review":
-              const reviewBtn = document.getElementById("leaveReviewBtn");
-              if (reviewBtn) reviewBtn.click();
-              break;
-            case "quickActions":
-              openQuickActionsModal();
-              break;
-            case "featuredVenues":
-              markLiveFeedSeen("featured");
-              markMemberFeedSeen();
-              showScreen("venues");
-              break;
-            case "membership":
-              openMembershipChooser();
-              break;
-            case "cancelMembership":
-              showCancelModal();
-              break;
-            case "about":
-              if (aboutModal) aboutModal.classList.add("active");
-              break;
-            default:
-              break;
-          }
+          runMemberMenuAction(action);
           closeNavMenu();
         });
       });
@@ -21436,6 +21614,14 @@ let onboardingIndex = 0;
           applyAccentTheme(theme);
           closeNavMenu();
         });
+      });
+    }
+    if (menuAccentGrid) {
+      menuAccentGrid.addEventListener("click", (event) => {
+        const chip = event.target?.closest?.(".accent-chip");
+        if (!chip) return;
+        const theme = chip.dataset.accent || "cyan";
+        applyAccentTheme(theme);
       });
     }
     if (accentChips && accentChips.length) {
@@ -21488,6 +21674,10 @@ let onboardingIndex = 0;
         item.addEventListener("click", () => {
           const target = item.dataset.bottomNav;
           if (!target) return;
+          if (target === "pass") {
+            showScreen("pass");
+            return;
+          }
           if (target === "venues") {
             markLiveFeedSeen("featured");
             markMemberFeedSeen();
@@ -21507,8 +21697,47 @@ let onboardingIndex = 0;
     }
     if (profileActivitySettings) {
       profileActivitySettings.addEventListener("click", () => {
-        toggleNavMenu(true);
-        showScreen("pass");
+        showScreen("menu");
+      });
+    }
+    if (menuScreen) {
+      menuScreen.addEventListener("click", (event) => {
+        const actionBtn = event.target?.closest?.("[data-menu-action]");
+        if (!actionBtn) return;
+        runMemberMenuAction(actionBtn.dataset.menuAction || "");
+      });
+    }
+    if (menuLogoutBtn) {
+      menuLogoutBtn.addEventListener("click", async () => {
+        await signOutToLanding();
+      });
+    }
+    if (tonightOpenNowList) {
+      tonightOpenNowList.addEventListener("click", (event) => {
+        const btn = event.target?.closest?.("[data-tonight-venue]");
+        if (!btn) return;
+        const venueId = String(btn.dataset.tonightVenue || "").trim();
+        if (!venueId) return;
+        showVenueDetail(venueId);
+      });
+    }
+    if (tonightNearbyList) {
+      tonightNearbyList.addEventListener("click", (event) => {
+        const btn = event.target?.closest?.("[data-tonight-venue]");
+        if (!btn) return;
+        const venueId = String(btn.dataset.tonightVenue || "").trim();
+        if (!venueId) return;
+        showVenueDetail(venueId);
+      });
+    }
+    if (mapVenueList) {
+      mapVenueList.addEventListener("click", (event) => {
+        const btn = event.target?.closest?.("[data-map-venue]");
+        if (!btn) return;
+        const venueId = String(btn.dataset.mapVenue || "").trim();
+        if (!venueId) return;
+        setActiveMapVenue(venueId);
+        showVenueDetail(venueId);
       });
     }
     document.addEventListener("keydown", (event) => {
@@ -23051,72 +23280,263 @@ let onboardingIndex = 0;
       bar_district: {
         name: "The Bar District",
         address: "151 S College Ave, Fort Collins, CO 80524",
+        hours: "Thu-Sat 7:00 PM-2:00 AM · Sun-Wed Closed",
+        hoursByDay: {
+          4: ["7:00 PM", "2:00 AM"],
+          5: ["7:00 PM", "2:00 AM"],
+          6: ["7:00 PM", "2:00 AM"]
+        }
       },
       yeti: {
         name: "Yeti Bar & Grill",
         address: "23 Old Town Square, Suite 152, Fort Collins, CO 80524",
+        hours: "Daily 11:00 AM-2:00 AM",
+        hoursByDay: {
+          0: ["11:00 AM", "2:00 AM"],
+          1: ["11:00 AM", "2:00 AM"],
+          2: ["11:00 AM", "2:00 AM"],
+          3: ["11:00 AM", "2:00 AM"],
+          4: ["11:00 AM", "2:00 AM"],
+          5: ["11:00 AM", "2:00 AM"],
+          6: ["11:00 AM", "2:00 AM"]
+        }
       },
       rec_room: {
         name: "Rec Room Fort Collins",
         address: "23 Old Town Square, Suite 152, Fort Collins, CO 80524",
+        hours: "Thu-Sat 10:00 PM-2:00 AM · Sun-Wed Closed",
+        hoursByDay: {
+          4: ["10:00 PM", "2:00 AM"],
+          5: ["10:00 PM", "2:00 AM"],
+          6: ["10:00 PM", "2:00 AM"]
+        }
       },
       bondi_beach: {
         name: "Bondi Beach Bar & Grill",
         address: "11 Old Town Square #120, Fort Collins, CO 80524",
+        hours: "Daily 11:00 AM-2:00 AM",
+        hoursByDay: {
+          0: ["11:00 AM", "2:00 AM"],
+          1: ["11:00 AM", "2:00 AM"],
+          2: ["11:00 AM", "2:00 AM"],
+          3: ["11:00 AM", "2:00 AM"],
+          4: ["11:00 AM", "2:00 AM"],
+          5: ["11:00 AM", "2:00 AM"],
+          6: ["11:00 AM", "2:00 AM"]
+        }
       },
       surfside: {
         name: "Surfside",
         address: "238 Linden St, Fort Collins, CO 80524",
+        hours: "Daily 4:00 PM-2:00 AM",
+        hoursByDay: {
+          0: ["4:00 PM", "2:00 AM"],
+          1: ["4:00 PM", "2:00 AM"],
+          2: ["4:00 PM", "2:00 AM"],
+          3: ["4:00 PM", "2:00 AM"],
+          4: ["4:00 PM", "2:00 AM"],
+          5: ["4:00 PM", "2:00 AM"],
+          6: ["4:00 PM", "2:00 AM"]
+        }
       },
       lucky_joes: {
         name: "Lucky Joe’s Sidewalk Saloon",
         address: "25 Old Town Square, Fort Collins, CO 80524",
+        hours: "Daily 11:00 AM-2:00 AM",
+        hoursByDay: {
+          0: ["11:00 AM", "2:00 AM"],
+          1: ["11:00 AM", "2:00 AM"],
+          2: ["11:00 AM", "2:00 AM"],
+          3: ["11:00 AM", "2:00 AM"],
+          4: ["11:00 AM", "2:00 AM"],
+          5: ["11:00 AM", "2:00 AM"],
+          6: ["11:00 AM", "2:00 AM"]
+        }
       },
       trail_head: {
         name: "Trail Head Tavern",
         address: "148 W Mountain Ave, Fort Collins, CO 80524",
+        hours: "Daily 11:00 AM-2:00 AM",
+        hoursByDay: {
+          0: ["11:00 AM", "2:00 AM"],
+          1: ["11:00 AM", "2:00 AM"],
+          2: ["11:00 AM", "2:00 AM"],
+          3: ["11:00 AM", "2:00 AM"],
+          4: ["11:00 AM", "2:00 AM"],
+          5: ["11:00 AM", "2:00 AM"],
+          6: ["11:00 AM", "2:00 AM"]
+        }
       },
       steak_out: {
         name: "Steak-Out Saloon",
         address: "152 W Mountain Ave, Fort Collins, CO 80524",
+        hours: "Daily 11:00 AM-2:00 AM",
+        hoursByDay: {
+          0: ["11:00 AM", "2:00 AM"],
+          1: ["11:00 AM", "2:00 AM"],
+          2: ["11:00 AM", "2:00 AM"],
+          3: ["11:00 AM", "2:00 AM"],
+          4: ["11:00 AM", "2:00 AM"],
+          5: ["11:00 AM", "2:00 AM"],
+          6: ["11:00 AM", "2:00 AM"]
+        }
       },
       road_34: {
         name: "Road 34 Bike Bar",
         address: "121 W Laurel St, Fort Collins, CO 80524",
+        hours: "Daily 11:00 AM-2:00 AM",
+        hoursByDay: {
+          0: ["11:00 AM", "2:00 AM"],
+          1: ["11:00 AM", "2:00 AM"],
+          2: ["11:00 AM", "2:00 AM"],
+          3: ["11:00 AM", "2:00 AM"],
+          4: ["11:00 AM", "2:00 AM"],
+          5: ["11:00 AM", "2:00 AM"],
+          6: ["11:00 AM", "2:00 AM"]
+        }
       },
       brothers: {
         name: "Brothers",
         address: "147 S College Ave, Fort Collins, CO 80524",
+        hours: "Daily 11:00 AM-2:00 AM",
+        hoursByDay: {
+          0: ["11:00 AM", "2:00 AM"],
+          1: ["11:00 AM", "2:00 AM"],
+          2: ["11:00 AM", "2:00 AM"],
+          3: ["11:00 AM", "2:00 AM"],
+          4: ["11:00 AM", "2:00 AM"],
+          5: ["11:00 AM", "2:00 AM"],
+          6: ["11:00 AM", "2:00 AM"]
+        }
       },
       pour_brothers: {
         name: "Pour Brothers Community Tavern",
         address: "220 Linden St, Fort Collins, CO 80524",
+        hours: "Daily 11:00 AM-2:00 AM",
+        hoursByDay: {
+          0: ["11:00 AM", "2:00 AM"],
+          1: ["11:00 AM", "2:00 AM"],
+          2: ["11:00 AM", "2:00 AM"],
+          3: ["11:00 AM", "2:00 AM"],
+          4: ["11:00 AM", "2:00 AM"],
+          5: ["11:00 AM", "2:00 AM"],
+          6: ["11:00 AM", "2:00 AM"]
+        }
       },
       tap_handle: {
         name: "Tap and Handle",
         address: "307 S College Ave, Fort Collins, CO 80524",
+        hours: "Sun-Thu 11:00 AM-12:00 AM · Fri-Sat 11:00 AM-1:00 AM",
+        hoursByDay: {
+          0: ["11:00 AM", "12:00 AM"],
+          1: ["11:00 AM", "12:00 AM"],
+          2: ["11:00 AM", "12:00 AM"],
+          3: ["11:00 AM", "12:00 AM"],
+          4: ["11:00 AM", "12:00 AM"],
+          5: ["11:00 AM", "1:00 AM"],
+          6: ["11:00 AM", "1:00 AM"]
+        }
       },
       high_point: {
         name: "High Point",
         address: "226 Pine St, Fort Collins, CO 80524",
+        hours: "Daily 4:00 PM-2:00 AM",
+        hoursByDay: {
+          0: ["4:00 PM", "2:00 AM"],
+          1: ["4:00 PM", "2:00 AM"],
+          2: ["4:00 PM", "2:00 AM"],
+          3: ["4:00 PM", "2:00 AM"],
+          4: ["4:00 PM", "2:00 AM"],
+          5: ["4:00 PM", "2:00 AM"],
+          6: ["4:00 PM", "2:00 AM"]
+        }
       },
       pinball_jones: {
         name: "Pinball Jones",
         address: "107 Linden St, Fort Collins, CO 80524",
+        hours: "Mon-Thu 4:00 PM-12:00 AM · Fri 4:00 PM-1:00 AM · Sat 12:00 PM-1:00 AM · Sun 12:00 PM-12:00 AM",
+        hoursByDay: {
+          0: ["12:00 PM", "12:00 AM"],
+          1: ["4:00 PM", "12:00 AM"],
+          2: ["4:00 PM", "12:00 AM"],
+          3: ["4:00 PM", "12:00 AM"],
+          4: ["4:00 PM", "12:00 AM"],
+          5: ["4:00 PM", "1:00 AM"],
+          6: ["12:00 PM", "1:00 AM"]
+        }
       },
       elliotts: {
         name: "Elliott’s Martini Bar",
         address: "234 Linden St, Fort Collins, CO 80524",
+        hours: "Daily 4:00 PM-2:00 AM",
+        hoursByDay: {
+          0: ["4:00 PM", "2:00 AM"],
+          1: ["4:00 PM", "2:00 AM"],
+          2: ["4:00 PM", "2:00 AM"],
+          3: ["4:00 PM", "2:00 AM"],
+          4: ["4:00 PM", "2:00 AM"],
+          5: ["4:00 PM", "2:00 AM"],
+          6: ["4:00 PM", "2:00 AM"]
+        }
       },
       town_pump: {
         name: "Town Pump",
         address: "124 N College Ave, Fort Collins, CO 80524",
+        hours: "Mon-Thu 3:00 PM-12:30 AM · Fri 3:00 PM-1:00 AM · Sat 12:00 PM-1:00 AM · Sun 12:00 PM-12:30 AM",
+        hoursByDay: {
+          0: ["12:00 PM", "12:30 AM"],
+          1: ["3:00 PM", "12:30 AM"],
+          2: ["3:00 PM", "12:30 AM"],
+          3: ["3:00 PM", "12:30 AM"],
+          4: ["3:00 PM", "12:30 AM"],
+          5: ["3:00 PM", "1:00 AM"],
+          6: ["12:00 PM", "1:00 AM"]
+        }
       },
       mayor_old_town: {
         name: "The Mayor of Old Town",
         address: "632 S Mason St, Fort Collins, CO 80524",
+        hours: "Mon-Thu 12:00 PM-10:00 PM · Fri-Sat 12:00 PM-11:00 PM · Sun 12:00 PM-10:00 PM",
+        hoursByDay: {
+          0: ["12:00 PM", "10:00 PM"],
+          1: ["12:00 PM", "10:00 PM"],
+          2: ["12:00 PM", "10:00 PM"],
+          3: ["12:00 PM", "10:00 PM"],
+          4: ["12:00 PM", "10:00 PM"],
+          5: ["12:00 PM", "11:00 PM"],
+          6: ["12:00 PM", "11:00 PM"]
+        }
       },
     };
+    const DEFAULT_VENUE_HOURS_BY_DAY = {
+      0: ["4:00 PM", "1:30 AM"],
+      1: ["4:00 PM", "1:30 AM"],
+      2: ["4:00 PM", "1:30 AM"],
+      3: ["4:00 PM", "1:30 AM"],
+      4: ["2:00 PM", "1:45 AM"],
+      5: ["12:00 PM", "1:45 AM"],
+      6: ["12:00 PM", "1:45 AM"]
+    };
+    function cloneVenueHours(hoursByDay = DEFAULT_VENUE_HOURS_BY_DAY) {
+      const next = {};
+      Object.entries(hoursByDay).forEach(([day, range]) => {
+        if (!Array.isArray(range) || range.length < 2) return;
+        next[day] = [String(range[0]), String(range[1])];
+      });
+      return next;
+    }
+    function formatVenueHoursSummary(info = {}) {
+      if (info.hours && String(info.hours).trim()) return String(info.hours).trim();
+      return "Sun-Thu 4:00 PM-1:30 AM · Fri-Sat 12:00 PM-1:45 AM";
+    }
+    Object.values(venuesInfo).forEach((info) => {
+      if (!info.hoursByDay || typeof info.hoursByDay !== "object") {
+        info.hoursByDay = cloneVenueHours();
+      }
+      if (!info.hours) {
+        info.hours = formatVenueHoursSummary(info);
+      }
+    });
 
     const BETA_PERK_PRIMARY = [
       { label: "Signature Mule", standardQty: 2, vipQty: 4 },
@@ -24191,7 +24611,9 @@ let onboardingIndex = 0;
       } else {
         localStorage.removeItem(ACCENT_KEY);
       }
-      accentChips.forEach(chip => chip.classList.toggle("active", chip.dataset.accent === theme));
+      document.querySelectorAll(".accent-chip").forEach((chip) => {
+        chip.classList.toggle("active", chip.dataset.accent === theme);
+      });
       // Background auto-apply disabled (users no longer choose background options)
     }
     function loadAccentTheme() {
@@ -28365,6 +28787,7 @@ let onboardingIndex = 0;
             renderCeoRedemptionLog();
             renderCeoVenueLog();
             updateCeoMetrics();
+            renderCeoMembersTable();
             refreshMemberStats();
             updateCeoMemberPreviewFromCache();
           });
@@ -32082,6 +32505,135 @@ let onboardingIndex = 0;
         if (ceoMemberVoucherGrantStatus) ceoMemberVoucherGrantStatus.style.display = "none";
       }, 3600);
     }
+    function showCeoMemberMessageStatus(message, success = true) {
+      if (!ceoMemberMessageStatus) return;
+      ceoMemberMessageStatus.textContent = message;
+      ceoMemberMessageStatus.style.color = success ? "#a7f3d0" : "#f97373";
+      ceoMemberMessageStatus.style.display = "block";
+      window.setTimeout(() => {
+        if (ceoMemberMessageStatus) ceoMemberMessageStatus.style.display = "none";
+      }, 3600);
+    }
+    async function sendCeoMemberMessage() {
+      if (!isCeoAccount || !db || !ceoMemberPreviewActions) {
+        showCeoMemberMessageStatus("CEO access required.", false);
+        return;
+      }
+      const uid = ceoMemberPreviewActions.dataset.uid || "";
+      if (!uid) {
+        showCeoMemberMessageStatus("Select a member first.", false);
+        return;
+      }
+      const body = String(ceoMemberMessageInput?.value || "").trim();
+      if (!body) {
+        showCeoMemberMessageStatus("Type a message first.", false);
+        return;
+      }
+      if (ceoMemberMessageSendBtn) ceoMemberMessageSendBtn.disabled = true;
+      try {
+        if (!guardWriteAction("ceoMemberMessage", "App is locked (read-only).", { silent: true })) {
+          showCeoMemberMessageStatus("App is locked (read-only).", false);
+          return;
+        }
+        await addDoc(collection(db, "memberMessages"), {
+          uid,
+          passCode: (ceoMemberPreviewActions.dataset.passCode || "").toUpperCase(),
+          from: "ceo",
+          message: body.slice(0, 800),
+          read: false,
+          createdAt: serverTimestamp()
+        });
+        if (ceoMemberMessageInput) ceoMemberMessageInput.value = "";
+        showCeoMemberMessageStatus("Message sent to member.");
+      } catch (err) {
+        console.warn("Failed to send member message", err);
+        showCeoMemberMessageStatus("Could not send message. Try again.", false);
+      } finally {
+        if (ceoMemberMessageSendBtn) ceoMemberMessageSendBtn.disabled = false;
+      }
+    }
+    function getSeenMemberNoticeSet(uid = "") {
+      const key = `member_notice_seen_${uid}`;
+      try {
+        const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+        return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+      } catch (_) {
+        return new Set();
+      }
+    }
+    function persistSeenMemberNoticeSet(uid = "", setObj = new Set()) {
+      const key = `member_notice_seen_${uid}`;
+      try {
+        localStorage.setItem(key, JSON.stringify(Array.from(setObj).slice(-80)));
+      } catch (_) {}
+    }
+    function hideMemberNoticeModal() {
+      if (memberNoticeModal) memberNoticeModal.classList.remove("active");
+    }
+    async function acknowledgeMemberNotice(item = null) {
+      const active = item || memberNoticeQueue[0];
+      if (!active) {
+        hideMemberNoticeModal();
+        return;
+      }
+      const uid = firebaseAuth?.currentUser?.uid || "";
+      if (uid) {
+        const seen = getSeenMemberNoticeSet(uid);
+        seen.add(active.id);
+        persistSeenMemberNoticeSet(uid, seen);
+      }
+      try {
+        await updateDoc(doc(db, "memberMessages", active.id), {
+          read: true,
+          readAt: serverTimestamp()
+        });
+      } catch (_) {}
+      memberNoticeQueue = memberNoticeQueue.filter((entry) => entry.id !== active.id);
+      if (memberNoticeQueue.length) {
+        const next = memberNoticeQueue[0];
+        if (memberNoticeBody) memberNoticeBody.textContent = next.message || "New message from FoCo Support.";
+      } else {
+        hideMemberNoticeModal();
+      }
+    }
+    function stopMemberNoticesListener() {
+      if (memberNoticesUnsub) {
+        try { memberNoticesUnsub(); } catch (_) {}
+        memberNoticesUnsub = null;
+      }
+      memberNoticeQueue = [];
+      hideMemberNoticeModal();
+    }
+    function startMemberNoticesListener(uid = "") {
+      stopMemberNoticesListener();
+      if (!db || !uid || isCeoAccount || staffSession?.venue) return;
+      try {
+        const seen = getSeenMemberNoticeSet(uid);
+        const q = query(collection(db, "memberMessages"), where("uid", "==", uid), limit(25));
+        memberNoticesUnsub = subscribeSnapshot("memberMessages", q, null, (snap) => {
+          const pending = snap.docs
+            .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() || {}) }))
+            .filter((msg) => msg && msg.read !== true)
+            .sort((a, b) => toMillisSafe(b.createdAt || b.createdAtServer) - toMillisSafe(a.createdAt || a.createdAtServer))
+            .filter((msg) => !seen.has(msg.id));
+          memberNoticeQueue = pending;
+          if (!pending.length) {
+            hideMemberNoticeModal();
+            return;
+          }
+          const top = pending[0];
+          if (memberNoticeBody) {
+            memberNoticeBody.textContent = top.message || "New message from FoCo Support.";
+          }
+          if (memberNoticeModal) {
+            memberNoticeModal.classList.add("active");
+          }
+          showToast("New FoCo Support message.");
+        }, () => {});
+      } catch (err) {
+        console.warn("member notices listener failed", err);
+      }
+    }
     async function grantCeoMemberVouchers() {
       if (!isCeoAccount || !db || !ceoMemberPreviewActions) {
         showCeoMemberVoucherGrantStatus("CEO access required.", false);
@@ -32278,6 +32830,22 @@ let onboardingIndex = 0;
     }
     function renderCeoMembersTable() {
       if (!ceoMembersList || !ceoMembersTotals) return;
+      const getMemberActivityStatsForPass = (passCode = "") => {
+        const code = String(passCode || "").toUpperCase();
+        if (!code || !Array.isArray(ceoRedemptionsCache) || !ceoRedemptionsCache.length) {
+          return { redeemed: 0, nights: 0 };
+        }
+        let redeemed = 0;
+        const nights = new Set();
+        ceoRedemptionsCache.forEach((entry) => {
+          if (String(entry.passId || "").toUpperCase() !== code) return;
+          if (!isVerifiedRedemptionEntry(entry)) return;
+          redeemed += 1;
+          const key = getCeoDateKey(getRedemptionEntryDate(entry));
+          if (key) nights.add(key);
+        });
+        return { redeemed, nights: nights.size };
+      };
       const list = getFilteredCeoMembers();
       const totals = ceoMembersCache.reduce((acc, m) => {
         acc.total += 1;
@@ -32291,6 +32859,7 @@ let onboardingIndex = 0;
       ceoMembersTotals.textContent = `Active profiles: ${totals.total} · VIP: ${totals.vip} · Standard: ${totals.standard} · Free: ${totals.free} · Paused: ${totals.paused} · Past due: ${totals.pastDue}`;
       const rows = list.map(m => {
         const statusClass = (m.statusKey === "paused" || m.statusKey === "past_due") ? "pill danger" : "pill ghost";
+        const activity = getMemberActivityStatsForPass(m.passCode || "");
         return `
           <tr>
             <td data-label="Member">
@@ -32303,6 +32872,8 @@ let onboardingIndex = 0;
             <td data-label="Gender">${m.gender}</td>
             <td data-label="Joined">${m.createdAtLabel}</td>
             <td data-label="Last active">${m.lastActiveLabel}</td>
+            <td data-label="Redeemed">${activity.redeemed}</td>
+            <td data-label="Nights">${activity.nights}</td>
             <td data-label="Actions">
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:11px;border-radius:10px;" data-member-uid="${m.uid}" data-member-paused="${m.paused ? "1" : "0"}">
@@ -32316,7 +32887,7 @@ let onboardingIndex = 0;
           </tr>
         `;
       });
-      ceoMembersList.innerHTML = rows.join("") || `<tr><td colspan="8" style="color:#94a3b8;font-size:12px;">No members found.</td></tr>`;
+      ceoMembersList.innerHTML = rows.join("") || `<tr><td colspan="10" style="color:#94a3b8;font-size:12px;">No members found.</td></tr>`;
     }
     function startCeoMembersRealtime(force = false) {
       if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim() || !ceoMembersCard) return;
@@ -32721,6 +33292,20 @@ let onboardingIndex = 0;
     if (ceoMemberVoucherGrantBtn) {
       ceoMemberVoucherGrantBtn.addEventListener("click", grantCeoMemberVouchers);
     }
+    if (ceoMemberMessageSendBtn) {
+      ceoMemberMessageSendBtn.addEventListener("click", sendCeoMemberMessage);
+    }
+    if (memberNoticeClose) {
+      memberNoticeClose.addEventListener("click", () => acknowledgeMemberNotice());
+    }
+    if (memberNoticeAcknowledge) {
+      memberNoticeAcknowledge.addEventListener("click", () => acknowledgeMemberNotice());
+    }
+    if (memberNoticeModal) {
+      memberNoticeModal.addEventListener("click", (e) => {
+        if (e.target === memberNoticeModal) acknowledgeMemberNotice();
+      });
+    }
     if (voucherGrantClose) {
       voucherGrantClose.addEventListener("click", closeVoucherGrantModal);
     }
@@ -32786,11 +33371,15 @@ let onboardingIndex = 0;
         venueDetailPhone.style.display = hasPhone ? "" : "none";
       }
       if (info.hours) {
-        venueDetailHours.textContent = info.hours;
+        venueDetailHours.textContent = `${info.hours} · ${formatVenueOpenStatus(venueId)}`;
         venueDetailHours.style.display = "";
       } else {
         venueDetailHours.textContent = "";
         venueDetailHours.style.display = "none";
+      }
+      if (venueDetailPerks) {
+        venueDetailPerks.textContent = getVenuePerksStatus(venueId);
+        venueDetailPerks.style.display = "";
       }
       venueDetailModal.dataset.venueId = venueId;
       const avg = getVenueAverage(venueId);
