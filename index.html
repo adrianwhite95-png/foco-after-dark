@@ -12697,7 +12697,7 @@
             </button>
           </div>
           <p class="small" style="margin-top:6px;text-align:left;">
-            All memberships complete secure 21+ ID verification. Standard/VIP continue to billing, Explorer activates after verification with no payment required.
+            Standard/VIP continue to secure 21+ ID verification before billing. Explorer opens instantly, then verifies age only when upgrading to paid tiers.
           </p>
         </div>
         <div class="error" id="authError"></div>
@@ -16103,7 +16103,7 @@
       });
       if (signupConfirmTierNote) {
         if (signupSelectedTier === "explorer") {
-          signupConfirmTierNote.textContent = "Selected pass: Explorer. Next step is secure ID verification. Billing is skipped after verification.";
+          signupConfirmTierNote.textContent = "Selected pass: Explorer. Account opens now with no billing. 21+ ID check runs when you upgrade to Standard or VIP.";
         } else {
           signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupSelectedTier)}. Next step is secure ID verification.`;
         }
@@ -16441,8 +16441,9 @@
           return;
         }
         hideSignupConfirmModal();
-        onboardingMembershipFlow = true;
-        forceMembershipScreen = true;
+        const selectedTier = normalizeMembershipTierSelection(pendingSignupData?.tier || signupSelectedTier || "standard");
+        onboardingMembershipFlow = selectedTier !== "explorer";
+        forceMembershipScreen = selectedTier !== "explorer";
         try {
           await completeSignup(pendingSignupData);
         } catch (err) {
@@ -16980,7 +16981,7 @@
         };
         if (signupConfirmTierNote) {
           if (signupTier === "explorer") {
-            signupConfirmTierNote.textContent = "Selected pass: Explorer. Next step is secure ID verification. Billing is skipped after verification.";
+            signupConfirmTierNote.textContent = "Selected pass: Explorer. Account opens now with no billing. 21+ ID check runs when you upgrade to Standard or VIP.";
           } else {
             signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupTier)}. Next step is secure ID verification.`;
           }
@@ -17150,8 +17151,9 @@
           if (fullName) profilePayload.legalName = fullName;
           if (gender) profilePayload.gender = gender;
           profilePayload.requestedTier = requestedTier;
-          profilePayload.ageVerificationRequired = true;
-          profilePayload.ageVerificationStatus = "required";
+          const explorerSignup = requestedTier === "explorer";
+          profilePayload.ageVerificationRequired = !explorerSignup;
+          profilePayload.ageVerificationStatus = explorerSignup ? "skipped_explorer" : "required";
           profilePayload.ageVerified21 = false;
           profilePayload.onboardingEligible = true;
           profilePayload.onboardingComplete = false;
@@ -17232,6 +17234,31 @@
 	          if (!started) {
 	            showScreen("ageVerify");
 	          }
+	      } else if (requestedTier === "explorer" && !signupAppliedFreeInvite && !isFreeMember(memberProfile)) {
+          memberProfile = {
+            ...(memberProfile || {}),
+            tier: "explorer",
+            requestedTier: "explorer",
+            paymentStatus: "active",
+            membershipStatus: "explorer",
+            ageVerificationRequired: false,
+            ageVerificationStatus: "skipped_explorer",
+            ageVerified21: false
+          };
+          if (firebaseAuth?.currentUser) {
+            updateMemberProfile({
+              tier: "explorer",
+              requestedTier: "explorer",
+              paymentStatus: "active",
+              membershipStatus: "explorer",
+              ageVerificationRequired: false,
+              ageVerificationStatus: "skipped_explorer",
+              ageVerified21: false
+            }).catch((err) => console.warn("Explorer signup profile update failed", err));
+          }
+          applyMembershipToPass("explorer");
+          updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
+          showScreen("tonight");
 	      }
 	      showAddHomeGate();
 	    }
@@ -36161,6 +36188,27 @@ let onboardingIndex = 0;
         const user = firebaseAuth.currentUser;
         if (!user && !betaPassMode) {
           showScreen("auth");
+          return;
+        }
+        if (isExplorerMember() && (tier === "standard" || tier === "vip") && !isAgeVerifiedClient(memberProfile)) {
+          pendingMembershipTier = tier;
+          onboardingMembershipFlow = true;
+          forceMembershipScreen = false;
+          memberProfile = {
+            ...(memberProfile || {}),
+            requestedTier: tier,
+            ageVerificationRequired: true,
+            ageVerificationStatus: "required",
+            ageVerified21: false
+          };
+          updateMemberProfile({
+            requestedTier: tier,
+            ageVerificationRequired: true,
+            ageVerificationStatus: "required",
+            ageVerified21: false
+          }).catch((err) => console.warn("Explorer upgrade precheck save failed", err));
+          showScreen("ageVerify");
+          startAgeVerificationFlow({ tier }).catch((err) => console.warn("Explorer upgrade age verification start failed", err));
           return;
         }
         pendingMembershipTier = tier;
