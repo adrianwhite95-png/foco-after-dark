@@ -341,11 +341,6 @@ body.ios .ceo-hq-nav {
   text-transform: uppercase;
   font-weight: 800;
 }
-.tonight-redeem-copy {
-  display: block;
-  color: #d3e8ff;
-  font-size: 12px;
-}
 .tonight-card {
   border: 1px solid color-mix(in srgb, var(--accent-primary-live) 22%, rgba(148, 163, 184, 0.3));
   background: linear-gradient(142deg, rgba(6, 14, 30, 0.86), rgba(8, 16, 36, 0.78));
@@ -457,11 +452,16 @@ body.ios .ceo-hq-nav {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
+.activity-actions > :only-child {
+  grid-column: 1 / -1;
+}
 
 /* Menu screen */
 .menu-screen-grid {
   display: grid;
   gap: 14px;
+  grid-template-columns: 1.2fr 0.8fr;
+  align-items: start;
 }
 .menu-card {
   padding: 16px;
@@ -480,7 +480,7 @@ body.ios .ceo-hq-nav {
 }
 .menu-action-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 .menu-action-btn {
@@ -493,6 +493,11 @@ body.ios .ceo-hq-nav {
   letter-spacing: 0.09em;
   text-transform: uppercase;
   font-weight: 700;
+  white-space: normal;
+  line-height: 1.25;
+  text-align: center;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
   cursor: pointer;
   box-shadow:
     0 10px 20px rgba(1, 8, 22, 0.34),
@@ -527,6 +532,17 @@ body.ios .ceo-hq-nav {
   .menu-action-grid,
   .menu-accent-grid {
     grid-template-columns: 1fr;
+  }
+  .menu-screen-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 1280px) and (min-width: 901px) {
+  .menu-screen-grid {
+    grid-template-columns: 1fr;
+  }
+  .menu-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

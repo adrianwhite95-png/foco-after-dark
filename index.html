@@ -11785,6 +11785,33 @@
     #passScreen .nav-dropdown {
       display: none !important;
     }
+    /* Menu fallback layout (ensures clean card grid even if external CSS is stale) */
+    #menuScreen .menu-screen-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 14px;
+      align-items: start;
+    }
+    #menuScreen .menu-action-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    #menuScreen .menu-action-btn {
+      min-height: 56px;
+      white-space: normal;
+      line-height: 1.25;
+      text-align: center;
+      padding: 10px 12px;
+      overflow-wrap: anywhere;
+    }
+    @media (max-width: 1280px) {
+      #menuScreen .menu-screen-grid { grid-template-columns: 1fr; }
+      #menuScreen .menu-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 900px) {
+      #menuScreen .menu-action-grid { grid-template-columns: 1fr; }
+    }
   </style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/components.css?v=2026.02.21.2" />
@@ -12644,8 +12671,7 @@
         <span class="tonight-mini-hint">Tap for full pass</span>
       </button>
       <button type="button" class="tonight-redeem-cta card-hd" id="tonightRedeemBtn">
-        <span class="tonight-redeem-title">Redeem a perk</span>
-        <span class="tonight-redeem-copy">Pick venue + perk, then redeem instantly.</span>
+        <span class="tonight-redeem-title">Redeem a Perk</span>
       </button>
       <div class="tonight-card card-hd">
         <div class="tonight-card-title">Open now venues</div>
@@ -12704,7 +12730,6 @@
       </div>
       <div class="activity-actions">
         <button type="button" class="btn btn-secondary" id="profileActivitySupport">Support</button>
-        <button type="button" class="btn btn-secondary" id="profileActivitySettings">Settings</button>
       </div>
     </div>
   </div>
@@ -17468,7 +17493,6 @@
     const profileActivityNights = document.getElementById("profileActivityNights");
     const profileActivityHistory = document.getElementById("profileActivityHistory");
     const profileActivitySupport = document.getElementById("profileActivitySupport");
-    const profileActivitySettings = document.getElementById("profileActivitySettings");
     const menuAccentGrid = document.getElementById("menuAccentGrid");
     const menuScreen = document.getElementById("menuScreen");
     const cancelMembershipModal = document.getElementById("cancelMembershipModal");
@@ -21694,11 +21718,6 @@ let onboardingIndex = 0;
         showScreen("support");
       });
     }
-    if (profileActivitySettings) {
-      profileActivitySettings.addEventListener("click", () => {
-        showScreen("menu");
-      });
-    }
     if (menuScreen) {
       menuScreen.addEventListener("click", (event) => {
         const actionBtn = event.target?.closest?.("[data-menu-action]");
@@ -21722,7 +21741,9 @@ let onboardingIndex = 0;
         const venueId = String(btn.dataset.mapVenue || "").trim();
         if (!venueId) return;
         setActiveMapVenue(venueId);
-        showVenueDetail(venueId);
+        if (venueMapFrame) {
+          venueMapFrame.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       });
     }
     document.addEventListener("keydown", (event) => {
@@ -25379,7 +25400,12 @@ let onboardingIndex = 0;
     }
     function countVerifiedForPass(passCode) {
       const code = (passCode || "").toUpperCase();
-      return redemptionLog.filter(e => (e.passId || "").toUpperCase() === code && (e.status === "verified" || e.status === "approved" || e.status === "confirmed")).length;
+      const entries = Array.isArray(redemptionLog) ? redemptionLog : [];
+      if (!code || !entries.length) return 0;
+      return entries.filter((entry) => {
+        if ((entry?.passId || "").toUpperCase() !== code) return false;
+        return isCountedRedemptionEntry(entry);
+      }).length;
     }
 
     function updatePointsUI() {
@@ -32815,15 +32841,21 @@ let onboardingIndex = 0;
     }
     function renderCeoMembersTable() {
       if (!ceoMembersList || !ceoMembersTotals) return;
-      const getMemberActivityStatsForPass = (passCode = "") => {
+      const getMemberActivityStats = (member = {}) => {
+        const passCode = String(member.passCode || "").toUpperCase();
+        const uid = String(member.uid || "");
         const code = String(passCode || "").toUpperCase();
-        if (!code || !Array.isArray(ceoRedemptionsCache) || !ceoRedemptionsCache.length) {
+        if ((!code && !uid) || !Array.isArray(ceoRedemptionsCache) || !ceoRedemptionsCache.length) {
           return { redeemed: 0, nights: 0 };
         }
         let redeemed = 0;
         const nights = new Set();
         ceoRedemptionsCache.forEach((entry) => {
-          if (String(entry.passId || "").toUpperCase() !== code) return;
+          const entryPass = String(entry.passId || "").toUpperCase();
+          const entryUid = String(entry.uid || "");
+          const passMatch = !!code && entryPass === code;
+          const uidMatch = !!uid && entryUid === uid;
+          if (!passMatch && !uidMatch) return;
           if (!isVerifiedRedemptionEntry(entry)) return;
           redeemed += 1;
           const key = getCeoDateKey(getRedemptionEntryDate(entry));
@@ -32844,7 +32876,7 @@ let onboardingIndex = 0;
       ceoMembersTotals.textContent = `Active profiles: ${totals.total} · VIP: ${totals.vip} · Standard: ${totals.standard} · Free: ${totals.free} · Paused: ${totals.paused} · Past due: ${totals.pastDue}`;
       const rows = list.map(m => {
         const statusClass = (m.statusKey === "paused" || m.statusKey === "past_due") ? "pill danger" : "pill ghost";
-        const activity = getMemberActivityStatsForPass(m.passCode || "");
+        const activity = getMemberActivityStats(m);
         return `
           <tr>
             <td data-label="Member">
