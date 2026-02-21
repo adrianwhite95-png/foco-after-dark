@@ -47,179 +47,16 @@ body[data-density="compact"] .screen {
   z-index: 1;
 }
 
-/* Landing redesign */
-#landingScreen .landing-wrapper {
-  width: min(980px, calc(100% - 18px));
-  margin: 10px auto 26px;
-  border-radius: 28px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 26%, rgba(148, 163, 184, 0.28));
-  background:
-    linear-gradient(150deg, rgba(3, 9, 22, 0.88), rgba(5, 14, 34, 0.82)),
-    radial-gradient(70% 120% at 12% -8%, color-mix(in srgb, var(--accent-primary-live) 20%, transparent), transparent 66%),
-    radial-gradient(55% 100% at 88% 12%, color-mix(in srgb, var(--accent-secondary-live) 18%, transparent), transparent 72%);
+/* Landing conversion clarity */
+.landing-feature-grid {
+  gap: var(--ds-space-2);
+}
+
+#landingGetPassBtn {
   box-shadow:
-    0 24px 50px rgba(1, 6, 18, 0.5),
-    0 0 28px color-mix(in srgb, var(--accent-primary-live) 16%, transparent);
-  padding: 18px 18px 22px;
-}
-
-#landingScreen .landing-top-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-#landingScreen .landing-live-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 30px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 42%, rgba(148, 163, 184, 0.35));
-  background: linear-gradient(120deg, rgba(2, 11, 26, 0.78), rgba(3, 12, 26, 0.64));
-  color: #dbedff;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  box-shadow: 0 0 16px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
-}
-
-#landingScreen .landing-live-chip::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22d3ee;
-  box-shadow: 0 0 12px rgba(34, 211, 238, 0.9);
-}
-
-#landingScreen .landing-hero-shell {
-  display: grid;
-  gap: 14px;
-}
-
-#landingScreen .brand-logo-landing {
-  margin-top: 4px;
-}
-
-#landingScreen .hero-highlight {
-  border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, rgba(148, 163, 184, 0.24));
-  background: linear-gradient(145deg, rgba(2, 9, 23, 0.8), rgba(4, 12, 28, 0.74));
-  padding: 12px;
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 11%, transparent),
-    0 12px 24px rgba(2, 8, 20, 0.34);
-}
-
-#landingScreen .hero-point.neon-card {
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 30%, rgba(148, 163, 184, 0.3));
-  background: linear-gradient(140deg, rgba(5, 12, 28, 0.92), rgba(8, 15, 34, 0.78));
-}
-
-#landingScreen .landing-feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-#landingScreen .landing-feature-card {
-  min-height: 112px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, rgba(148, 163, 184, 0.28));
-  background: linear-gradient(150deg, rgba(5, 12, 26, 0.8), rgba(8, 16, 32, 0.74));
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 10%, transparent),
-    0 8px 18px rgba(2, 7, 18, 0.28);
-}
-
-#landingScreen .landing-cta-stack {
-  display: grid;
-  gap: 10px;
-  margin-top: 2px;
-}
-
-#landingScreen #landingGetPassBtn,
-#landingScreen #addToHomeBtn {
-  min-height: 50px;
-  border-radius: 14px;
-  border: none;
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-weight: 800;
-  box-shadow:
-    0 14px 28px rgba(1, 7, 19, 0.42),
-    0 0 calc(30px * var(--fx-glow-strength)) color-mix(in srgb, var(--accent-primary-live) 42%, transparent);
-}
-
-#landingScreen #landingGetPassBtn {
-  background: linear-gradient(120deg, #22d3ee, #22c55e);
-  color: #03162a;
-}
-
-#landingScreen #addToHomeBtn {
-  margin-top: 0 !important;
-  margin-bottom: 2px !important;
-  background: linear-gradient(120deg, #22d3ee, #f472b6);
-  color: #071321;
-}
-
-#landingScreen .landing-access-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-#landingScreen .landing-login-row {
-  margin: 0;
-  min-height: 52px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 24%, rgba(148, 163, 184, 0.28));
-  background: linear-gradient(145deg, rgba(4, 11, 24, 0.82), rgba(8, 15, 30, 0.74));
-  padding: 10px 12px;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 9%, transparent);
-}
-
-#landingScreen .landing-login-label {
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #8ea4c6;
-  margin-bottom: 4px;
-}
-
-#landingScreen #landingLoginLink,
-#landingScreen #landingStaffLogin {
-  color: #f2f8ff;
-  font-weight: 700;
-}
-
-#landingScreen .insta-cta-wrap {
-  margin-top: 2px;
-}
-
-@media (max-width: 900px) {
-  #landingScreen .landing-wrapper {
-    width: min(100%, calc(100% - 10px));
-    border-radius: 20px;
-    padding: 14px 12px 18px;
-    margin-bottom: 20px;
-  }
-  #landingScreen .landing-feature-grid {
-    grid-template-columns: 1fr;
-  }
-  #landingScreen .landing-access-grid {
-    grid-template-columns: 1fr;
-  }
-  #landingScreen #landingGetPassBtn,
-  #landingScreen #addToHomeBtn {
-    min-height: 48px;
-    font-size: 12px;
-  }
+    0 16px 28px rgba(1, 7, 20, 0.36),
+    0 0 calc(28px * var(--fx-glow-strength)) rgba(34, 211, 238, 0.3),
+    0 0 calc(22px * var(--fx-glow-strength)) rgba(244, 114, 182, 0.26);
 }
 
 /* Member redeem path */
@@ -407,6 +244,32 @@ body.ios .ceo-hq-nav {
   background: linear-gradient(120deg, color-mix(in srgb, var(--accent-primary-live) 22%, #0f172a), color-mix(in srgb, var(--accent-secondary-live) 18%, #0b1220));
 }
 
+/* Global deeper button glow */
+:is(
+  .btn,
+  .bottom-nav-item,
+  .menu-action-btn,
+  .mobile-action-btn,
+  .quick-action-item,
+  .linkish-btn
+) {
+  box-shadow:
+    0 12px 26px rgba(1, 8, 22, 0.42),
+    0 0 calc(22px * var(--fx-glow-strength)) color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+}
+:is(
+  .btn:hover,
+  .bottom-nav-item:hover,
+  .menu-action-btn:hover,
+  .mobile-action-btn:hover,
+  .quick-action-item:hover,
+  .linkish-btn:hover
+) {
+  box-shadow:
+    0 14px 30px rgba(1, 8, 22, 0.46),
+    0 0 calc(30px * var(--fx-glow-strength)) color-mix(in srgb, var(--accent-primary-live) 34%, transparent);
+}
+
 /* Give fixed nav breathing room */
 #passScreen,
 #tonightScreen,
@@ -458,6 +321,31 @@ body.ios .ceo-hq-nav {
 .tonight-mini-pass strong { font-size: 18px; color: #f2f7ff; }
 .tonight-mini-pass span { font-size: 12px; color: #cfe3ff; }
 .tonight-mini-pass .tonight-mini-hint { color: #7dd3fc; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.tonight-redeem-cta {
+  text-align: left;
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 38%, rgba(148, 163, 184, 0.32));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-primary-live) 22%, rgba(4, 11, 24, 0.9)), color-mix(in srgb, var(--accent-secondary-live) 20%, rgba(6, 14, 31, 0.84)));
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow:
+    0 18px 34px rgba(1, 7, 20, 0.42),
+    0 0 26px color-mix(in srgb, var(--accent-primary-live) 28%, transparent);
+}
+.tonight-redeem-title {
+  display: block;
+  color: #f5fbff;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+.tonight-redeem-copy {
+  display: block;
+  color: #d3e8ff;
+  font-size: 12px;
+}
 .tonight-card {
   border: 1px solid color-mix(in srgb, var(--accent-primary-live) 22%, rgba(148, 163, 184, 0.3));
   background: linear-gradient(142deg, rgba(6, 14, 30, 0.86), rgba(8, 16, 36, 0.78));
