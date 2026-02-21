@@ -18242,10 +18242,10 @@
       { perk: "Shot perk voucher", member: "FoCo Tester", passId: "TEST713" },
       { perk: "Guest entry perk", member: "VIP Preview", passId: "PREV999" }
     ];
-    const PERK_PRICING = {
-      drink: { regular: 12, voucher: 3 },
-      shot: { regular: 5, voucher: 1 },
-      cover: { regular: 10, voucher: 0 },
+    const DEAL_BASELINE_PRICING = {
+      beer: 7,
+      shot: 6,
+      cocktail: 10
     };
     const MEMBERSHIP_FEES = {
       standard: 5,
@@ -18682,15 +18682,16 @@
       const displayName = preferredMemberName(firebaseAuth.currentUser || {});
       const tierRaw = getEffectiveTierForDisplay();
       const tierLabel = tierLabelFromKey(tierRaw);
+      const passId = String(currentPassCode || "").toUpperCase();
       profileActivityName.textContent = displayName || "FoCo Member";
       profileActivityTier.textContent = tierLabel;
       profileActivityPass.textContent = (currentPassCode || "—").toUpperCase();
-      const verifiedCount = countVerifiedForPass((currentPassCode || "").toUpperCase());
-      const estimatedSavings = Math.max(0, verifiedCount * 8);
-      profileActivitySavings.textContent = `$${estimatedSavings.toFixed(2)}`;
+      const savingsEntries = log.filter((entry) => String(entry.passId || "").toUpperCase() === passId);
+      const tier = normalizeTierKey(currentMembershipTier || memberProfile?.tier || tierRaw);
+      const savings = computeSavingsMetrics(savingsEntries, tier);
+      profileActivitySavings.textContent = `$${savings.netSavings.toFixed(2)}`;
       profileActivityNights.textContent = String(Number((statActiveDays?.textContent || "0").replace(/[^\d]/g, "")) || 0);
       if (profileActivityHistory) {
-        const passId = String(currentPassCode || "").toUpperCase();
         const items = log
           .filter((entry) => String(entry.passId || "").toUpperCase() === passId)
           .slice(0, 6);
@@ -18860,12 +18861,13 @@
     function normalizePerkKey(entry) {
       const key = entry?.perkKey;
       if (key && key !== "venue_perk") {
-        return key === "reward_shot" ? "shot" : key;
+        if (key === "reward_shot") return "shot";
+        if (key === "beer" || key === "shot" || key === "cocktail") return key;
       }
       const perkText = (entry?.venuePerkLabel || entry?.perk || "").toLowerCase();
       if (perkText.includes("shot")) return "shot";
-      if (perkText.includes("line") || perkText.includes("cover")) return "cover";
-      return "drink";
+      if (perkText.includes("beer") || perkText.includes("lager") || perkText.includes("ipa") || perkText.includes("ale") || perkText.includes("pilsner")) return "beer";
+      return "cocktail";
     }
 
     function oneMonthFrom(fromDate = new Date()) {
@@ -19259,11 +19261,46 @@
       return Object.values(byCode);
     }
 
-    function perkSavings(key) {
-      const pricing = PERK_PRICING[key] || PERK_PRICING.drink;
-      const regular = Number(pricing.regular) || 0;
-      const voucher = Number(pricing.voucher) || 0;
-      return Math.max(0, regular - voucher);
+    function getBaselineForCategory(category = "cocktail") {
+      const normalized = String(category || "cocktail").toLowerCase();
+      return Number(DEAL_BASELINE_PRICING[normalized] ?? DEAL_BASELINE_PRICING.cocktail);
+    }
+
+    function getDealPriceFromEntry(entry = {}) {
+      const text = String(
+        entry?.venuePerkLabel
+        || entry?.perk
+        || entry?.perkLabel
+        || ""
+      ).toLowerCase();
+      if (!text) return 0;
+      if (text.includes("free")) return 0;
+      const dollarMatch = text.match(/\$\s*(\d+(?:\.\d{1,2})?)/);
+      if (dollarMatch) return Math.max(0, Number(dollarMatch[1]) || 0);
+      // When a price isn't present in the perk label, treat voucher deal as free for savings math.
+      return 0;
+    }
+
+    function computeSavingsMetrics(entries = [], tier = null) {
+      const counted = (Array.isArray(entries) ? entries : []).filter(isCountedRedemptionEntry);
+      const totalRedeemed = counted.length;
+      if (!totalRedeemed) {
+        return { totalRedeemed: 0, grossSavings: 0, netSavings: 0, avgNetPerVoucher: 0 };
+      }
+      const grossSavings = counted.reduce((sum, entry) => {
+        const category = normalizePerkKey(entry);
+        const baseline = getBaselineForCategory(category);
+        const dealPrice = getDealPriceFromEntry(entry);
+        return sum + Math.max(0, baseline - dealPrice);
+      }, 0);
+      const monthlyFee = (isCeoActive() || isFreeMember()) ? 0 : getMonthlyFeeForTier(tier);
+      const netSavings = Math.max(0, grossSavings - monthlyFee);
+      return {
+        totalRedeemed,
+        grossSavings,
+        netSavings,
+        avgNetPerVoucher: netSavings / totalRedeemed
+      };
     }
 
     function resolveBillingStart(billing = {}) {
@@ -19461,24 +19498,11 @@
       const computedVenuesVisited = new Set(
         counted.map(entry => (entry.venue || entry.requestedVenue || "").toLowerCase()).filter(Boolean)
       ).size;
-      const totalSavings = counted.reduce((sum, entry) => {
-        const key = normalizePerkKey(entry);
-        return sum + perkSavings(key);
-      }, 0);
       const tier = currentMembershipTier || memberProfile?.tier || null;
-      const monthlyFee = (isCeoActive() || isFreeMember()) ? 0 : getMonthlyFeeForTier(tier);
-      let feeTotal = 0;
-      if (monthlyFee > 0) {
-        const uid = firebaseAuth.currentUser?.uid;
-        const billing = uid ? loadBilling(uid) : {};
-        const start = resolveBillingStart(billing);
-        const cycles = countBillingCycles(start);
-        feeTotal = monthlyFee * cycles;
-      }
-      const netSavings = Math.max(0, totalSavings - feeTotal);
+      const savings = computeSavingsMetrics(counted, tier);
       const total = Math.max(computedTotal, Number(baseline?.total || 0));
       const venuesVisited = Math.max(computedVenuesVisited, Number(baseline?.venuesVisited || 0));
-      let avg = computedTotal ? (netSavings / computedTotal) : 0;
+      let avg = computedTotal ? savings.avgNetPerVoucher : 0;
       if (!computedTotal && Number.isFinite(Number(baseline?.avg || NaN))) {
         avg = Number(baseline.avg) || 0;
       }
