@@ -464,7 +464,7 @@ body.ios .ceo-hq-nav {
   align-items: start;
 }
 .menu-card {
-  padding: 16px;
+  padding: 20px 16px 16px;
   border: 1px solid color-mix(in srgb, var(--accent-primary-live) 28%, rgba(148, 163, 184, 0.28));
   background: linear-gradient(140deg, rgba(6, 14, 30, 0.9), rgba(10, 18, 38, 0.8));
   box-shadow:
@@ -477,13 +477,16 @@ body.ios .ceo-hq-nav {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #9ec9f4;
-  margin: 0 0 10px;
-  padding: 2px 4px;
-  line-height: 1.2;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  line-height: 1.1;
   white-space: normal;
   overflow-wrap: anywhere;
   position: relative;
   z-index: 2;
+  border-radius: 10px;
+  background: linear-gradient(120deg, rgba(8, 17, 36, 0.9), rgba(7, 14, 31, 0.78));
+  border: 1px solid color-mix(in srgb, var(--accent-primary-live) 24%, rgba(148, 163, 184, 0.26));
 }
 .menu-action-grid {
   display: grid;
@@ -536,11 +539,15 @@ body.ios .ceo-hq-nav {
     font-size: 9px;
     letter-spacing: 0.04em;
   }
-  .menu-action-grid,
-  .menu-accent-grid {
+  .menu-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .menu-accent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .menu-screen-grid {
     grid-template-columns: 1fr;
   }
-  .menu-screen-grid {
+}
+@media (max-width: 430px) {
+  .menu-action-grid,
+  .menu-accent-grid {
     grid-template-columns: 1fr;
   }
 }

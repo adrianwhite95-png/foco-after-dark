@@ -11435,6 +11435,17 @@
         border-radius: 20px 20px 14px 14px;
         border-top: 1px solid color-mix(in srgb, var(--accent-primary-live) 34%, rgba(148, 163, 184, 0.35));
       }
+      /* Keep redeem modal centered on iOS so it opens in-view from Tonight tab */
+      #redeemModal.modal-backdrop {
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+      }
+      #redeemModal .modal-card {
+        width: min(100%, 520px);
+        max-height: min(80vh, 760px);
+        border-radius: 20px;
+      }
     }
 
     /* Keep visual energy but reduce cognitive noise */
@@ -11792,19 +11803,26 @@
       gap: 14px;
       align-items: start;
     }
+    #menuScreen .menu-card {
+      padding: 20px 16px 16px;
+      overflow: hidden;
+    }
     #menuScreen .menu-action-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
     }
     #menuScreen .menu-card-title {
-      margin: 0 0 10px;
-      padding: 2px 4px;
-      line-height: 1.2;
+      margin: 0 0 12px;
+      padding: 8px 12px;
+      line-height: 1.1;
       white-space: normal;
       overflow-wrap: anywhere;
       position: relative;
       z-index: 2;
+      border-radius: 10px;
+      background: linear-gradient(120deg, rgba(8, 17, 36, 0.9), rgba(7, 14, 31, 0.78));
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 24%, rgba(148, 163, 184, 0.26));
     }
     #menuScreen .menu-action-btn {
       min-height: 56px;
@@ -11819,6 +11837,9 @@
       #menuScreen .menu-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 900px) {
+      #menuScreen .menu-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 430px) {
       #menuScreen .menu-action-grid { grid-template-columns: 1fr; }
     }
   </style>
