@@ -520,11 +520,14 @@ body.ios .ceo-hq-nav {
 .menu-accent-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 14px;
+  align-items: stretch;
 }
 .menu-accent-grid .accent-chip {
   width: 100%;
-  min-height: 46px;
+  min-height: 50px;
+  margin: 0;
+  padding: 10px 12px;
   justify-content: center;
 }
 

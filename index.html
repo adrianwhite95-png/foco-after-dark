@@ -11844,15 +11844,29 @@
       padding: 10px 12px;
       overflow-wrap: anywhere;
     }
+    #menuScreen .menu-accent-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+    #menuScreen .menu-accent-grid .accent-chip {
+      min-height: 50px;
+      margin: 0;
+      padding: 10px 12px;
+    }
     @media (max-width: 1280px) {
       #menuScreen .menu-screen-grid { grid-template-columns: 1fr; }
       #menuScreen .menu-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #menuScreen .menu-accent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 900px) {
       #menuScreen .menu-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #menuScreen .menu-accent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 430px) {
       #menuScreen .menu-action-grid { grid-template-columns: 1fr; }
+      #menuScreen .menu-accent-grid { grid-template-columns: 1fr; }
     }
   </style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
@@ -19705,25 +19719,27 @@
         toast = document.createElement("div");
         toast.id = "focoToast";
         toast.style.position = "fixed";
-        toast.style.bottom = "18px";
+        toast.style.top = "50%";
         toast.style.left = "50%";
-        toast.style.transform = "translateX(-50%)";
+        toast.style.transform = "translate(-50%, -50%)";
         toast.style.padding = "12px 18px";
         toast.style.borderRadius = "16px";
         toast.style.background = "rgba(20,24,38,0.92)";
         toast.style.color = "#e2e8f0";
         toast.style.fontSize = "14px";
         toast.style.letterSpacing = "0.02em";
+        toast.style.maxWidth = "min(88vw, 560px)";
+        toast.style.textAlign = "center";
         toast.style.boxShadow = "0 12px 32px rgba(0,0,0,0.35)";
         toast.style.border = "1px solid rgba(103,232,249,0.35)";
-        toast.style.zIndex = "9999";
+        toast.style.zIndex = "13000";
         toast.style.opacity = "0";
         toast.style.transition = "opacity 180ms ease";
         document.body.appendChild(toast);
       }
       toast.textContent = message;
       toast.style.opacity = "1";
-      const holdMs = Math.max(5000, Number(duration) || 5000);
+      const holdMs = 4000;
       setTimeout(() => {
         toast.style.opacity = "0";
       }, holdMs);
