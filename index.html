@@ -3295,6 +3295,62 @@
     #passScreen .pass-card.explorer-locked .explorer-lock-banner {
       display: flex;
     }
+    .explorer-pass-lock-overlay {
+      display: none;
+      position: absolute;
+      inset: 10px;
+      z-index: 25;
+      border-radius: 24px;
+      border: 1px solid rgba(251, 191, 36, 0.42);
+      background:
+        linear-gradient(160deg, rgba(2, 6, 23, 0.74), rgba(15, 23, 42, 0.7)),
+        radial-gradient(130% 140% at 12% 6%, rgba(251, 191, 36, 0.14), transparent 62%);
+      backdrop-filter: blur(10px) saturate(0.75);
+      -webkit-backdrop-filter: blur(10px) saturate(0.75);
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      pointer-events: auto;
+    }
+    .explorer-pass-lock-card {
+      width: min(420px, 100%);
+      border-radius: 20px;
+      border: 1px solid rgba(251, 191, 36, 0.5);
+      background: linear-gradient(155deg, rgba(15, 23, 42, 0.9), rgba(17, 24, 39, 0.86));
+      box-shadow: 0 0 36px rgba(251, 191, 36, 0.2);
+      padding: 18px 16px;
+      display: grid;
+      gap: 10px;
+      justify-items: center;
+    }
+    .explorer-pass-lock-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 24px;
+      border: 1px solid rgba(251, 191, 36, 0.55);
+      background: radial-gradient(circle at 50% 35%, rgba(251, 191, 36, 0.22), rgba(30, 27, 75, 0.1) 75%);
+      box-shadow: 0 0 22px rgba(251, 191, 36, 0.3);
+    }
+    .explorer-pass-lock-title {
+      font-size: 16px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #fde68a;
+      font-weight: 800;
+    }
+    .explorer-pass-lock-copy {
+      color: #dbe3f3;
+      font-size: 13px;
+      line-height: 1.45;
+      max-width: 34ch;
+    }
+    #passScreen .pass-card.explorer-locked .explorer-pass-lock-overlay {
+      display: flex;
+    }
     .age-verify-card {
       margin-top: 14px;
       border-radius: 18px;
@@ -12960,6 +13016,14 @@
             <span class="explorer-lock-icon" aria-hidden="true">🔒</span>
             <button type="button" class="btn btn-primary" id="explorerUpgradeBtn" style="width:auto;padding:8px 12px;min-height:36px;">Upgrade</button>
           </div>
+          <div class="explorer-pass-lock-overlay" id="explorerPassLockOverlay" aria-live="polite">
+            <div class="explorer-pass-lock-card">
+              <div class="explorer-pass-lock-icon" aria-hidden="true">🔒</div>
+              <div class="explorer-pass-lock-title">Pass locked in Explorer</div>
+              <div class="explorer-pass-lock-copy">Upgrade to Standard or VIP to unlock your live pass, voucher redemptions, and full nightlife access.</div>
+              <button type="button" class="btn btn-primary" id="explorerUpgradeBtnLarge" style="width:100%;max-width:260px;">Upgrade and unlock pass</button>
+            </div>
+          </div>
           <div class="ceo-pass-banner" id="ceoPassBanner">
             <div>
               <strong>CEO BLACK CARD</strong>
@@ -17767,6 +17831,7 @@
     const passCard = document.getElementById("passCard");
     const explorerLockBanner = document.getElementById("explorerLockBanner");
     const explorerUpgradeBtn = document.getElementById("explorerUpgradeBtn");
+    const explorerUpgradeBtnLarge = document.getElementById("explorerUpgradeBtnLarge");
     const perksListEl = document.getElementById("perksList");
     const passQrImage = document.getElementById("passQrImage");
     const passCodeText = document.getElementById("passCodeText");
@@ -36230,6 +36295,11 @@ let onboardingIndex = 0;
         openMembershipChooser();
       });
     }
+    if (explorerUpgradeBtnLarge) {
+      explorerUpgradeBtnLarge.addEventListener("click", () => {
+        openMembershipChooser();
+      });
+    }
     tierModalAction.addEventListener("click", async () => {
       const targetTier = tierModalAction.dataset.targetTier;
       if (!targetTier) {
@@ -36354,7 +36424,7 @@ let onboardingIndex = 0;
         passCard.classList.toggle("explorer-locked", tier === "explorer");
       }
       if (explorerLockBanner) {
-        explorerLockBanner.style.display = tier === "explorer" ? "flex" : "none";
+        explorerLockBanner.style.display = "none";
       }
       if (redeemTrigger) {
         redeemTrigger.textContent = tier === "explorer" ? "Unlock redemption" : "Redeem a perk";
