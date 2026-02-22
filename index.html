@@ -4126,10 +4126,13 @@
       z-index: 14100;
     }
     #signupConfirmModal {
-      z-index: 3600;
+      z-index: 17050;
       align-items: center;
       justify-content: center;
       padding: 16px;
+      background: rgba(2, 6, 23, 0.9);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
     #signupConfirmModal .modal-card {
       width: min(560px, calc(100% - 20px));
@@ -16208,6 +16211,9 @@
     const resetPasswordCancel = document.getElementById("resetPasswordCancel");
     const resetPasswordSuccess = document.getElementById("resetPasswordSuccess");
     const resetPasswordReturn = document.getElementById("resetPasswordReturn");
+    if (signupConfirmModal && signupConfirmModal.parentElement !== document.body) {
+      document.body.appendChild(signupConfirmModal);
+    }
     const ageVerifyPlan = document.getElementById("ageVerifyPlan");
     const ageVerifyStatus = document.getElementById("ageVerifyStatus");
     const ageVerifyHint = document.getElementById("ageVerifyHint");
