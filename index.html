@@ -2978,6 +2978,41 @@
       border-color: rgba(251, 146, 60, 0.5);
       color: #fed7aa;
     }
+    .accent-chip[data-accent="espresso"] {
+      background: linear-gradient(120deg, rgba(120, 53, 15, 0.28), rgba(251, 191, 36, 0.16));
+      border-color: rgba(180, 83, 9, 0.48);
+      color: #fde68a;
+    }
+    .accent-chip[data-accent="aperol"] {
+      background: linear-gradient(120deg, rgba(251, 146, 60, 0.28), rgba(253, 224, 71, 0.16));
+      border-color: rgba(251, 146, 60, 0.48);
+      color: #ffedd5;
+    }
+    .accent-chip[data-accent="sazerac"] {
+      background: linear-gradient(120deg, rgba(153, 27, 27, 0.28), rgba(245, 158, 11, 0.18));
+      border-color: rgba(185, 28, 28, 0.48);
+      color: #fecaca;
+    }
+    .accent-chip[data-accent="maitai"] {
+      background: linear-gradient(120deg, rgba(249, 115, 22, 0.28), rgba(234, 179, 8, 0.16));
+      border-color: rgba(249, 115, 22, 0.48);
+      color: #ffedd5;
+    }
+    .accent-chip[data-accent="blue_hawaii"] {
+      background: linear-gradient(120deg, rgba(56, 189, 248, 0.28), rgba(59, 130, 246, 0.18));
+      border-color: rgba(56, 189, 248, 0.48);
+      color: #dbeafe;
+    }
+    .accent-chip[data-accent="mule"] {
+      background: linear-gradient(120deg, rgba(132, 204, 22, 0.28), rgba(20, 184, 166, 0.16));
+      border-color: rgba(132, 204, 22, 0.46);
+      color: #ecfccb;
+    }
+    .accent-chip[data-accent="caipirinha"] {
+      background: linear-gradient(120deg, rgba(34, 197, 94, 0.28), rgba(234, 179, 8, 0.16));
+      border-color: rgba(34, 197, 94, 0.46);
+      color: #dcfce7;
+    }
     .accent-chip[data-accent="ceo"] {
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(148, 212, 255, 0.32));
       border-color: rgba(208, 234, 255, 0.75);
@@ -3307,10 +3342,10 @@
         radial-gradient(130% 140% at 12% 6%, rgba(251, 191, 36, 0.14), transparent 62%);
       backdrop-filter: blur(6px) saturate(0.85);
       -webkit-backdrop-filter: blur(6px) saturate(0.85);
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       text-align: center;
-      padding: 20px;
+      padding: 44px 20px 20px;
       pointer-events: auto;
     }
     .explorer-pass-lock-card {
@@ -3323,7 +3358,7 @@
       display: grid;
       gap: 10px;
       justify-items: center;
-      transform: translateY(-18%);
+      transform: translateY(0);
     }
     .explorer-pass-lock-icon {
       width: 58px;
@@ -3352,7 +3387,6 @@
     #passScreen .pass-card.explorer-locked .explorer-pass-lock-overlay {
       display: flex;
     }
-    #tonightScreen.explorer-tonight-locked .tonight-redeem-cta,
     #tonightScreen.explorer-tonight-locked #tonightAlertsList,
     #tonightScreen.explorer-tonight-locked #tonightRecentRedeemed {
       filter: blur(2px) grayscale(0.2);
@@ -3362,6 +3396,19 @@
     }
     #tonightScreen.explorer-tonight-locked .tonight-redeem-cta {
       position: relative;
+      pointer-events: none;
+      user-select: none;
+      opacity: 0.82;
+    }
+    #tonightScreen.explorer-tonight-locked .tonight-redeem-cta::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      backdrop-filter: blur(4px) saturate(0.8);
+      -webkit-backdrop-filter: blur(4px) saturate(0.8);
+      background: rgba(15, 23, 42, 0.32);
+      z-index: 1;
     }
     #tonightScreen.explorer-tonight-locked .tonight-redeem-cta::after {
       content: "🔒 Upgrade required";
@@ -3376,6 +3423,7 @@
       color: #fde68a;
       background: rgba(15, 23, 42, 0.45);
       border-radius: inherit;
+      z-index: 2;
     }
     #tonightScreen.explorer-tonight-locked #tonightAlertsCard {
       position: relative;
@@ -3426,6 +3474,21 @@
       opacity: 0.7;
       border-color: rgba(251, 191, 36, 0.45);
       box-shadow: 0 0 20px rgba(251, 191, 36, 0.2);
+    }
+    #bottomNav .bottom-nav-item.locked::before {
+      content: "🔒 ";
+      font-size: 11px;
+      vertical-align: baseline;
+    }
+    body.ios #bottomNav .bottom-nav-item.locked {
+      font-size: 14px;
+      letter-spacing: 0.08em;
+    }
+    body.ios .explorer-pass-lock-overlay {
+      padding-top: 24px;
+    }
+    body.ios .explorer-pass-lock-card {
+      transform: translateY(0);
     }
     .age-verify-card {
       margin-top: 14px;
@@ -36608,7 +36671,7 @@ let onboardingIndex = 0;
       const profileNavBtn = bottomNav ? bottomNav.querySelector('[data-bottom-nav="profileActivity"]') : null;
       if (profileNavBtn) {
         profileNavBtn.classList.toggle("locked", tier === "explorer");
-        profileNavBtn.textContent = tier === "explorer" ? "🔒 Profile" : "Profile";
+        profileNavBtn.textContent = "Profile";
       }
       const leaveReviewAction = menuScreen ? menuScreen.querySelector('[data-menu-action="review"]') : null;
       if (leaveReviewAction) {
