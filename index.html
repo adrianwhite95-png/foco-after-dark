@@ -3298,15 +3298,15 @@
     .explorer-pass-lock-overlay {
       display: none;
       position: absolute;
-      inset: 10px;
-      z-index: 25;
+      inset: 0;
+      z-index: 120;
       border-radius: 24px;
       border: 1px solid rgba(251, 191, 36, 0.42);
       background:
-        linear-gradient(160deg, rgba(2, 6, 23, 0.74), rgba(15, 23, 42, 0.7)),
+        linear-gradient(160deg, rgba(2, 6, 23, 0.48), rgba(15, 23, 42, 0.42)),
         radial-gradient(130% 140% at 12% 6%, rgba(251, 191, 36, 0.14), transparent 62%);
-      backdrop-filter: blur(10px) saturate(0.75);
-      -webkit-backdrop-filter: blur(10px) saturate(0.75);
+      backdrop-filter: blur(6px) saturate(0.85);
+      -webkit-backdrop-filter: blur(6px) saturate(0.85);
       align-items: center;
       justify-content: center;
       text-align: center;
@@ -3323,6 +3323,7 @@
       display: grid;
       gap: 10px;
       justify-items: center;
+      transform: translateY(-5%);
     }
     .explorer-pass-lock-icon {
       width: 58px;
@@ -3351,60 +3352,9 @@
     #passScreen .pass-card.explorer-locked .explorer-pass-lock-overlay {
       display: flex;
     }
-    .explorer-screen-lock {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 50000;
-      background: rgba(247, 250, 255, 0.58);
-      backdrop-filter: blur(12px) saturate(0.72);
-      -webkit-backdrop-filter: blur(12px) saturate(0.72);
-      align-items: center;
-      justify-content: center;
-      padding: 18px;
-    }
-    .explorer-screen-lock-card {
-      width: min(460px, 100%);
-      border-radius: 24px;
-      border: 1px solid rgba(251, 191, 36, 0.56);
-      background: linear-gradient(160deg, rgba(2, 6, 23, 0.94), rgba(15, 23, 42, 0.9));
-      box-shadow: 0 24px 56px rgba(2, 6, 23, 0.52), 0 0 36px rgba(251, 191, 36, 0.24);
-      padding: 22px 18px;
-      display: grid;
-      gap: 12px;
-      justify-items: center;
-      text-align: center;
-    }
-    .explorer-screen-lock-icon {
-      width: 62px;
-      height: 62px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      font-size: 26px;
-      border: 1px solid rgba(251, 191, 36, 0.6);
-      color: #fde68a;
-      background: radial-gradient(circle at 50% 35%, rgba(251, 191, 36, 0.24), rgba(30, 41, 59, 0.22) 72%);
-      box-shadow: 0 0 24px rgba(251, 191, 36, 0.3);
-    }
-    .explorer-screen-lock-title {
-      font-size: 18px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #fde68a;
-    }
-    .explorer-screen-lock-copy {
-      font-size: 14px;
-      line-height: 1.45;
-      color: #dbe4f4;
-      max-width: 34ch;
-    }
-    #passScreen.explorer-screen-locked .explorer-screen-lock {
-      display: flex;
-    }
     #tonightScreen.explorer-tonight-locked .tonight-redeem-cta,
-    #tonightScreen.explorer-tonight-locked #tonightAlertsList {
+    #tonightScreen.explorer-tonight-locked #tonightAlertsList,
+    #tonightScreen.explorer-tonight-locked #tonightRecentRedeemed {
       filter: blur(2px) grayscale(0.2);
       opacity: 0.56;
       pointer-events: none;
@@ -3443,6 +3393,34 @@
       border-radius: 999px;
       border: 1px solid rgba(251, 191, 36, 0.42);
       background: rgba(15, 23, 42, 0.62);
+    }
+    #tonightScreen.explorer-tonight-locked #tonightRecentCard {
+      position: relative;
+    }
+    #tonightScreen.explorer-tonight-locked #tonightRecentCard::after {
+      content: "🔒 History unlocks on paid membership";
+      position: absolute;
+      inset: auto 10px 10px 10px;
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fde68a;
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(251, 191, 36, 0.42);
+      background: rgba(15, 23, 42, 0.62);
+    }
+    #tonightUpgradeCard {
+      display: none;
+    }
+    #tonightScreen.explorer-tonight-locked #tonightUpgradeCard {
+      display: block;
+    }
+    .menu-action-btn.locked {
+      border-color: rgba(251, 191, 36, 0.48);
+      color: #fef3c7;
+      box-shadow: 0 0 20px rgba(251, 191, 36, 0.18);
     }
     #bottomNav .bottom-nav-item.locked {
       opacity: 0.7;
@@ -13038,14 +13016,6 @@
 
     <!-- PASS SCREEN -->
       <div id="passScreen" class="screen">
-        <div class="explorer-screen-lock" id="explorerScreenLock" aria-live="polite">
-          <div class="explorer-screen-lock-card">
-            <div class="explorer-screen-lock-icon" aria-hidden="true">🔒</div>
-            <div class="explorer-screen-lock-title">FREE (Explorer) view</div>
-            <div class="explorer-screen-lock-copy">Your pass and redemptions are locked until you upgrade to a paid membership.</div>
-            <button type="button" class="btn btn-primary" id="explorerScreenUpgradeBtn">Upgrade membership</button>
-          </div>
-        </div>
         <div class="pass-top">
           <div class="nav-dropdown">
             <button type="button" class="nav-toggle" id="navMenuToggle">Menu ▾</button>
@@ -13506,9 +13476,14 @@
           <li class="empty"><span>No live alerts posted yet.</span></li>
         </ul>
       </div>
-      <div class="tonight-card card-hd">
+      <div class="tonight-card card-hd" id="tonightRecentCard">
         <div class="tonight-card-title">Recently redeemed</div>
         <div class="tonight-recent" id="tonightRecentRedeemed">No redemptions yet tonight.</div>
+      </div>
+      <div class="tonight-card card-hd" id="tonightUpgradeCard">
+        <div class="tonight-card-title">Upgrade membership</div>
+        <p class="small" style="color:#cbd5f5;margin:0 0 10px;">Unlock your pass, voucher redemptions, alerts access, and full profile activity.</p>
+        <button type="button" class="btn btn-primary" id="tonightUpgradeBtn">Upgrade now</button>
       </div>
     </div>
   </div>
@@ -17984,7 +17959,6 @@
     const profileBadges = document.getElementById("profileBadges");
     const statusPill = document.getElementById("statusPill");
     const passCard = document.getElementById("passCard");
-    const explorerScreenUpgradeBtn = document.getElementById("explorerScreenUpgradeBtn");
     const explorerLockBanner = document.getElementById("explorerLockBanner");
     const explorerUpgradeBtn = document.getElementById("explorerUpgradeBtn");
     const explorerUpgradeBtnLarge = document.getElementById("explorerUpgradeBtnLarge");
@@ -18473,6 +18447,7 @@
     const tonightOpenNowList = document.getElementById("tonightOpenNowList");
     const tonightAlertsList = document.getElementById("tonightAlertsList");
     const tonightRecentRedeemed = document.getElementById("tonightRecentRedeemed");
+    const tonightUpgradeBtn = document.getElementById("tonightUpgradeBtn");
     const mapVenueList = document.getElementById("mapVenueList");
     const venueMapFrame = document.getElementById("venueMapFrame");
     const profileActivityName = document.getElementById("profileActivityName");
@@ -22764,6 +22739,10 @@ let onboardingIndex = 0;
           if (rewardsTrigger) rewardsTrigger.click();
           break;
         case "review": {
+          if (isExplorerMember()) {
+            showToast("Reviews unlock on paid memberships.", 2200);
+            break;
+          }
           const reviewBtn = document.getElementById("leaveReviewBtn");
           if (reviewBtn) reviewBtn.click();
           break;
@@ -22851,6 +22830,11 @@ let onboardingIndex = 0;
           } else if (nav === "membership") {
             openMembershipChooser();
           } else if (nav === "review") {
+            if (isExplorerMember()) {
+              showToast("Reviews unlock on paid memberships.", 2200);
+              closeQuickActionsModal();
+              return;
+            }
             const reviewBtn = document.getElementById("leaveReviewBtn");
             if (reviewBtn) reviewBtn.click();
           } else if (nav === "rewards") {
@@ -36478,8 +36462,8 @@ let onboardingIndex = 0;
         openMembershipChooser();
       });
     }
-    if (explorerScreenUpgradeBtn) {
-      explorerScreenUpgradeBtn.addEventListener("click", () => {
+    if (tonightUpgradeBtn) {
+      tonightUpgradeBtn.addEventListener("click", () => {
         openMembershipChooser();
       });
     }
@@ -36603,9 +36587,6 @@ let onboardingIndex = 0;
       } else {
         statusPill.classList.remove("vip-status", "ceo");
       }
-      if (screens?.pass) {
-        screens.pass.classList.toggle("explorer-screen-locked", tier === "explorer");
-      }
       if (passCard) {
         passCard.classList.toggle("explorer-locked", tier === "explorer");
       }
@@ -36628,6 +36609,11 @@ let onboardingIndex = 0;
       if (profileNavBtn) {
         profileNavBtn.classList.toggle("locked", tier === "explorer");
         profileNavBtn.textContent = tier === "explorer" ? "🔒 Profile" : "Profile";
+      }
+      const leaveReviewAction = menuScreen ? menuScreen.querySelector('[data-menu-action="review"]') : null;
+      if (leaveReviewAction) {
+        leaveReviewAction.classList.toggle("locked", tier === "explorer");
+        leaveReviewAction.textContent = tier === "explorer" ? "🔒 Leave review" : "Leave review";
       }
       if (tier === "free") {
         localStorage.setItem(`${FREE_NOTICE_PREFIX}${(currentPassCode || "").toUpperCase()}`, "1");
