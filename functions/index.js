@@ -5245,50 +5245,76 @@ exports.setMemberPaused = functions.https.onCall(async (data, context) => {
 exports.getMembersSummary = functions.https.onCall(async (data, context) => {
   try {
     if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
-    const requesterSnap = await db.collection('members').doc(context.auth.uid).get();
-    const requesterData = requesterSnap.exists ? requesterSnap.data() : {};
     if (!isCeoContext(context)) throw new HttpsError('permission-denied', 'CEO only');
 
     const limit = Math.min(parseInt(data?.limit || "1000", 10) || 1000, 5000);
-    let membersSnap;
-    try {
-      membersSnap = await db.collection('members').orderBy('createdAt', 'desc').limit(limit).get();
-      if (membersSnap.empty) {
-        membersSnap = await db.collection('members').limit(limit).get();
+    const authUsers = [];
+    let nextPageToken = undefined;
+    while (authUsers.length < limit) {
+      const pageSize = Math.min(1000, Math.max(1, limit - authUsers.length));
+      const page = await admin.auth().listUsers(pageSize, nextPageToken);
+      for (const user of (page.users || [])) {
+        const email = (user.email || "").toLowerCase();
+        const isAnonymousUser = !email && (!user.providerData || user.providerData.length === 0);
+        const isStaffUser = user.uid.startsWith("staff_") || user.customClaims?.staff === true;
+        if (isAnonymousUser || isStaffUser) continue;
+        authUsers.push(user);
+        if (authUsers.length >= limit) break;
       }
-    } catch (_) {
-      membersSnap = await db.collection('members').limit(limit).get();
+      nextPageToken = page.pageToken;
+      if (!nextPageToken) break;
     }
+
+    const memberMap = new Map();
+    if (authUsers.length) {
+      const refs = authUsers.map((u) => db.collection("members").doc(u.uid));
+      for (let i = 0; i < refs.length; i += 250) {
+        const chunk = refs.slice(i, i + 250);
+        const snaps = await db.getAll(...chunk);
+        snaps.forEach((snap) => {
+          if (snap.exists) memberMap.set(snap.id, snap.data() || {});
+        });
+      }
+    }
+
     const users = [];
     const counts = { total: 0, tier: {}, gender: {}, status: {}, paused: 0 };
-    membersSnap.forEach(doc => {
-      const d = doc.data() || {};
-      const tier = d.tier || 'none';
-      const gender = d.gender || 'unspecified';
-      const status = d.paymentStatus || 'unknown';
+    authUsers.forEach((authUser) => {
+      const uid = authUser.uid;
+      const d = memberMap.get(uid) || {};
+      const override = String(d.membershipOverride || d.override || "").toUpperCase();
+      let tier = String(d.tier || d.membershipTier || d.membership || d.plan || "").toLowerCase();
+      if (!tier && (d.freeMembership === true || override === "CEO_FREE")) tier = "free";
+      if (!tier && String(d.requestedTier || "").toLowerCase() === "explorer") tier = "explorer";
+      if (!tier) tier = "standard";
+      const gender = String(d.gender || "unspecified").toLowerCase();
+      const status = d.paused === true
+        ? "paused"
+        : String(d.paymentStatus || d.membershipStatus || "active").toLowerCase();
       counts.total += 1;
       counts.tier[tier] = (counts.tier[tier] || 0) + 1;
       counts.gender[gender] = (counts.gender[gender] || 0) + 1;
       counts.status[status] = (counts.status[status] || 0) + 1;
       if (d.paused) counts.paused += 1;
-      let createdAt = d.createdAt || null;
+      let createdAt = d.createdAt || d.memberSince || d.joinedAt || authUser.metadata?.creationTime || null;
       if (createdAt && createdAt.toDate) {
         createdAt = createdAt.toDate().toISOString();
       }
-      let lastLogin = d.lastLogin || null;
+      let lastLogin = d.lastLoginAt || d.lastLoginDate || d.lastLogin || authUser.metadata?.lastSignInTime || null;
       if (lastLogin && lastLogin.toDate) {
         lastLogin = lastLogin.toDate().toISOString();
       }
       users.push({
-        uid: doc.id,
-        username: d.username || d.displayName || null,
+        uid,
+        username: d.username || d.displayName || authUser.displayName || null,
         passCode: d.passCode || null,
         gender,
         tier,
         paymentStatus: status,
         paused: !!d.paused,
         createdAt,
-        lastLogin
+        lastLogin,
+        email: d.email || authUser.email || null
       });
     });
     return { counts, users };

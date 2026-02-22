@@ -2938,6 +2938,19 @@
       position: relative;
       box-shadow: none !important;
       transform: none !important;
+      color: rgba(226, 232, 240, 0.18);
+      text-shadow: 0 0 8px rgba(15, 23, 42, 0.8);
+      overflow: hidden;
+    }
+    .accent-chip.locked::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(120deg, rgba(2, 6, 23, 0.28), rgba(15, 23, 42, 0.3));
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      pointer-events: none;
     }
     .accent-chip.locked::after {
       content: "🔒";
@@ -2945,6 +2958,8 @@
       font-size: 12px;
       vertical-align: middle;
       opacity: 0.95;
+      position: relative;
+      z-index: 2;
     }
     .accent-chip[data-accent="cyan"] {
       background: linear-gradient(120deg, rgba(34, 211, 238, 0.18), rgba(34, 197, 94, 0.1));
@@ -8829,7 +8844,10 @@
       line-height: 1.2;
       letter-spacing: 0.01em;
       color: #f8fafc;
-      text-shadow: 0 0 16px color-mix(in srgb, var(--accent-primary-live) 20%, transparent);
+      text-shadow:
+        0 0 10px rgba(34, 211, 238, 0.24),
+        0 0 16px rgba(236, 72, 153, 0.2),
+        0 0 24px color-mix(in srgb, var(--accent-primary-live) 28%, transparent);
     }
     .launch-hero-copy {
       margin: 0;
@@ -8965,6 +8983,16 @@
       gap: 10px;
       margin-top: 2px;
       width: 100%;
+    }
+    .landing-responsible-note {
+      margin-top: 8px;
+      font-size: 11px;
+      letter-spacing: 0.03em;
+      color: color-mix(in srgb, var(--text-muted) 86%, #dbeafe);
+      text-align: center;
+      text-shadow:
+        0 0 8px rgba(34, 211, 238, 0.18),
+        0 0 10px rgba(236, 72, 153, 0.12);
     }
     #landingScreen .launch-entry-card {
       width: 100%;
@@ -12756,9 +12784,10 @@
             <div class="launch-hero-grid">
               <div class="launch-hero-main">
                 <div class="micro-label">Tonight starts here</div>
-                <h2 class="launch-hero-title">Tonight’s damage, discounted. Unlock perks that hit harder than last call. Your nightlife — upgraded.</h2>
+                <h2 class="launch-hero-title">Spend less. Go harder. Get rewarded while you booze.</h2>
                 <p class="launch-hero-copy">
-                  See what is active right now, redeem in seconds, and track every verified perk in one profile.
+                  Unlock perks that hit harder than last call.<br />
+                  FoCo After Dark — the shit FoCo’s been missing 🍻
                 </p>
                 <div class="launch-kpi-strip">
                   <div class="launch-kpi-chip"><span>Real-time</span><strong>Venue alerts</strong></div>
@@ -12802,6 +12831,7 @@
                 <span class="launch-entry-sub">Verify vouchers, post alerts, and run your venue in real time.</span>
               </button>
             </div>
+            <div class="landing-responsible-note">Please drink responsibly. Never drink and drive — call a rideshare.</div>
             <div class="insta-cta-wrap">
               <div class="insta-cta">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -14670,7 +14700,7 @@
         <p>When installed to a home screen, the app may cache assets for performance. Updates are delivered when the app reconnects and reloads. If the app is locked by administrators, access is restricted until unlocked by the CEO.</p>
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Liability & safety</h4>
-        <p>FoCo After Dark is not responsible for injuries, property damage, or other consequences from alcohol consumption. Use vouchers responsibly. If you or someone appears intoxicated, seek assistance and never let them drive.</p>
+        <p>FoCo After Dark is not responsible for injuries, property damage, or other consequences from alcohol consumption. Use vouchers responsibly. If you or someone appears intoxicated, seek assistance, use a rideshare service, and never let them drive.</p>
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Privacy Notice (In-App)</h4>
         <div style="max-height:220px;overflow:auto;padding-right:6px;border-top:1px solid rgba(148,163,184,0.04);margin-top:8px;">
@@ -33958,6 +33988,10 @@ let onboardingIndex = 0;
       if (passCode === CEO_PASS_ID || allNames.has("drunk ceo") || allNames.has("foco ceo")) return "ceo";
       if (passCode === "BETA" || allNames.has("beta dude") || allNames.has("betadude")) return "beta";
       if (allNames.has("dreeboy") || allNames.has("dree boy")) return "dreeboy";
+      if (passCode) return `pass:${passCode}`;
+      if (uid) return `uid:${uid}`;
+      const fallbackName = normalizeMemberName(data.email || data.username || data.displayName || data.name || "");
+      if (fallbackName) return `name:${fallbackName}`;
       return null;
     }
     function isActiveProfileEntry(data = {}, uid = "") {
@@ -34610,7 +34644,7 @@ let onboardingIndex = 0;
       ceoMembersRefresh.addEventListener("click", async () => {
         ceoMembersRefresh.disabled = true;
         try {
-          await startCeoMembersRealtime(true);
+          await loadCeoMembersSummaryLegacy();
           showToast("Members refreshed.");
         } finally {
           ceoMembersRefresh.disabled = false;
