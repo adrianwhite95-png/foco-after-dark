@@ -13624,7 +13624,7 @@
         <div class="tonight-list" id="tonightOpenNowList"></div>
       </div>
       <div class="tonight-card card-hd" id="tonightAlertsCard">
-        <div class="tonight-card-title">Tonight's alerts</div>
+        <div class="tonight-card-title">Tonight's alerts <span id="tonightAlertsNewPill" class="pill-new">New</span></div>
         <ul class="tonight-alerts-list" id="tonightAlertsList">
           <li class="empty"><span>No live alerts posted yet.</span></li>
         </ul>
@@ -16087,9 +16087,13 @@
       if (name === "pass") {
         setPassBrandTagline();
         applyProfileTierMode(currentMembershipTier || memberProfile?.tier || "standard");
+        markLiveFeedSeen("alerts");
+        markMemberFeedSeen();
       }
       if (name === "tonight") {
         renderTonightHub();
+        markLiveFeedSeen("alerts");
+        markMemberFeedSeen();
       }
       if (name === "map") {
         renderMapVenueList();
@@ -19101,6 +19105,7 @@
     const staffAccentSelect = document.getElementById("staffAccentSelect");
     const alertsList = document.getElementById("alertsList");
     const alertsNewPill = document.getElementById("alertsNewPill");
+    const tonightAlertsNewPill = document.getElementById("tonightAlertsNewPill");
     const featuredVenuesNewPill = document.getElementById("featuredVenuesNewPill");
     const chargeSavedCardBtn = document.getElementById("chargeSavedCardBtn");
     const receiptOverlay = document.getElementById("receiptOverlay");
@@ -19371,13 +19376,22 @@
     let pendingDealCodeDrafts = {};
     function pruneExpiredAlerts() {
       const now = Date.now();
+      const previousAlerts = Array.isArray(tonightAlerts) ? [...tonightAlerts] : [];
       const filtered = tonightAlerts.filter(alert => !alert.expiresAt || alert.expiresAt > now);
       if (filtered.length !== tonightAlerts.length) {
+        const activeIds = new Set(filtered.map((alert) => String(alert?.id || "").trim()).filter(Boolean));
+        previousAlerts.forEach((alert) => {
+          const alertId = String(alert?.id || "").trim();
+          if (alertId && !activeIds.has(alertId)) {
+            removeDealCodesForAlert(alertId);
+          }
+        });
         tonightAlerts = filtered;
         alertsCache = [...filtered];
         saveAlertsToStorage(tonightAlerts);
         refreshAlertsTicker();
         renderStaffAlertPreview();
+        renderStaffDealCodes();
       }
     }
     const pitchSlides = [
@@ -20501,6 +20515,7 @@
     function getAlertRedemptionCount(alert, entries = [], activeAlertCountForVenue = 1) {
       const list = Array.isArray(entries) ? entries : [];
       const venueId = String(alert?.venueId || "").toLowerCase();
+      const alertId = String(alert?.id || "").trim();
       if (!venueId) return 0;
       const startMs = Number(alert?.createdAt || alert?.createdAtMs || 0) || 0;
       const endMs = Number(alert?.expiresAt || 0) || Number.MAX_SAFE_INTEGER;
@@ -20515,6 +20530,10 @@
         return ts >= startMs && ts <= endMs;
       });
       if (!scoped.length) return 0;
+      if (alertId) {
+        const idMatches = scoped.filter((entry) => String(entry?.alertId || "").trim() === alertId);
+        if (idMatches.length) return idMatches.length;
+      }
       if (!title && !detail) return scoped.length;
       const directMatches = scoped.filter((entry) => {
         const hay = `${entry?.perk || ""} ${entry?.venuePerkLabel || ""}`.toLowerCase();
@@ -27122,11 +27141,12 @@ let onboardingIndex = 0;
       return `${passCode}::${scope}`;
     }
     function refreshLiveNewBadges() {
-      const hasTargets = alertsNewPill || featuredVenuesNewPill || navFeaturedNewPill;
+      const hasTargets = alertsNewPill || tonightAlertsNewPill || featuredVenuesNewPill || navFeaturedNewPill;
       if (!hasTargets) return;
       const passCode = (currentPassCode || "").toUpperCase();
       if (!passCode) {
         if (alertsNewPill) alertsNewPill.classList.remove("active");
+        if (tonightAlertsNewPill) tonightAlertsNewPill.classList.remove("active");
         if (featuredVenuesNewPill) featuredVenuesNewPill.classList.remove("active");
         if (navFeaturedNewPill) navFeaturedNewPill.classList.remove("active");
         return;
@@ -27150,7 +27170,7 @@ let onboardingIndex = 0;
         const isNew = latest > seenAt;
         targets.forEach((node) => node.classList.toggle("active", isNew));
       };
-      syncBadge("alerts", getLatestAlertsUpdateAt(), [alertsNewPill]);
+      syncBadge("alerts", getLatestAlertsUpdateAt(), [alertsNewPill, tonightAlertsNewPill]);
       syncBadge("featured", getLatestFeaturedPerksUpdateAt(), [featuredVenuesNewPill, navFeaturedNewPill]);
       if (didSeed) saveMemberHqFeedSeenMap(memberHqFeedSeenMap);
     }
@@ -27198,7 +27218,7 @@ let onboardingIndex = 0;
 
     function updateMemberCommandSignals() {
       const hasMemberSignals = !!(memberCommandSubline || memberSignalAlerts || memberSignalFocus || memberCommandNewPill);
-      const hasLiveBadges = !!(alertsNewPill || featuredVenuesNewPill || navFeaturedNewPill);
+      const hasLiveBadges = !!(alertsNewPill || tonightAlertsNewPill || featuredVenuesNewPill || navFeaturedNewPill);
       if (!hasMemberSignals && !hasLiveBadges) return;
       let liveAlerts = 0;
       try {
