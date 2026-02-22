@@ -3355,7 +3355,7 @@
       display: none;
       position: fixed;
       inset: 0;
-      z-index: 1400;
+      z-index: 50000;
       background: rgba(247, 250, 255, 0.58);
       backdrop-filter: blur(12px) saturate(0.72);
       -webkit-backdrop-filter: blur(12px) saturate(0.72);
@@ -16591,9 +16591,21 @@
       const status = String(profile?.membershipStatus || "").toLowerCase();
       const ageStatus = String(profile?.ageVerificationStatus || "").toLowerCase();
       if (tier === "explorer" || requested === "explorer" || status === "explorer" || ageStatus === "skipped_explorer") return true;
-      const paymentStatus = String(profile?.paymentStatus || "").toLowerCase();
-      const hasBilling = !!(profile?.stripeSubscriptionId || profile?.stripeCustomerId || profile?.cardLast4 || profile?.cardBrand || profile?.lastPaymentIntentId);
-      if (!hasBilling && paymentStatus === "active" && (tier === "standard" || tier === "")) return true;
+      const hasBilling = !!(
+        profile?.stripeSubscriptionId
+        || profile?.stripeCustomerId
+        || profile?.cardLast4
+        || profile?.cardBrand
+        || profile?.lastPaymentIntentId
+        || profile?.membershipActivatedAt
+      );
+      const explicitlyExplorerLike = (
+        requested === "explorer"
+        || status === "explorer"
+        || ageStatus === "skipped_explorer"
+      );
+      if (!hasBilling && explicitlyExplorerLike) return true;
+      if (!hasBilling && (tier === "explorer" || requested === "explorer")) return true;
       return false;
     }
     function isStripeExcludedMember(profile = memberProfile) {
@@ -17860,6 +17872,25 @@
         showScreen("landing");
         clearPassLoading();
         return;
+      }
+      if (shouldForceExplorerTier(memberProfile)) {
+        memberProfile = {
+          ...(memberProfile || {}),
+          tier: "explorer",
+          requestedTier: "explorer",
+          membershipStatus: "explorer",
+          paymentStatus: "active",
+          ageVerificationRequired: false,
+          ageVerificationStatus: String(memberProfile?.ageVerificationStatus || "skipped_explorer")
+        };
+        updateMemberProfile({
+          tier: "explorer",
+          requestedTier: "explorer",
+          membershipStatus: "explorer",
+          paymentStatus: "active",
+          ageVerificationRequired: false,
+          ageVerificationStatus: memberProfile.ageVerificationStatus
+        }).catch((err) => console.warn("Explorer membership normalization failed", err));
       }
 
       if (requiresAgeVerificationClient(memberProfile, user)) {
@@ -36497,6 +36528,8 @@ let onboardingIndex = 0;
         if (memberProfile) memberProfile.freeMembership = true;
       } else if (memberProfile?.freeMembership) {
         tier = "free";
+      } else if (shouldForceExplorerTier(memberProfile)) {
+        tier = "explorer";
       }
       currentMembershipTier = tier;
       applyProfileTierMode(tier);
