@@ -21082,6 +21082,7 @@
             passId: (data.passCode || data.passId || passCode).toUpperCase(),
             venue: data.venueId || data.venue || null,
             requestedVenue: data.requestedVenue || null,
+            alertId: data.alertId || null,
             vibeLabel: data.vibeLabel || null,
             vibeKey: data.vibeKey || null,
             ceo: !!data.ceo,
@@ -21743,6 +21744,7 @@
                 passId: (data.passCode || data.passId || code).toUpperCase(),
                 venue: data.venueId || data.venue || null,
                 requestedVenue: data.requestedVenue || null,
+                alertId: data.alertId || null,
                 vibeLabel: data.vibeLabel || null,
                 vibeKey: data.vibeKey || null,
                 ceo: !!data.ceo,
@@ -28993,6 +28995,7 @@ let onboardingIndex = 0;
           passId: (data.passCode || data.passId || "").toUpperCase(),
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
+          alertId: data.alertId || null,
           vibeLabel: data.vibeLabel || null,
           vibeKey: data.vibeKey || null,
           ceo: !!data.ceo,
@@ -29502,10 +29505,12 @@ let onboardingIndex = 0;
       if (!opts.skipSync) {
         syncRedemptionToCloud(entry);
       }
-      const pts = pointsForRedemption(entry);
-      addPoints(pts, "Redemption", { venue: (entry.venue || "").toLowerCase() });
+      if (!opts.skipPoints) {
+        const pts = pointsForRedemption(entry);
+        addPoints(pts, "Redemption", { venue: (entry.venue || "").toLowerCase() });
+      }
       const passCode = (entry.passId || currentPassCode || "").toUpperCase();
-      if (passCode) {
+      if (!opts.skipPassStats && passCode && passCode !== "DEAL") {
         const vouchersUsed = countVerifiedForPass(passCode);
         setMemberDirectoryEntry(passCode, {
           vouchersUsed,
@@ -30333,6 +30338,7 @@ let onboardingIndex = 0;
               passId: (data.passCode || data.passId || "").toUpperCase(),
               venue: data.venueId || data.venue || null,
               requestedVenue: data.requestedVenue || null,
+              alertId: data.alertId || null,
               vibeLabel: data.vibeLabel || null,
               vibeKey: data.vibeKey || null,
               ceo: !!data.ceo,
@@ -30418,10 +30424,32 @@ let onboardingIndex = 0;
         staffDealCodeList.innerHTML = activeAlerts.map(alert => {
           const expiresText = alert.expiresAt ? formatMST(alert.expiresAt) : "No expiry";
           const codesForAlert = Object.entries(dealCodes || {}).filter(([, val]) => val.alertId === alert.id && val.venue === staffSession.venue);
+          const alertKey = String(alert.id || "").trim();
           const draftCode = pendingDealCodeDrafts[String(alert.id || "").trim()] || "";
           const codesLine = codesForAlert.length
             ? `<span style="color:#34d399;">Confirmed codes: ${codesForAlert.map(([c]) => c).join(", ")}</span>`
             : '<span style="color:#94a3b8;">No codes yet</span>';
+          const dealEntriesForAlert = (Array.isArray(redemptionLog) ? redemptionLog : [])
+            .filter((entry) => {
+              const status = String(entry?.status || "").toLowerCase();
+              if (!["verified", "approved", "confirmed"].includes(status)) return false;
+              if (!entryMatchesVenue(entry, staffSession.venue || "")) return false;
+              if (classifyRedemptionCategory(entry) !== "deal") return false;
+              const entryAlertId = String(entry?.alertId || "").trim();
+              if (entryAlertId) return entryAlertId === alertKey;
+              return String(entry?.perk || "").trim() === String(alert?.title || "").trim();
+            })
+            .sort((a, b) => new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0))
+            .slice(0, 4);
+          const dealEntriesMarkup = dealEntriesForAlert.length
+            ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">
+                ${dealEntriesForAlert.map((entry) => {
+                  const code = String(entry?.code || "").toUpperCase();
+                  const at = formatMST(entry?.verifiedAt || entry?.timestamp || Date.now());
+                  return `<span style="color:#a7f3d0;font-size:12px;">${code} · redeemed ${at}</span>`;
+                }).join("")}
+              </div>`
+            : '<span style="color:#94a3b8;font-size:12px;">No redeemed codes yet.</span>';
           const redemptions = getAlertRedemptionCount(alert, venueVerifiedEntries, activeAlerts.length);
           return `
             <div class="log-row">
@@ -30440,6 +30468,10 @@ let onboardingIndex = 0;
               </div>
               <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;flex-wrap:wrap;">
                 ${codesLine}
+              </div>
+              <div class="log-meta" style="margin-top:6px;display:block;">
+                <span style="color:#e2e8f0;font-weight:700;font-size:12px;">Tonight's deal redemptions</span>
+                ${dealEntriesMarkup}
               </div>
             </div>
           `;
@@ -31114,6 +31146,7 @@ let onboardingIndex = 0;
         memberUsername: entry.memberUsername || null,
         venue: entry.venue || null,
         requestedVenue: entry.requestedVenue || null,
+        alertId: entry.alertId || null,
         vibeLabel: sanitizeCustomVibeText(entry.vibeLabel || ""),
         vibeKey: (entry.vibeKey || "").toLowerCase() || null,
         ceo: !!entry.ceo,
@@ -31156,6 +31189,7 @@ let onboardingIndex = 0;
           memberUsername: data.memberUsername || null,
           venue: data.venue || null,
           requestedVenue: data.requestedVenue || null,
+          alertId: data.alertId || null,
           vibeLabel: data.vibeLabel || null,
           vibeKey: data.vibeKey || null,
           ceo: !!data.ceo,
@@ -32551,9 +32585,38 @@ let onboardingIndex = 0;
             return;
           }
           const code = confirmVenueDealCode(alert, draftCode);
+          const redemptionEntry = {
+            code,
+            perk: alert.title || "Tonight's deal",
+            perkKey: "deal",
+            alertId: alert.id || alertId || null,
+            passId: "DEAL",
+            venue: (alert.venueId || staffSession?.venue || null),
+            requestedVenue: (alert.venueId || staffSession?.venue || null),
+            status: "verified",
+            verifiedAt: new Date().toISOString(),
+            timestamp: new Date().toISOString(),
+            member: "Tonight's deal",
+          };
+          const existingIdx = (Array.isArray(redemptionLog) ? redemptionLog : []).findIndex((entry) => (
+            String(entry?.code || "").toUpperCase() === String(code || "").toUpperCase()
+          ));
+          if (existingIdx >= 0) {
+            redemptionLog[existingIdx] = { ...redemptionLog[existingIdx], ...redemptionEntry };
+            saveRedemptionLog();
+            renderStaffVenueLog();
+            renderStaffPendingQueue();
+            renderCeoRedemptionLog();
+            renderCeoVenueLog();
+            renderCeoVerifiedVenueLog();
+            refreshMemberStats();
+            syncRedemptionToCloud(redemptionLog[existingIdx]);
+          } else {
+            addRedemptionLogEntry(redemptionEntry, { skipPoints: true, skipPassStats: true });
+          }
           delete pendingDealCodeDrafts[alertId];
           renderStaffDealCodes();
-          showNeonSuccess(verifySuccess, `Deal code ${code} confirmed.`, 4200);
+          showNeonSuccess(verifySuccess, `Deal code ${code} confirmed and logged as redeemed.`, 4200);
           return;
         }
         const cancelBtn = e.target.closest("button[data-cancel-deal]");
@@ -35283,6 +35346,7 @@ let onboardingIndex = 0;
         passId: (payload.passCode || payload.passId || "").toUpperCase(),
         venue: payload.venueId || payload.venue || null,
         requestedVenue: payload.requestedVenue || null,
+        alertId: payload.alertId || null,
         vibeLabel: payload.vibeLabel || null,
         vibeKey: payload.vibeKey || null,
         ceo: !!payload.ceo,
@@ -35347,6 +35411,7 @@ let onboardingIndex = 0;
             code: codeUpper,
             perk: info.perk || "Tonight's deal",
             perkKey: "deal",
+            alertId: info.alertId || null,
             passId: "DEAL",
             venue: info.venue || venueId || null,
             status: "verified",
@@ -36053,6 +36118,7 @@ let onboardingIndex = 0;
           memberUsername: data.memberUsername || null,
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
+          alertId: data.alertId || null,
           vibeLabel: data.vibeLabel || null,
           vibeKey: data.vibeKey || null,
           ceo: !!data.ceo,
