@@ -29733,8 +29733,8 @@ let onboardingIndex = 0;
         const username = getEntryUsername(entry);
         const usernameMeta = username ? ` · @${username}` : "";
         const creatorBadge = isCreatorRedemption(entry) ? '<span class="creator-pill">Creator</span>' : "";
-        const actionLabel = isPending ? "Confirm" : "Set pending";
-        const actionClass = isPending ? "btn btn-secondary" : "btn btn-primary";
+        const actionLabel = isPending ? "Confirm" : "Confirmed";
+        const actionClass = isPending ? "btn btn-primary" : "btn btn-secondary";
         const actionTarget = isPending ? "confirm" : "pending";
         return `
           <div class="staff-pending-row" data-pending-code="${entry.code}" data-pending-status="${statusLabel}">
@@ -30426,7 +30426,6 @@ let onboardingIndex = 0;
       if (!staffDealCodeList) return;
       cleanDealCodes();
       if (!staffSession) {
-        pendingDealCodeDrafts = {};
         staffDealCodeList.innerHTML = '<p style="color:#94a3b8;">Log in to generate codes for tonight’s deals.</p>';
         if (staffRoiPanel) staffRoiPanel.innerHTML = "";
         return;
@@ -30435,77 +30434,64 @@ let onboardingIndex = 0;
       const activeAlerts = tonightAlerts
         .filter(alert => alert.venueId === staffSession.venue && (!alert.expiresAt || alert.expiresAt > now))
         .sort((a, b) => (a.expiresAt || Number.MAX_SAFE_INTEGER) - (b.expiresAt || Number.MAX_SAFE_INTEGER));
-      const activeAlertIds = new Set(activeAlerts.map(alert => String(alert?.id || "").trim()).filter(Boolean));
-      Object.keys(pendingDealCodeDrafts || {}).forEach((alertId) => {
-        if (!activeAlertIds.has(String(alertId || "").trim())) {
-          delete pendingDealCodeDrafts[alertId];
-        }
-      });
       if (!activeAlerts.length) {
         staffDealCodeList.innerHTML = '<p style="color:#94a3b8;">No active deals to generate codes for.</p>';
+        renderStaffRoiPanel();
+        return;
       }
-      if (activeAlerts.length) {
-        const venueVerifiedEntries = (Array.isArray(redemptionLog) ? redemptionLog : []).filter((entry) => {
-          const status = String(entry?.status || "").toLowerCase();
-          if (!["verified", "approved", "confirmed"].includes(status)) return false;
-          return entryMatchesVenue(entry, staffSession.venue || "");
-        });
-        staffDealCodeList.innerHTML = activeAlerts.map(alert => {
-          const expiresText = alert.expiresAt ? formatMST(alert.expiresAt) : "No expiry";
-          const codesForAlert = Object.entries(dealCodes || {}).filter(([, val]) => val.alertId === alert.id && val.venue === staffSession.venue);
-          const alertKey = String(alert.id || "").trim();
-          const draftCode = pendingDealCodeDrafts[String(alert.id || "").trim()] || "";
-          const codesLine = codesForAlert.length
-            ? `<span style="color:#34d399;">Confirmed codes: ${codesForAlert.map(([c]) => c).join(", ")}</span>`
-            : '<span style="color:#94a3b8;">No codes yet</span>';
-          const dealEntriesForAlert = (Array.isArray(redemptionLog) ? redemptionLog : [])
-            .filter((entry) => {
-              const status = String(entry?.status || "").toLowerCase();
-              if (!["verified", "approved", "confirmed"].includes(status)) return false;
-              if (!entryMatchesVenue(entry, staffSession.venue || "")) return false;
-              if (classifyRedemptionCategory(entry) !== "deal") return false;
-              const entryAlertId = String(entry?.alertId || "").trim();
-              if (entryAlertId) return entryAlertId === alertKey;
-              return String(entry?.perk || "").trim() === String(alert?.title || "").trim();
-            })
-            .sort((a, b) => new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0))
-            .slice(0, 4);
-          const dealEntriesMarkup = dealEntriesForAlert.length
-            ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">
-                ${dealEntriesForAlert.map((entry) => {
-                  const code = String(entry?.code || "").toUpperCase();
-                  const at = formatMST(entry?.verifiedAt || entry?.timestamp || Date.now());
-                  return `<span style="color:#a7f3d0;font-size:12px;">${code} · redeemed ${at}</span>`;
-                }).join("")}
-              </div>`
-            : '<span style="color:#94a3b8;font-size:12px;">No redeemed codes yet.</span>';
-          const redemptions = getAlertRedemptionCount(alert, venueVerifiedEntries, activeAlerts.length);
-          return `
-            <div class="log-row">
-              <strong>${alert.title || "Tonight's deal"}</strong><br/>
-              <span style="color:#cbd5f5;">${alert.detail || ""}</span><br/>
-              <span style="color:#93c5fd;font-size:11px;">Expires ${expiresText}</span>
-              <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
-                <span style="color:#cbd5f5;">${redemptions} redeemed</span>
-              </div>
-              <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;flex-wrap:wrap;">
-                ${draftCode
-                  ? `<span style="color:#facc15;font-weight:700;">Generated: ${draftCode}</span>
-                     <button class="btn btn-primary" data-confirm-deal="${alert.id}" data-deal-code="${draftCode}">Confirm</button>
-                     <button class="btn btn-secondary" data-cancel-deal="${alert.id}">Cancel</button>`
-                  : '<button class="btn btn-primary" data-gen-deal="' + alert.id + '">Generate code</button>'}
-              </div>
-              <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;flex-wrap:wrap;">
-                ${codesLine}
-              </div>
-              <div class="log-meta" style="margin-top:6px;display:block;">
-                <span style="color:#e2e8f0;font-weight:700;font-size:12px;">Tonight's deal redemptions</span>
-                ${dealEntriesMarkup}
-              </div>
+      const venueEntries = (Array.isArray(redemptionLog) ? redemptionLog : []).filter((entry) => (
+        entryMatchesVenue(entry, staffSession.venue || "")
+        && classifyRedemptionCategory(entry) === "deal"
+      ));
+      const isAlertMatch = (entry, alert) => {
+        const alertKey = String(alert?.id || "").trim();
+        const entryAlertKey = String(entry?.alertId || "").trim();
+        if (alertKey && entryAlertKey) return alertKey === entryAlertKey;
+        return String(entry?.perk || "").trim() === String(alert?.title || "").trim();
+      };
+      const venueVerifiedEntries = venueEntries.filter((entry) => {
+        const status = String(entry?.status || "").toLowerCase();
+        return ["verified", "approved", "confirmed"].includes(status);
+      });
+      staffDealCodeList.innerHTML = activeAlerts.map(alert => {
+        const expiresText = alert.expiresAt ? formatMST(alert.expiresAt) : "No expiry";
+        const alertPendingEntries = venueEntries
+          .filter((entry) => {
+            const status = String(entry?.status || "").toLowerCase();
+            return ["pending", "requested", "expired"].includes(status) && isAlertMatch(entry, alert);
+          })
+          .sort((a, b) => new Date(b.timestamp || b.createdAt || 0).getTime() - new Date(a.timestamp || a.createdAt || 0).getTime());
+        const alertVerifiedEntries = venueEntries
+          .filter((entry) => {
+            const status = String(entry?.status || "").toLowerCase();
+            return ["verified", "approved", "confirmed"].includes(status) && isAlertMatch(entry, alert);
+          })
+          .sort((a, b) => new Date(b.verifiedAt || b.timestamp || 0).getTime() - new Date(a.verifiedAt || a.timestamp || 0).getTime());
+        const pendingCodesLine = alertPendingEntries.length
+          ? `<span style="color:#facc15;">Pending codes: ${alertPendingEntries.slice(0, 5).map((entry) => String(entry?.code || "").toUpperCase()).join(", ")}</span>`
+          : '<span style="color:#94a3b8;">No pending codes</span>';
+        const verifiedCodesLine = alertVerifiedEntries.length
+          ? `<span style="color:#34d399;">Confirmed codes: ${alertVerifiedEntries.slice(0, 5).map((entry) => String(entry?.code || "").toUpperCase()).join(", ")}</span>`
+          : '<span style="color:#94a3b8;">No confirmed codes</span>';
+        const redemptions = getAlertRedemptionCount(alert, venueVerifiedEntries, activeAlerts.length);
+        return `
+          <div class="log-row">
+            <strong>${alert.title || "Tonight's deal"}</strong><br/>
+            <span style="color:#cbd5f5;">${alert.detail || ""}</span><br/>
+            <span style="color:#93c5fd;font-size:11px;">Expires ${expiresText}</span>
+            <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
+              <span style="color:#cbd5f5;">${redemptions} redeemed</span>
+              <button class="btn btn-primary" data-gen-deal="${String(alert.id || "").trim()}">Generate code</button>
             </div>
-          `;
-        }).join("");
-      }
+            <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;flex-wrap:wrap;">
+              ${pendingCodesLine}
+            </div>
+            <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;flex-wrap:wrap;">
+              ${verifiedCodesLine}
+            </div>
+          </div>
+        `;
+      }).join("");
       renderStaffRoiPanel();
     }
 
@@ -31196,23 +31182,23 @@ let onboardingIndex = 0;
       };
       try {
         await setDoc(ref, payload, { merge: true });
-        const isDealEntry = classifyRedemptionCategory(entry) === "deal";
-        const dealVenue = String(entry.venue || entry.requestedVenue || "").toLowerCase();
-        if (isDealEntry && dealVenue) {
-          const venueRef = getVenueRedemptionRef(dealVenue, entry.code);
+        const venueId = String(entry.venue || entry.requestedVenue || "").toLowerCase();
+        if (venueId) {
+          const venueRef = getVenueRedemptionRef(venueId, entry.code);
           if (venueRef) {
             await setDoc(venueRef, {
               code: entry.code.toUpperCase(),
-              perk: entry.perk || "Tonight's deal",
-              perkKey: "deal",
+              perk: entry.perk || entry.perkKey || "Perk",
+              perkKey: entry.perkKey || null,
               perkLabel: entry.venuePerkLabel || entry.perk || null,
               dealPrice: Number.isFinite(Number(entry.dealPrice)) ? Number(entry.dealPrice) : null,
-              venueId: dealVenue,
-              requestedVenue: entry.requestedVenue || dealVenue,
+              venueId,
+              requestedVenue: entry.requestedVenue || venueId,
               alertId: entry.alertId || null,
               passCode: passId || "DEAL",
-              memberName: entry.member || "Tonight's deal",
+              memberName: entry.member || (entry.ceo ? "Creator" : "FoCo member"),
               memberUsername: entry.memberUsername || null,
+              ceo: !!entry.ceo,
               status: entry.status || "pending",
               createdAt: entry.timestamp ? toTimestamp(entry.timestamp) : serverTimestamp(),
               verifiedAt: entry.verifiedAt ? toTimestamp(entry.verifiedAt) : null,
@@ -32629,7 +32615,7 @@ let onboardingIndex = 0;
             if (btn) {
               btn.dataset.busy = "";
               btn.disabled = false;
-              btn.textContent = "Confirm";
+              btn.textContent = requestedAction === "pending" ? "Confirmed" : "Confirm";
             }
           }
         } catch (err) {
@@ -32649,74 +32635,35 @@ let onboardingIndex = 0;
     }
     if (staffDealCodeList) {
       staffDealCodeList.addEventListener("click", (e) => {
-        const confirmBtn = e.target.closest("button[data-confirm-deal]");
-        if (confirmBtn && staffSession) {
-          const alertId = String(confirmBtn.dataset.confirmDeal || "").trim();
-          const alert = (Array.isArray(tonightAlerts) ? tonightAlerts : [])
-            .find((a) => String(a?.id || "").trim() === alertId);
-          const draftCode = String(confirmBtn.dataset.dealCode || pendingDealCodeDrafts[alertId] || "").trim().toUpperCase();
-          if (!alert || !draftCode) {
-            delete pendingDealCodeDrafts[alertId];
-            renderStaffDealCodes();
-            return;
-          }
-          const code = confirmVenueDealCode(alert, draftCode);
-          const alertDetailText = String(alert.detail || "").trim();
-          const alertDealPrice = parseDealPriceFromText(`${alert.title || ""} ${alertDetailText}`);
-          const redemptionEntry = {
-            code,
-            perk: alert.title || "Tonight's deal",
-            perkKey: "deal",
-            alertId: alert.id || alertId || null,
-            venuePerkLabel: alertDetailText || null,
-            dealPrice: Number.isFinite(alertDealPrice) ? alertDealPrice : null,
-            passId: "DEAL",
-            venue: (alert.venueId || staffSession?.venue || null),
-            requestedVenue: (alert.venueId || staffSession?.venue || null),
-            status: "verified",
-            verifiedAt: new Date().toISOString(),
-            timestamp: new Date().toISOString(),
-            member: "Tonight's deal",
-          };
-          const existingIdx = (Array.isArray(redemptionLog) ? redemptionLog : []).findIndex((entry) => (
-            String(entry?.code || "").toUpperCase() === String(code || "").toUpperCase()
-          ));
-          if (existingIdx >= 0) {
-            redemptionLog[existingIdx] = { ...redemptionLog[existingIdx], ...redemptionEntry };
-            saveRedemptionLog();
-            renderStaffVenueLog();
-            renderStaffPendingQueue();
-            renderCeoRedemptionLog();
-            renderCeoVenueLog();
-            renderCeoVerifiedVenueLog();
-            refreshMemberStats();
-            syncRedemptionToCloud(redemptionLog[existingIdx]);
-          } else {
-            addRedemptionLogEntry(redemptionEntry, { skipPoints: true, skipPassStats: true });
-          }
-          delete pendingDealCodeDrafts[alertId];
-          renderStaffDealCodes();
-          showNeonSuccess(verifySuccess, `Deal code ${code} confirmed and logged as redeemed.`, 4200);
-          return;
-        }
-        const cancelBtn = e.target.closest("button[data-cancel-deal]");
-        if (cancelBtn && staffSession) {
-          const alertId = String(cancelBtn.dataset.cancelDeal || "").trim();
-          if (alertId) delete pendingDealCodeDrafts[alertId];
-          renderStaffDealCodes();
-          showToast("Generated code canceled.");
-          return;
-        }
         const btn = e.target.closest("button[data-gen-deal]");
         if (!btn || !staffSession) return;
         const alertId = String(btn.dataset.genDeal || "").trim();
         const alert = (Array.isArray(tonightAlerts) ? tonightAlerts : [])
           .find((a) => String(a?.id || "").trim() === alertId);
         if (!alert) return;
-        const code = generateVenueDealCode(alert);
-        pendingDealCodeDrafts[alertId] = code;
+        const code = confirmVenueDealCode(alert, generateVenueDealCode(alert));
+        const alertDetailText = String(alert.detail || "").trim();
+        const alertDealPrice = parseDealPriceFromText(`${alert.title || ""} ${alertDetailText}`);
+        const nowIso = new Date().toISOString();
+        const redemptionEntry = {
+          code,
+          perk: alert.title || "Tonight's deal",
+          perkKey: "deal",
+          alertId: alert.id || alertId || null,
+          venuePerkLabel: alertDetailText || null,
+          dealPrice: Number.isFinite(alertDealPrice) ? alertDealPrice : null,
+          passId: "DEAL",
+          venue: (alert.venueId || staffSession?.venue || null),
+          requestedVenue: (alert.venueId || staffSession?.venue || null),
+          status: "pending",
+          verifiedAt: null,
+          timestamp: nowIso,
+          member: "Tonight's deal",
+        };
+        addRedemptionLogEntry(redemptionEntry, { skipPoints: true, skipPassStats: true });
+        renderStaffPendingQueue();
         renderStaffDealCodes();
-        showNeonSuccess(verifySuccess, `Deal code ${code} generated. Confirm or cancel in the same card.`, 4200);
+        showNeonSuccess(verifySuccess, `Deal code ${code} generated and added to pending.`, 4200);
       });
     }
     if (buyDrinksBtn) {
@@ -35548,9 +35495,16 @@ let onboardingIndex = 0;
       if (["verified", "approved", "confirmed"].includes(existingStatus)) {
         return { success: false, message: "Already confirmed earlier." };
       }
-      const verified = await callVerify();
-      if (!verified.success) return verified;
-      const mapped = mapEntry(verified.entry);
+      const nowIso = new Date().toISOString();
+      const mapped = {
+        ...entry,
+        status: "verified",
+        verifiedAt: nowIso
+      };
+      const synced = await syncRedemptionToCloud(mapped);
+      if (!synced) {
+        return { success: false, message: cloudSyncFailureMessage() };
+      }
       Object.assign(entry, mapped);
       applyVerifiedEntryToLocalLog(mapped);
       return { success: true, entry: mapped };
