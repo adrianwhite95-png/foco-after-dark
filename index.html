@@ -3302,8 +3302,8 @@
     #passScreen .pass-card.explorer-locked #passQrImage,
     #passScreen .pass-card.explorer-locked #passCodeText,
     #passScreen .pass-card.explorer-locked #passIdTop {
-      filter: blur(3px);
-      opacity: 0.62;
+      filter: blur(2px);
+      opacity: 0.72;
       pointer-events: none;
       user-select: none;
     }
@@ -3318,10 +3318,10 @@
       border-radius: 24px;
       border: 1px solid rgba(251, 191, 36, 0.42);
       background:
-        linear-gradient(160deg, rgba(2, 6, 23, 0.3), rgba(15, 23, 42, 0.26)),
-        radial-gradient(130% 140% at 12% 6%, rgba(251, 191, 36, 0.1), transparent 62%);
-      backdrop-filter: blur(4px) saturate(0.9);
-      -webkit-backdrop-filter: blur(4px) saturate(0.9);
+        linear-gradient(160deg, rgba(2, 6, 23, 0.22), rgba(15, 23, 42, 0.18)),
+        radial-gradient(130% 140% at 12% 6%, rgba(251, 191, 36, 0.08), transparent 62%);
+      backdrop-filter: blur(3px) saturate(0.92);
+      -webkit-backdrop-filter: blur(3px) saturate(0.92);
       align-items: flex-start;
       justify-content: center;
       text-align: center;
@@ -19640,12 +19640,13 @@
 
       if (tonightOpenNowList) {
         const open = featuredVenuesData.filter((v) => isVenueOpenNow(v.venueId)).slice(0, 6);
+        const explorer = isExplorerMember();
         tonightOpenNowList.innerHTML = open.length
           ? open.map((v) => `
-            <button type="button" class="tonight-list-item tonight-venue-btn" data-tonight-venue="${v.venueId}">
+            <${explorer ? "div" : "button type=\"button\""} class="tonight-list-item tonight-venue-btn" ${explorer ? "" : `data-tonight-venue="${v.venueId}"`}>
               <strong>${v.name}</strong>
               <span>${formatVenueOpenStatus(v.venueId)} · ${getVenuePerksStatus(v.venueId)}</span>
-            </button>
+            </${explorer ? "div" : "button"}>
           `).join("")
           : '<div class="tonight-list-item"><strong>No venues currently open</strong><span>Check back later tonight.</span></div>';
       }
@@ -22984,6 +22985,10 @@ let onboardingIndex = 0;
     }
     if (tonightOpenNowList) {
       tonightOpenNowList.addEventListener("click", (event) => {
+        if (isExplorerMember()) {
+          showToast("Upgrade to interact with venue details.", 2200);
+          return;
+        }
         const btn = event.target?.closest?.("[data-tonight-venue]");
         if (!btn) return;
         const venueId = String(btn.dataset.tonightVenue || "").trim();
@@ -36727,6 +36732,11 @@ let onboardingIndex = 0;
       if (leaveReviewAction) {
         leaveReviewAction.classList.toggle("locked", tier === "explorer");
         leaveReviewAction.textContent = tier === "explorer" ? "🔒 Leave review" : "Leave review";
+      }
+      const rewardsAction = menuScreen ? menuScreen.querySelector('[data-menu-action="rewards"]') : null;
+      if (rewardsAction) {
+        rewardsAction.classList.toggle("locked", tier === "explorer");
+        rewardsAction.textContent = tier === "explorer" ? "🔒 Voucher rewards" : "Voucher rewards";
       }
       if (tier === "free") {
         localStorage.setItem(`${FREE_NOTICE_PREFIX}${(currentPassCode || "").toUpperCase()}`, "1");
