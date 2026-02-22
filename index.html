@@ -13997,7 +13997,8 @@
         <h4>Tonight’s deal codes</h4>
         <p class="small" style="color:#cbd5f5;">Generate a code for each active deal at this venue. Codes expire with the deal.</p>
         <div id="staffDealCodeList"></div>
-        <div id="staffRoiPanel" style="margin-top:10px;"></div>
+        <div class="small" style="color:#cbd5f5;margin-top:10px;">Tonight's alert redemptions</div>
+        <div id="staffDealRedemptionLog"></div>
       </div>
 
       <!-- Card 6: Message Foco Help -->
@@ -14982,7 +14983,6 @@
       </div>
       <div class="error" id="staffActorError"></div>
       <div class="payment-actions" style="margin-top:8px;">
-        <button type="button" class="btn btn-secondary" id="staffActorCancel">Cancel</button>
         <button type="button" class="btn btn-primary" id="staffActorConfirm">Continue</button>
       </div>
     </div>
@@ -18855,10 +18855,9 @@
     const staffActorReasonNote = document.getElementById("staffActorReasonNote");
     const staffActorError = document.getElementById("staffActorError");
     const staffActorConfirm = document.getElementById("staffActorConfirm");
-    const staffActorCancel = document.getElementById("staffActorCancel");
     const staffActorClose = document.getElementById("staffActorClose");
     const staffDealCodeList = document.getElementById("staffDealCodeList");
-    const staffRoiPanel = document.getElementById("staffRoiPanel");
+    const staffDealRedemptionLog = document.getElementById("staffDealRedemptionLog");
     const staffPerksList = document.getElementById("staffPerksList");
     const staffAddPerkBtn = document.getElementById("staffAddPerkBtn");
     const staffSavePerksBtn = document.getElementById("staffSavePerksBtn");
@@ -19345,6 +19344,7 @@
       const force = options?.force === true;
       const code = String(passCode || currentPassCode || memberProfile?.passCode || "").trim().toUpperCase();
       if (!code || !functionsClient || SAFE_MODE || !firebaseAuth.currentUser) return;
+      if (hasStaffClaim() || isStaffAccount(firebaseAuth.currentUser)) return;
       if (isCeoActive() || isCeoAccount || ceoSession || staffSession?.venue) return;
       if (onboardingMembershipFlow || requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) return;
       if (alertCheckinsCloudSyncPromise) return alertCheckinsCloudSyncPromise;
@@ -21168,6 +21168,24 @@
 
     // Simple toast utility
     function showToast(message, duration = 5000) {
+      const text = String(message || "").trim();
+      if (!text) return;
+      const isStaffOrCeoContext = !!staffSession || !!ceoSession || isCeoAccount || isCeoActive();
+      if (!isStaffOrCeoContext) {
+        const technicalNoise = [
+          /index build/i,
+          /staff (auth|session|login)/i,
+          /cloud sync/i,
+          /push partial/i,
+          /push failed/i,
+          /push dispatch/i,
+          /feed unavailable/i,
+          /safe mode/i,
+          /preview mode/i,
+          /debug/i
+        ];
+        if (technicalNoise.some((pattern) => pattern.test(text))) return;
+      }
       let toast = document.getElementById("focoToast");
       if (!toast) {
         toast = document.createElement("div");
@@ -21191,9 +21209,9 @@
         toast.style.transition = "opacity 180ms ease";
         document.body.appendChild(toast);
       }
-      toast.textContent = message;
+      toast.textContent = text;
       toast.style.opacity = "1";
-      const holdMs = 4000;
+      const holdMs = Math.max(1200, Number(duration) || 4000);
       setTimeout(() => {
         toast.style.opacity = "0";
       }, holdMs);
@@ -29563,6 +29581,8 @@ let onboardingIndex = 0;
       saveRedemptionLog();
       renderStaffVenueLog();
       renderStaffPendingQueue();
+      renderStaffDealCodes();
+      renderStaffDealRedemptionLog();
       renderCeoRedemptionLog();
       renderCeoVerifiedVenueLog();
       renderCeoVenueLog();
@@ -30442,11 +30462,11 @@ let onboardingIndex = 0;
             <div class="staff-pending-actions">
               <span class="status-pill-sm ${statusClass}">${statusLabel}</span>
               <button type="button" class="${actionClass}" data-pending-confirm="${entry.code}" data-pending-next="${actionTarget}">${actionLabel}</button>
-              ${isPending ? `<button type="button" class="btn btn-secondary" data-pending-deny="${entry.code}" style="border-color:rgba(248,113,113,0.65);color:#fecaca;">Deny</button>` : ""}
             </div>
           </div>
         `;
       }).join("");
+      renderStaffDealRedemptionLog();
     }
 
     function updateStaffRadar() {
@@ -31135,7 +31155,7 @@ let onboardingIndex = 0;
       cleanDealCodes();
       if (!staffSession) {
         staffDealCodeList.innerHTML = '<p style="color:#94a3b8;">Log in to generate codes for tonight’s deals.</p>';
-        if (staffRoiPanel) staffRoiPanel.innerHTML = "";
+        renderStaffDealRedemptionLog();
         return;
       }
       const now = Date.now();
@@ -31144,7 +31164,7 @@ let onboardingIndex = 0;
         .sort((a, b) => (a.expiresAt || Number.MAX_SAFE_INTEGER) - (b.expiresAt || Number.MAX_SAFE_INTEGER));
       if (!activeAlerts.length) {
         staffDealCodeList.innerHTML = '<p style="color:#94a3b8;">No active deals to generate codes for.</p>';
-        renderStaffRoiPanel();
+        renderStaffDealRedemptionLog();
         return;
       }
       const venueEntries = (Array.isArray(redemptionLog) ? redemptionLog : []).filter((entry) => (
@@ -31200,47 +31220,55 @@ let onboardingIndex = 0;
           </div>
         `;
       }).join("");
-      renderStaffRoiPanel();
+      renderStaffDealRedemptionLog();
     }
 
-    function renderStaffRoiPanel() {
-      if (!staffRoiPanel) return;
+    function renderStaffDealRedemptionLog() {
+      if (!staffDealRedemptionLog) return;
       if (!staffSession) {
-        staffRoiPanel.innerHTML = "";
+        staffDealRedemptionLog.innerHTML = '<p style="color:#94a3b8;">Log in to view tonight’s alert redemptions.</p>';
         return;
       }
-      const venueId = (staffSession.venue || "").toLowerCase();
-      const verifiedEntries = (Array.isArray(redemptionLog) ? redemptionLog : []).filter((entry) => {
-        const status = String(entry?.status || "").toLowerCase();
-        if (!["verified", "approved", "confirmed"].includes(status)) return false;
-        return entryMatchesVenue(entry, venueId);
-      });
-      const voucherEntries = verifiedEntries.filter((entry) => classifyRedemptionCategory(entry) === "voucher");
-      const dealEntries = verifiedEntries.filter((entry) => classifyRedemptionCategory(entry) === "deal");
-      const voucherRoi = computeEstimatedRoiFromEntries(voucherEntries);
-      const dealRoi = computeEstimatedRoiFromEntries(dealEntries);
-      const row = (label, metrics) => {
-        const color = metrics.valid ? (metrics.roi >= 0 ? "#34d399" : "#f87171") : "#fbbf24";
-        const roiText = metrics.valid ? formatRoiPercent(metrics.roi) : "Unavailable";
-        const roiDollars = metrics.valid ? (metrics.grossUplift - metrics.grossCost) : 0;
-        const roiDollarText = metrics.valid
-          ? `${roiDollars >= 0 ? "+" : "-"}$${Math.abs(roiDollars).toFixed(2)}`
-          : "n/a";
+      const venueId = String(staffSession.venue || "").toLowerCase();
+      const activeShift = getActiveShiftForVenue(venueId);
+      if (!activeShift?.shiftKey) {
+        staffDealRedemptionLog.innerHTML = '<p style="color:#94a3b8;">No active shift yet.</p>';
+        return;
+      }
+      const shiftStart = getActiveShiftStartMs(activeShift);
+      const entries = (Array.isArray(redemptionLog) ? redemptionLog : [])
+        .filter((entry) => {
+          if (!entryMatchesVenue(entry, venueId)) return false;
+          if (classifyRedemptionCategory(entry) !== "deal") return false;
+          const entryShiftKey = String(entry.shiftKey || "").trim();
+          if (entryShiftKey) return entryShiftKey === activeShift.shiftKey;
+          const ts = new Date(entry.timestamp || entry.createdAt || Date.now()).getTime();
+          return ts >= shiftStart;
+        })
+        .sort((a, b) => new Date(b.timestamp || b.createdAt || 0).getTime() - new Date(a.timestamp || a.createdAt || 0).getTime());
+      if (!entries.length) {
+        staffDealRedemptionLog.innerHTML = '<p style="color:#94a3b8;">No alert redemption codes generated for this shift yet.</p>';
+        return;
+      }
+      staffDealRedemptionLog.innerHTML = entries.map((entry) => {
+        const status = String(entry.status || "pending").toLowerCase();
+        const isPending = status === "pending" || status === "requested" || status === "expired";
+        const nextAction = isPending ? "confirm" : "pending";
+        const actionLabel = isPending ? "Confirm" : "Confirmed";
+        const actionClass = isPending ? "btn btn-primary" : "btn btn-secondary";
         return `
-          <div class="log-meta" style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(148,163,184,0.18);">
-            <span style="color:#e2e8f0;font-weight:700;">${label}</span>
-            <span style="color:#cbd5f5;">${metrics.redemptions} redeemed</span>
-            <span style="color:${color};font-weight:700;">ROI ${roiText} (${roiDollarText})</span>
+          <div class="staff-pending-row" data-pending-code="${entry.code}" data-pending-status="${isPending ? "pending" : "confirmed"}">
+            <div class="staff-pending-meta">
+              <div><strong>${entry.code}</strong> · ${entry.perk || "Tonight's deal"}</div>
+              <div class="staff-pending-sub">${entry.venuePerkLabel || "Alert redemption"} · ${formatMST(entry.timestamp || entry.createdAt || Date.now(), { hour: "2-digit", minute: "2-digit" })}</div>
+            </div>
+            <div class="staff-pending-actions">
+              <span class="status-pill-sm ${isPending ? "pending" : "verified"}">${isPending ? "pending" : "confirmed"}</span>
+              <button type="button" class="${actionClass}" data-deal-action="${nextAction}" data-deal-code="${entry.code}">${actionLabel}</button>
+            </div>
           </div>
         `;
-      };
-      staffRoiPanel.innerHTML = `
-        <div class="roi-live-card">
-          <h5 class="roi-live-title">Estimated ROI (Live)</h5>
-          ${row("Vouchers", voucherRoi)}
-          ${row("Tonight's Deal", dealRoi)}
-        </div>
-      `;
+      }).join("");
     }
 
     function updateStaffKpis(alertCount = 0, vipActive = false) {
@@ -32000,7 +32028,9 @@ let onboardingIndex = 0;
         return;
       }
       const venueId = (staffSession.venue || "").toLowerCase();
-      const allEntries = redemptionLog.filter(item => entryMatchesVenue(item, venueId));
+      const allEntries = redemptionLog.filter(item => (
+        entryMatchesVenue(item, venueId) && classifyRedemptionCategory(item) !== "deal"
+      ));
       const rangeSelect = document.getElementById("staffLogRange");
       const range = rangeSelect?.value || "all";
       const toMstDate = (value) => new Date(new Date(value).toLocaleString("en-US", { timeZone: "America/Denver" }));
@@ -33549,12 +33579,6 @@ let onboardingIndex = 0;
         }
       });
     }
-    if (staffActorCancel) {
-      staffActorCancel.addEventListener("click", () => {
-        if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
-        closeStaffActorModal();
-      });
-    }
     if (staffActorClose) {
       staffActorClose.addEventListener("click", () => {
         if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
@@ -33845,15 +33869,15 @@ let onboardingIndex = 0;
     if (staffPendingList) {
       staffPendingList.addEventListener("click", async (e) => {
         try {
-          const btn = e.target.closest("[data-pending-confirm], [data-pending-deny]");
+          const btn = e.target.closest("[data-pending-confirm]");
           const row = e.target.closest("[data-pending-code]");
           if (!row || !staffSession) return;
           if (btn?.dataset.busy === "1") return;
-          const code = (btn?.dataset.pendingConfirm || btn?.dataset.pendingDeny || row.dataset.pendingCode || "").toUpperCase();
+          const code = (btn?.dataset.pendingConfirm || row.dataset.pendingCode || "").toUpperCase();
           if (!code) return;
           const venueId = staffSession.venue;
           if (!requireActiveShiftForAction(verifyError)) return;
-          const requestedAction = btn?.dataset.pendingDeny ? "deny" : (String(btn?.dataset.pendingNext || "").toLowerCase() || "confirm");
+          const requestedAction = (String(btn?.dataset.pendingNext || "").toLowerCase() || "confirm");
           if (isShiftClosedForVenue(venueId)) {
             verifyError.textContent = "Shift is already closed. Start next shift to verify new redemptions.";
             return;
@@ -33864,31 +33888,6 @@ let onboardingIndex = 0;
             btn.textContent = requestedAction === "pending" ? "Updating…" : requestedAction === "deny" ? "Denying…" : "Verifying…";
           }
           try {
-            if (requestedAction === "deny") {
-              const actor = await requireStaffActor({
-                actionType: "deny_redemption",
-                prompt: "Who are you? Select the staff member denying this redemption.",
-                requireReason: true
-              });
-              if (!actor) return;
-              const denyResult = await denyRedemption(code, venueId, {
-                reasonCode: actor.reasonCode,
-                reasonNote: actor.reasonNote,
-                staffId: actor.staffId,
-                staffName: actor.staffName
-              });
-              if (!denyResult.success) {
-                verifyError.textContent = denyResult.message || "Could not deny this redemption.";
-                return;
-              }
-              await attachStaffActionToEntry(denyResult.entry, actor, "deny_redemption", {
-                deniedReasonCode: actor.reasonCode || null,
-                deniedReasonNote: actor.reasonNote || null
-              });
-              verifyError.textContent = "";
-              showNeonSuccess(verifySuccess, `Code ${code} denied.`, 4200);
-              return;
-            }
             if (requestedAction === "pending") {
               const actor = await requireStaffActor({
                 actionType: "set_pending",
@@ -33939,8 +33938,6 @@ let onboardingIndex = 0;
               btn.disabled = false;
               if (requestedAction === "pending") {
                 btn.textContent = "Confirmed";
-              } else if (requestedAction === "deny") {
-                btn.textContent = "Deny";
               } else {
                 btn.textContent = "Confirm";
               }
@@ -33961,8 +33958,73 @@ let onboardingIndex = 0;
         }
       });
     }
+    if (staffDealRedemptionLog) {
+      staffDealRedemptionLog.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-deal-code][data-deal-action]");
+        if (!btn || !staffSession) return;
+        const code = String(btn.dataset.dealCode || "").toUpperCase().trim();
+        const requestedAction = String(btn.dataset.dealAction || "confirm").toLowerCase();
+        if (!code) return;
+        if (!requireActiveShiftForAction(verifyError)) return;
+        const venueId = staffSession.venue;
+        if (isShiftClosedForVenue(venueId)) {
+          verifyError.textContent = "Shift is already closed. Start next shift to verify new redemptions.";
+          return;
+        }
+        if (btn.dataset.busy === "1") return;
+        btn.dataset.busy = "1";
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = requestedAction === "pending" ? "Updating…" : "Verifying…";
+        try {
+          if (requestedAction === "pending") {
+            const actor = await requireStaffActor({
+              actionType: "set_pending",
+              prompt: "Who are you? Select the staff member setting this alert redemption back to pending.",
+              requireReason: true
+            });
+            if (!actor) return;
+            const result = await setRedemptionPending(code, venueId, {
+              reasonCode: actor.reasonCode,
+              reasonNote: actor.reasonNote,
+              staffId: actor.staffId,
+              staffName: actor.staffName
+            });
+            if (!result.success) {
+              verifyError.textContent = result.message || "Could not set pending right now.";
+              return;
+            }
+            await attachStaffActionToEntry(result.entry, actor, "set_pending", {
+              pendingReasonCode: actor.reasonCode || null,
+              pendingReasonNote: actor.reasonNote || null
+            });
+            verifyError.textContent = "";
+            showNeonSuccess(verifySuccess, `Code ${code} marked pending.`, 4200);
+            renderStaffDealRedemptionLog();
+            return;
+          }
+          const actor = await requireStaffActor({
+            actionType: "verify_redemption",
+            prompt: "Who are you? Select the staff member verifying this alert redemption."
+          });
+          if (!actor) return;
+          const result = await verifyCode(code, venueId);
+          if (!result.success) {
+            verifyError.textContent = result.message || "Could not verify right now.";
+            return;
+          }
+          await attachStaffActionToEntry(result.entry, actor, "verify_redemption");
+          applyVoucherConfirmSuccess(result.entry, code);
+          renderStaffDealRedemptionLog();
+        } finally {
+          btn.dataset.busy = "";
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
+      });
+    }
     if (staffDealCodeList) {
-      staffDealCodeList.addEventListener("click", (e) => {
+      staffDealCodeList.addEventListener("click", async (e) => {
         const btn = e.target.closest("button[data-gen-deal]");
         if (!btn || !staffSession) return;
         if (!requireActiveShiftForAction(verifyError)) return;
@@ -33970,6 +34032,11 @@ let onboardingIndex = 0;
           verifyError.textContent = "Shift is already closed. Start next shift to generate new deal codes.";
           return;
         }
+        const actor = await requireStaffActor({
+          actionType: "generate_deal_code",
+          prompt: "Who are you? Select the staff member generating this deal code."
+        });
+        if (!actor) return;
         const alertId = String(btn.dataset.genDeal || "").trim();
         const alert = (Array.isArray(tonightAlerts) ? tonightAlerts : [])
           .find((a) => String(a?.id || "").trim() === alertId);
@@ -33994,13 +34061,18 @@ let onboardingIndex = 0;
           timestamp: nowIso,
           member: "Tonight's deal",
         };
-        addRedemptionLogEntry(redemptionEntry, { skipPoints: true, skipPassStats: true });
+        const synced = await syncRedemptionToCloud(redemptionEntry);
+        if (!synced) {
+          verifyError.textContent = cloudSyncFailureMessage();
+          return;
+        }
+        addRedemptionLogEntry(redemptionEntry, { skipSync: true, skipPoints: true, skipPassStats: true });
         renderStaffPendingQueue();
         renderStaffDealCodes();
         logVenueStaffAction({
           actionType: "generate_deal_code",
-          staffId: selectedStaffActor?.staffId || null,
-          staffName: selectedStaffActor?.staffName || null,
+          staffId: actor.staffId || null,
+          staffName: actor.staffName || null,
           venueId: staffSession?.venue || null,
           redemptionId: code,
           perkId: "deal",
@@ -36759,6 +36831,8 @@ let onboardingIndex = 0;
         }
         renderStaffVenueLog();
         renderStaffPendingQueue();
+        renderStaffDealCodes();
+        renderStaffDealRedemptionLog();
         refreshMemberStats();
       };
       const isVenueMismatch = (payload) => {
@@ -36800,7 +36874,7 @@ let onboardingIndex = 0;
           if (venueKey && info.venue && info.venue.toLowerCase() !== venueKey) {
             return { success: false, message: "This code is assigned to another venue." };
           }
-          const newEntry = {
+          const pendingEntry = {
             code: codeUpper,
             perk: info.perk || "Tonight's deal",
             perkKey: "deal",
@@ -36810,17 +36884,17 @@ let onboardingIndex = 0;
             passId: "DEAL",
             venue: info.venue || venueId || null,
             shiftKey: getCurrentShiftKeyForVenue(venueKey) || null,
-            status: "verified",
-            verifiedAt: new Date().toISOString(),
+            status: "pending",
+            verifiedAt: null,
             timestamp: info.timestamp || new Date().toISOString(),
             member: "Tonight's deal",
           };
-          const synced = await syncRedemptionToCloud(newEntry);
+          const synced = await syncRedemptionToCloud(pendingEntry);
           if (!synced) {
             return { success: false, message: cloudSyncFailureMessage() };
           }
-          addRedemptionLogEntry(newEntry, { skipSync: true });
-          return { success: true, entry: newEntry };
+          addRedemptionLogEntry(pendingEntry, { skipSync: true, skipPoints: true, skipPassStats: true });
+          return { success: false, message: "Code is queued as pending. Tap Confirm again." };
         }
         const generated = ceoGeneratedCodes.find(item => item.code === codeUpper);
         if (generated) {
@@ -36862,15 +36936,11 @@ let onboardingIndex = 0;
       if (["verified", "approved", "confirmed"].includes(existingStatus)) {
         return { success: false, message: "Already confirmed earlier." };
       }
-      const nowIso = new Date().toISOString();
-      const mapped = {
-        ...entry,
-        status: "verified",
-        verifiedAt: nowIso
-      };
-      const synced = await syncRedemptionToCloud(mapped);
-      if (!synced) {
-        return { success: false, message: cloudSyncFailureMessage() };
+      const verified = await callVerify();
+      if (!verified.success) return verified;
+      const mapped = mapEntry(verified.entry);
+      if (isVenueMismatch(mapped)) {
+        return { success: false, message: "This code is assigned to another venue." };
       }
       Object.assign(entry, mapped);
       applyVerifiedEntryToLocalLog(mapped);
@@ -36934,6 +37004,7 @@ let onboardingIndex = 0;
       renderStaffVenueLog();
       renderStaffPendingQueue();
       renderStaffDealCodes();
+      renderStaffDealRedemptionLog();
       renderCeoRedemptionLog();
       renderCeoVenueLog();
       renderCeoVerifiedVenueLog();
@@ -36981,6 +37052,7 @@ let onboardingIndex = 0;
         renderStaffVenueLog();
         renderStaffPendingQueue();
         renderStaffDealCodes();
+        renderStaffDealRedemptionLog();
         refreshMemberStats();
         return { success: true, entry: normalized };
       } catch (err) {

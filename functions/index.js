@@ -1411,67 +1411,77 @@ exports.getMemberAlertCheckins = functions.https.onCall(async (data, context) =>
   await enforceCallableSecurity(context, {
     rateLimit: { maxPerMin: 20, maxPerDay: 800 }
   });
-  const uid = String(context?.auth?.uid || "").trim();
-  if (!uid) {
-    throw new HttpsError("unauthenticated", "Auth required.");
-  }
-  const passCodeInput = String(data?.passCode || "").trim().toUpperCase();
-  const memberSnap = await db.collection("members").doc(uid).get();
-  const memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
-  const passCode = String(
-    memberData.passCode ||
-    memberData.passId ||
-    passCodeInput ||
-    ""
-  ).trim().toUpperCase();
-
-  const nowMs = Date.now();
-  const alertIds = new Set();
-  const memberCheckinsSnap = await db
-    .collection("members")
-    .doc(uid)
-    .collection("alertCheckins")
-    .limit(500)
-    .get();
-  if (!memberCheckinsSnap.empty) {
-    memberCheckinsSnap.docs.forEach((docSnap) => {
-      const data = docSnap.data() || {};
-      const expiresMs = toMillisSafe(data.expiresAt);
-      if (expiresMs && expiresMs <= nowMs) return;
-      const alertId = String(data.alertId || docSnap.id || "").trim();
-      if (alertId) alertIds.add(alertId);
-    });
-  }
-
-  // Legacy backfill fallback (older check-in docs before member subcollection).
-  if (alertIds.size === 0) {
-    const legacyQueries = [];
-    if (passCode) {
-      legacyQueries.push(db.collectionGroup("checkins").where("passCode", "==", passCode).limit(400).get());
+  try {
+    const uid = String(context?.auth?.uid || "").trim();
+    if (!uid) {
+      throw new HttpsError("unauthenticated", "Auth required.");
     }
-    legacyQueries.push(db.collectionGroup("checkins").where("uid", "==", uid).limit(400).get());
-    const snaps = await Promise.all(legacyQueries);
-    for (const snap of snaps) {
-      if (!snap || snap.empty) continue;
-      snap.docs.forEach((docSnap) => {
-        const data = docSnap.data() || {};
-        const expiresMs = toMillisSafe(data.expiresAt);
+    const passCodeInput = String(data?.passCode || "").trim().toUpperCase();
+    const memberSnap = await db.collection("members").doc(uid).get();
+    const memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
+    const passCode = String(
+      memberData.passCode ||
+      memberData.passId ||
+      passCodeInput ||
+      ""
+    ).trim().toUpperCase();
+
+    const nowMs = Date.now();
+    const alertIds = new Set();
+    const memberCheckinsSnap = await db
+      .collection("members")
+      .doc(uid)
+      .collection("alertCheckins")
+      .limit(500)
+      .get();
+    if (!memberCheckinsSnap.empty) {
+      memberCheckinsSnap.docs.forEach((docSnap) => {
+        const row = docSnap.data() || {};
+        const expiresMs = toMillisSafe(row.expiresAt);
         if (expiresMs && expiresMs <= nowMs) return;
-        const resolvedAlertId = String(
-          data.alertId ||
-          docSnap.ref?.parent?.parent?.id ||
-          ""
-        ).trim();
-        if (resolvedAlertId) alertIds.add(resolvedAlertId);
+        const alertId = String(row.alertId || docSnap.id || "").trim();
+        if (alertId) alertIds.add(alertId);
       });
     }
-  }
 
-  return {
-    ok: true,
-    passCode: passCode || null,
-    alertIds: Array.from(alertIds)
-  };
+    // Legacy backfill fallback (older check-in docs before member subcollection).
+    if (alertIds.size === 0) {
+      try {
+        const legacyQueries = [];
+        if (passCode) {
+          legacyQueries.push(db.collectionGroup("checkins").where("passCode", "==", passCode).limit(400).get());
+        }
+        legacyQueries.push(db.collectionGroup("checkins").where("uid", "==", uid).limit(400).get());
+        const snaps = await Promise.all(legacyQueries);
+        for (const snap of snaps) {
+          if (!snap || snap.empty) continue;
+          snap.docs.forEach((docSnap) => {
+            const row = docSnap.data() || {};
+            const expiresMs = toMillisSafe(row.expiresAt);
+            if (expiresMs && expiresMs <= nowMs) return;
+            const resolvedAlertId = String(
+              row.alertId ||
+              docSnap.ref?.parent?.parent?.id ||
+              ""
+            ).trim();
+            if (resolvedAlertId) alertIds.add(resolvedAlertId);
+          });
+        }
+      } catch (legacyErr) {
+        console.warn("[getMemberAlertCheckins] legacy lookup failed", legacyErr?.message || legacyErr);
+      }
+    }
+
+    return {
+      ok: true,
+      passCode: passCode || null,
+      alertIds: Array.from(alertIds)
+    };
+  } catch (err) {
+    console.error("[getMemberAlertCheckins]", err?.message || err);
+    if (err instanceof HttpsError) throw err;
+    return { ok: true, passCode: null, alertIds: [] };
+  }
 });
 
 exports.verifyRedemption = functions.https.onCall(async (data, context) => {
@@ -1581,22 +1591,6 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
     if (dataSnap.venueId && dataSnap.venueId !== venueId) {
       throw new HttpsError("permission-denied", "This code belongs to another venue.");
     }
-    const pendingExpired = (String(dataSnap.status || "").toLowerCase() === "pending")
-      && !isPendingRedemptionFresh(dataSnap, now.toDate(), PENDING_REDEMPTION_TIMEOUT_MS);
-    if (pendingExpired) {
-      const memberUid = dataSnap.memberUid;
-      const expiredUpdates = {
-        status: "expired",
-        updatedAt: serverNow,
-        expiredAt: serverNow
-      };
-      tx.update(venueRedRef, expiredUpdates);
-      if (memberUid) {
-        const memberRedRef = db.collection("members").doc(memberUid).collection("redemptions").doc(redemptionId);
-        tx.set(memberRedRef, expiredUpdates, { merge: true });
-      }
-      return { ...dataSnap, ...expiredUpdates, expired: true };
-    }
     if (dataSnap.status === "verified" && action === "confirm") {
       return dataSnap;
     }
@@ -1701,9 +1695,6 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
     return { ...dataSnap, ...returnUpdates };
   });
 
-  if (result?.expired) {
-    throw new HttpsError("failed-precondition", "Code expired. Ask the member to redeem again.");
-  }
   return { ok: true, redemption: result };
 });
 
