@@ -739,21 +739,6 @@ function getPendingRedemptionExpiryMs(nowValue = new Date()) {
   return Number.isFinite(expiryMs) ? expiryMs : (now.getTime() + PENDING_REDEMPTION_TIMEOUT_MS);
 }
 
-function getCurrentShiftKeyForNow(nowValue = new Date()) {
-  const now = nowValue instanceof Date ? nowValue : new Date(nowValue);
-  if (Number.isNaN(now.getTime())) {
-    return new Date().toISOString().slice(0, 10);
-  }
-  const localNow = getTimeZoneParts(now);
-  if (!localNow) {
-    return new Date(now.getTime()).toISOString().slice(0, 10);
-  }
-  const shiftStartDay = shiftCalendarDay(localNow, localNow.hour < SHIFT_START_HOUR ? -1 : 0);
-  const mm = String(shiftStartDay.month).padStart(2, "0");
-  const dd = String(shiftStartDay.day).padStart(2, "0");
-  return `${shiftStartDay.year}-${mm}-${dd}`;
-}
-
 function toDateSafe(value) {
   if (!value) return null;
   if (typeof value.toDate === "function") {
@@ -1120,12 +1105,9 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
     }
 
     const now = admin.firestore.Timestamp.now();
-    const shiftKey = getCurrentShiftKeyForNow(now.toDate());
     const serverNow = admin.firestore.FieldValue.serverTimestamp();
     const perkRef = db.collection("venues").doc(venueId).collection("perks").doc(perkId);
-    const shiftLockRef = shiftKey
-      ? db.collection("venues").doc(venueId).collection("shiftCloseouts").doc(shiftKey)
-      : null;
+    const shiftStateRef = db.collection("venues").doc(venueId).collection("shiftState").doc("current");
     const memberDisplayName = (member) =>
       (member?.displayName || member?.name || member?.fullName || member?.username || "FoCo member");
 
@@ -1133,11 +1115,19 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
       const redemptionId = generateCode(6).toUpperCase();
       try {
         const result = await db.runTransaction(async (tx) => {
-          if (shiftLockRef) {
-            const shiftSnap = await tx.get(shiftLockRef);
+          let activeShiftKey = "";
+          const shiftStateSnap = await tx.get(shiftStateRef);
+          if (shiftStateSnap.exists) {
+            const shiftState = shiftStateSnap.data() || {};
+            if (shiftState.active === true && shiftState.shiftKey) {
+              activeShiftKey = String(shiftState.shiftKey || "").trim();
+            }
+          }
+          if (activeShiftKey) {
+            const shiftSnap = await tx.get(db.collection("venues").doc(venueId).collection("shiftCloseouts").doc(activeShiftKey));
             const shiftData = shiftSnap.exists ? (shiftSnap.data() || {}) : {};
             if (shiftData.shiftClosed === true) {
-              throw new HttpsError("failed-precondition", "Shift is already closed. Ask venue staff to open the next shift.");
+              throw new HttpsError("failed-precondition", "Shift is already closed. Ask venue staff to start a new shift.");
             }
           }
           const resolved = await resolveMemberByPassCode(passCode, tx, context.auth?.uid || null);
@@ -1258,6 +1248,9 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
             timestamp: serverNow,
             requestedVenue: venueId
           };
+          if (activeShiftKey) {
+            storedPayload.shiftKey = activeShiftKey;
+          }
           const returnPayload = {
             ...storedPayload,
             createdAt: now,
@@ -1495,7 +1488,7 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
   const reasonNote = String(data?.reasonNote || "").trim().slice(0, 500) || null;
   const staffActionId = String(data?.staffId || "").trim().slice(0, 20) || null;
   const staffActionName = String(data?.staffName || "").trim().slice(0, 120) || null;
-  const shiftKey = String(data?.shiftKey || getCurrentShiftKeyForNow()).trim();
+  const shiftKey = String(data?.shiftKey || "").trim();
   if (!venueId || !redemptionId) {
     throw new HttpsError("invalid-argument", "Redemption code and venue are required.");
   }
@@ -1577,6 +1570,7 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
         lastActionStaffName: staffActionName,
         timestamp: ceoSnap.data()?.createdAt || now,
         requestedVenue: venueId,
+        shiftKey: shiftKey || null,
         ceo: true
       };
       tx.set(venueRedRef, ceoPayload, { merge: true });
@@ -1626,6 +1620,9 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
       lastActionStaffId: staffActionId,
       lastActionStaffName: staffActionName
     };
+    if (shiftKey) {
+      storedUpdates.shiftKey = shiftKey;
+    }
     if (nextStatus === "verified") {
       storedUpdates.verifiedAt = serverNow;
       storedUpdates.deniedAt = admin.firestore.FieldValue.delete();
@@ -1673,6 +1670,9 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
       status: nextStatus,
       updatedAt: now
     };
+    if (shiftKey) {
+      returnUpdates.shiftKey = shiftKey;
+    }
     if (nextStatus === "verified") {
       returnUpdates.verifiedAt = now;
       returnUpdates.deniedAt = null;

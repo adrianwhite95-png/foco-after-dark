@@ -13842,6 +13842,7 @@
     <div class="staff-meta-row">
       <span class="venue-chip" id="staffVenueBadge">Venue</span>
       <span class="pill" id="staffVenueStatus">Live</span>
+      <span class="pill" id="staffShiftStatusPill">No shift</span>
       <span class="meta-note" id="staffCloseoutStamp" style="font-size:12px;color:#94a3b8;"></span>
     </div>
     <div class="staff-sticky-bar">
@@ -14068,7 +14069,7 @@
             <div id="staffActivityLog" class="staff-log"></div>
           </div>
           <div class="payment-actions" style="margin-top:4px;">
-            <button type="button" class="btn btn-primary" id="staffCloseOutBtn" style="width:100%;">Close out for tonight</button>
+            <button type="button" class="btn btn-primary" id="staffCloseOutBtn" style="width:100%;">End shift + send close-out</button>
           </div>
         </div>
       </details>
@@ -14987,6 +14988,21 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="staffShiftModal">
+    <div class="modal-card" style="max-width:520px;">
+      <div class="modal-header">
+        <div class="modal-title">Start shift</div>
+        <button class="modal-close" id="staffShiftClose" type="button">Close</button>
+      </div>
+      <p class="small" id="staffShiftPrompt" style="margin:0 0 10px;color:#cbd5f5;">No active shift for this venue. Start shift to enable verifications, redemptions, and close-out.</p>
+      <div class="error" id="staffShiftError"></div>
+      <div class="payment-actions" style="margin-top:8px;">
+        <button type="button" class="btn btn-secondary" id="staffShiftLogout">Log out</button>
+        <button type="button" class="btn btn-primary" id="staffShiftStartBtn">Start shift</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="ceoCloseOutModal">
     <div class="modal-card" style="max-height:80vh;overflow:auto;">
       <div class="modal-header">
@@ -15797,11 +15813,14 @@
     let ceoMessagesCache = [];
     let staffMembersUnsub = null;
     let staffActivityUnsub = null;
+    let staffActiveShiftUnsub = null;
     let staffMembersCache = [];
     let staffActivityCache = [];
+    let staffActiveShiftMap = {};
     let staffShiftLockUnsub = null;
     let staffShiftLockMap = {};
     let selectedStaffActor = null;
+    let suppressStaffShiftPrompt = false;
     let staffReplyContextId = "";
     let ceoUnreadToastKeys = new Set();
     let venuePerksCache = {};
@@ -16198,6 +16217,8 @@
       } else {
         if (name === "staffPortal") {
           stopIdleTimer();
+          renderStaffShiftStatus();
+          maybePromptStartShift();
         } else if (name === "ceoPortal" || name === "venues") {
           startIdleTimer();
           if (name === "venues") {
@@ -18811,6 +18832,13 @@
     const staffCloseOutSend = document.getElementById("staffCloseOutSend");
     const staffCloseOutDone = document.getElementById("staffCloseOutDone");
     const staffCloseOutDoneFooter = document.getElementById("staffCloseOutDoneFooter");
+    const staffShiftStatusPill = document.getElementById("staffShiftStatusPill");
+    const staffShiftModal = document.getElementById("staffShiftModal");
+    const staffShiftPrompt = document.getElementById("staffShiftPrompt");
+    const staffShiftError = document.getElementById("staffShiftError");
+    const staffShiftStartBtn = document.getElementById("staffShiftStartBtn");
+    const staffShiftLogout = document.getElementById("staffShiftLogout");
+    const staffShiftClose = document.getElementById("staffShiftClose");
     const staffMemberForm = document.getElementById("staffMemberForm");
     const staffFirstName = document.getElementById("staffFirstName");
     const staffLastName = document.getElementById("staffLastName");
@@ -19042,6 +19070,12 @@
       const venueId = staffSession?.venue || pendingStaffVenueId || null;
       if (!db || !venueId) {
         staffCloseoutStamp.textContent = "";
+        return;
+      }
+      const activeShift = getActiveShiftForVenue(venueId);
+      if (activeShift?.shiftKey) {
+        const startedAt = formatMST(activeShift.startedAt || Date.now());
+        staffCloseoutStamp.textContent = `Shift ${activeShift.shiftKey} started ${startedAt}`;
         return;
       }
       staffCloseoutStamp.textContent = "Checking close-out reports…";
@@ -21191,6 +21225,7 @@
             passId: (data.passCode || data.passId || passCode).toUpperCase(),
             venue: data.venueId || data.venue || null,
             requestedVenue: data.requestedVenue || null,
+            shiftKey: data.shiftKey || null,
             alertId: data.alertId || null,
             dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
             vibeLabel: data.vibeLabel || null,
@@ -21854,6 +21889,7 @@
                 passId: (data.passCode || data.passId || code).toUpperCase(),
                 venue: data.venueId || data.venue || null,
                 requestedVenue: data.requestedVenue || null,
+                shiftKey: data.shiftKey || null,
                 alertId: data.alertId || null,
                 dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
                 vibeLabel: data.vibeLabel || null,
@@ -25646,9 +25682,9 @@ let onboardingIndex = 0;
     const FREE_SEEN_PREFIX = "free_seen_";
     const FREE_REVOKED_PREFIX = "free_revoked_";
     const FREE_MEMBERS_KEY = "free_members_cache";
-    const AUTO_CLOSE_OUT_KEY = "autoCloseOutSent";
     const STAFF_MEMBERS_PREFIX = "staffMembers_";
     const STAFF_ACTIVITY_PREFIX = "staffActivity_";
+    const STAFF_ACTIVE_SHIFT_PREFIX = "staffActiveShift_";
     const STAFF_SHIFT_LOCK_PREFIX = "staffShiftLock_";
     const NIGHT_WHEEL_KEY = "nightWheelSpins";
     const POINTS_KEY = "pointsLedger";
@@ -25791,7 +25827,6 @@ let onboardingIndex = 0;
       review: 25,
       upgradeVip: 100
     };
-    let autoCloseOutTimer = null;
     let freeMembersCache = [];
     let ceoFreeSignupCodesCache = [];
     const localFreeMembers = () => {
@@ -29091,7 +29126,6 @@ let onboardingIndex = 0;
         staffRedemptionsMap = new Map();
         staffRedemptionsVenue = venueId;
       }
-      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
       const toIso = (ts) => {
         if (!ts) return new Date().toISOString();
         if (ts.toDate) return ts.toDate().toISOString();
@@ -29110,6 +29144,7 @@ let onboardingIndex = 0;
           passId: (data.passCode || data.passId || "").toUpperCase(),
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
+          shiftKey: data.shiftKey || null,
           alertId: data.alertId || null,
           dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
           vibeLabel: data.vibeLabel || null,
@@ -29124,11 +29159,7 @@ let onboardingIndex = 0;
       };
       const commitEntries = () => {
         const entries = Array.from(staffRedemptionsMap.values())
-          .filter(entry => entry.code)
-          .filter(entry => {
-            const ts = new Date(entry.timestamp || entry.verifiedAt || 0).getTime();
-            return ts >= cutoff;
-          });
+          .filter(entry => entry.code);
         redemptionLog = entries.sort((a, b) => {
           return new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0);
         });
@@ -29505,87 +29536,6 @@ let onboardingIndex = 0;
       persistMemberState({ closeOutReports: closeOutReports.slice(0, 200) });
       renderCeoCloseOutReports();
     }
-    function loadAutoCloseOutState() {
-      if (useCloudProfile()) {
-        return memberProfile?.autoCloseOut || {};
-      }
-      try {
-        return JSON.parse(localStorage.getItem(AUTO_CLOSE_OUT_KEY) || "{}");
-      } catch (err) {
-        return {};
-      }
-    }
-    function saveAutoCloseOutState(state) {
-      if (allowLocalCache()) {
-        localStorage.setItem(AUTO_CLOSE_OUT_KEY, JSON.stringify(state || {}));
-      }
-      persistMemberState({ autoCloseOut: state || {} });
-    }
-    function hasSentAutoCloseOutForShift(venueId, shiftKey) {
-      if (!venueId) return false;
-      if (!shiftKey) return false;
-      const state = loadAutoCloseOutState();
-      return state[venueId] === shiftKey;
-    }
-    function markAutoCloseOutSent(venueId, shiftKey) {
-      if (!venueId) return;
-      if (!shiftKey) return;
-      const state = loadAutoCloseOutState();
-      state[venueId] = shiftKey;
-      saveAutoCloseOutState(state);
-    }
-    function msUntilNext3am() {
-      const now = new Date();
-      const target = new Date();
-      target.setHours(3, 0, 0, 0);
-      if (target <= now) {
-        target.setDate(target.getDate() + 1);
-      }
-      return target.getTime() - now.getTime();
-    }
-    async function attemptAutoCloseOut() {
-      if (!staffSession) return;
-      const venueId = staffSession.venue;
-      const shiftWindow = getCloseOutWindow();
-      if (hasSentAutoCloseOutForShift(venueId, shiftWindow.shiftKey)) return;
-      let report = buildCloseOutReport();
-      if (!report) {
-        const venueName = venuesInfo[venueId]?.name || venueId || "Venue";
-        report = {
-          id: `auto-close-${venueId}-${Date.now()}`,
-          venue: venueId,
-          venueName,
-          generatedAt: new Date().toISOString(),
-          range: "shift",
-          shiftKey: shiftWindow.shiftKey || getMstDateKey(new Date()),
-          windowLabel: shiftWindow.windowLabel || "Shift window: 5:00 AM - 2:45 AM",
-          totals: { submitted: 0, verified: 0, pending: 0, byPerk: {} },
-          items: []
-        };
-      }
-      const sent = await sendCloseOutEmail(report);
-      persistCloseOutReport(report);
-      renderCeoCloseOutReports();
-      if (sent) {
-        markAutoCloseOutSent(venueId, report.shiftKey || shiftWindow.shiftKey);
-      }
-      if (staffSession?.venue) {
-        setStaffShiftStart(staffSession.venue, new Date());
-        renderStaffPendingQueue();
-      }
-    }
-    function scheduleAutoCloseOut() {
-      if (autoCloseOutTimer) {
-        clearTimeout(autoCloseOutTimer);
-      }
-      autoCloseOutTimer = setTimeout(async () => {
-        try {
-          await attemptAutoCloseOut();
-        } finally {
-          scheduleAutoCloseOut();
-        }
-      }, msUntilNext3am());
-    }
     function loadCeoGeneratedCodes() {
       try {
         ceoGeneratedCodes = JSON.parse(localStorage.getItem("ceoGeneratedCodes") || "[]");
@@ -29668,36 +29618,15 @@ let onboardingIndex = 0;
       }, 980);
     }
 
-    const STAFF_SHIFT_PREFIX = "staffShiftStart_";
     const STAFF_REDEMPTION_CACHE_PREFIX = "staffRedemptions_";
-    function getStaffShiftStart(venueId) {
-      if (!venueId) return 0;
-      const key = `${STAFF_SHIFT_PREFIX}${venueId}`;
-      const stored = localStorage.getItem(key);
-      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-      if (stored) {
-        const ts = Date.parse(stored);
-        if (!Number.isNaN(ts)) return Math.max(ts, cutoff);
-      }
-      return cutoff;
-    }
-    function setStaffShiftStart(venueId, stamp = new Date()) {
-      if (!venueId) return;
-      const key = `${STAFF_SHIFT_PREFIX}${venueId}`;
-      localStorage.setItem(key, stamp.toISOString());
-    }
     function getStaffShiftLockState() {
       if (!staffSession?.venue) return {};
       const venueId = String(staffSession.venue || "").toLowerCase();
       return staffShiftLockMap[venueId] || {};
     }
     function getCurrentShiftKeyForVenue(venueId = staffSession?.venue) {
-      if (!venueId) return "";
-      try {
-        return String(getCloseOutWindow().shiftKey || "").trim();
-      } catch (_) {
-        return "";
-      }
+      const activeShift = getActiveShiftForVenue(venueId);
+      return String(activeShift?.shiftKey || "").trim();
     }
     function isShiftClosedForVenue(venueId = staffSession?.venue, shiftKey = getCurrentShiftKeyForVenue(venueId)) {
       const state = getStaffShiftLockState();
@@ -29752,6 +29681,208 @@ let onboardingIndex = 0;
       try {
         localStorage.setItem(`${STAFF_SHIFT_LOCK_PREFIX}${venueId}`, JSON.stringify(state || {}));
       } catch (_) {}
+    }
+    function loadStaffActiveShiftLocal(venueId) {
+      if (!venueId) return null;
+      try {
+        const raw = localStorage.getItem(`${STAFF_ACTIVE_SHIFT_PREFIX}${venueId}`);
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (!parsed || typeof parsed !== "object") return null;
+        if (parsed.active !== true || !parsed.shiftKey) return null;
+        return parsed;
+      } catch (_) {
+        return null;
+      }
+    }
+    function saveStaffActiveShiftLocal(venueId, shift = null) {
+      if (!venueId) return;
+      try {
+        const key = `${STAFF_ACTIVE_SHIFT_PREFIX}${venueId}`;
+        if (shift && shift.active === true && shift.shiftKey) {
+          localStorage.setItem(key, JSON.stringify(shift));
+        } else {
+          localStorage.removeItem(key);
+        }
+      } catch (_) {}
+    }
+    function normalizeStaffShiftRecord(data = {}, fallbackShiftKey = "") {
+      const shiftKey = String(data.shiftKey || fallbackShiftKey || "").trim();
+      if (!shiftKey) return null;
+      const startedAt = toDateSafe(data.startedAt)?.toISOString?.()
+        || (data.startedAt ? new Date(data.startedAt).toISOString() : new Date().toISOString());
+      const closedAt = toDateSafe(data.closedAt)?.toISOString?.()
+        || (data.closedAt ? new Date(data.closedAt).toISOString() : null);
+      return {
+        shiftKey,
+        active: data.active !== false && !closedAt,
+        venueId: data.venueId || (staffSession?.venue || null),
+        startedAt,
+        startedByStaffId: data.startedByStaffId || null,
+        startedByStaffName: data.startedByStaffName || null,
+        closedAt,
+        closedByStaffId: data.closedByStaffId || null,
+        closedByStaffName: data.closedByStaffName || null,
+        reportId: data.reportId || null
+      };
+    }
+    function getActiveShiftForVenue(venueId = staffSession?.venue) {
+      const venueKey = String(venueId || "").toLowerCase();
+      if (!venueKey) return null;
+      const current = staffActiveShiftMap[venueKey];
+      if (current && current.active === true && current.shiftKey) return current;
+      return null;
+    }
+    function getActiveShiftStartMs(shift) {
+      const startedAt = shift?.startedAt ? new Date(shift.startedAt).getTime() : NaN;
+      return Number.isFinite(startedAt) ? startedAt : Date.now();
+    }
+    function renderStaffShiftStatus() {
+      if (!staffShiftStatusPill) return;
+      const activeShift = getActiveShiftForVenue(staffSession?.venue);
+      if (!staffSession?.venue || !activeShift) {
+        staffShiftStatusPill.textContent = "No shift";
+        staffShiftStatusPill.classList.remove("verified");
+        staffShiftStatusPill.classList.add("pending");
+        if (staffCloseoutStamp && staffSession?.venue) {
+          updateStaffCloseoutStamp();
+        }
+        return;
+      }
+      const started = formatMST(activeShift.startedAt, { hour: "2-digit", minute: "2-digit" });
+      staffShiftStatusPill.textContent = `Shift live · ${started}`;
+      staffShiftStatusPill.classList.remove("pending");
+      staffShiftStatusPill.classList.add("verified");
+      if (staffCloseoutStamp) {
+        staffCloseoutStamp.textContent = `Shift ${activeShift.shiftKey} started ${formatMST(activeShift.startedAt)}`;
+      }
+    }
+    function closeStaffShiftModal() {
+      if (staffShiftModal) staffShiftModal.classList.remove("active");
+      if (staffShiftError) staffShiftError.textContent = "";
+    }
+    function openStaffShiftModal() {
+      if (!staffSession?.venue) return;
+      const activeShift = getActiveShiftForVenue(staffSession.venue);
+      if (activeShift) {
+        closeStaffShiftModal();
+        return;
+      }
+      if (staffShiftPrompt) {
+        const venueName = venuesInfo?.[staffSession.venue]?.name || "This venue";
+        staffShiftPrompt.textContent = `No active shift for ${venueName}. Start shift to enable verifications, redemptions, and close-out.`;
+      }
+      if (staffShiftError) staffShiftError.textContent = "";
+      if (staffShiftModal) staffShiftModal.classList.add("active");
+    }
+    function maybePromptStartShift() {
+      if (!staffSession?.venue || suppressStaffShiftPrompt) return;
+      if (getActiveShiftForVenue(staffSession.venue)) return;
+      if (currentScreenName !== "staffPortal") return;
+      openStaffShiftModal();
+    }
+    function requireActiveShiftForAction(errorEl = verifyError) {
+      const activeShift = getActiveShiftForVenue(staffSession?.venue);
+      if (activeShift) return activeShift;
+      if (errorEl) {
+        errorEl.textContent = "Start shift first to continue.";
+      }
+      openStaffShiftModal();
+      return null;
+    }
+    async function startVenueShiftForCurrentSession() {
+      const venueId = String(staffSession?.venue || "").toLowerCase();
+      if (!venueId) return null;
+      const existing = getActiveShiftForVenue(venueId);
+      if (existing) return existing;
+      let actor = null;
+      if (getActiveStaffMembers(venueId).length) {
+        actor = await requireStaffActor({
+          actionType: "start_shift",
+          prompt: "Who are you? Select the staff member starting this shift."
+        });
+        if (!actor) return null;
+      }
+      const shiftKey = `${getMstDateKey(new Date())}-${String(Date.now()).slice(-6)}`;
+      const shift = {
+        shiftKey,
+        active: true,
+        venueId,
+        startedAt: new Date().toISOString(),
+        startedByStaffId: actor?.staffId || null,
+        startedByStaffName: actor?.staffName || null,
+        closedAt: null,
+        closedByStaffId: null,
+        closedByStaffName: null,
+        reportId: null
+      };
+      staffActiveShiftMap[venueId] = shift;
+      saveStaffActiveShiftLocal(venueId, shift);
+      renderStaffShiftStatus();
+      if (db && guardWriteAction("startVenueShift", "App is locked (read-only).", { silent: true })) {
+        try {
+          await setDoc(doc(db, "venues", venueId, "shiftState", "current"), {
+            ...shift,
+            startedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+          await setDoc(doc(db, "venues", venueId, "shiftSessions", shiftKey), {
+            ...shift,
+            startedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        } catch (err) {
+          console.warn("start shift write failed", err);
+        }
+      }
+      await logVenueStaffAction({
+        actionType: "start_shift",
+        staffId: shift.startedByStaffId,
+        staffName: shift.startedByStaffName,
+        venueId
+      });
+      pendingCloseOutReport = null;
+      suppressStaffShiftPrompt = false;
+      closeStaffShiftModal();
+      showToast("Shift started.", 2800);
+      return shift;
+    }
+    async function closeVenueShiftForCurrentSession(report, actor) {
+      const venueId = String(staffSession?.venue || "").toLowerCase();
+      if (!venueId) return;
+      const activeShift = getActiveShiftForVenue(venueId);
+      const shiftKey = String(report?.shiftKey || activeShift?.shiftKey || "").trim();
+      if (!shiftKey) return;
+      const closedAtIso = new Date().toISOString();
+      if (db && guardWriteAction("closeVenueShift", "App is locked (read-only).", { silent: true })) {
+        try {
+          await setDoc(doc(db, "venues", venueId, "shiftSessions", shiftKey), {
+            active: false,
+            closedAt: serverTimestamp(),
+            closedByStaffId: actor?.staffId || null,
+            closedByStaffName: actor?.staffName || null,
+            reportId: report?.id || null,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+          await setDoc(doc(db, "venues", venueId, "shiftState", "current"), {
+            active: false,
+            shiftKey,
+            venueId,
+            lastClosedAt: serverTimestamp(),
+            lastClosedByStaffId: actor?.staffId || null,
+            lastClosedByStaffName: actor?.staffName || null,
+            reportId: report?.id || null,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        } catch (err) {
+          console.warn("close shift write failed", err);
+        }
+      }
+      delete staffActiveShiftMap[venueId];
+      saveStaffActiveShiftLocal(venueId, null);
+      renderStaffShiftStatus();
+      suppressStaffShiftPrompt = true;
+      const closedBy = actor?.staffName || "Staff";
+      staffCloseoutStamp.textContent = `Shift ended by ${closedBy} · ${formatMST(closedAtIso)}`;
     }
     function normalizeStaffMember(member = {}) {
       const firstName = String(member.firstName || "").trim();
@@ -30102,10 +30233,55 @@ let onboardingIndex = 0;
         console.warn("staff shift lock listener failed", err);
       });
     }
+    async function startStaffActiveShiftListener(venueId) {
+      if (!venueId) return;
+      if (staffActiveShiftUnsub) {
+        try { staffActiveShiftUnsub(); } catch (_) {}
+        staffActiveShiftUnsub = null;
+      }
+      const venueKey = String(venueId || "").toLowerCase();
+      const local = loadStaffActiveShiftLocal(venueKey);
+      if (local) staffActiveShiftMap[venueKey] = normalizeStaffShiftRecord(local, local.shiftKey) || local;
+      else delete staffActiveShiftMap[venueKey];
+      renderStaffShiftStatus();
+      if (!db || !authClaimsReady || !hasStaffClaim()) {
+        maybePromptStartShift();
+        return;
+      }
+      const ref = doc(db, "venues", venueKey, "shiftState", "current");
+      staffActiveShiftUnsub = subscribeSnapshot("staffActiveShift", ref, null, (snap) => {
+        if (!snap.exists()) {
+          delete staffActiveShiftMap[venueKey];
+          saveStaffActiveShiftLocal(venueKey, null);
+          renderStaffShiftStatus();
+          maybePromptStartShift();
+          return;
+        }
+        const data = snap.data() || {};
+        const normalized = normalizeStaffShiftRecord(data, data.shiftKey || "current");
+        if (normalized && normalized.active === true) {
+          staffActiveShiftMap[venueKey] = normalized;
+          saveStaffActiveShiftLocal(venueKey, normalized);
+        } else {
+          delete staffActiveShiftMap[venueKey];
+          saveStaffActiveShiftLocal(venueKey, null);
+        }
+        renderStaffShiftStatus();
+        maybePromptStartShift();
+      }, (err) => {
+        console.warn("staff active shift listener failed", err);
+      });
+    }
     function stopStaffShiftLockListener() {
       if (staffShiftLockUnsub) {
         try { staffShiftLockUnsub(); } catch (_) {}
         staffShiftLockUnsub = null;
+      }
+    }
+    function stopStaffActiveShiftListener() {
+      if (staffActiveShiftUnsub) {
+        try { staffActiveShiftUnsub(); } catch (_) {}
+        staffActiveShiftUnsub = null;
       }
     }
     function entryMatchesVenue(entry, venueId) {
@@ -30146,6 +30322,7 @@ let onboardingIndex = 0;
           passId: (entry.passId || "").toUpperCase(),
           requestedVenue: entry.requestedVenue ? entry.requestedVenue.toLowerCase() : null,
           venue: entry.venue ? entry.venue.toLowerCase() : null,
+          shiftKey: entry.shiftKey || null,
           vibeLabel: sanitizeCustomVibeText(entry.vibeLabel || entry.vibe || ""),
           vibeKey: (entry.vibeKey || "").toLowerCase() || null,
           status: (entry.status || "pending").toLowerCase(),
@@ -30207,12 +30384,19 @@ let onboardingIndex = 0;
         return;
       }
       const venueId = staffSession.venue;
-      const rollingStart = Date.now() - 24 * 60 * 60 * 1000;
-      const shiftStart = Math.max(getStaffShiftStart(venueId), rollingStart);
+      const activeShift = getActiveShiftForVenue(venueId);
+      if (!activeShift?.shiftKey) {
+        staffPendingList.innerHTML = '<span class="small" style="color:#94a3b8;">No active shift. Start shift to process redemptions.</span>';
+        staffPendingCount.textContent = "0 pending";
+        return;
+      }
+      const shiftStart = getActiveShiftStartMs(activeShift);
       const entries = redemptionLog.filter(entry => {
         if (!entryMatchesVenue(entry, venueId)) return false;
         const status = (entry.status || "pending").toLowerCase();
         if (!["pending", "requested", "expired", "verified", "approved", "confirmed"].includes(status)) return false;
+        const entryShiftKey = String(entry.shiftKey || "").trim();
+        if (entryShiftKey) return entryShiftKey === activeShift.shiftKey;
         const ts = new Date(entry.verifiedAt || entry.timestamp || entry.createdAt || Date.now()).getTime();
         return ts >= shiftStart;
       }).sort((a, b) => {
@@ -30880,6 +31064,7 @@ let onboardingIndex = 0;
               passId: (data.passCode || data.passId || "").toUpperCase(),
               venue: data.venueId || data.venue || null,
               requestedVenue: data.requestedVenue || null,
+              shiftKey: data.shiftKey || null,
               alertId: data.alertId || null,
               dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
               vibeLabel: data.vibeLabel || null,
@@ -31695,6 +31880,7 @@ let onboardingIndex = 0;
         memberUsername: entry.memberUsername || null,
         venue: entry.venue || null,
         requestedVenue: entry.requestedVenue || null,
+        shiftKey: entry.shiftKey || null,
         alertId: entry.alertId || null,
         vibeLabel: sanitizeCustomVibeText(entry.vibeLabel || ""),
         vibeKey: (entry.vibeKey || "").toLowerCase() || null,
@@ -31726,6 +31912,7 @@ let onboardingIndex = 0;
               dealPrice: Number.isFinite(Number(entry.dealPrice)) ? Number(entry.dealPrice) : null,
               venueId,
               requestedVenue: entry.requestedVenue || venueId,
+              shiftKey: entry.shiftKey || null,
               alertId: entry.alertId || null,
               passCode: passId || "DEAL",
               memberName: entry.member || (entry.ceo ? "Creator" : "FoCo member"),
@@ -31780,6 +31967,7 @@ let onboardingIndex = 0;
           memberUsername: data.memberUsername || null,
           venue: data.venue || null,
           requestedVenue: data.requestedVenue || null,
+          shiftKey: data.shiftKey || null,
           alertId: data.alertId || null,
           dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
           vibeLabel: data.vibeLabel || null,
@@ -31998,33 +32186,6 @@ let onboardingIndex = 0;
       const mstLocal = new Date(date.toLocaleString("en-US", { timeZone: "America/Denver" }));
       return mstLocal.getTime();
     }
-    function getCloseOutWindow() {
-      const nowComparable = new Date(toMstComparableMs(Date.now()));
-      if (Number.isNaN(nowComparable.getTime())) {
-        const fallbackStart = Date.now();
-        return {
-          start: fallbackStart,
-          end: fallbackStart + (21.75 * 60 * 60 * 1000),
-          shiftKey: getMstDateKey(new Date()),
-          windowLabel: "Shift window: 5:00 AM - 2:45 AM (next day)"
-        };
-      }
-      const shiftStart = new Date(nowComparable.getTime());
-      if (shiftStart.getHours() < 5) {
-        shiftStart.setDate(shiftStart.getDate() - 1);
-      }
-      shiftStart.setHours(5, 0, 0, 0);
-      const shiftEnd = new Date(shiftStart.getTime());
-      shiftEnd.setDate(shiftEnd.getDate() + 1);
-      shiftEnd.setHours(2, 45, 0, 0);
-      const shiftKey = getMstDateKey(new Date(shiftStart.getTime()));
-      return {
-        start: shiftStart.getTime(),
-        end: shiftEnd.getTime(),
-        shiftKey,
-        windowLabel: `Shift ${shiftKey}: 5:00 AM - 2:45 AM`
-      };
-    }
     function normalizeCloseOutStatus(status) {
       const normalized = String(status || "").toLowerCase();
       if (["verified", "approved", "confirmed"].includes(normalized)) return "verified";
@@ -32051,13 +32212,23 @@ let onboardingIndex = 0;
       if (!staffSession) return null;
       const venueId = String(staffSession.venue || "").toLowerCase();
       if (!venueId) return null;
-      const window = getCloseOutWindow();
-      const shiftKey = String(window.shiftKey || getMstDateKey(new Date()));
+      const activeShift = extra.shift || getActiveShiftForVenue(venueId);
+      if (!activeShift?.shiftKey) return null;
+      const shiftKey = String(activeShift.shiftKey || "").trim();
+      const shiftStartMs = getActiveShiftStartMs(activeShift);
+      const shiftClosedAtIso = extra.closedAt || null;
+      const shiftEndMs = shiftClosedAtIso
+        ? new Date(shiftClosedAtIso).getTime()
+        : Date.now();
+      const safeShiftEndMs = Number.isFinite(shiftEndMs) ? shiftEndMs : Date.now();
+      const windowLabel = `Shift ${shiftKey}: ${formatMST(activeShift.startedAt || new Date(shiftStartMs).toISOString())} → ${formatMST(shiftClosedAtIso || new Date(safeShiftEndMs).toISOString())}`;
       const entries = (Array.isArray(redemptionLog) ? redemptionLog : []).filter((entry) => {
         if (!entryMatchesVenue(entry, venueId)) return false;
+        const entryShiftKey = String(entry.shiftKey || "").trim();
+        if (entryShiftKey) return entryShiftKey === shiftKey;
         const ts = toMstComparableMs(entry.verifiedAt || entry.timestamp || entry.createdAt || Date.now());
         if (!Number.isFinite(ts)) return false;
-        return ts >= window.start && ts <= window.end;
+        return ts >= shiftStartMs && ts <= safeShiftEndMs;
       });
       const sortedEntries = entries.slice().sort((a, b) => (
         new Date(a.verifiedAt || a.timestamp || 0).getTime() - new Date(b.verifiedAt || b.timestamp || 0).getTime()
@@ -32194,7 +32365,10 @@ let onboardingIndex = 0;
         generatedAt: new Date().toISOString(),
         range: "shift",
         shiftKey,
-        windowLabel: window.windowLabel || `Shift ${shiftKey}: 5:00 AM - 2:45 AM`,
+        windowLabel,
+        shiftStartedAt: activeShift.startedAt || new Date(shiftStartMs).toISOString(),
+        shiftStartedByStaffId: activeShift.startedByStaffId || null,
+        shiftStartedByStaffName: activeShift.startedByStaffName || null,
         shiftClosed: true,
         closedAt,
         closedByStaffId,
@@ -32243,7 +32417,7 @@ let onboardingIndex = 0;
         <div style="background:rgba(10,16,32,0.85);border:1px solid rgba(148,163,184,0.3);border-radius:16px;padding:12px;">
           <div style="color:#cbd5f5;font-weight:700;font-size:15px;margin-bottom:6px;">${report.venueName || "Venue"}</div>
           <div style="color:#94a3b8;font-size:12px;margin-bottom:4px;">Generated: ${formatMST(report.generatedAt)}</div>
-          <div style="color:#94a3b8;font-size:12px;margin-bottom:10px;">${report.windowLabel || "Shift window: 5:00 AM - 2:45 AM"}</div>
+          <div style="color:#94a3b8;font-size:12px;margin-bottom:10px;">${report.windowLabel || "Shift session"}</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px;color:#e2e8f0;font-size:13px;">
             <div><strong>${totals.totalRedemptions || 0}</strong><br/><span style="color:#94a3b8;">Total</span></div>
             <div><strong>${totals.verifiedCount || 0}</strong><br/><span style="color:#94a3b8;">Verified</span></div>
@@ -32298,7 +32472,7 @@ let onboardingIndex = 0;
         "FoCo After Dark Close-out",
         `Venue: ${report.venueName || report.venue || "Venue"}`,
         `Generated (MT): ${formatMST(report.generatedAt)}`,
-        report.windowLabel || "Shift window: 5:00 AM - 2:45 AM",
+        report.windowLabel || "Shift session",
         "",
         `Total: ${totals.totalRedemptions || 0}  Verified: ${totals.verifiedCount || 0}  Pending: ${totals.pendingCount || 0}  Denied: ${totals.deniedCount || 0}`,
         `VIP verified: ${totals.vipVerifiedCount || 0}  Standard verified: ${totals.standardVerifiedCount || 0}`,
@@ -32544,13 +32718,20 @@ let onboardingIndex = 0;
         if (staffCloseOutModal) staffCloseOutModal.classList.add("active");
         return;
       }
+      const activeShift = getActiveShiftForVenue(staffSession.venue);
+      if (!activeShift?.shiftKey) {
+        staffCloseOutSummary.innerHTML = '<p style="color:#94a3b8;">No active shift yet. Start shift first.</p>';
+        if (staffCloseOutModal) staffCloseOutModal.classList.add("active");
+        openStaffShiftModal();
+        return;
+      }
       const report = buildCloseOutReport();
       pendingCloseOutReport = report;
       if (staffShiftNotes) {
         staffShiftNotes.value = "";
       }
       if (!report) {
-        staffCloseOutSummary.innerHTML = '<p style="color:#94a3b8;">No redemptions yet for this shift window (5:00 AM - 2:45 AM).</p>';
+        staffCloseOutSummary.innerHTML = '<p style="color:#94a3b8;">No redemptions yet for this active shift.</p>';
       } else if (isShiftClosedForVenue(staffSession.venue, report.shiftKey)) {
         staffCloseOutStatus.textContent = "This shift is already closed.";
         renderStaffCloseOutSummary(report);
@@ -32610,6 +32791,9 @@ let onboardingIndex = 0;
         closedByStaffName,
         reportId: report.id || null,
         venueId,
+        shiftStartedAt: report.shiftStartedAt ? Timestamp.fromDate(new Date(report.shiftStartedAt)) : null,
+        shiftStartedByStaffId: report.shiftStartedByStaffId || null,
+        shiftStartedByStaffName: report.shiftStartedByStaffName || null,
         totals: report.totals || {},
         perks: report.perks || [],
         pendingList: report.pendingList || [],
@@ -32885,20 +33069,21 @@ let onboardingIndex = 0;
       if (staffPortalTitle) staffPortalTitle.innerHTML = `<span>${venueName}</span> Dashboard`;
       if (staffPortalTagline) staffPortalTagline.textContent = `Live perks, redemptions, and alerts for ${venueName}.`;
       const cached = loadStaffRedemptionCache(resolved);
-      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-      redemptionLog = cached.filter(entry => {
-        const ts = new Date(entry.timestamp || entry.verifiedAt || 0).getTime();
-        return ts >= cutoff;
-      });
+      redemptionLog = Array.isArray(cached) ? cached.slice() : [];
       staffMembersCache = loadStaffMembersLocal(resolved).map(normalizeStaffMember);
       staffActivityCache = loadStaffActivityLocal(resolved);
+      const localShift = loadStaffActiveShiftLocal(resolved);
+      if (localShift) staffActiveShiftMap[String(resolved || "").toLowerCase()] = normalizeStaffShiftRecord(localShift, localShift.shiftKey) || localShift;
+      else delete staffActiveShiftMap[String(resolved || "").toLowerCase()];
       staffShiftLockMap[String(resolved || "").toLowerCase()] = loadStaffShiftLockLocal(resolved);
       renderStaffTeamList();
       renderStaffActivityLog();
+      renderStaffShiftStatus();
       renderStaffVenueLog();
       renderStaffPendingQueue();
       renderStaffVipDeal();
       refreshStaffCeoReceipts();
+      suppressStaffShiftPrompt = false;
       return { success: true, venueId: resolved };
     }
     function hydrateStaffVenueData(venueId) {
@@ -32908,18 +33093,22 @@ let onboardingIndex = 0;
       startStaffMessagesListener(venueId);
       startStaffMembersListener(venueId);
       startStaffActivityListener(venueId);
+      startStaffActiveShiftListener(venueId);
       startStaffShiftLockListener(venueId);
       renderStaffVipDeal();
       renderStaffAlertPreview();
       renderStaffDealCodes();
       renderStaffTeamList();
       renderStaffActivityLog();
+      renderStaffShiftStatus();
       refreshStaffCeoReceipts();
       updateStaffRadar();
       renderStaffPendingQueue();
+      maybePromptStartShift();
     }
     async function handlePendingScanVerification() {
       if (!pendingScanVerify || !staffSession) return;
+      if (!requireActiveShiftForAction(scanPortalAlert)) return;
       const code = pendingScanVerify;
       if (scanPortalAlert) {
         scanPortalAlert.style.display = "";
@@ -33168,7 +33357,6 @@ let onboardingIndex = 0;
       renderStaffDealCodes();
       refreshStaffCeoReceipts();
       updateStaffKpis(tonightAlerts.filter(a => a.venueId === venueId).length, !!vipDealsCache[venueId]);
-      scheduleAutoCloseOut();
       showScreen("staffPortal");
       updateStaffRadar();
       if (verifyCodeInput) verifyCodeInput.focus();
@@ -33211,6 +33399,8 @@ let onboardingIndex = 0;
     }
 
     const handleStaffLogout = () => {
+      closeStaffShiftModal();
+      const previousVenue = String(staffSession?.venue || "").toLowerCase();
       if (staffSession?.venue) {
         saveStaffRedemptionCache(staffSession.venue, redemptionLog);
       }
@@ -33224,10 +33414,16 @@ let onboardingIndex = 0;
       stopStaffMessagesListener();
       stopStaffMembersListener();
       stopStaffActivityListener();
+      stopStaffActiveShiftListener();
       stopStaffShiftLockListener();
+      if (previousVenue) {
+        delete staffActiveShiftMap[previousVenue];
+      }
+      renderStaffShiftStatus();
       setRadarGraffiti("");
       staffVenueReceipts = [];
       selectedStaffActor = null;
+      suppressStaffShiftPrompt = false;
       renderStaffSentReceipts();
       renderStaffVipDeal();
       renderStaffAlertPreview();
@@ -33239,17 +33435,9 @@ let onboardingIndex = 0;
       if (staffAccentSelect) {
         staffAccentSelect.value = "cyan";
       }
-      if (autoCloseOutTimer) {
-        clearTimeout(autoCloseOutTimer);
-        autoCloseOutTimer = null;
-      }
       stopStaffRedemptionListener();
       showScreen("landing");
       stopIdleTimer();
-      if (autoCloseOutTimer) {
-        clearTimeout(autoCloseOutTimer);
-        autoCloseOutTimer = null;
-      }
     };
 
     if (staffLogoutLink) {
@@ -33414,6 +33602,46 @@ let onboardingIndex = 0;
         closeStaffActorModal();
       });
     }
+    if (staffShiftStartBtn) {
+      staffShiftStartBtn.addEventListener("click", async () => {
+        if (staffShiftStartBtn.dataset.busy === "1") return;
+        staffShiftStartBtn.dataset.busy = "1";
+        staffShiftStartBtn.disabled = true;
+        const originalText = staffShiftStartBtn.textContent;
+        staffShiftStartBtn.textContent = "Starting…";
+        try {
+          if (staffShiftError) staffShiftError.textContent = "";
+          const started = await startVenueShiftForCurrentSession();
+          if (!started && staffShiftError) {
+            staffShiftError.textContent = "Shift was not started.";
+          }
+        } catch (err) {
+          console.warn("start shift failed", err);
+          if (staffShiftError) staffShiftError.textContent = err?.message || "Could not start shift right now.";
+        } finally {
+          staffShiftStartBtn.dataset.busy = "";
+          staffShiftStartBtn.disabled = false;
+          staffShiftStartBtn.textContent = originalText;
+        }
+      });
+    }
+    if (staffShiftLogout) {
+      staffShiftLogout.addEventListener("click", () => {
+        closeStaffShiftModal();
+        handleStaffLogout();
+      });
+    }
+    if (staffShiftClose) {
+      staffShiftClose.addEventListener("click", () => {
+        closeStaffShiftModal();
+      });
+    }
+    if (staffShiftModal) {
+      staffShiftModal.addEventListener("click", (e) => {
+        if (e.target !== staffShiftModal) return;
+        closeStaffShiftModal();
+      });
+    }
 
     // Alert audience pills + detail counter
     if (alertAudiencePills && alertAudience) {
@@ -33481,9 +33709,19 @@ let onboardingIndex = 0;
           return;
         }
         const notes = String(staffShiftNotes?.value || "").trim();
-        const baseReport = pendingCloseOutReport || buildCloseOutReport();
+        const activeShift = getActiveShiftForVenue(staffSession?.venue);
+        if (!activeShift?.shiftKey) {
+          staffCloseOutStatus.textContent = "No active shift. Start shift first.";
+          openStaffShiftModal();
+          staffCloseOutSend.dataset.busy = "";
+          staffCloseOutSend.disabled = false;
+          staffCloseOutSend.textContent = originalText;
+          return;
+        }
+        const baseReport = pendingCloseOutReport || buildCloseOutReport({ shift: activeShift });
         const report = baseReport ? buildCloseOutReport({
           ...baseReport,
+          shift: activeShift,
           id: baseReport.id,
           shiftNotes: notes,
           shiftNotesAt: notes ? new Date().toISOString() : null,
@@ -33529,6 +33767,7 @@ let onboardingIndex = 0;
           persistCloseOutReport(report);
           await persistCloseOutReportToCloud(report);
           await lockStaffShiftInCloud(report, actor);
+          await closeVenueShiftForCurrentSession(report, actor);
           await logVenueStaffAction({
             actionType: "close_out_shift",
             staffId: actor.staffId,
@@ -33538,14 +33777,8 @@ let onboardingIndex = 0;
             reasonNote: notes || null
           });
           renderCeoCloseOutReports();
-          if (sent) {
-            markAutoCloseOutSent(staffSession?.venue, report.shiftKey || getCloseOutWindow().shiftKey);
-          }
           staffCloseOutStatus.textContent = sent ? "Report sent to focoafterdark@gmail.com." : "Report saved locally. Email delivery failed.";
-          if (staffSession?.venue) {
-            setStaffShiftStart(staffSession.venue, new Date());
-            renderStaffPendingQueue();
-          }
+          renderStaffPendingQueue();
           pendingCloseOutReport = report;
         } finally {
           staffCloseOutSend.dataset.busy = "";
@@ -33569,15 +33802,26 @@ let onboardingIndex = 0;
           return;
         }
         const venueId = staffSession ? staffSession.venue : null;
+        if (!requireActiveShiftForAction(verifyError)) {
+          pill.dataset.busy = "";
+          pill.textContent = originalPillText;
+          return;
+        }
         if (isShiftClosedForVenue(venueId)) {
           verifyError.textContent = "Shift is already closed. Start next shift to verify new redemptions.";
+          pill.dataset.busy = "";
+          pill.textContent = originalPillText;
           return;
         }
         const actor = await requireStaffActor({
           actionType: "verify_redemption",
           prompt: "Who are you? Select the staff member verifying this redemption."
         });
-        if (!actor) return;
+        if (!actor) {
+          pill.dataset.busy = "";
+          pill.textContent = originalPillText;
+          return;
+        }
         try {
           const result = await verifyCode(code, venueId);
           if (!result.success) {
@@ -33608,6 +33852,7 @@ let onboardingIndex = 0;
           const code = (btn?.dataset.pendingConfirm || btn?.dataset.pendingDeny || row.dataset.pendingCode || "").toUpperCase();
           if (!code) return;
           const venueId = staffSession.venue;
+          if (!requireActiveShiftForAction(verifyError)) return;
           const requestedAction = btn?.dataset.pendingDeny ? "deny" : (String(btn?.dataset.pendingNext || "").toLowerCase() || "confirm");
           if (isShiftClosedForVenue(venueId)) {
             verifyError.textContent = "Shift is already closed. Start next shift to verify new redemptions.";
@@ -33720,6 +33965,7 @@ let onboardingIndex = 0;
       staffDealCodeList.addEventListener("click", (e) => {
         const btn = e.target.closest("button[data-gen-deal]");
         if (!btn || !staffSession) return;
+        if (!requireActiveShiftForAction(verifyError)) return;
         if (isShiftClosedForVenue(staffSession.venue)) {
           verifyError.textContent = "Shift is already closed. Start next shift to generate new deal codes.";
           return;
@@ -33743,6 +33989,7 @@ let onboardingIndex = 0;
           venue: (alert.venueId || staffSession?.venue || null),
           requestedVenue: (alert.venueId || staffSession?.venue || null),
           status: "pending",
+          shiftKey: getCurrentShiftKeyForVenue(staffSession?.venue) || null,
           verifiedAt: null,
           timestamp: nowIso,
           member: "Tonight's deal",
@@ -36454,6 +36701,9 @@ let onboardingIndex = 0;
       }
       const codeUpper = code.toUpperCase();
       const venueKey = (venueId || "").toLowerCase();
+      if (!getCurrentShiftKeyForVenue(venueKey)) {
+        return { success: false, message: "Start shift first to verify codes." };
+      }
       if (isShiftClosedForVenue(venueKey)) {
         return { success: false, message: "Shift is already closed. Start next shift to verify new redemptions." };
       }
@@ -36478,6 +36728,7 @@ let onboardingIndex = 0;
         vibeLabel: payload.vibeLabel || null,
         vibeKey: payload.vibeKey || null,
         ceo: !!payload.ceo,
+        shiftKey: payload.shiftKey || null,
         status: payload.status || "pending",
         expiresAt: payload.expiresAt?.toMillis
           ? payload.expiresAt.toMillis()
@@ -36558,6 +36809,7 @@ let onboardingIndex = 0;
             dealPrice: Number.isFinite(Number(info.dealPrice)) ? Number(info.dealPrice) : null,
             passId: "DEAL",
             venue: info.venue || venueId || null,
+            shiftKey: getCurrentShiftKeyForVenue(venueKey) || null,
             status: "verified",
             verifiedAt: new Date().toISOString(),
             timestamp: info.timestamp || new Date().toISOString(),
@@ -36579,6 +36831,7 @@ let onboardingIndex = 0;
             perkKey: generated.perkKey,
             passId: "CEO",
             venue: venueId || null,
+            shiftKey: getCurrentShiftKeyForVenue(venueKey) || null,
             status: "verified",
             verifiedAt: new Date().toISOString(),
             timestamp: generated.timestamp || new Date().toISOString(),
@@ -36628,6 +36881,9 @@ let onboardingIndex = 0;
       const codeUpper = String(code || "").toUpperCase().trim();
       const venueKey = String(venueId || "").toLowerCase().trim();
       if (!codeUpper) return { success: false, message: "Missing code." };
+      if (!getCurrentShiftKeyForVenue(venueKey)) {
+        return { success: false, message: "Start shift first to update redemptions." };
+      }
       if (isShiftClosedForVenue(venueKey)) {
         return { success: false, message: "Shift is already closed. Start next shift to update redemptions." };
       }
@@ -36664,6 +36920,7 @@ let onboardingIndex = 0;
           if (payload && typeof payload === "object") {
             Object.assign(updated, {
               status: String(payload.status || "pending").toLowerCase(),
+              shiftKey: payload.shiftKey || updated.shiftKey || null,
               verifiedAt: payload.verifiedAt ? toDateSafe(payload.verifiedAt)?.toISOString?.() || payload.verifiedAt : null,
               deniedAt: payload.deniedAt ? toDateSafe(payload.deniedAt)?.toISOString?.() || payload.deniedAt : null
             });
@@ -36689,6 +36946,7 @@ let onboardingIndex = 0;
       const codeUpper = String(code || "").toUpperCase().trim();
       const venueKey = String(venueId || "").toLowerCase().trim();
       if (!codeUpper || !venueKey) return { success: false, message: "Missing code or venue." };
+      if (!getCurrentShiftKeyForVenue(venueKey)) return { success: false, message: "Start shift first to update redemptions." };
       if (isShiftClosedForVenue(venueKey)) return { success: false, message: "Shift is already closed. Start next shift to update redemptions." };
       if (!functionsClient) return { success: false, message: "Verification unavailable." };
       try {
@@ -36708,6 +36966,7 @@ let onboardingIndex = 0;
           ...payload,
           code: (payload.redemptionId || payload.code || codeUpper).toUpperCase(),
           status: String(payload.status || "denied").toLowerCase(),
+          shiftKey: payload.shiftKey || null,
           deniedAt: payload.deniedAt ? toDateSafe(payload.deniedAt)?.toISOString?.() || payload.deniedAt : new Date().toISOString()
         };
         const idx = (Array.isArray(redemptionLog) ? redemptionLog : []).findIndex((entry) => (
@@ -36739,8 +36998,10 @@ let onboardingIndex = 0;
     }
     async function attachStaffActionToEntry(entry, actionCtx, actionType, extras = {}) {
       if (!entry) return;
+      const shiftKey = getCurrentShiftKeyForVenue(staffSession?.venue) || entry.shiftKey || null;
       const updated = {
         ...entry,
+        shiftKey,
         lastActionType: actionType || null,
         lastActionAt: new Date().toISOString(),
         lastActionStaffId: actionCtx?.staffId || null,
@@ -36826,6 +37087,7 @@ let onboardingIndex = 0;
         member: profile.name || `FoCo member (${passId})`,
         passId,
         venue: venueId || null,
+        shiftKey: getCurrentShiftKeyForVenue(venueId) || null,
         status: "verified",
         timestamp: new Date().toISOString(),
       };
@@ -36957,6 +37219,7 @@ let onboardingIndex = 0;
         verifySuccess.classList.remove("visible");
         const code = verifyCodeInput.value.trim();
         const venueId = staffSession ? staffSession.venue : null;
+        if (!requireActiveShiftForAction(verifyError)) return;
         if (isShiftClosedForVenue(venueId)) {
           verifyError.textContent = "Shift is already closed. Start next shift to verify new redemptions.";
           return;
@@ -37268,6 +37531,7 @@ let onboardingIndex = 0;
         e.preventDefault();
         memberIdError.textContent = "";
         memberIdResult.classList.remove("visible");
+        if (!requireActiveShiftForAction(memberIdError)) return;
         const actor = await requireStaffActor({
           actionType: "verify_member_id",
           prompt: "Who are you? Select the staff member verifying this member ID."
@@ -37450,6 +37714,7 @@ let onboardingIndex = 0;
           memberUsername: data.memberUsername || null,
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
+          shiftKey: data.shiftKey || null,
           alertId: data.alertId || null,
           dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
           vibeLabel: data.vibeLabel || null,

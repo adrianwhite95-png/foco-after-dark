@@ -296,6 +296,22 @@ service cloud.firestore {
         );
         allow delete: if isAdmin() || isCeo();
       }
+
+      match /shiftState/{docId} {
+        allow read: if isSignedIn() && (isAdmin() || isCeo() || staffVenueMatches(venueId));
+        allow create, update: if isSignedIn() && canWriteApp() && (
+          isAdmin() || isCeo() || (staffVenueMatches(venueId) && !isAppLocked())
+        );
+        allow delete: if isAdmin() || isCeo();
+      }
+
+      match /shiftSessions/{shiftKey} {
+        allow read: if isSignedIn() && (isAdmin() || isCeo() || staffVenueMatches(venueId));
+        allow create, update: if isSignedIn() && canWriteApp() && (
+          isAdmin() || isCeo() || (staffVenueMatches(venueId) && !isAppLocked())
+        );
+        allow delete: if isAdmin() || isCeo();
+      }
     }
 
     // Allow read access for any perks collection (collectionGroup("perks") listeners).
