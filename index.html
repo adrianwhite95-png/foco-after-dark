@@ -19368,6 +19368,7 @@
     let memberAlertCheckins = new Set();
     const alertCheckinInFlight = new Set();
     let dealCodes = {};
+    let pendingDealCodeDrafts = {};
     function pruneExpiredAlerts() {
       const now = Date.now();
       const filtered = tonightAlerts.filter(alert => !alert.expiresAt || alert.expiresAt > now);
@@ -25812,6 +25813,10 @@ let onboardingIndex = 0;
     }
     function removeDealCodesForAlert(alertId) {
       if (!alertId) return;
+      const alertKey = String(alertId || "").trim();
+      if (alertKey && pendingDealCodeDrafts[alertKey]) {
+        delete pendingDealCodeDrafts[alertKey];
+      }
       let current = {};
       try {
         current = loadDealCodes();
@@ -25820,7 +25825,7 @@ let onboardingIndex = 0;
       }
       const next = {};
       Object.entries(current || {}).forEach(([code, info]) => {
-        if (info?.alertId !== alertId) next[code] = info;
+        if (String(info?.alertId || "").trim() !== alertKey) next[code] = info;
       });
       dealCodes = next;
       saveDealCodes(next);
@@ -30386,6 +30391,7 @@ let onboardingIndex = 0;
       if (!staffDealCodeList) return;
       cleanDealCodes();
       if (!staffSession) {
+        pendingDealCodeDrafts = {};
         staffDealCodeList.innerHTML = '<p style="color:#94a3b8;">Log in to generate codes for tonight’s deals.</p>';
         if (staffRoiPanel) staffRoiPanel.innerHTML = "";
         return;
@@ -30394,6 +30400,12 @@ let onboardingIndex = 0;
       const activeAlerts = tonightAlerts
         .filter(alert => alert.venueId === staffSession.venue && (!alert.expiresAt || alert.expiresAt > now))
         .sort((a, b) => (a.expiresAt || Number.MAX_SAFE_INTEGER) - (b.expiresAt || Number.MAX_SAFE_INTEGER));
+      const activeAlertIds = new Set(activeAlerts.map(alert => String(alert?.id || "").trim()).filter(Boolean));
+      Object.keys(pendingDealCodeDrafts || {}).forEach((alertId) => {
+        if (!activeAlertIds.has(String(alertId || "").trim())) {
+          delete pendingDealCodeDrafts[alertId];
+        }
+      });
       if (!activeAlerts.length) {
         staffDealCodeList.innerHTML = '<p style="color:#94a3b8;">No active deals to generate codes for.</p>';
       }
@@ -30406,8 +30418,9 @@ let onboardingIndex = 0;
         staffDealCodeList.innerHTML = activeAlerts.map(alert => {
           const expiresText = alert.expiresAt ? formatMST(alert.expiresAt) : "No expiry";
           const codesForAlert = Object.entries(dealCodes || {}).filter(([, val]) => val.alertId === alert.id && val.venue === staffSession.venue);
+          const draftCode = pendingDealCodeDrafts[String(alert.id || "").trim()] || "";
           const codesLine = codesForAlert.length
-            ? `<span style="color:#34d399;">Codes: ${codesForAlert.map(([c]) => c).join(", ")}</span>`
+            ? `<span style="color:#34d399;">Confirmed codes: ${codesForAlert.map(([c]) => c).join(", ")}</span>`
             : '<span style="color:#94a3b8;">No codes yet</span>';
           const redemptions = getAlertRedemptionCount(alert, venueVerifiedEntries, activeAlerts.length);
           return `
@@ -30418,8 +30431,14 @@ let onboardingIndex = 0;
               <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
                 <span style="color:#cbd5f5;">${redemptions} redeemed</span>
               </div>
-              <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;">
-                <button class="btn btn-primary" data-gen-deal="${alert.id}">Generate code</button>
+              <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;flex-wrap:wrap;">
+                ${draftCode
+                  ? `<span style="color:#facc15;font-weight:700;">Generated: ${draftCode}</span>
+                     <button class="btn btn-primary" data-confirm-deal="${alert.id}" data-deal-code="${draftCode}">Confirm</button>
+                     <button class="btn btn-secondary" data-cancel-deal="${alert.id}">Cancel</button>`
+                  : '<button class="btn btn-primary" data-gen-deal="' + alert.id + '">Generate code</button>'}
+              </div>
+              <div class="log-meta" style="margin-top:6px;gap:10px;align-items:center;flex-wrap:wrap;">
                 ${codesLine}
               </div>
             </div>
@@ -30483,16 +30502,65 @@ let onboardingIndex = 0;
 
     function generateVenueDealCode(alert) {
       if (!alert || !alert.id) return "";
-      const code = generateRedemptionCode();
+      const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+      const usedCodes = new Set();
+      Object.keys(dealCodes || {}).forEach((value) => {
+        const code = String(value || "").trim().toUpperCase();
+        if (code) usedCodes.add(code);
+      });
+      Object.values(pendingDealCodeDrafts || {}).forEach((value) => {
+        const code = String(value || "").trim().toUpperCase();
+        if (code) usedCodes.add(code);
+      });
+      (Array.isArray(redemptionLog) ? redemptionLog : []).forEach((entry) => {
+        const code = String(entry?.code || "").trim().toUpperCase();
+        if (code) usedCodes.add(code);
+      });
+      (Array.isArray(ceoGeneratedCodes) ? ceoGeneratedCodes : []).forEach((entry) => {
+        const code = String(entry?.code || "").trim().toUpperCase();
+        if (code) usedCodes.add(code);
+      });
+      let code = "";
+      let attempts = 0;
+      do {
+        let suffix = "";
+        for (let i = 0; i < 4; i += 1) {
+          suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
+        }
+        code = `TD${suffix}`;
+        attempts += 1;
+      } while (usedCodes.has(code) && attempts < 120);
+      if (usedCodes.has(code)) {
+        code = `TD${Date.now().toString().slice(-4)}`;
+      }
+      return code;
+    }
+
+    function confirmVenueDealCode(alert, code) {
+      if (!alert || !alert.id || !code) return "";
+      let codeUpper = String(code || "").toUpperCase().trim();
+      if (!codeUpper) return "";
+      const collisionInRedemptions = (Array.isArray(redemptionLog) ? redemptionLog : []).some((entry) => {
+        const existing = String(entry?.code || "").toUpperCase();
+        if (existing !== codeUpper) return false;
+        return classifyRedemptionCategory(entry) !== "deal";
+      });
+      const collisionInDeals = Object.entries(dealCodes || {}).some(([existingCode, info]) => (
+        String(existingCode || "").toUpperCase() === codeUpper
+        && String(info?.alertId || "").trim() !== String(alert.id || "").trim()
+      ));
+      if (collisionInRedemptions || collisionInDeals) {
+        codeUpper = generateVenueDealCode(alert);
+      }
       dealCodes = dealCodes || {};
-      dealCodes[code] = {
+      dealCodes[codeUpper] = {
         alertId: alert.id,
         venue: alert.venueId || staffSession?.venue || null,
         perk: alert.title || "Tonight's deal",
         timestamp: new Date().toISOString()
       };
       saveDealCodes(dealCodes);
-      return code;
+      return codeUpper;
     }
 
     // Initialize CEO venue filter once everything is ready
@@ -32471,6 +32539,31 @@ let onboardingIndex = 0;
     }
     if (staffDealCodeList) {
       staffDealCodeList.addEventListener("click", (e) => {
+        const confirmBtn = e.target.closest("button[data-confirm-deal]");
+        if (confirmBtn && staffSession) {
+          const alertId = String(confirmBtn.dataset.confirmDeal || "").trim();
+          const alert = (Array.isArray(tonightAlerts) ? tonightAlerts : [])
+            .find((a) => String(a?.id || "").trim() === alertId);
+          const draftCode = String(confirmBtn.dataset.dealCode || pendingDealCodeDrafts[alertId] || "").trim().toUpperCase();
+          if (!alert || !draftCode) {
+            delete pendingDealCodeDrafts[alertId];
+            renderStaffDealCodes();
+            return;
+          }
+          const code = confirmVenueDealCode(alert, draftCode);
+          delete pendingDealCodeDrafts[alertId];
+          renderStaffDealCodes();
+          showNeonSuccess(verifySuccess, `Deal code ${code} confirmed.`, 4200);
+          return;
+        }
+        const cancelBtn = e.target.closest("button[data-cancel-deal]");
+        if (cancelBtn && staffSession) {
+          const alertId = String(cancelBtn.dataset.cancelDeal || "").trim();
+          if (alertId) delete pendingDealCodeDrafts[alertId];
+          renderStaffDealCodes();
+          showToast("Generated code canceled.");
+          return;
+        }
         const btn = e.target.closest("button[data-gen-deal]");
         if (!btn || !staffSession) return;
         const alertId = String(btn.dataset.genDeal || "").trim();
@@ -32478,8 +32571,9 @@ let onboardingIndex = 0;
           .find((a) => String(a?.id || "").trim() === alertId);
         if (!alert) return;
         const code = generateVenueDealCode(alert);
+        pendingDealCodeDrafts[alertId] = code;
         renderStaffDealCodes();
-        showNeonSuccess(verifySuccess, `Deal code ${code} generated.`, 4200);
+        showNeonSuccess(verifySuccess, `Deal code ${code} generated. Confirm or cancel in the same card.`, 4200);
       });
     }
     if (buyDrinksBtn) {
