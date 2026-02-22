@@ -2931,6 +2931,21 @@
       color: var(--text-primary);
       box-shadow: 0 0 14px var(--glow-cyan);
     }
+    .accent-chip.locked {
+      opacity: 0.52;
+      filter: saturate(0.4);
+      cursor: not-allowed;
+      position: relative;
+      box-shadow: none !important;
+      transform: none !important;
+    }
+    .accent-chip.locked::after {
+      content: "🔒";
+      margin-left: 6px;
+      font-size: 12px;
+      vertical-align: middle;
+      opacity: 0.95;
+    }
     .accent-chip[data-accent="cyan"] {
       background: linear-gradient(120deg, rgba(34, 211, 238, 0.18), rgba(34, 197, 94, 0.1));
       border-color: rgba(34, 211, 238, 0.5);
@@ -2977,41 +2992,6 @@
       background: linear-gradient(120deg, rgba(251, 146, 60, 0.24), rgba(236, 72, 153, 0.18));
       border-color: rgba(251, 146, 60, 0.5);
       color: #fed7aa;
-    }
-    .accent-chip[data-accent="espresso"] {
-      background: linear-gradient(120deg, rgba(120, 53, 15, 0.28), rgba(251, 191, 36, 0.16));
-      border-color: rgba(180, 83, 9, 0.48);
-      color: #fde68a;
-    }
-    .accent-chip[data-accent="aperol"] {
-      background: linear-gradient(120deg, rgba(251, 146, 60, 0.28), rgba(253, 224, 71, 0.16));
-      border-color: rgba(251, 146, 60, 0.48);
-      color: #ffedd5;
-    }
-    .accent-chip[data-accent="sazerac"] {
-      background: linear-gradient(120deg, rgba(153, 27, 27, 0.28), rgba(245, 158, 11, 0.18));
-      border-color: rgba(185, 28, 28, 0.48);
-      color: #fecaca;
-    }
-    .accent-chip[data-accent="maitai"] {
-      background: linear-gradient(120deg, rgba(249, 115, 22, 0.28), rgba(234, 179, 8, 0.16));
-      border-color: rgba(249, 115, 22, 0.48);
-      color: #ffedd5;
-    }
-    .accent-chip[data-accent="blue_hawaii"] {
-      background: linear-gradient(120deg, rgba(56, 189, 248, 0.28), rgba(59, 130, 246, 0.18));
-      border-color: rgba(56, 189, 248, 0.48);
-      color: #dbeafe;
-    }
-    .accent-chip[data-accent="mule"] {
-      background: linear-gradient(120deg, rgba(132, 204, 22, 0.28), rgba(20, 184, 166, 0.16));
-      border-color: rgba(132, 204, 22, 0.46);
-      color: #ecfccb;
-    }
-    .accent-chip[data-accent="caipirinha"] {
-      background: linear-gradient(120deg, rgba(34, 197, 94, 0.28), rgba(234, 179, 8, 0.16));
-      border-color: rgba(34, 197, 94, 0.46);
-      color: #dcfce7;
     }
     .accent-chip[data-accent="ceo"] {
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(148, 212, 255, 0.32));
@@ -16621,6 +16601,30 @@
       const tier = normalizeTierKey(profile?.tier || currentMembershipTier || "");
       return tier === "explorer";
     }
+    const EXPLORER_LOCKED_ACCENTS = new Set(["jade", "electric", "ember", "glass", "neon_lime", "ruby_night", "paloma"]);
+    function isExplorerLockedAccent(theme = "") {
+      return EXPLORER_LOCKED_ACCENTS.has(String(theme || "").toLowerCase());
+    }
+    function isAccentLockedForCurrentMember(theme = "") {
+      return isExplorerMember() && isExplorerLockedAccent(theme);
+    }
+    function updateAccentChipLocks() {
+      const explorer = isExplorerMember();
+      document.querySelectorAll(".accent-chip").forEach((chip) => {
+        const theme = String(chip.dataset?.accent || "").toLowerCase();
+        const locked = explorer && isExplorerLockedAccent(theme);
+        chip.classList.toggle("locked", locked);
+        if (locked) {
+          chip.setAttribute("aria-disabled", "true");
+          chip.title = "Locked on FREE Explorer";
+        } else {
+          chip.removeAttribute("aria-disabled");
+          if (chip.getAttribute("title") === "Locked on FREE Explorer") {
+            chip.removeAttribute("title");
+          }
+        }
+      });
+    }
     function shouldForceExplorerTier(profile = memberProfile) {
       if (!profile) return false;
       if (profile?.ceo || isFreeMember(profile)) return false;
@@ -22799,6 +22803,10 @@ let onboardingIndex = 0;
           if (supportTrigger) supportTrigger.click();
           break;
         case "rewards":
+          if (isExplorerMember()) {
+            showToast("Voucher rewards are locked on FREE Explorer.", 2200);
+            break;
+          }
           if (rewardsTrigger) rewardsTrigger.click();
           break;
         case "review": {
@@ -22844,6 +22852,10 @@ let onboardingIndex = 0;
       accentChips.forEach(chip => {
         chip.addEventListener("click", () => {
           const theme = chip.dataset.accent || "cyan";
+          if (isAccentLockedForCurrentMember(theme)) {
+            showToast("Upgrade to unlock this accent.", 2200);
+            return;
+          }
           applyAccentTheme(theme);
           closeNavMenu();
         });
@@ -22854,16 +22866,11 @@ let onboardingIndex = 0;
         const chip = event.target?.closest?.(".accent-chip");
         if (!chip) return;
         const theme = chip.dataset.accent || "cyan";
+        if (isAccentLockedForCurrentMember(theme)) {
+          showToast("Upgrade to unlock this accent.", 2200);
+          return;
+        }
         applyAccentTheme(theme);
-      });
-    }
-    if (accentChips && accentChips.length) {
-      accentChips.forEach(chip => {
-        chip.addEventListener("click", () => {
-          const theme = chip.dataset.accent || "cyan";
-          applyAccentTheme(theme);
-          closeNavMenu();
-        });
       });
     }
     document.addEventListener("click", (e) => {
@@ -22901,6 +22908,11 @@ let onboardingIndex = 0;
             const reviewBtn = document.getElementById("leaveReviewBtn");
             if (reviewBtn) reviewBtn.click();
           } else if (nav === "rewards") {
+            if (isExplorerMember()) {
+              showToast("Voucher rewards are locked on FREE Explorer.", 2200);
+              closeQuickActionsModal();
+              return;
+            }
             if (rewardsTrigger) rewardsTrigger.click();
           }
           closeQuickActionsModal();
@@ -25873,7 +25885,9 @@ let onboardingIndex = 0;
       return presets[theme] || presets.cyan;
     }
     function applyAccentTheme(theme = "cyan") {
-      const palette = getAccentPreset(theme);
+      const requestedTheme = String(theme || "cyan").toLowerCase();
+      const safeTheme = isAccentLockedForCurrentMember(requestedTheme) ? "cyan" : requestedTheme;
+      const palette = getAccentPreset(safeTheme);
       const root = document.documentElement;
       root.style.setProperty("--accent", palette.primary);
       root.style.setProperty("--accent2", palette.secondary);
@@ -25889,18 +25903,19 @@ let onboardingIndex = 0;
       root.style.setProperty("--accent-surface-live", palette.surface);
       root.style.setProperty("--accent-shadow-live", palette.shadow);
       document.body.classList.remove("theme-cyan", "theme-magenta", "theme-gold", "theme-jade", "theme-electric", "theme-ember", "theme-glass", "theme-neon_lime", "theme-ruby_night", "theme-paloma", "theme-ceo");
-      document.body.classList.add(`theme-${theme}`);
-      currentAccentTheme = theme;
+      document.body.classList.add(`theme-${safeTheme}`);
+      currentAccentTheme = safeTheme;
       if (currentPassCode) {
-        localStorage.setItem(ACCENT_KEY, theme);
-        setMemberDirectoryEntry(currentPassCode, { accent: theme });
-        persistMemberState({ accent: theme });
+        localStorage.setItem(ACCENT_KEY, safeTheme);
+        setMemberDirectoryEntry(currentPassCode, { accent: safeTheme });
+        persistMemberState({ accent: safeTheme });
       } else {
         localStorage.removeItem(ACCENT_KEY);
       }
       document.querySelectorAll(".accent-chip").forEach((chip) => {
-        chip.classList.toggle("active", chip.dataset.accent === theme);
+        chip.classList.toggle("active", chip.dataset.accent === safeTheme);
       });
+      updateAccentChipLocks();
       // Background auto-apply disabled (users no longer choose background options)
     }
     function loadAccentTheme() {
@@ -27501,14 +27516,6 @@ let onboardingIndex = 0;
       showToast("CEO issued a never-expiring membership. Unlimited perks activated.");
     }
 
-    if (accentChips && accentChips.length) {
-      accentChips.forEach(chip => {
-        chip.addEventListener("click", () => {
-          const theme = chip.dataset.accent || "cyan";
-          applyAccentTheme(theme);
-        });
-      });
-    }
     if (nightWheelSpinBtn) {
       nightWheelSpinBtn.addEventListener("click", spinNightWheel);
     }
@@ -36652,6 +36659,11 @@ let onboardingIndex = 0;
       }
       if (passCard) {
         passCard.classList.toggle("explorer-locked", tier === "explorer");
+      }
+      if (tier === "explorer" && isExplorerLockedAccent(currentAccentTheme || "")) {
+        applyAccentTheme("cyan");
+      } else {
+        updateAccentChipLocks();
       }
       if (explorerLockBanner) {
         explorerLockBanner.style.display = "none";
