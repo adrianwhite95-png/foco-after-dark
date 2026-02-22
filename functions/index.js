@@ -739,6 +739,21 @@ function getPendingRedemptionExpiryMs(nowValue = new Date()) {
   return Number.isFinite(expiryMs) ? expiryMs : (now.getTime() + PENDING_REDEMPTION_TIMEOUT_MS);
 }
 
+function getCurrentShiftKeyForNow(nowValue = new Date()) {
+  const now = nowValue instanceof Date ? nowValue : new Date(nowValue);
+  if (Number.isNaN(now.getTime())) {
+    return new Date().toISOString().slice(0, 10);
+  }
+  const localNow = getTimeZoneParts(now);
+  if (!localNow) {
+    return new Date(now.getTime()).toISOString().slice(0, 10);
+  }
+  const shiftStartDay = shiftCalendarDay(localNow, localNow.hour < SHIFT_START_HOUR ? -1 : 0);
+  const mm = String(shiftStartDay.month).padStart(2, "0");
+  const dd = String(shiftStartDay.day).padStart(2, "0");
+  return `${shiftStartDay.year}-${mm}-${dd}`;
+}
+
 function toDateSafe(value) {
   if (!value) return null;
   if (typeof value.toDate === "function") {
@@ -1105,8 +1120,12 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
     }
 
     const now = admin.firestore.Timestamp.now();
+    const shiftKey = getCurrentShiftKeyForNow(now.toDate());
     const serverNow = admin.firestore.FieldValue.serverTimestamp();
     const perkRef = db.collection("venues").doc(venueId).collection("perks").doc(perkId);
+    const shiftLockRef = shiftKey
+      ? db.collection("venues").doc(venueId).collection("shiftCloseouts").doc(shiftKey)
+      : null;
     const memberDisplayName = (member) =>
       (member?.displayName || member?.name || member?.fullName || member?.username || "FoCo member");
 
@@ -1114,6 +1133,13 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
       const redemptionId = generateCode(6).toUpperCase();
       try {
         const result = await db.runTransaction(async (tx) => {
+          if (shiftLockRef) {
+            const shiftSnap = await tx.get(shiftLockRef);
+            const shiftData = shiftSnap.exists ? (shiftSnap.data() || {}) : {};
+            if (shiftData.shiftClosed === true) {
+              throw new HttpsError("failed-precondition", "Shift is already closed. Ask venue staff to open the next shift.");
+            }
+          }
           const resolved = await resolveMemberByPassCode(passCode, tx, context.auth?.uid || null);
           if (!resolved?.uid || !resolved.memberRef) {
             throw new HttpsError("not-found", "Pass ID not found.");
@@ -1462,6 +1488,14 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
   const venueId = String(data?.venueId || "").trim().toLowerCase();
   const redemptionId = String(data?.redemptionId || "").trim().toUpperCase();
   const action = String(data?.action || "confirm").trim().toLowerCase();
+  if (!["confirm", "deny", "pending"].includes(action)) {
+    throw new HttpsError("invalid-argument", "Unsupported action.");
+  }
+  const reasonCode = String(data?.reasonCode || "").trim().slice(0, 80) || null;
+  const reasonNote = String(data?.reasonNote || "").trim().slice(0, 500) || null;
+  const staffActionId = String(data?.staffId || "").trim().slice(0, 20) || null;
+  const staffActionName = String(data?.staffName || "").trim().slice(0, 120) || null;
+  const shiftKey = String(data?.shiftKey || getCurrentShiftKeyForNow()).trim();
   if (!venueId || !redemptionId) {
     throw new HttpsError("invalid-argument", "Redemption code and venue are required.");
   }
@@ -1502,10 +1536,23 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
   const serverNow = admin.firestore.FieldValue.serverTimestamp();
   const venueRedRef = db.collection("venues").doc(venueId).collection("redemptions").doc(redemptionId);
   const ceoVoucherRef = db.collection("ceoVouchers").doc(redemptionId);
+  const shiftLockRef = shiftKey
+    ? db.collection("venues").doc(venueId).collection("shiftCloseouts").doc(shiftKey)
+    : null;
 
   const result = await db.runTransaction(async (tx) => {
+    if (shiftLockRef) {
+      const shiftSnap = await tx.get(shiftLockRef);
+      const shiftData = shiftSnap.exists ? (shiftSnap.data() || {}) : {};
+      if (shiftData.shiftClosed === true) {
+        throw new HttpsError("failed-precondition", "Shift is already closed.");
+      }
+    }
     const redSnap = await tx.get(venueRedRef);
     if (!redSnap.exists) {
+      if (action !== "confirm") {
+        throw new HttpsError("not-found", "Code not found.");
+      }
       const ceoSnap = await tx.get(ceoVoucherRef);
       if (!ceoSnap.exists) {
         throw new HttpsError("not-found", "Code not found.");
@@ -1524,6 +1571,10 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
         createdAt: ceoSnap.data()?.createdAt || now,
         updatedAt: now,
         verifiedAt: now,
+        lastActionType: "verify_redemption",
+        lastActionAt: now,
+        lastActionStaffId: staffActionId,
+        lastActionStaffName: staffActionName,
         timestamp: ceoSnap.data()?.createdAt || now,
         requestedVenue: venueId,
         ceo: true
@@ -1555,18 +1606,46 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
     if (dataSnap.status === "verified" && action === "confirm") {
       return dataSnap;
     }
+    if (String(dataSnap.status || "").toLowerCase() === "pending" && action === "pending") {
+      return dataSnap;
+    }
+    if (String(dataSnap.status || "").toLowerCase() === "denied" && action === "deny") {
+      return dataSnap;
+    }
     const memberUid = dataSnap.memberUid;
     const memberRef = memberUid ? db.collection("members").doc(memberUid) : null;
     const memberSnap = memberRef ? await tx.get(memberRef) : null;
-    const nextStatus = action === "deny" ? "denied" : "verified";
+    const prevStatus = String(dataSnap.status || "").toLowerCase();
+    const wasVerified = ["verified", "approved", "confirmed"].includes(prevStatus);
+    const nextStatus = action === "deny" ? "denied" : action === "pending" ? "pending" : "verified";
     const storedUpdates = {
       status: nextStatus,
-      updatedAt: serverNow
+      updatedAt: serverNow,
+      lastActionType: action === "confirm" ? "verify_redemption" : action === "deny" ? "deny_redemption" : "set_pending",
+      lastActionAt: serverNow,
+      lastActionStaffId: staffActionId,
+      lastActionStaffName: staffActionName
     };
     if (nextStatus === "verified") {
       storedUpdates.verifiedAt = serverNow;
+      storedUpdates.deniedAt = admin.firestore.FieldValue.delete();
+      storedUpdates.deniedReasonCode = admin.firestore.FieldValue.delete();
+      storedUpdates.deniedReasonNote = admin.firestore.FieldValue.delete();
+      storedUpdates.pendingReasonCode = admin.firestore.FieldValue.delete();
+      storedUpdates.pendingReasonNote = admin.firestore.FieldValue.delete();
     } else {
-      storedUpdates.deniedAt = serverNow;
+      storedUpdates.verifiedAt = admin.firestore.FieldValue.delete();
+      if (nextStatus === "denied") {
+        storedUpdates.deniedAt = serverNow;
+        storedUpdates.deniedReasonCode = reasonCode;
+        storedUpdates.deniedReasonNote = reasonNote;
+      } else {
+        storedUpdates.deniedAt = admin.firestore.FieldValue.delete();
+        storedUpdates.pendingReasonCode = reasonCode;
+        storedUpdates.pendingReasonNote = reasonNote;
+        storedUpdates.deniedReasonCode = admin.firestore.FieldValue.delete();
+        storedUpdates.deniedReasonNote = admin.firestore.FieldValue.delete();
+      }
     }
     tx.update(venueRedRef, storedUpdates);
 
@@ -1577,13 +1656,15 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
         const memberData = memberSnap.data() || {};
         const remaining = memberData.perksRemaining;
         const memberUpdates = { updatedAt: serverNow };
-        if (nextStatus === "verified") {
+        if (nextStatus === "verified" && !wasVerified) {
           memberUpdates.lastVerifiedAt = serverNow;
           memberUpdates.totalRedemptions = admin.firestore.FieldValue.increment(1);
           memberUpdates[`venuesVisited.${venueId}`] = true;
           if (remaining && typeof remaining.tokens === "number") {
             memberUpdates["perksRemaining.tokens"] = Math.max(0, remaining.tokens - 1);
           }
+        } else if (wasVerified && nextStatus !== "verified") {
+          memberUpdates.totalRedemptions = admin.firestore.FieldValue.increment(-1);
         }
         tx.set(memberRef, memberUpdates, { merge: true });
       }
@@ -1594,9 +1675,29 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
     };
     if (nextStatus === "verified") {
       returnUpdates.verifiedAt = now;
+      returnUpdates.deniedAt = null;
+      returnUpdates.pendingReasonCode = null;
+      returnUpdates.pendingReasonNote = null;
+      returnUpdates.deniedReasonCode = null;
+      returnUpdates.deniedReasonNote = null;
     } else {
-      returnUpdates.deniedAt = now;
+      returnUpdates.verifiedAt = null;
+      if (nextStatus === "denied") {
+        returnUpdates.deniedAt = now;
+        returnUpdates.deniedReasonCode = reasonCode;
+        returnUpdates.deniedReasonNote = reasonNote;
+      } else {
+        returnUpdates.deniedAt = null;
+        returnUpdates.pendingReasonCode = reasonCode;
+        returnUpdates.pendingReasonNote = reasonNote;
+        returnUpdates.deniedReasonCode = null;
+        returnUpdates.deniedReasonNote = null;
+      }
     }
+    returnUpdates.lastActionType = storedUpdates.lastActionType;
+    returnUpdates.lastActionAt = now;
+    returnUpdates.lastActionStaffId = staffActionId;
+    returnUpdates.lastActionStaffName = staffActionName;
     return { ...dataSnap, ...returnUpdates };
   });
 

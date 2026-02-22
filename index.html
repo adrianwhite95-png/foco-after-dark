@@ -14044,6 +14044,29 @@
               <li class="empty">No scans yet. Verify a pass to populate this feed.</li>
             </ul>
           </div>
+          <div class="staff-team-card" style="margin-top:10px;">
+            <div class="staff-ticker-header">Staff</div>
+            <div class="small" style="color:#94a3b8;margin:4px 0 8px;">Add/remove active staff for this venue. Actions require staff attribution.</div>
+            <form id="staffMemberForm" class="staff-member-form" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+              <div class="field" style="margin:0;">
+                <label for="staffFirstName">First name</label>
+                <input id="staffFirstName" type="text" placeholder="First name" />
+              </div>
+              <div class="field" style="margin:0;">
+                <label for="staffLastName">Last name</label>
+                <input id="staffLastName" type="text" placeholder="Last name" />
+              </div>
+              <button type="submit" class="btn btn-primary" style="height:44px;">Add staff</button>
+            </form>
+            <div class="error" id="staffMemberError"></div>
+            <p class="support-success" id="staffMemberSuccess" style="display:none;">Staff member added.</p>
+            <div id="staffTeamList" class="staff-log" style="margin-top:8px;"></div>
+          </div>
+          <div class="staff-team-card" style="margin-top:10px;">
+            <div class="staff-ticker-header">Venue activity log</div>
+            <div class="small" style="color:#94a3b8;margin:4px 0 8px;">Chronological audit trail for staff actions.</div>
+            <div id="staffActivityLog" class="staff-log"></div>
+          </div>
           <div class="payment-actions" style="margin-top:4px;">
             <button type="button" class="btn btn-primary" id="staffCloseOutBtn" style="width:100%;">Close out for tonight</button>
           </div>
@@ -14917,10 +14940,49 @@
         <button class="modal-close" id="staffCloseOutDone" type="button">Done</button>
       </div>
       <div id="staffCloseOutSummary" style="margin-bottom:12px;"></div>
+      <div class="field">
+        <label for="staffShiftNotes">Shift notes (required when pending exists)</label>
+        <textarea id="staffShiftNotes" rows="3" placeholder="Add notes for unresolved pending/denied/red flag activity..."></textarea>
+      </div>
       <div class="error" id="staffCloseOutStatus" style="margin-bottom:8px;"></div>
       <div class="payment-actions" style="display:flex;gap:10px;justify-content:flex-end;">
         <button type="button" class="btn btn-secondary" id="staffCloseOutDoneFooter">Close</button>
         <button type="button" class="btn btn-primary" id="staffCloseOutSend">Send report</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="staffActorModal">
+    <div class="modal-card" style="max-width:520px;">
+      <div class="modal-header">
+        <div class="modal-title">Who are you?</div>
+        <button class="modal-close" id="staffActorClose" type="button">Close</button>
+      </div>
+      <p class="small" id="staffActorPrompt" style="margin:0 0 10px;">Select the staff member completing this action.</p>
+      <div class="field">
+        <label for="staffActorSelect">Staff member</label>
+        <select id="staffActorSelect"></select>
+      </div>
+      <div class="field" id="staffActorReasonWrap" style="display:none;">
+        <label for="staffActorReasonCode">Reason code</label>
+        <select id="staffActorReasonCode">
+          <option value="">Select reason</option>
+          <option value="accidental_confirm">Accidental confirm</option>
+          <option value="member_left">Member left venue</option>
+          <option value="code_mismatch">Code mismatch</option>
+          <option value="id_mismatch">ID mismatch</option>
+          <option value="suspected_abuse">Suspected abuse</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field" id="staffActorReasonNoteWrap" style="display:none;">
+        <label for="staffActorReasonNote">Reason note (optional)</label>
+        <textarea id="staffActorReasonNote" rows="2" placeholder="Add context for this action."></textarea>
+      </div>
+      <div class="error" id="staffActorError"></div>
+      <div class="payment-actions" style="margin-top:8px;">
+        <button type="button" class="btn btn-secondary" id="staffActorCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="staffActorConfirm">Continue</button>
       </div>
     </div>
   </div>
@@ -15733,6 +15795,13 @@
     let lastCeoStatsAt = 0;
     let staffMessagesCache = [];
     let ceoMessagesCache = [];
+    let staffMembersUnsub = null;
+    let staffActivityUnsub = null;
+    let staffMembersCache = [];
+    let staffActivityCache = [];
+    let staffShiftLockUnsub = null;
+    let staffShiftLockMap = {};
+    let selectedStaffActor = null;
     let staffReplyContextId = "";
     let ceoUnreadToastKeys = new Set();
     let venuePerksCache = {};
@@ -18737,10 +18806,29 @@
     const staffCloseOutBtn = document.getElementById("staffCloseOutBtn");
     const staffCloseOutModal = document.getElementById("staffCloseOutModal");
     const staffCloseOutSummary = document.getElementById("staffCloseOutSummary");
+    const staffShiftNotes = document.getElementById("staffShiftNotes");
     const staffCloseOutStatus = document.getElementById("staffCloseOutStatus");
     const staffCloseOutSend = document.getElementById("staffCloseOutSend");
     const staffCloseOutDone = document.getElementById("staffCloseOutDone");
     const staffCloseOutDoneFooter = document.getElementById("staffCloseOutDoneFooter");
+    const staffMemberForm = document.getElementById("staffMemberForm");
+    const staffFirstName = document.getElementById("staffFirstName");
+    const staffLastName = document.getElementById("staffLastName");
+    const staffTeamList = document.getElementById("staffTeamList");
+    const staffMemberError = document.getElementById("staffMemberError");
+    const staffMemberSuccess = document.getElementById("staffMemberSuccess");
+    const staffActivityLog = document.getElementById("staffActivityLog");
+    const staffActorModal = document.getElementById("staffActorModal");
+    const staffActorPrompt = document.getElementById("staffActorPrompt");
+    const staffActorSelect = document.getElementById("staffActorSelect");
+    const staffActorReasonWrap = document.getElementById("staffActorReasonWrap");
+    const staffActorReasonCode = document.getElementById("staffActorReasonCode");
+    const staffActorReasonNoteWrap = document.getElementById("staffActorReasonNoteWrap");
+    const staffActorReasonNote = document.getElementById("staffActorReasonNote");
+    const staffActorError = document.getElementById("staffActorError");
+    const staffActorConfirm = document.getElementById("staffActorConfirm");
+    const staffActorCancel = document.getElementById("staffActorCancel");
+    const staffActorClose = document.getElementById("staffActorClose");
     const staffDealCodeList = document.getElementById("staffDealCodeList");
     const staffRoiPanel = document.getElementById("staffRoiPanel");
     const staffPerksList = document.getElementById("staffPerksList");
@@ -25559,6 +25647,9 @@ let onboardingIndex = 0;
     const FREE_REVOKED_PREFIX = "free_revoked_";
     const FREE_MEMBERS_KEY = "free_members_cache";
     const AUTO_CLOSE_OUT_KEY = "autoCloseOutSent";
+    const STAFF_MEMBERS_PREFIX = "staffMembers_";
+    const STAFF_ACTIVITY_PREFIX = "staffActivity_";
+    const STAFF_SHIFT_LOCK_PREFIX = "staffShiftLock_";
     const NIGHT_WHEEL_KEY = "nightWheelSpins";
     const POINTS_KEY = "pointsLedger";
     const LOGIN_SESSION_PREFIX = "loginSessionSeen_";
@@ -29595,6 +29686,428 @@ let onboardingIndex = 0;
       const key = `${STAFF_SHIFT_PREFIX}${venueId}`;
       localStorage.setItem(key, stamp.toISOString());
     }
+    function getStaffShiftLockState() {
+      if (!staffSession?.venue) return {};
+      const venueId = String(staffSession.venue || "").toLowerCase();
+      return staffShiftLockMap[venueId] || {};
+    }
+    function getCurrentShiftKeyForVenue(venueId = staffSession?.venue) {
+      if (!venueId) return "";
+      try {
+        return String(getCloseOutWindow().shiftKey || "").trim();
+      } catch (_) {
+        return "";
+      }
+    }
+    function isShiftClosedForVenue(venueId = staffSession?.venue, shiftKey = getCurrentShiftKeyForVenue(venueId)) {
+      const state = getStaffShiftLockState();
+      if (!shiftKey) return false;
+      const rec = state[shiftKey];
+      return !!(rec && rec.shiftClosed === true);
+    }
+    function loadStaffMembersLocal(venueId) {
+      if (!venueId) return [];
+      try {
+        const raw = localStorage.getItem(`${STAFF_MEMBERS_PREFIX}${venueId}`);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        return [];
+      }
+    }
+    function saveStaffMembersLocal(venueId, members = []) {
+      if (!venueId) return;
+      try {
+        localStorage.setItem(`${STAFF_MEMBERS_PREFIX}${venueId}`, JSON.stringify(members.slice(0, 300)));
+      } catch (_) {}
+    }
+    function loadStaffActivityLocal(venueId) {
+      if (!venueId) return [];
+      try {
+        const raw = localStorage.getItem(`${STAFF_ACTIVITY_PREFIX}${venueId}`);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        return [];
+      }
+    }
+    function saveStaffActivityLocal(venueId, actions = []) {
+      if (!venueId) return;
+      try {
+        localStorage.setItem(`${STAFF_ACTIVITY_PREFIX}${venueId}`, JSON.stringify(actions.slice(0, 400)));
+      } catch (_) {}
+    }
+    function loadStaffShiftLockLocal(venueId) {
+      if (!venueId) return {};
+      try {
+        const raw = localStorage.getItem(`${STAFF_SHIFT_LOCK_PREFIX}${venueId}`);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return (parsed && typeof parsed === "object") ? parsed : {};
+      } catch (_) {
+        return {};
+      }
+    }
+    function saveStaffShiftLockLocal(venueId, state = {}) {
+      if (!venueId) return;
+      try {
+        localStorage.setItem(`${STAFF_SHIFT_LOCK_PREFIX}${venueId}`, JSON.stringify(state || {}));
+      } catch (_) {}
+    }
+    function normalizeStaffMember(member = {}) {
+      const firstName = String(member.firstName || "").trim();
+      const lastName = String(member.lastName || "").trim();
+      const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+      return {
+        staffId: String(member.staffId || "").padStart(5, "0").slice(-5),
+        firstName,
+        lastName,
+        fullName,
+        isActive: member.isActive !== false,
+        createdAt: member.createdAt || new Date().toISOString(),
+        removedAt: member.removedAt || null
+      };
+    }
+    function getActiveStaffMembers(venueId = staffSession?.venue) {
+      const venueKey = String(venueId || "").toLowerCase();
+      if (!venueKey) return [];
+      return (staffMembersCache || [])
+        .map(normalizeStaffMember)
+        .filter((member) => member.isActive);
+    }
+    function getStaffNameById(staffId) {
+      const key = String(staffId || "").padStart(5, "0").slice(-5);
+      if (!key) return "";
+      const match = (staffMembersCache || []).find((member) => String(member.staffId || "").padStart(5, "0").slice(-5) === key);
+      return match ? normalizeStaffMember(match).fullName : "";
+    }
+    function renderStaffTeamList() {
+      if (!staffTeamList || !staffSession) return;
+      const active = (staffMembersCache || []).map(normalizeStaffMember).filter((member) => member.isActive);
+      const inactive = (staffMembersCache || []).map(normalizeStaffMember).filter((member) => !member.isActive).slice(0, 10);
+      if (!active.length && !inactive.length) {
+        staffTeamList.innerHTML = '<p style="color:#94a3b8;">No staff members yet.</p>';
+        return;
+      }
+      const activeMarkup = active.map((member) => `
+        <div class="log-row" data-staff-id="${member.staffId}">
+          <strong>${member.fullName || "Staff member"} · #${member.staffId}</strong>
+          <div class="log-meta">
+            <span style="color:#34d399;">Active</span>
+            <button type="button" class="btn btn-secondary" data-remove-staff="${member.staffId}">Remove</button>
+          </div>
+        </div>
+      `).join("");
+      const inactiveMarkup = inactive.length
+        ? `<div class="small" style="color:#94a3b8;margin-top:6px;">Recently removed</div>${inactive.map((member) => `
+          <div class="log-row">
+            <strong>${member.fullName || "Staff member"} · #${member.staffId}</strong>
+            <div class="log-meta"><span style="color:#f97316;">Inactive · ${formatMST(member.removedAt || member.createdAt)}</span></div>
+          </div>
+        `).join("")}`
+        : "";
+      staffTeamList.innerHTML = `${activeMarkup}${inactiveMarkup}`;
+    }
+    function generateVenueStaffId() {
+      const used = new Set((staffMembersCache || []).map((member) => String(member.staffId || "").padStart(5, "0").slice(-5)));
+      let candidate = "";
+      let attempts = 0;
+      do {
+        candidate = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
+        attempts += 1;
+      } while (used.has(candidate) && attempts < 500);
+      if (used.has(candidate)) {
+        candidate = String(Date.now() % 100000).padStart(5, "0");
+      }
+      return candidate;
+    }
+    async function addStaffMemberToVenue(first, last) {
+      if (!staffSession?.venue) return null;
+      const venueId = String(staffSession.venue || "").toLowerCase();
+      const firstName = String(first || "").trim();
+      const lastName = String(last || "").trim();
+      if (!firstName || !lastName) {
+        throw new Error("First and last name are required.");
+      }
+      const staffId = generateVenueStaffId();
+      const payload = normalizeStaffMember({
+        staffId,
+        firstName,
+        lastName,
+        isActive: true,
+        createdAt: new Date().toISOString()
+      });
+      staffMembersCache = [payload, ...(staffMembersCache || [])];
+      saveStaffMembersLocal(venueId, staffMembersCache);
+      renderStaffTeamList();
+      if (db) {
+        if (!guardWriteAction("addStaffMember", "App is locked (read-only).", { silent: true })) return payload;
+        await setDoc(doc(db, "venues", venueId, "staffMembers", staffId), {
+          ...payload,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      }
+      await logVenueStaffAction({
+        actionType: "staff_member_added",
+        staffId: payload.staffId,
+        staffName: payload.fullName,
+        venueId
+      });
+      return payload;
+    }
+    async function deactivateStaffMemberForVenue(staffId) {
+      if (!staffSession?.venue || !staffId) return false;
+      const venueId = String(staffSession.venue || "").toLowerCase();
+      const key = String(staffId || "").padStart(5, "0").slice(-5);
+      const idx = (staffMembersCache || []).findIndex((member) => String(member.staffId || "").padStart(5, "0").slice(-5) === key);
+      if (idx < 0) return false;
+      const existing = normalizeStaffMember(staffMembersCache[idx]);
+      const updated = {
+        ...existing,
+        isActive: false,
+        removedAt: new Date().toISOString()
+      };
+      staffMembersCache[idx] = updated;
+      saveStaffMembersLocal(venueId, staffMembersCache);
+      renderStaffTeamList();
+      if (selectedStaffActor?.staffId === key) {
+        selectedStaffActor = null;
+      }
+      if (db) {
+        if (!guardWriteAction("removeStaffMember", "App is locked (read-only).", { silent: true })) return true;
+        await setDoc(doc(db, "venues", venueId, "staffMembers", key), {
+          isActive: false,
+          removedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      }
+      await logVenueStaffAction({
+        actionType: "staff_member_removed",
+        staffId: existing.staffId,
+        staffName: existing.fullName,
+        venueId
+      });
+      return true;
+    }
+    function renderStaffActivityLog() {
+      if (!staffActivityLog) return;
+      if (!staffActivityCache.length) {
+        staffActivityLog.innerHTML = '<p style="color:#94a3b8;">No staff actions logged yet.</p>';
+        return;
+      }
+      staffActivityLog.innerHTML = staffActivityCache
+        .slice()
+        .sort((a, b) => new Date(b.timestamp || b.actionAt || 0).getTime() - new Date(a.timestamp || a.actionAt || 0).getTime())
+        .slice(0, 120)
+        .map((item) => {
+          const staffName = String(item.staffName || "Staff").trim();
+          const staffId = String(item.staffId || "").padStart(5, "0").slice(-5);
+          const userName = String(item.userName || "").trim();
+          const perkTitle = String(item.perkTitle || "").trim();
+          const reason = String(item.reasonCode || "").trim();
+          const reasonNote = String(item.reasonNote || "").trim();
+          const parts = [];
+          if (userName) parts.push(`User: ${userName}`);
+          if (perkTitle) parts.push(`Perk: ${perkTitle}`);
+          if (item.redemptionId) parts.push(`Code: ${item.redemptionId}`);
+          if (reason) parts.push(`Reason: ${reason}`);
+          if (reasonNote) parts.push(reasonNote);
+          return `
+            <div class="log-row">
+              <strong>${String(item.actionType || "action").replace(/_/g, " ")}</strong>
+              <div>${staffName}${staffId ? ` · #${staffId}` : ""}</div>
+              <div style="color:#cbd5f5;">${parts.join(" · ") || "—"}</div>
+              <div class="log-meta"><span>${formatMST(item.timestamp || item.actionAt || Date.now())}</span></div>
+            </div>
+          `;
+        }).join("");
+    }
+    function buildVenueActionDoc(action = {}) {
+      const nowIso = new Date().toISOString();
+      return {
+        timestamp: nowIso,
+        actionAt: nowIso,
+        actionType: action.actionType || "unknown_action",
+        staffId: action.staffId || null,
+        staffName: action.staffName || null,
+        venueId: action.venueId || (staffSession?.venue || null),
+        redemptionId: action.redemptionId || null,
+        userId: action.userId || null,
+        userName: action.userName || null,
+        perkId: action.perkId || null,
+        perkTitle: action.perkTitle || null,
+        reasonCode: action.reasonCode || null,
+        reasonNote: action.reasonNote || null,
+        source: action.source || "staff_portal",
+        createdByUid: firebaseAuth?.currentUser?.uid || null
+      };
+    }
+    async function logVenueStaffAction(action = {}) {
+      if (!staffSession?.venue) return null;
+      const venueId = String(staffSession.venue || "").toLowerCase();
+      const payload = buildVenueActionDoc(action);
+      staffActivityCache.unshift(payload);
+      saveStaffActivityLocal(venueId, staffActivityCache);
+      renderStaffActivityLog();
+      if (!db) return payload;
+      try {
+        if (!guardWriteAction("staffActivityLog", "App is locked (read-only).", { silent: true })) return payload;
+        await addDoc(collection(db, "venues", venueId, "activityLog"), {
+          ...payload,
+          timestamp: serverTimestamp(),
+          actionAt: serverTimestamp()
+        });
+      } catch (err) {
+        console.warn("staff activity log write failed", err);
+      }
+      return payload;
+    }
+    let pendingStaffActorResolver = null;
+    function closeStaffActorModal() {
+      if (staffActorModal) staffActorModal.classList.remove("active");
+      pendingStaffActorResolver = null;
+      if (staffActorError) staffActorError.textContent = "";
+    }
+    function openStaffActorModal({ prompt = "Select the staff member completing this action.", requireReason = false, actionType = "" } = {}) {
+      return new Promise((resolve) => {
+        if (!staffSession?.venue) {
+          resolve(null);
+          return;
+        }
+        const activeMembers = getActiveStaffMembers(staffSession.venue);
+        if (!activeMembers.length) {
+          if (staffMemberError) staffMemberError.textContent = "Add at least one active staff member first.";
+          resolve(null);
+          return;
+        }
+        if (staffActorPrompt) staffActorPrompt.textContent = prompt;
+        if (staffActorSelect) {
+          staffActorSelect.innerHTML = activeMembers.map((member) => (
+            `<option value="${member.staffId}" ${selectedStaffActor?.staffId === member.staffId ? "selected" : ""}>${member.fullName} · #${member.staffId}</option>`
+          )).join("");
+        }
+        if (staffActorReasonWrap) staffActorReasonWrap.style.display = requireReason ? "" : "none";
+        if (staffActorReasonNoteWrap) staffActorReasonNoteWrap.style.display = requireReason ? "" : "none";
+        if (staffActorReasonCode) staffActorReasonCode.value = "";
+        if (staffActorReasonNote) staffActorReasonNote.value = "";
+        if (staffActorError) staffActorError.textContent = "";
+        if (staffActorModal) staffActorModal.classList.add("active");
+        pendingStaffActorResolver = { resolve, requireReason, actionType };
+      });
+    }
+    async function requireStaffActor(options = {}) {
+      const selection = await openStaffActorModal(options);
+      return selection;
+    }
+    async function startStaffMembersListener(venueId) {
+      if (!venueId) return;
+      if (staffMembersUnsub) {
+        try { staffMembersUnsub(); } catch (_) {}
+        staffMembersUnsub = null;
+      }
+      const venueKey = String(venueId || "").toLowerCase();
+      const local = loadStaffMembersLocal(venueKey).map(normalizeStaffMember);
+      staffMembersCache = local;
+      renderStaffTeamList();
+      if (!db || !authClaimsReady || !hasStaffClaim()) return;
+      const q = query(collection(db, "venues", venueKey, "staffMembers"), orderBy("createdAt", "desc"), limit(300));
+      staffMembersUnsub = subscribeSnapshot("staffMembers", q, null, (snap) => {
+        const members = [];
+        snap.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          members.push(normalizeStaffMember({
+            ...data,
+            staffId: data.staffId || docSnap.id,
+            createdAt: toDateSafe(data.createdAt)?.toISOString?.() || data.createdAt || new Date().toISOString(),
+            removedAt: toDateSafe(data.removedAt)?.toISOString?.() || data.removedAt || null
+          }));
+        });
+        staffMembersCache = members;
+        saveStaffMembersLocal(venueKey, members);
+        renderStaffTeamList();
+      }, (err) => {
+        console.warn("staff members listener failed", err);
+      });
+    }
+    function stopStaffMembersListener() {
+      if (staffMembersUnsub) {
+        try { staffMembersUnsub(); } catch (_) {}
+        staffMembersUnsub = null;
+      }
+      staffMembersCache = [];
+      renderStaffTeamList();
+    }
+    async function startStaffActivityListener(venueId) {
+      if (!venueId) return;
+      if (staffActivityUnsub) {
+        try { staffActivityUnsub(); } catch (_) {}
+        staffActivityUnsub = null;
+      }
+      const venueKey = String(venueId || "").toLowerCase();
+      staffActivityCache = loadStaffActivityLocal(venueKey);
+      renderStaffActivityLog();
+      if (!db || !authClaimsReady || !hasStaffClaim()) return;
+      const q = query(collection(db, "venues", venueKey, "activityLog"), orderBy("timestamp", "desc"), limit(400));
+      staffActivityUnsub = subscribeSnapshot("staffActivityLog", q, null, (snap) => {
+        const actions = [];
+        snap.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          actions.push({
+            ...data,
+            id: docSnap.id,
+            timestamp: toDateSafe(data.timestamp)?.toISOString?.() || data.timestamp || new Date().toISOString(),
+            actionAt: toDateSafe(data.actionAt)?.toISOString?.() || data.actionAt || new Date().toISOString(),
+          });
+        });
+        staffActivityCache = actions;
+        saveStaffActivityLocal(venueKey, actions);
+        renderStaffActivityLog();
+      }, (err) => {
+        console.warn("staff activity listener failed", err);
+      });
+    }
+    function stopStaffActivityListener() {
+      if (staffActivityUnsub) {
+        try { staffActivityUnsub(); } catch (_) {}
+        staffActivityUnsub = null;
+      }
+      staffActivityCache = [];
+      renderStaffActivityLog();
+    }
+    async function startStaffShiftLockListener(venueId) {
+      if (!venueId) return;
+      if (staffShiftLockUnsub) {
+        try { staffShiftLockUnsub(); } catch (_) {}
+        staffShiftLockUnsub = null;
+      }
+      const venueKey = String(venueId || "").toLowerCase();
+      staffShiftLockMap[venueKey] = loadStaffShiftLockLocal(venueKey);
+      if (!db || !authClaimsReady || !hasStaffClaim()) return;
+      const q = query(collection(db, "venues", venueKey, "shiftCloseouts"), orderBy("closedAt", "desc"), limit(120));
+      staffShiftLockUnsub = subscribeSnapshot("staffShiftLock", q, null, (snap) => {
+        const next = {};
+        snap.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const shiftKey = String(data.shiftKey || docSnap.id || "").trim();
+          if (!shiftKey) return;
+          next[shiftKey] = {
+            shiftClosed: data.shiftClosed === true,
+            closedAt: toDateSafe(data.closedAt)?.toISOString?.() || data.closedAt || null,
+            closedByStaffId: data.closedByStaffId || null
+          };
+        });
+        staffShiftLockMap[venueKey] = next;
+        saveStaffShiftLockLocal(venueKey, next);
+      }, (err) => {
+        console.warn("staff shift lock listener failed", err);
+      });
+    }
+    function stopStaffShiftLockListener() {
+      if (staffShiftLockUnsub) {
+        try { staffShiftLockUnsub(); } catch (_) {}
+        staffShiftLockUnsub = null;
+      }
+    }
     function entryMatchesVenue(entry, venueId) {
       const venueKey = (venueId || "").toLowerCase();
       if (!venueKey) return false;
@@ -29745,6 +30258,7 @@ let onboardingIndex = 0;
             <div class="staff-pending-actions">
               <span class="status-pill-sm ${statusClass}">${statusLabel}</span>
               <button type="button" class="${actionClass}" data-pending-confirm="${entry.code}" data-pending-next="${actionTarget}">${actionLabel}</button>
+              ${isPending ? `<button type="button" class="btn btn-secondary" data-pending-deny="${entry.code}" style="border-color:rgba(248,113,113,0.65);color:#fecaca;">Deny</button>` : ""}
             </div>
           </div>
         `;
@@ -30375,6 +30889,15 @@ let onboardingIndex = 0;
               expiresAt: data.expiresAt?.toMillis ? data.expiresAt.toMillis() : (data.expiresAt ? new Date(data.expiresAt).getTime() : null),
               timestamp: toIso(data.createdAt || data.timestamp),
               verifiedAt: toIso(data.verifiedAt || data.createdAt || data.timestamp),
+              deniedAt: toIso(data.deniedAt),
+              lastActionType: data.lastActionType || null,
+              lastActionAt: toIso(data.lastActionAt),
+              lastActionStaffId: data.lastActionStaffId || null,
+              lastActionStaffName: data.lastActionStaffName || null,
+              pendingReasonCode: data.pendingReasonCode || null,
+              pendingReasonNote: data.pendingReasonNote || null,
+              deniedReasonCode: data.deniedReasonCode || null,
+              deniedReasonNote: data.deniedReasonNote || null,
             };
           });
           scheduleThrottledRender("ceoRedemptions", () => {
@@ -31179,6 +31702,15 @@ let onboardingIndex = 0;
         status: entry.status || "pending",
         timestamp: entry.timestamp ? toTimestamp(entry.timestamp) : serverTimestamp(),
         verifiedAt: entry.verifiedAt ? toTimestamp(entry.verifiedAt) : null,
+        deniedAt: entry.deniedAt ? toTimestamp(entry.deniedAt) : null,
+        lastActionType: entry.lastActionType || null,
+        lastActionAt: entry.lastActionAt ? toTimestamp(entry.lastActionAt) : null,
+        lastActionStaffId: entry.lastActionStaffId || null,
+        lastActionStaffName: entry.lastActionStaffName || null,
+        pendingReasonCode: entry.pendingReasonCode || null,
+        pendingReasonNote: entry.pendingReasonNote || null,
+        deniedReasonCode: entry.deniedReasonCode || null,
+        deniedReasonNote: entry.deniedReasonNote || null
       };
       try {
         await setDoc(ref, payload, { merge: true });
@@ -31202,7 +31734,16 @@ let onboardingIndex = 0;
               status: entry.status || "pending",
               createdAt: entry.timestamp ? toTimestamp(entry.timestamp) : serverTimestamp(),
               verifiedAt: entry.verifiedAt ? toTimestamp(entry.verifiedAt) : null,
+              deniedAt: entry.deniedAt ? toTimestamp(entry.deniedAt) : null,
               timestamp: entry.timestamp ? toTimestamp(entry.timestamp) : serverTimestamp(),
+              lastActionType: entry.lastActionType || null,
+              lastActionAt: entry.lastActionAt ? toTimestamp(entry.lastActionAt) : null,
+              lastActionStaffId: entry.lastActionStaffId || null,
+              lastActionStaffName: entry.lastActionStaffName || null,
+              pendingReasonCode: entry.pendingReasonCode || null,
+              pendingReasonNote: entry.pendingReasonNote || null,
+              deniedReasonCode: entry.deniedReasonCode || null,
+              deniedReasonNote: entry.deniedReasonNote || null
             }, { merge: true });
           }
         }
@@ -31228,9 +31769,9 @@ let onboardingIndex = 0;
           if (ts.toDate) return ts.toDate().toISOString();
           return new Date(ts).toISOString();
         };
-        return {
-          code: (data.code || code).toUpperCase(),
-          perk: data.perk || data.perkKey || "Perk",
+          return {
+            code: (data.code || code).toUpperCase(),
+            perk: data.perk || data.perkKey || "Perk",
           perkKey: data.perkKey || null,
           venuePerkId: data.venuePerkId || null,
           venuePerkLabel: data.venuePerkLabel || null,
@@ -31245,11 +31786,20 @@ let onboardingIndex = 0;
           vibeKey: data.vibeKey || null,
           ceo: !!data.ceo,
           tier: data.tier || null,
-          status: data.status || "pending",
-          expiresAt: data.expiresAt?.toMillis ? data.expiresAt.toMillis() : (data.expiresAt ? new Date(data.expiresAt).getTime() : null),
-          timestamp: toIso(data.timestamp) || new Date().toISOString(),
-          verifiedAt: toIso(data.verifiedAt),
-        };
+            status: data.status || "pending",
+            expiresAt: data.expiresAt?.toMillis ? data.expiresAt.toMillis() : (data.expiresAt ? new Date(data.expiresAt).getTime() : null),
+            timestamp: toIso(data.timestamp) || new Date().toISOString(),
+            verifiedAt: toIso(data.verifiedAt),
+            deniedAt: toIso(data.deniedAt),
+            lastActionType: data.lastActionType || null,
+            lastActionAt: toIso(data.lastActionAt),
+            lastActionStaffId: data.lastActionStaffId || null,
+            lastActionStaffName: data.lastActionStaffName || null,
+            pendingReasonCode: data.pendingReasonCode || null,
+            pendingReasonNote: data.pendingReasonNote || null,
+            deniedReasonCode: data.deniedReasonCode || null,
+            deniedReasonNote: data.deniedReasonNote || null,
+          };
       } catch (err) {
         console.warn("Failed to fetch cloud redemption", err);
         return null;
@@ -31475,44 +32025,197 @@ let onboardingIndex = 0;
         windowLabel: `Shift ${shiftKey}: 5:00 AM - 2:45 AM`
       };
     }
-    function buildCloseOutReport() {
+    function normalizeCloseOutStatus(status) {
+      const normalized = String(status || "").toLowerCase();
+      if (["verified", "approved", "confirmed"].includes(normalized)) return "verified";
+      if (["denied", "rejected"].includes(normalized)) return "denied";
+      if (["voided", "void"].includes(normalized)) return "voided";
+      if (normalized === "expired") return "expired";
+      if (["pending", "requested"].includes(normalized)) return "pending";
+      return "pending";
+    }
+
+    function getCloseOutTierLabel(entry = {}) {
+      const directTier = String(entry.tier || entry.membershipTier || "").toLowerCase();
+      if (directTier === "vip") return "VIP";
+      if (directTier === "standard") return "STANDARD";
+      const passCode = String(entry.passId || entry.passCode || "").toUpperCase();
+      if (!passCode || passCode === "DEAL") return "STANDARD";
+      const directoryTier = String(loadMemberDirectory()?.[passCode]?.tier || "").toLowerCase();
+      if (directoryTier === "vip") return "VIP";
+      if (directoryTier === "standard") return "STANDARD";
+      return "STANDARD";
+    }
+
+    function buildCloseOutReport(extra = {}) {
       if (!staffSession) return null;
-      const venueId = staffSession.venue;
+      const venueId = String(staffSession.venue || "").toLowerCase();
+      if (!venueId) return null;
       const window = getCloseOutWindow();
-      const entries = redemptionLog.filter(entry => {
-        const matchVenue = entry.venue === venueId;
-        if (!matchVenue) return false;
-        const ts = toMstComparableMs(entry.timestamp || Date.now());
+      const shiftKey = String(window.shiftKey || getMstDateKey(new Date()));
+      const entries = (Array.isArray(redemptionLog) ? redemptionLog : []).filter((entry) => {
+        if (!entryMatchesVenue(entry, venueId)) return false;
+        const ts = toMstComparableMs(entry.verifiedAt || entry.timestamp || entry.createdAt || Date.now());
         if (!Number.isFinite(ts)) return false;
         return ts >= window.start && ts <= window.end;
       });
-      const verified = entries.filter(e => e.status === "verified");
-      const pending = entries.filter(e => e.status !== "verified");
-      const byPerk = {};
-      verified.forEach(e => {
-        const label = e.perk || e.perkKey || "Perk";
-        byPerk[label] = (byPerk[label] || 0) + 1;
+      const sortedEntries = entries.slice().sort((a, b) => (
+        new Date(a.verifiedAt || a.timestamp || 0).getTime() - new Date(b.verifiedAt || b.timestamp || 0).getTime()
+      ));
+
+      const totals = {
+        totalRedemptions: sortedEntries.length,
+        verifiedCount: 0,
+        pendingCount: 0,
+        deniedCount: 0,
+        voidedCount: 0,
+        expiredAttemptCount: 0,
+        vipVerifiedCount: 0,
+        standardVerifiedCount: 0,
+        submitted: sortedEntries.length,
+        verified: 0,
+        pending: 0,
+        denied: 0,
+        byPerk: {}
+      };
+      const byPerkMap = {};
+      const pendingList = [];
+      const deniedList = [];
+      const ledger = [];
+      const rapidByPass = {};
+      const suspiciousFlags = [];
+
+      sortedEntries.forEach((entry) => {
+        const status = normalizeCloseOutStatus(entry.status);
+        const perkTitle = String(entry.venuePerkLabel || entry.perk || entry.perkKey || "Perk").trim() || "Perk";
+        const perkBucket = (byPerkMap[perkTitle] ||= {
+          perkTitle,
+          verifiedCount: 0,
+          pendingCount: 0,
+          deniedCount: 0
+        });
+        if (status === "verified") {
+          totals.verifiedCount += 1;
+          totals.verified += 1;
+          perkBucket.verifiedCount += 1;
+          totals.byPerk[perkTitle] = (totals.byPerk[perkTitle] || 0) + 1;
+          const tierLabel = getCloseOutTierLabel(entry);
+          if (tierLabel === "VIP") totals.vipVerifiedCount += 1;
+          else totals.standardVerifiedCount += 1;
+          const verifiedAt = entry.verifiedAt || entry.timestamp || new Date().toISOString();
+          ledger.push({
+            redemptionId: entry.code || "",
+            userName: getEntryUserNameForAudit(entry),
+            perkTitle,
+            verifiedAt,
+            verifiedByStaffName: entry.lastActionStaffName || null,
+            verifiedByStaffId: entry.lastActionStaffId || null
+          });
+          const passCode = String(entry.passId || "").toUpperCase();
+          if (passCode && passCode !== "DEAL") {
+            const list = (rapidByPass[passCode] ||= []);
+            list.push(new Date(verifiedAt).getTime());
+          }
+        } else if (status === "pending") {
+          totals.pendingCount += 1;
+          totals.pending += 1;
+          perkBucket.pendingCount += 1;
+          pendingList.push({
+            redemptionId: entry.code || "",
+            userName: getEntryUserNameForAudit(entry),
+            tier: getCloseOutTierLabel(entry),
+            perkTitle,
+            attemptedAt: entry.timestamp || entry.createdAt || new Date().toISOString(),
+            lastActionStaffName: entry.lastActionStaffName || null,
+            pendingReasonCode: entry.pendingReasonCode || null,
+            pendingReasonNote: entry.pendingReasonNote || null
+          });
+        } else if (status === "denied") {
+          totals.deniedCount += 1;
+          totals.denied += 1;
+          perkBucket.deniedCount += 1;
+          deniedList.push({
+            redemptionId: entry.code || "",
+            userName: getEntryUserNameForAudit(entry),
+            perkTitle,
+            deniedAt: entry.deniedAt || entry.lastActionAt || entry.timestamp || new Date().toISOString(),
+            deniedByStaffName: entry.lastActionStaffName || null,
+            deniedReasonCode: entry.deniedReasonCode || null,
+            deniedReasonNote: entry.deniedReasonNote || null
+          });
+          if (String(entry.deniedReasonCode || "").toLowerCase() === "suspected_abuse") {
+            suspiciousFlags.push(`Suspected abuse flagged for ${getEntryUserNameForAudit(entry) || "member"} (${entry.code || "code"})`);
+          }
+        } else if (status === "voided") {
+          totals.voidedCount += 1;
+        } else if (status === "expired") {
+          totals.expiredAttemptCount += 1;
+        }
       });
+
+      Object.entries(rapidByPass).forEach(([passCode, times]) => {
+        const sorted = times.slice().sort((a, b) => a - b);
+        let localMax = 1;
+        for (let i = 0; i < sorted.length; i += 1) {
+          let burst = 1;
+          for (let j = i + 1; j < sorted.length; j += 1) {
+            if ((sorted[j] - sorted[i]) <= (5 * 60 * 1000)) burst += 1;
+          }
+          localMax = Math.max(localMax, burst);
+        }
+        if (localMax >= 3) {
+          suspiciousFlags.push(`Rapid redemption cluster: ${passCode} (${localMax} in 5 minutes)`);
+        }
+      });
+
+      const alerts = {
+        expiredAttempts: totals.expiredAttemptCount,
+        rapidRedemptions: suspiciousFlags.filter((flag) => flag.startsWith("Rapid redemption cluster")).length,
+        suspiciousActivityFlags: suspiciousFlags
+      };
+
+      const perks = Object.values(byPerkMap).sort((a, b) => {
+        const aTotal = a.verifiedCount + a.pendingCount + a.deniedCount;
+        const bTotal = b.verifiedCount + b.pendingCount + b.deniedCount;
+        return bTotal - aTotal;
+      });
+      const shiftNotes = String(extra.shiftNotes || "").trim();
+      const shiftNotesAt = extra.shiftNotesAt || (shiftNotes ? new Date().toISOString() : null);
+      const shiftNotesByStaffId = extra.shiftNotesByStaffId || null;
+      const closedByStaffId = extra.closedByStaffId || null;
+      const closedByStaffName = extra.closedByStaffName || null;
+      const closedAt = extra.closedAt || new Date().toISOString();
+      const reportId = String(extra.id || `close-${venueId}-${shiftKey}-${Date.now()}`);
+
       return {
-        id: `close-${venueId}-${Date.now()}`,
+        id: reportId,
         venue: venueId,
         venueName: venuesInfo[venueId]?.name || venueId,
         generatedAt: new Date().toISOString(),
         range: "shift",
-        shiftKey: window.shiftKey || getMstDateKey(new Date()),
-        windowLabel: window.windowLabel || `Shift ${getMstDateKey(new Date())}: 5:00 AM - 2:45 AM`,
-        totals: {
-          submitted: entries.length,
-          verified: verified.length,
-          pending: pending.length,
-          byPerk
-        },
-        items: entries.map(e => ({
-          code: e.code,
-          perk: e.perk || e.perkKey || "Perk",
-          member: e.member || "FoCo member",
-          status: e.status || "pending",
-          timestamp: e.timestamp || new Date().toISOString()
+        shiftKey,
+        windowLabel: window.windowLabel || `Shift ${shiftKey}: 5:00 AM - 2:45 AM`,
+        shiftClosed: true,
+        closedAt,
+        closedByStaffId,
+        closedByStaffName,
+        shiftNotes,
+        shiftNotesAt,
+        shiftNotesByStaffId,
+        totals,
+        perks,
+        pendingList,
+        deniedList,
+        ledger,
+        alerts,
+        items: sortedEntries.map((entry) => ({
+          code: entry.code,
+          perk: entry.venuePerkLabel || entry.perk || entry.perkKey || "Perk",
+          member: getEntryUserNameForAudit(entry),
+          status: normalizeCloseOutStatus(entry.status),
+          timestamp: entry.verifiedAt || entry.timestamp || new Date().toISOString(),
+          verifiedByStaffName: entry.lastActionStaffName || null,
+          verifiedByStaffId: entry.lastActionStaffId || null
         }))
       };
     }
@@ -31520,31 +32223,57 @@ let onboardingIndex = 0;
     function buildCloseOutSummaryHtml(report) {
       if (!report) return "";
       const totals = report.totals || {};
-      const perkLines = Object.entries(totals.byPerk || {})
-        .map(([perk, count]) => `<li>${perk}: ${count}</li>`)
-        .join("") || "<li>No perks redeemed yet.</li>";
-      const items = (report.items || [])
-        .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
-        .map(item => `<li><strong>${item.code || "—"}</strong> · ${item.perk || "Perk"} · ${formatMST(item.timestamp || Date.now(), { hour: "2-digit", minute: "2-digit" })}</li>`)
-        .join("") || "<li>No redemptions yet.</li>";
+      const perkLines = (report.perks || [])
+        .map((perk) => `<li>${perk.perkTitle}: ${perk.verifiedCount} verified · ${perk.pendingCount} pending · ${perk.deniedCount} denied</li>`)
+        .join("") || "<li>No perk activity yet.</li>";
+      const pendingLines = (report.pendingList || [])
+        .map((item) => `<li><strong>${item.redemptionId || "—"}</strong> · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${formatMST(item.attemptedAt || Date.now(), { hour: "2-digit", minute: "2-digit" })}${item.pendingReasonCode ? ` · ${item.pendingReasonCode}` : ""}</li>`)
+        .join("") || "<li>No pending redemptions.</li>";
+      const deniedLines = (report.deniedList || [])
+        .map((item) => `<li><strong>${item.redemptionId || "—"}</strong> · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.deniedReasonCode || "Reason n/a"}</li>`)
+        .join("") || "<li>No denied redemptions.</li>";
+      const ledgerLines = (report.ledger || [])
+        .sort((a, b) => new Date(b.verifiedAt || 0) - new Date(a.verifiedAt || 0))
+        .map((item) => `<li><strong>${item.redemptionId || "—"}</strong> · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${formatMST(item.verifiedAt || Date.now(), { hour: "2-digit", minute: "2-digit" })} · ${item.verifiedByStaffName || "Staff"}</li>`)
+        .join("") || "<li>No verified redemptions.</li>";
+      const alertLines = (report.alerts?.suspiciousActivityFlags || [])
+        .map((flag) => `<li>${flag}</li>`)
+        .join("") || "<li>No suspicious activity flagged.</li>";
       return `
         <div style="background:rgba(10,16,32,0.85);border:1px solid rgba(148,163,184,0.3);border-radius:16px;padding:12px;">
           <div style="color:#cbd5f5;font-weight:700;font-size:15px;margin-bottom:6px;">${report.venueName || "Venue"}</div>
           <div style="color:#94a3b8;font-size:12px;margin-bottom:4px;">Generated: ${formatMST(report.generatedAt)}</div>
           <div style="color:#94a3b8;font-size:12px;margin-bottom:10px;">${report.windowLabel || "Shift window: 5:00 AM - 2:45 AM"}</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px;color:#e2e8f0;font-size:13px;">
-            <div><strong>${totals.submitted ?? ((totals.verified || 0) + (totals.pending || 0))}</strong><br/><span style="color:#94a3b8;">Submitted</span></div>
-            <div><strong>${totals.verified || 0}</strong><br/><span style="color:#94a3b8;">Verified</span></div>
-            <div><strong>${totals.pending || 0}</strong><br/><span style="color:#94a3b8;">Pending</span></div>
+            <div><strong>${totals.totalRedemptions || 0}</strong><br/><span style="color:#94a3b8;">Total</span></div>
+            <div><strong>${totals.verifiedCount || 0}</strong><br/><span style="color:#94a3b8;">Verified</span></div>
+            <div><strong>${totals.pendingCount || 0}</strong><br/><span style="color:#94a3b8;">Pending</span></div>
+            <div><strong>${totals.deniedCount || 0}</strong><br/><span style="color:#94a3b8;">Denied</span></div>
+            <div><strong>${totals.vipVerifiedCount || 0}</strong><br/><span style="color:#94a3b8;">VIP verified</span></div>
+            <div><strong>${totals.standardVerifiedCount || 0}</strong><br/><span style="color:#94a3b8;">Standard verified</span></div>
           </div>
           <div style="margin-bottom:8px;">
             <strong style="color:#e2e8f0;">By perk</strong>
             <ul style="margin:6px 0 0 18px;color:#94a3b8;">${perkLines}</ul>
           </div>
-          <div>
-            <strong style="color:#e2e8f0;">Tonight’s redemptions</strong>
-            <ul style="margin:6px 0 0 18px;color:#94a3b8;max-height:220px;overflow:auto;">${items}</ul>
+          <div style="margin-bottom:8px;">
+            <strong style="color:#e2e8f0;">Pending redemptions</strong>
+            <ul style="margin:6px 0 0 18px;color:#94a3b8;max-height:140px;overflow:auto;">${pendingLines}</ul>
           </div>
+          <div style="margin-bottom:8px;">
+            <strong style="color:#e2e8f0;">Denied redemptions</strong>
+            <ul style="margin:6px 0 0 18px;color:#94a3b8;max-height:140px;overflow:auto;">${deniedLines}</ul>
+          </div>
+          <div style="margin-bottom:8px;">
+            <strong style="color:#e2e8f0;">Tonight’s redemption ledger</strong>
+            <ul style="margin:6px 0 0 18px;color:#94a3b8;max-height:180px;overflow:auto;">${ledgerLines}</ul>
+          </div>
+          <div style="margin-bottom:8px;">
+            <strong style="color:#e2e8f0;">Alerts</strong>
+            <div style="color:#cbd5f5;font-size:12px;margin-top:4px;">Expired attempts: ${report.alerts?.expiredAttempts || 0} · Rapid redemptions: ${report.alerts?.rapidRedemptions || 0}</div>
+            <ul style="margin:6px 0 0 18px;color:#94a3b8;max-height:120px;overflow:auto;">${alertLines}</ul>
+          </div>
+          ${report.shiftNotes ? `<div style="margin-top:8px;color:#cbd5f5;font-size:12px;"><strong>Shift notes:</strong> ${report.shiftNotes}</div>` : ""}
         </div>
       `;
     }
@@ -31571,28 +32300,45 @@ let onboardingIndex = 0;
         `Generated (MT): ${formatMST(report.generatedAt)}`,
         report.windowLabel || "Shift window: 5:00 AM - 2:45 AM",
         "",
-        `Submitted: ${totals.submitted ?? ((totals.verified || 0) + (totals.pending || 0))}  Verified: ${totals.verified || 0}  Pending: ${totals.pending || 0}`,
+        `Total: ${totals.totalRedemptions || 0}  Verified: ${totals.verifiedCount || 0}  Pending: ${totals.pendingCount || 0}  Denied: ${totals.deniedCount || 0}`,
+        `VIP verified: ${totals.vipVerifiedCount || 0}  Standard verified: ${totals.standardVerifiedCount || 0}`,
+        `Voided: ${totals.voidedCount || 0}  Expired attempts: ${totals.expiredAttemptCount || 0}`,
         "",
         "By perk:"
       ];
-      Object.entries(totals.byPerk || {}).forEach(([perk, count]) => {
-        lines.push(`- ${perk}: ${count}`);
+      (report.perks || []).forEach((perk) => {
+        lines.push(`- ${perk.perkTitle}: verified ${perk.verifiedCount}, pending ${perk.pendingCount}, denied ${perk.deniedCount}`);
       });
-      if (!Object.keys(totals.byPerk || {}).length) {
-        lines.push("- No perks redeemed.");
-      }
+      if (!(report.perks || []).length) lines.push("- No perk activity.");
       lines.push("");
-      lines.push("Redemptions:");
-      const items = (report.items || []).slice(0, 60);
-      if (!items.length) {
-        lines.push("- No redemptions yet.");
-      } else {
-        items.forEach(item => {
-          const stamp = formatMST(item.timestamp || Date.now(), { hour: "2-digit", minute: "2-digit" });
-          lines.push(`- ${item.code || "—"} · ${item.perk || "Perk"} · ${stamp}`);
-        });
+      lines.push("Pending:");
+      (report.pendingList || []).slice(0, 40).forEach((item) => {
+        lines.push(`- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.pendingReasonCode || "reason n/a"}`);
+      });
+      if (!(report.pendingList || []).length) lines.push("- None.");
+      lines.push("");
+      lines.push("Denied:");
+      (report.deniedList || []).slice(0, 40).forEach((item) => {
+        lines.push(`- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.deniedReasonCode || "reason n/a"}`);
+      });
+      if (!(report.deniedList || []).length) lines.push("- None.");
+      lines.push("");
+      lines.push("Ledger:");
+      (report.ledger || []).slice(0, 60).forEach((item) => {
+        const stamp = formatMST(item.verifiedAt || Date.now(), { hour: "2-digit", minute: "2-digit" });
+        lines.push(`- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${stamp} · ${item.verifiedByStaffName || "Staff"}`);
+      });
+      if (!(report.ledger || []).length) lines.push("- No verified redemptions.");
+      lines.push("");
+      lines.push("Alerts:");
+      lines.push(`- Expired attempts: ${report.alerts?.expiredAttempts || 0}`);
+      lines.push(`- Rapid redemptions: ${report.alerts?.rapidRedemptions || 0}`);
+      (report.alerts?.suspiciousActivityFlags || []).slice(0, 20).forEach((flag) => lines.push(`- ${flag}`));
+      if (report.shiftNotes) {
+        lines.push("");
+        lines.push(`Shift notes: ${report.shiftNotes}`);
       }
-      return lines.flatMap(line => wrapPdfLine(sanitizePdfText(line), 90));
+      return lines.flatMap((line) => wrapPdfLine(sanitizePdfText(line), 90));
     }
     function buildCeoAnalyticsPdfLines(snapshot = {}, weeklyHistory = []) {
       const demographics = Array.isArray(snapshot.demographics) ? snapshot.demographics : [];
@@ -31741,16 +32487,34 @@ let onboardingIndex = 0;
 
     async function sendCloseOutEmail(report) {
       if (!report) return false;
+      const totals = report.totals || {};
+      const perkLines = (report.perks || []).map((perk) => (
+        `- ${perk.perkTitle}: verified ${perk.verifiedCount}, pending ${perk.pendingCount}, denied ${perk.deniedCount}`
+      ));
+      const pendingLines = (report.pendingList || []).map((item) => (
+        `- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.pendingReasonCode || "reason n/a"}`
+      ));
+      const deniedLines = (report.deniedList || []).map((item) => (
+        `- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.deniedReasonCode || "reason n/a"}`
+      ));
+      const ledgerLines = (report.ledger || []).slice(0, 80).map((item) => (
+        `- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${formatMST(item.verifiedAt || Date.now(), { hour: "2-digit", minute: "2-digit" })} · ${item.verifiedByStaffName || "Staff"}`
+      ));
       const summary = [
         `Venue: ${report.venueName}`,
         `Generated: ${formatMST(report.generatedAt)}`,
         `${report.windowLabel || ""}`,
-        `Submitted: ${report.totals.submitted ?? ((report.totals.verified || 0) + (report.totals.pending || 0))}`,
-        `Verified: ${report.totals.verified || 0}`,
-        `Pending: ${report.totals.pending || 0}`
+        `Total: ${totals.totalRedemptions || 0}`,
+        `Verified: ${totals.verifiedCount || 0}`,
+        `Pending: ${totals.pendingCount || 0}`,
+        `Denied: ${totals.deniedCount || 0}`,
+        `Voided: ${totals.voidedCount || 0}`,
+        `Expired attempts: ${totals.expiredAttemptCount || 0}`,
+        `VIP verified: ${totals.vipVerifiedCount || 0}`,
+        `Standard verified: ${totals.standardVerifiedCount || 0}`,
+        report.shiftNotes ? `Shift notes: ${report.shiftNotes}` : "Shift notes: none"
       ].join("\n");
-      const lines = report.items.slice(0, 50).map(item => `${item.code} · ${item.perk} · ${formatMST(item.timestamp)}`);
-      const message = `[Close Out Report]\n${summary}\n\nBreakdown:\n${lines.join("\n")}`;
+      const message = `[Close Out Report]\n${summary}\n\nBy Perk:\n${perkLines.length ? perkLines.join("\n") : "- None"}\n\nPending:\n${pendingLines.length ? pendingLines.join("\n") : "- None"}\n\nDenied:\n${deniedLines.length ? deniedLines.join("\n") : "- None"}\n\nTonight Ledger:\n${ledgerLines.length ? ledgerLines.join("\n") : "- None"}\n\nAlerts:\n- Expired attempts: ${report.alerts?.expiredAttempts || 0}\n- Rapid redemptions: ${report.alerts?.rapidRedemptions || 0}\n${(report.alerts?.suspiciousActivityFlags || []).map((flag) => `- ${flag}`).join("\n") || "- No suspicious flags"}`;
       try {
         // Send via FormSubmit (same endpoint that already works for support)
         const resp = await fetch("https://formsubmit.co/ajax/focoafterdark@gmail.com", {
@@ -31782,8 +32546,14 @@ let onboardingIndex = 0;
       }
       const report = buildCloseOutReport();
       pendingCloseOutReport = report;
+      if (staffShiftNotes) {
+        staffShiftNotes.value = "";
+      }
       if (!report) {
         staffCloseOutSummary.innerHTML = '<p style="color:#94a3b8;">No redemptions yet for this shift window (5:00 AM - 2:45 AM).</p>';
+      } else if (isShiftClosedForVenue(staffSession.venue, report.shiftKey)) {
+        staffCloseOutStatus.textContent = "This shift is already closed.";
+        renderStaffCloseOutSummary(report);
       } else {
         renderStaffCloseOutSummary(report);
       }
@@ -31804,19 +32574,63 @@ let onboardingIndex = 0;
     async function persistCloseOutReportToCloud(report) {
       if (!report || !db) return;
       try {
-        const generatedAt = report.generatedAt
-          ? Timestamp.fromDate(new Date(report.generatedAt))
-          : serverTimestamp();
+        const generatedAtDate = toDateSafe(report.generatedAt) || new Date();
+        const generatedAt = Timestamp.fromDate(generatedAtDate);
         const payload = {
           ...report,
           generatedAt,
-          source: "staff"
+          closedAt: report.closedAt ? Timestamp.fromDate(new Date(report.closedAt)) : generatedAt,
+          shiftNotesAt: report.shiftNotesAt ? Timestamp.fromDate(new Date(report.shiftNotesAt)) : null,
+          source: "staff",
+          immutable: true
         };
         if (!guardWriteAction("persistCloseOutReport", "App is locked (read-only).", { silent: true })) return;
-        await addDoc(collection(db, "closeOutReports"), payload);
+        const reportRef = doc(db, "closeOutReports", String(report.id || `close-${report.venue}-${Date.now()}`));
+        const existing = await getDoc(reportRef);
+        if (!existing.exists()) {
+          await setDoc(reportRef, payload, { merge: false });
+        }
       } catch (err) {
         console.warn("Close-out cloud save failed", err);
       }
+    }
+    async function lockStaffShiftInCloud(report, actor) {
+      if (!report || !db || !staffSession?.venue) return;
+      const venueId = String(staffSession.venue || "").toLowerCase();
+      const shiftKey = String(report.shiftKey || getCurrentShiftKeyForVenue(venueId) || "").trim();
+      if (!shiftKey) return;
+      const closedAt = new Date().toISOString();
+      const closedByStaffId = actor?.staffId || null;
+      const closedByStaffName = actor?.staffName || null;
+      const lockPayload = {
+        shiftKey,
+        shiftClosed: true,
+        closedAt: serverTimestamp(),
+        closedByStaffId,
+        closedByStaffName,
+        reportId: report.id || null,
+        venueId,
+        totals: report.totals || {},
+        perks: report.perks || [],
+        pendingList: report.pendingList || [],
+        deniedList: report.deniedList || [],
+        ledger: report.ledger || [],
+        shiftNotes: report.shiftNotes || "",
+        shiftNotesAt: report.shiftNotesAt ? Timestamp.fromDate(new Date(report.shiftNotesAt)) : null,
+        shiftNotesByStaffId: report.shiftNotesByStaffId || null,
+        alerts: report.alerts || {},
+        updatedAt: serverTimestamp()
+      };
+      if (!guardWriteAction("lockStaffShift", "App is locked (read-only).", { silent: true })) return;
+      await setDoc(doc(db, "venues", venueId, "shiftCloseouts", shiftKey), lockPayload, { merge: true });
+      staffShiftLockMap[venueId] = staffShiftLockMap[venueId] || {};
+      staffShiftLockMap[venueId][shiftKey] = {
+        shiftClosed: true,
+        closedAt,
+        closedByStaffId,
+        closedByStaffName
+      };
+      saveStaffShiftLockLocal(venueId, staffShiftLockMap[venueId]);
     }
     function renderCeoRedemptionLog() {
       if (!ceoRedemptionList) return;
@@ -31890,14 +32704,19 @@ let onboardingIndex = 0;
           ? "All venues"
           : (venuesInfo[report.venue]?.name || report.venue || "Venue");
         const totals = report.totals || {};
+        const totalSubmitted = totals.totalRedemptions ?? totals.submitted ?? ((totals.verifiedCount || totals.verified || 0) + (totals.pendingCount || totals.pending || 0) + (totals.deniedCount || totals.denied || 0));
+        const verifiedCount = totals.verifiedCount ?? totals.verified ?? 0;
+        const pendingCount = totals.pendingCount ?? totals.pending ?? 0;
+        const deniedCount = totals.deniedCount ?? totals.denied ?? 0;
         return `
           <div class="log-row ceo-closeout-row" data-report-id="${report.id}">
             <strong>${venueName}</strong>
             <div style="color:#cbd5f5;">Close-out · ${when}</div>
             <div class="log-meta" style="gap:12px;">
-              <span>Submitted: ${totals.submitted ?? ((totals.verified || 0) + (totals.pending || 0))}</span>
-              <span>Verified: ${totals.verified || 0}</span>
-              <span>Pending: ${totals.pending || 0}</span>
+              <span>Total: ${totalSubmitted}</span>
+              <span>Verified: ${verifiedCount}</span>
+              <span>Pending: ${pendingCount}</span>
+              <span>Denied: ${deniedCount}</span>
             </div>
             <div style="display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap;">
               <span style="color:#94a3b8;font-size:12px;">Tap to view details</span>
@@ -32071,6 +32890,11 @@ let onboardingIndex = 0;
         const ts = new Date(entry.timestamp || entry.verifiedAt || 0).getTime();
         return ts >= cutoff;
       });
+      staffMembersCache = loadStaffMembersLocal(resolved).map(normalizeStaffMember);
+      staffActivityCache = loadStaffActivityLocal(resolved);
+      staffShiftLockMap[String(resolved || "").toLowerCase()] = loadStaffShiftLockLocal(resolved);
+      renderStaffTeamList();
+      renderStaffActivityLog();
       renderStaffVenueLog();
       renderStaffPendingQueue();
       renderStaffVipDeal();
@@ -32082,9 +32906,14 @@ let onboardingIndex = 0;
       startStaffPerksListener(venueId);
       startStaffRedemptionListener(venueId);
       startStaffMessagesListener(venueId);
+      startStaffMembersListener(venueId);
+      startStaffActivityListener(venueId);
+      startStaffShiftLockListener(venueId);
       renderStaffVipDeal();
       renderStaffAlertPreview();
       renderStaffDealCodes();
+      renderStaffTeamList();
+      renderStaffActivityLog();
       refreshStaffCeoReceipts();
       updateStaffRadar();
       renderStaffPendingQueue();
@@ -32096,6 +32925,14 @@ let onboardingIndex = 0;
         scanPortalAlert.style.display = "";
         scanPortalAlert.textContent = `Verifying pass ${code}…`;
       }
+      const actor = await requireStaffActor({
+        actionType: "verify_member_id",
+        prompt: "Who are you? Select the staff member verifying this member ID."
+      });
+      if (!actor) {
+        if (scanPortalAlert) scanPortalAlert.style.display = "none";
+        return;
+      }
       setPendingScan(null, { autoVerify: false });
       const venueId = staffSession.venue;
       const result = await verifyPassId(code, venueId, { label: "Pass verification (QR)" });
@@ -32105,6 +32942,15 @@ let onboardingIndex = 0;
         if (verifyError) verifyError.textContent = "";
         showNeonSuccess(verifySuccess, `Verified ${code}`, 4200);
         logStaffVerification(result.entry);
+        await logVenueStaffAction({
+          actionType: "verify_member_id",
+          staffId: actor.staffId,
+          staffName: actor.staffName,
+          venueId,
+          userId: result.profile?._docId || result.profile?.uid || null,
+          userName: String(result.profile?.name || result.profile?.displayName || code),
+          redemptionId: code
+        });
       }
       updatePendingScanAlerts();
     }
@@ -32376,8 +33222,12 @@ let onboardingIndex = 0;
         memberProfile.staffSession = null;
       }
       stopStaffMessagesListener();
+      stopStaffMembersListener();
+      stopStaffActivityListener();
+      stopStaffShiftLockListener();
       setRadarGraffiti("");
       staffVenueReceipts = [];
+      selectedStaffActor = null;
       renderStaffSentReceipts();
       renderStaffVipDeal();
       renderStaffAlertPreview();
@@ -32455,6 +33305,115 @@ let onboardingIndex = 0;
     staffLoginBack.addEventListener("click", () => {
       showScreen("landing");
     });
+    if (staffMemberForm) {
+      staffMemberForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (staffMemberError) staffMemberError.textContent = "";
+        if (staffMemberSuccess) staffMemberSuccess.style.display = "none";
+        if (!staffSession?.venue) {
+          if (staffMemberError) staffMemberError.textContent = "Staff login required.";
+          return;
+        }
+        const first = String(staffFirstName?.value || "").trim();
+        const last = String(staffLastName?.value || "").trim();
+        if (!first || !last) {
+          if (staffMemberError) staffMemberError.textContent = "Enter first and last name.";
+          return;
+        }
+        try {
+          const member = await addStaffMemberToVenue(first, last);
+          if (staffFirstName) staffFirstName.value = "";
+          if (staffLastName) staffLastName.value = "";
+          if (staffMemberSuccess) {
+            staffMemberSuccess.textContent = `Added ${member?.fullName || "staff member"} (#${member?.staffId || "00000"}).`;
+            staffMemberSuccess.style.display = "block";
+          }
+        } catch (err) {
+          console.warn("Add staff member failed", err);
+          if (staffMemberError) staffMemberError.textContent = err?.message || "Could not add staff member.";
+        }
+      });
+    }
+    if (staffTeamList) {
+      staffTeamList.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-remove-staff]");
+        if (!btn || !staffSession?.venue) return;
+        const staffId = String(btn.dataset.removeStaff || "").trim();
+        if (!staffId) return;
+        if (btn.dataset.busy === "1") return;
+        btn.dataset.busy = "1";
+        btn.disabled = true;
+        const previousText = btn.textContent;
+        btn.textContent = "Removing…";
+        try {
+          await deactivateStaffMemberForVenue(staffId);
+          if (staffMemberSuccess) {
+            staffMemberSuccess.textContent = `Removed staff #${staffId}.`;
+            staffMemberSuccess.style.display = "block";
+          }
+        } catch (err) {
+          console.warn("Remove staff failed", err);
+          if (staffMemberError) staffMemberError.textContent = "Could not remove staff member.";
+        } finally {
+          btn.dataset.busy = "";
+          btn.disabled = false;
+          btn.textContent = previousText;
+        }
+      });
+    }
+    if (staffActorCancel) {
+      staffActorCancel.addEventListener("click", () => {
+        if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
+        closeStaffActorModal();
+      });
+    }
+    if (staffActorClose) {
+      staffActorClose.addEventListener("click", () => {
+        if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
+        closeStaffActorModal();
+      });
+    }
+    if (staffActorModal) {
+      staffActorModal.addEventListener("click", (e) => {
+        if (e.target !== staffActorModal) return;
+        if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
+        closeStaffActorModal();
+      });
+    }
+    if (staffActorConfirm) {
+      staffActorConfirm.addEventListener("click", () => {
+        if (!pendingStaffActorResolver?.resolve) return;
+        const selectedId = String(staffActorSelect?.value || "").trim();
+        if (!selectedId) {
+          if (staffActorError) staffActorError.textContent = "Select a staff member.";
+          return;
+        }
+        const member = getActiveStaffMembers(staffSession?.venue).find((item) => item.staffId === selectedId);
+        if (!member) {
+          if (staffActorError) staffActorError.textContent = "Selected staff member is no longer active.";
+          return;
+        }
+        const requireReason = !!pendingStaffActorResolver.requireReason;
+        const reasonCode = String(staffActorReasonCode?.value || "").trim();
+        const reasonNote = String(staffActorReasonNote?.value || "").trim();
+        if (requireReason && !reasonCode) {
+          if (staffActorError) staffActorError.textContent = "Select a reason code.";
+          return;
+        }
+        selectedStaffActor = {
+          staffId: member.staffId,
+          staffName: member.fullName
+        };
+        pendingStaffActorResolver.resolve({
+          staffId: member.staffId,
+          staffName: member.fullName,
+          actionType: pendingStaffActorResolver.actionType || "",
+          reasonCode: reasonCode || null,
+          reasonNote: reasonNote || null
+        });
+        closeStaffActorModal();
+      });
+    }
 
     // Alert audience pills + detail counter
     if (alertAudiencePills && alertAudience) {
@@ -32490,6 +33449,7 @@ let onboardingIndex = 0;
       }
       if (staffCloseOutModal) staffCloseOutModal.classList.remove("active");
       staffCloseOutStatus.textContent = "";
+      if (staffShiftNotes) staffShiftNotes.value = "";
       pendingCloseOutReport = null;
     }
     if (staffCloseOutBtn) {
@@ -32510,7 +33470,28 @@ let onboardingIndex = 0;
         staffCloseOutSend.disabled = true;
         const originalText = staffCloseOutSend.textContent;
         staffCloseOutSend.textContent = "Sending…";
-        const report = pendingCloseOutReport || buildCloseOutReport();
+        const actor = await requireStaffActor({
+          actionType: "close_out_shift",
+          prompt: "Who are you? Select the staff member closing out this shift."
+        });
+        if (!actor) {
+          staffCloseOutSend.dataset.busy = "";
+          staffCloseOutSend.disabled = false;
+          staffCloseOutSend.textContent = originalText;
+          return;
+        }
+        const notes = String(staffShiftNotes?.value || "").trim();
+        const baseReport = pendingCloseOutReport || buildCloseOutReport();
+        const report = baseReport ? buildCloseOutReport({
+          ...baseReport,
+          id: baseReport.id,
+          shiftNotes: notes,
+          shiftNotesAt: notes ? new Date().toISOString() : null,
+          shiftNotesByStaffId: actor.staffId,
+          closedAt: new Date().toISOString(),
+          closedByStaffId: actor.staffId,
+          closedByStaffName: actor.staffName
+        }) : null;
         if (!report) {
           staffCloseOutStatus.textContent = "No redemptions to close out.";
           staffCloseOutSend.dataset.busy = "";
@@ -32518,11 +33499,44 @@ let onboardingIndex = 0;
           staffCloseOutSend.textContent = originalText;
           return;
         }
+        const shiftKey = String(report.shiftKey || "").trim();
+        if (isShiftClosedForVenue(staffSession?.venue, shiftKey)) {
+          staffCloseOutStatus.textContent = "This shift is already closed.";
+          staffCloseOutSend.dataset.busy = "";
+          staffCloseOutSend.disabled = false;
+          staffCloseOutSend.textContent = originalText;
+          return;
+        }
+        if ((report.totals?.pendingCount || 0) > 0 && !notes) {
+          staffCloseOutStatus.textContent = "Shift notes are required when pending redemptions exist.";
+          staffCloseOutSend.dataset.busy = "";
+          staffCloseOutSend.disabled = false;
+          staffCloseOutSend.textContent = originalText;
+          return;
+        }
+        if ((report.totals?.pendingCount || 0) > 0) {
+          const proceed = window.confirm("Pending redemptions are still unresolved. Continue close-out with shift notes?");
+          if (!proceed) {
+            staffCloseOutSend.dataset.busy = "";
+            staffCloseOutSend.disabled = false;
+            staffCloseOutSend.textContent = originalText;
+            return;
+          }
+        }
         try {
           staffCloseOutStatus.textContent = "Sending report…";
           const sent = await sendCloseOutEmail(report);
           persistCloseOutReport(report);
           await persistCloseOutReportToCloud(report);
+          await lockStaffShiftInCloud(report, actor);
+          await logVenueStaffAction({
+            actionType: "close_out_shift",
+            staffId: actor.staffId,
+            staffName: actor.staffName,
+            venueId: staffSession?.venue || report.venue || null,
+            reasonCode: (report.totals?.pendingCount || 0) > 0 ? "pending_remaining" : null,
+            reasonNote: notes || null
+          });
           renderCeoCloseOutReports();
           if (sent) {
             markAutoCloseOutSent(staffSession?.venue, report.shiftKey || getCloseOutWindow().shiftKey);
@@ -32532,6 +33546,7 @@ let onboardingIndex = 0;
             setStaffShiftStart(staffSession.venue, new Date());
             renderStaffPendingQueue();
           }
+          pendingCloseOutReport = report;
         } finally {
           staffCloseOutSend.dataset.busy = "";
           staffCloseOutSend.disabled = false;
@@ -32554,16 +33569,27 @@ let onboardingIndex = 0;
           return;
         }
         const venueId = staffSession ? staffSession.venue : null;
+        if (isShiftClosedForVenue(venueId)) {
+          verifyError.textContent = "Shift is already closed. Start next shift to verify new redemptions.";
+          return;
+        }
+        const actor = await requireStaffActor({
+          actionType: "verify_redemption",
+          prompt: "Who are you? Select the staff member verifying this redemption."
+        });
+        if (!actor) return;
         try {
           const result = await verifyCode(code, venueId);
           if (!result.success) {
             const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
             if (fallbackEntry) {
+              await attachStaffActionToEntry(fallbackEntry, actor, "verify_redemption");
               applyVoucherConfirmSuccess(fallbackEntry, code);
               return;
             }
             verifyError.textContent = result.message;
           } else {
+            await attachStaffActionToEntry(result.entry, actor, "verify_redemption");
             applyVoucherConfirmSuccess(result.entry, code);
           }
         } finally {
@@ -32575,47 +33601,104 @@ let onboardingIndex = 0;
     if (staffPendingList) {
       staffPendingList.addEventListener("click", async (e) => {
         try {
-          const btn = e.target.closest("[data-pending-confirm]");
+          const btn = e.target.closest("[data-pending-confirm], [data-pending-deny]");
           const row = e.target.closest("[data-pending-code]");
           if (!row || !staffSession) return;
           if (btn?.dataset.busy === "1") return;
-          const code = (btn?.dataset.pendingConfirm || row.dataset.pendingCode || "").toUpperCase();
+          const code = (btn?.dataset.pendingConfirm || btn?.dataset.pendingDeny || row.dataset.pendingCode || "").toUpperCase();
           if (!code) return;
           const venueId = staffSession.venue;
-          const requestedAction = String(btn?.dataset.pendingNext || "").toLowerCase() || "confirm";
+          const requestedAction = btn?.dataset.pendingDeny ? "deny" : (String(btn?.dataset.pendingNext || "").toLowerCase() || "confirm");
+          if (isShiftClosedForVenue(venueId)) {
+            verifyError.textContent = "Shift is already closed. Start next shift to verify new redemptions.";
+            return;
+          }
           if (btn) {
             btn.dataset.busy = "1";
             btn.disabled = true;
-            btn.textContent = requestedAction === "pending" ? "Updating…" : "Verifying…";
+            btn.textContent = requestedAction === "pending" ? "Updating…" : requestedAction === "deny" ? "Denying…" : "Verifying…";
           }
           try {
+            if (requestedAction === "deny") {
+              const actor = await requireStaffActor({
+                actionType: "deny_redemption",
+                prompt: "Who are you? Select the staff member denying this redemption.",
+                requireReason: true
+              });
+              if (!actor) return;
+              const denyResult = await denyRedemption(code, venueId, {
+                reasonCode: actor.reasonCode,
+                reasonNote: actor.reasonNote,
+                staffId: actor.staffId,
+                staffName: actor.staffName
+              });
+              if (!denyResult.success) {
+                verifyError.textContent = denyResult.message || "Could not deny this redemption.";
+                return;
+              }
+              await attachStaffActionToEntry(denyResult.entry, actor, "deny_redemption", {
+                deniedReasonCode: actor.reasonCode || null,
+                deniedReasonNote: actor.reasonNote || null
+              });
+              verifyError.textContent = "";
+              showNeonSuccess(verifySuccess, `Code ${code} denied.`, 4200);
+              return;
+            }
             if (requestedAction === "pending") {
-              const pendingResult = await setRedemptionPending(code, venueId);
+              const actor = await requireStaffActor({
+                actionType: "set_pending",
+                prompt: "Who are you? Select the staff member setting this redemption back to pending.",
+                requireReason: true
+              });
+              if (!actor) return;
+              const pendingResult = await setRedemptionPending(code, venueId, {
+                reasonCode: actor.reasonCode,
+                reasonNote: actor.reasonNote,
+                staffId: actor.staffId,
+                staffName: actor.staffName
+              });
               if (!pendingResult.success) {
                 verifyError.textContent = pendingResult.message || "Could not set pending right now.";
                 return;
               }
+              await attachStaffActionToEntry(pendingResult.entry, actor, "set_pending", {
+                pendingReasonCode: actor.reasonCode || null,
+                pendingReasonNote: actor.reasonNote || null
+              });
               verifyError.textContent = "";
               showNeonSuccess(verifySuccess, `Code ${code} marked pending.`, 4200);
               return;
             }
             if ((row.dataset.pendingStatus || "") !== "pending") return;
+            const actor = await requireStaffActor({
+              actionType: "verify_redemption",
+              prompt: "Who are you? Select the staff member verifying this redemption."
+            });
+            if (!actor) return;
             const result = await verifyCode(code, venueId);
             if (!result.success) {
               const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
               if (fallbackEntry) {
+                await attachStaffActionToEntry(fallbackEntry, actor, "verify_redemption");
                 applyVoucherConfirmSuccess(fallbackEntry, code);
                 return;
               }
               verifyError.textContent = result.message;
               return;
             }
+            await attachStaffActionToEntry(result.entry, actor, "verify_redemption");
             applyVoucherConfirmSuccess(result.entry, code);
           } finally {
             if (btn) {
               btn.dataset.busy = "";
               btn.disabled = false;
-              btn.textContent = requestedAction === "pending" ? "Confirmed" : "Confirm";
+              if (requestedAction === "pending") {
+                btn.textContent = "Confirmed";
+              } else if (requestedAction === "deny") {
+                btn.textContent = "Deny";
+              } else {
+                btn.textContent = "Confirm";
+              }
             }
           }
         } catch (err) {
@@ -32637,6 +33720,10 @@ let onboardingIndex = 0;
       staffDealCodeList.addEventListener("click", (e) => {
         const btn = e.target.closest("button[data-gen-deal]");
         if (!btn || !staffSession) return;
+        if (isShiftClosedForVenue(staffSession.venue)) {
+          verifyError.textContent = "Shift is already closed. Start next shift to generate new deal codes.";
+          return;
+        }
         const alertId = String(btn.dataset.genDeal || "").trim();
         const alert = (Array.isArray(tonightAlerts) ? tonightAlerts : [])
           .find((a) => String(a?.id || "").trim() === alertId);
@@ -32663,6 +33750,16 @@ let onboardingIndex = 0;
         addRedemptionLogEntry(redemptionEntry, { skipPoints: true, skipPassStats: true });
         renderStaffPendingQueue();
         renderStaffDealCodes();
+        logVenueStaffAction({
+          actionType: "generate_deal_code",
+          staffId: selectedStaffActor?.staffId || null,
+          staffName: selectedStaffActor?.staffName || null,
+          venueId: staffSession?.venue || null,
+          redemptionId: code,
+          perkId: "deal",
+          perkTitle: alert.title || "Tonight's deal",
+          reasonCode: null
+        }).catch(() => {});
         showNeonSuccess(verifySuccess, `Deal code ${code} generated and added to pending.`, 4200);
       });
     }
@@ -35357,6 +36454,9 @@ let onboardingIndex = 0;
       }
       const codeUpper = code.toUpperCase();
       const venueKey = (venueId || "").toLowerCase();
+      if (isShiftClosedForVenue(venueKey)) {
+        return { success: false, message: "Shift is already closed. Start next shift to verify new redemptions." };
+      }
       const toIso = (ts) => {
         if (!ts) return new Date().toISOString();
         if (ts.toDate) return ts.toDate().toISOString();
@@ -35384,6 +36484,15 @@ let onboardingIndex = 0;
           : (payload.expiresAt ? new Date(payload.expiresAt).getTime() : null),
         timestamp: toIso(payload.createdAt || payload.timestamp),
         verifiedAt: toIso(payload.verifiedAt || payload.createdAt || payload.timestamp),
+        deniedAt: toIso(payload.deniedAt),
+        lastActionType: payload.lastActionType || null,
+        lastActionAt: toIso(payload.lastActionAt),
+        lastActionStaffId: payload.lastActionStaffId || null,
+        lastActionStaffName: payload.lastActionStaffName || null,
+        pendingReasonCode: payload.pendingReasonCode || null,
+        pendingReasonNote: payload.pendingReasonNote || null,
+        deniedReasonCode: payload.deniedReasonCode || null,
+        deniedReasonNote: payload.deniedReasonNote || null,
       });
       const applyVerifiedEntryToLocalLog = (updated = {}) => {
         const codeKey = String(updated.code || "").toUpperCase();
@@ -35415,7 +36524,12 @@ let onboardingIndex = 0;
         }
         try {
           const fn = httpsCallable(functionsClient, "verifyRedemption");
-          const resp = await fn({ redemptionId: codeUpper, venueId: venueKey, action: "confirm" });
+          const resp = await fn({
+            redemptionId: codeUpper,
+            venueId: venueKey,
+            action: "confirm",
+            shiftKey: getCurrentShiftKeyForVenue(venueKey) || null
+          });
           return { success: true, entry: resp?.data?.redemption || {} };
         } catch (err) {
           const code = err?.code || "";
@@ -35510,10 +36624,13 @@ let onboardingIndex = 0;
       return { success: true, entry: mapped };
     }
 
-    async function setRedemptionPending(code, venueId) {
+    async function setRedemptionPending(code, venueId, options = {}) {
       const codeUpper = String(code || "").toUpperCase().trim();
       const venueKey = String(venueId || "").toLowerCase().trim();
       if (!codeUpper) return { success: false, message: "Missing code." };
+      if (isShiftClosedForVenue(venueKey)) {
+        return { success: false, message: "Shift is already closed. Start next shift to update redemptions." };
+      }
       const idx = (Array.isArray(redemptionLog) ? redemptionLog : []).findIndex((entry) => (
         String(entry?.code || "").toUpperCase() === codeUpper
       ));
@@ -35526,7 +36643,35 @@ let onboardingIndex = 0;
         ...existing,
         status: "pending",
         verifiedAt: null,
+        deniedAt: null,
+        deniedReasonCode: null,
+        deniedReasonNote: null
       };
+      if (functionsClient) {
+        try {
+          const fn = httpsCallable(functionsClient, "verifyRedemption");
+          const resp = await fn({
+            redemptionId: codeUpper,
+            venueId: venueKey,
+            action: "pending",
+            reasonCode: options?.reasonCode || null,
+            reasonNote: options?.reasonNote || null,
+            staffId: options?.staffId || null,
+            staffName: options?.staffName || null,
+            shiftKey: getCurrentShiftKeyForVenue(venueKey) || null
+          });
+          const payload = resp?.data?.redemption || {};
+          if (payload && typeof payload === "object") {
+            Object.assign(updated, {
+              status: String(payload.status || "pending").toLowerCase(),
+              verifiedAt: payload.verifiedAt ? toDateSafe(payload.verifiedAt)?.toISOString?.() || payload.verifiedAt : null,
+              deniedAt: payload.deniedAt ? toDateSafe(payload.deniedAt)?.toISOString?.() || payload.deniedAt : null
+            });
+          }
+        } catch (err) {
+          return { success: false, message: err?.message || "Could not set pending right now." };
+        }
+      }
       redemptionLog[idx] = updated;
       saveRedemptionLog();
       renderStaffVenueLog();
@@ -35538,6 +36683,88 @@ let onboardingIndex = 0;
       refreshMemberStats();
       await syncRedemptionToCloud(updated);
       return { success: true, entry: updated };
+    }
+
+    async function denyRedemption(code, venueId, options = {}) {
+      const codeUpper = String(code || "").toUpperCase().trim();
+      const venueKey = String(venueId || "").toLowerCase().trim();
+      if (!codeUpper || !venueKey) return { success: false, message: "Missing code or venue." };
+      if (isShiftClosedForVenue(venueKey)) return { success: false, message: "Shift is already closed. Start next shift to update redemptions." };
+      if (!functionsClient) return { success: false, message: "Verification unavailable." };
+      try {
+        const fn = httpsCallable(functionsClient, "verifyRedemption");
+        const resp = await fn({
+          redemptionId: codeUpper,
+          venueId: venueKey,
+          action: "deny",
+          reasonCode: options?.reasonCode || null,
+          reasonNote: options?.reasonNote || null,
+          staffId: options?.staffId || null,
+          staffName: options?.staffName || null,
+          shiftKey: getCurrentShiftKeyForVenue(venueKey) || null
+        });
+        const payload = resp?.data?.redemption || {};
+        const normalized = {
+          ...payload,
+          code: (payload.redemptionId || payload.code || codeUpper).toUpperCase(),
+          status: String(payload.status || "denied").toLowerCase(),
+          deniedAt: payload.deniedAt ? toDateSafe(payload.deniedAt)?.toISOString?.() || payload.deniedAt : new Date().toISOString()
+        };
+        const idx = (Array.isArray(redemptionLog) ? redemptionLog : []).findIndex((entry) => (
+          String(entry?.code || "").toUpperCase() === codeUpper
+        ));
+        if (idx >= 0) {
+          redemptionLog[idx] = { ...redemptionLog[idx], ...normalized };
+        } else {
+          redemptionLog.unshift(normalized);
+        }
+        saveRedemptionLog();
+        renderStaffVenueLog();
+        renderStaffPendingQueue();
+        renderStaffDealCodes();
+        refreshMemberStats();
+        return { success: true, entry: normalized };
+      } catch (err) {
+        const message = err?.message || "Could not deny redemption right now.";
+        return { success: false, message };
+      }
+    }
+    function getEntryUserNameForAudit(entry = {}) {
+      const username = getEntryUsername(entry);
+      if (username) return `@${username}`;
+      const member = String(entry.member || "").trim();
+      if (member) return member;
+      const pass = String(entry.passId || "").toUpperCase();
+      return pass ? `Pass ${pass}` : "";
+    }
+    async function attachStaffActionToEntry(entry, actionCtx, actionType, extras = {}) {
+      if (!entry) return;
+      const updated = {
+        ...entry,
+        lastActionType: actionType || null,
+        lastActionAt: new Date().toISOString(),
+        lastActionStaffId: actionCtx?.staffId || null,
+        lastActionStaffName: actionCtx?.staffName || null,
+        pendingReasonCode: extras.pendingReasonCode ?? entry.pendingReasonCode ?? null,
+        pendingReasonNote: extras.pendingReasonNote ?? entry.pendingReasonNote ?? null,
+        deniedReasonCode: extras.deniedReasonCode ?? entry.deniedReasonCode ?? null,
+        deniedReasonNote: extras.deniedReasonNote ?? entry.deniedReasonNote ?? null,
+      };
+      Object.assign(entry, updated);
+      await syncRedemptionToCloud(updated);
+      await logVenueStaffAction({
+        actionType,
+        staffId: actionCtx?.staffId || null,
+        staffName: actionCtx?.staffName || null,
+        venueId: staffSession?.venue || updated.venue || updated.requestedVenue || null,
+        redemptionId: updated.code || null,
+        userId: updated.memberUid || null,
+        userName: getEntryUserNameForAudit(updated),
+        perkId: updated.venuePerkId || updated.perkKey || null,
+        perkTitle: updated.venuePerkLabel || updated.perk || null,
+        reasonCode: extras.pendingReasonCode || extras.deniedReasonCode || actionCtx?.reasonCode || null,
+        reasonNote: extras.pendingReasonNote || extras.deniedReasonNote || actionCtx?.reasonNote || null
+      });
     }
 
     function isVerifiedRedemptionStatus(status) {
@@ -35581,6 +36808,9 @@ let onboardingIndex = 0;
 
     async function verifyPassId(passId, venueId, options = {}) {
       if (!passId) return { success: false, message: "Scan didn’t include a pass ID." };
+      if (isShiftClosedForVenue(venueId)) {
+        return { success: false, message: "Shift is already closed. Start next shift to verify new redemptions." };
+      }
       let profile = null;
       try {
         profile = await lookupMemberProfile(passId);
@@ -35727,10 +36957,20 @@ let onboardingIndex = 0;
         verifySuccess.classList.remove("visible");
         const code = verifyCodeInput.value.trim();
         const venueId = staffSession ? staffSession.venue : null;
+        if (isShiftClosedForVenue(venueId)) {
+          verifyError.textContent = "Shift is already closed. Start next shift to verify new redemptions.";
+          return;
+        }
+        const actor = await requireStaffActor({
+          actionType: "verify_redemption",
+          prompt: "Who are you? Select the staff member verifying this redemption."
+        });
+        if (!actor) return;
         const result = await verifyCode(code, venueId);
         if (!result.success) {
           const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
           if (fallbackEntry) {
+            await attachStaffActionToEntry(fallbackEntry, actor, "verify_redemption");
             applyVoucherConfirmSuccess(fallbackEntry, code);
             verifyCodeInput.value = "";
             if (verifyCodeInput) verifyCodeInput.focus();
@@ -35740,6 +36980,7 @@ let onboardingIndex = 0;
           if (verifyCodeInput) verifyCodeInput.focus();
           return;
         }
+        await attachStaffActionToEntry(result.entry, actor, "verify_redemption");
         applyVoucherConfirmSuccess(result.entry, code);
         verifyCodeInput.value = "";
         if (verifyCodeInput) verifyCodeInput.focus();
@@ -36027,6 +37268,11 @@ let onboardingIndex = 0;
         e.preventDefault();
         memberIdError.textContent = "";
         memberIdResult.classList.remove("visible");
+        const actor = await requireStaffActor({
+          actionType: "verify_member_id",
+          prompt: "Who are you? Select the staff member verifying this member ID."
+        });
+        if (!actor) return;
         const rawLookup = String(memberIdInput.value || "").trim();
         if (!rawLookup) {
           memberIdError.textContent = "Enter a pass ID.";
@@ -36041,6 +37287,15 @@ let onboardingIndex = 0;
           showNeonSuccess(memberIdResult, "Verified FoCo Founder & CEO · Adrian White", 7600, true);
           memberIdResult.scrollIntoView({ behavior: "smooth", block: "center" });
           memberIdInput.value = "";
+          await logVenueStaffAction({
+            actionType: "verify_member_id",
+            staffId: actor.staffId,
+            staffName: actor.staffName,
+            venueId: staffSession?.venue || null,
+            userId: null,
+            userName: "Adrian White",
+            redemptionId: null
+          });
           return;
         }
         let profile = await lookupMemberProfile(passId, { requireDoc: false });
@@ -36073,6 +37328,16 @@ let onboardingIndex = 0;
           : `Verified ${memberLabel} · ${membershipLine} · ${verificationLine}.${creatorNote}`;
         showNeonSuccess(memberIdResult, message, 7600, true);
         memberIdResult.scrollIntoView({ behavior: "smooth", block: "center" });
+        await logVenueStaffAction({
+          actionType: "verify_member_id",
+          staffId: actor.staffId,
+          staffName: actor.staffName,
+          venueId: staffSession?.venue || null,
+          userId: profile?._docId || profile?.uid || null,
+          userName: userDisplay || passDisplay,
+          redemptionId: resolvedPass || passId,
+          perkTitle: null
+        });
         setTimeout(() => {
           memberIdInput.value = "";
         }, 600);
