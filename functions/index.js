@@ -2366,6 +2366,26 @@ function extractAchievementIdFromAwardKey(awardKey = "") {
   return normalized.slice("achievement:".length);
 }
 
+function isPointsLockedMember(member = {}) {
+  const overrideRaw = member?.membershipOverride
+    || member?.override
+    || member?.membership_override
+    || member?.membershipTierOverride
+    || "";
+  const override = String(overrideRaw || "").toUpperCase();
+  const tier = String(member?.tier || member?.membershipTier || "").toLowerCase();
+  const requestedTier = String(member?.requestedTier || "").toLowerCase();
+  const membershipStatus = String(member?.membershipStatus || "").toLowerCase();
+  return (
+    member?.freeMembership === true
+    || override === "CEO_FREE"
+    || tier === "explorer"
+    || tier === "free"
+    || requestedTier === "explorer"
+    || membershipStatus === "explorer"
+  );
+}
+
 // Server-side points adjust with idempotency support for one-time awards.
 exports.awardPoints = functions.https.onCall(async (data, context) => {
   await enforceCallableSecurity(context, {
@@ -2388,8 +2408,27 @@ exports.awardPoints = functions.https.onCall(async (data, context) => {
     const snap = await tx.get(memberRef);
     if (!snap.exists) throw new HttpsError('failed-precondition', 'Member missing');
     const member = snap.data() || {};
+    const pointsLocked = isPointsLockedMember(member);
     const current = Math.max(0, Number(member.points || 0));
     const venuesVisited = { ...(member.venuesVisited || {}) };
+    if (pointsLocked) {
+      if (current !== 0) {
+        tx.set(memberRef, {
+          points: 0,
+          pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
+      result = {
+        success: true,
+        awarded: false,
+        skipped: true,
+        points: 0,
+        pointsLocked: true,
+        venuesVisited,
+        awardKey: awardKey || null
+      };
+      return;
+    }
     if (venue) {
       venuesVisited[venue] = true;
     }
@@ -2503,6 +2542,7 @@ exports.spinNightWheel = functions.https.onCall(async (data, context) => {
     const passCode = (member.passCode || '').toUpperCase();
     const tier = (member.tier || 'standard').toLowerCase();
     const allowance = nightWheelAllowance(tier, { freeMembership: !!member.freeMembership, ceo: !!member.ceo });
+    const pointsLocked = isPointsLockedMember(member);
     const weekToken = getWeekToken();
     const state = member.nightWheel || {};
     const entry = state[passCode] || {};
@@ -2515,7 +2555,7 @@ exports.spinNightWheel = functions.https.onCall(async (data, context) => {
     const drink = pick(specials);
     const challenge = pick(challenges);
     state[passCode] = { week: weekToken, spins: nextSpins };
-    const points = Math.max(0, (member.points || 0) + 20);
+    const points = pointsLocked ? 0 : Math.max(0, Number(member.points || 0) + 20);
     tx.set(memberRef, {
       nightWheel: state,
       points,
@@ -2527,7 +2567,7 @@ exports.spinNightWheel = functions.https.onCall(async (data, context) => {
       passCode,
       week: weekToken,
       spins: nextSpins,
-      pointsAwarded: 20,
+      pointsAwarded: pointsLocked ? 0 : 20,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       result: { bar, drink, challenge }
     });

@@ -16661,6 +16661,9 @@
       const tier = normalizeTierKey(profile?.tier || currentMembershipTier || "");
       return tier === "explorer";
     }
+    function isPointsLockedForCurrentMember(profile = memberProfile) {
+      return isFreeMember(profile) || isExplorerMember(profile);
+    }
     const EXPLORER_LOCKED_ACCENTS = new Set(["jade", "electric", "ember", "glass", "neon_lime", "ruby_night", "paloma"]);
     function isExplorerLockedAccent(theme = "") {
       return EXPLORER_LOCKED_ACCENTS.has(String(theme || "").toLowerCase());
@@ -20644,7 +20647,7 @@
         lastCheckinDate: previousLoginDate,
         lastLoginBonusAt: nextLoginBonusAt
       });
-      if (isLoginBonusDue) {
+      if (isLoginBonusDue && !isPointsLockedForCurrentMember()) {
         addPoints(loginBonus, "Daily login bonus", { awardKey: loginAwardKey || `daily_login:${todayKey}` });
       }
       updateLastCheckinUI();
@@ -26657,8 +26660,12 @@ let onboardingIndex = 0;
       const key = (passId || "").toUpperCase();
       if (useCloudProfile()) {
         if (key === (currentPassCode || "").toUpperCase()) {
+          if (isPointsLockedForCurrentMember()) return 0;
           return Number(memberProfile?.points) || 0;
         }
+        return 0;
+      }
+      if (key === (currentPassCode || "").toUpperCase() && isPointsLockedForCurrentMember()) {
         return 0;
       }
       if (key === (currentPassCode || "").toUpperCase() && Number.isFinite(memberProfile?.points)) {
@@ -26696,7 +26703,7 @@ let onboardingIndex = 0;
       if (useCloudProfile()) {
         const key = passId.toUpperCase();
         if (key === (currentPassCode || "").toUpperCase()) {
-          const incoming = Math.max(0, points);
+          const incoming = isPointsLockedForCurrentMember() ? 0 : Math.max(0, points);
           memberProfile = memberProfile || {};
           memberProfile.points = incoming;
           updatePointsUI();
@@ -26706,7 +26713,9 @@ let onboardingIndex = 0;
       const ledger = loadPointsLedger();
       const key = passId.toUpperCase();
       const entry = ledger[key] || { points: 0, venues: {} };
-      const incoming = Math.max(0, points);
+      const incoming = (key === (currentPassCode || "").toUpperCase() && isPointsLockedForCurrentMember())
+        ? 0
+        : Math.max(0, points);
       const next = opts.forceLower ? incoming : Math.max(entry.points || 0, incoming);
       entry.points = next;
       entry.username = preferredUsername();
@@ -26739,6 +26748,18 @@ let onboardingIndex = 0;
     async function addPoints(points, reason = "", meta = {}) {
       const code = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
       if (!code || !Number.isFinite(points) || points <= 0) return;
+      if (isPointsLockedForCurrentMember()) {
+        memberProfile = { ...(memberProfile || {}), points: 0 };
+        if (!useCloudProfile()) {
+          const ledger = loadPointsLedger();
+          if (ledger[code]) {
+            ledger[code].points = 0;
+            savePointsLedger(ledger);
+          }
+        }
+        updatePointsUI();
+        return { success: true, awarded: false, skipped: true, points: 0, pointsLocked: true };
+      }
       const awardKey = normalizePointAwardKeyClient(meta?.awardKey || "");
       const requireCloud = !!meta?.requireCloud;
       if (awardKey && inFlightPointAwardKeys.has(awardKey)) {
@@ -26836,6 +26857,9 @@ let onboardingIndex = 0;
     function updatePointsUI() {
       const code = (currentPassCode || "").toUpperCase();
       if (!code) return;
+      if (isPointsLockedForCurrentMember() && Number(memberProfile?.points || 0) !== 0) {
+        memberProfile = { ...(memberProfile || {}), points: 0 };
+      }
       const points = getPointsForPass(code);
       if (pointsBalance) pointsBalance.textContent = `${points} pts`;
       if (userUsername) {
@@ -30508,7 +30532,12 @@ let onboardingIndex = 0;
       if (loadVibeState(key)) updates.vibeSet = true;
       if (verifiedCount >= 10) updates.perkRegular = true;
       const rewardUpdates = {};
-      const canGrantAchievementPoints = !!(useCloudProfile() && functionsClient && firebaseAuth?.currentUser);
+      const canGrantAchievementPoints = !!(
+        useCloudProfile()
+        && functionsClient
+        && firebaseAuth?.currentUser
+        && !isPointsLockedForCurrentMember()
+      );
       for (const [id, points] of Object.entries(ACHIEVEMENT_POINTS)) {
         const unlockedNow = !!updates[id] && !entry[id];
         if (!unlockedNow) continue;
