@@ -15902,6 +15902,8 @@
     function requiresAgeVerificationClient(profile = memberProfile, user = firebaseAuth?.currentUser) {
       if (!profile || !user) return false;
       if (isAgeVerificationExemptClient(profile, user)) return false;
+      const tier = normalizeTierKey(profile?.tier || currentMembershipTier || "");
+      if (tier === "explorer") return false;
       const status = ageVerificationStatusKey(profile);
       const explicitRequired = profile?.ageVerificationRequired === true
         || status === "required"
@@ -16722,6 +16724,10 @@
     }
     function hasVipAccess() {
       return currentMembershipTier === "vip" || isCeoActive() || isFreeMember();
+    }
+    function isVenuesTabLockedForMember(profile = memberProfile) {
+      const tier = normalizeTierKey(profile?.tier || currentMembershipTier || "");
+      return tier === "explorer" || tier === "free";
     }
     if (signupBackBtn) {
       signupBackBtn.addEventListener("click", () => {
@@ -17562,13 +17568,7 @@
               requestedTier
             };
             showScreen("ageVerify");
-	          const started = await startAgeVerificationFlow({
-	            tier: requestedTier,
-	            birthDate: birthDateISO || memberProfile?.birthDate || ""
-	          });
-	          if (!started) {
-	            showScreen("ageVerify");
-	          }
+            showToast("Tap Verify my ID now when you’re ready.", 2200);
 	      } else if (requestedTier === "explorer" && !signupAppliedFreeInvite && !isFreeMember(memberProfile)) {
           memberProfile = {
             ...(memberProfile || {}),
@@ -23036,8 +23036,8 @@ let onboardingIndex = 0;
             showToast("Profile activity unlocks after upgrading your membership.", 2200);
             return;
           }
-          if (target === "venues" && isExplorerMember()) {
-            showToast("Venues tab unlocks on paid membership.", 2200);
+          if (target === "venues" && isVenuesTabLockedForMember()) {
+            showToast("Upgrade to unlock the Venues tab.", 2200);
             return;
           }
           if (target === "venues") {
@@ -36635,7 +36635,7 @@ let onboardingIndex = 0;
             ageVerified21: false
           }).catch((err) => console.warn("Explorer upgrade precheck save failed", err));
           showScreen("ageVerify");
-          startAgeVerificationFlow({ tier }).catch((err) => console.warn("Explorer upgrade age verification start failed", err));
+          showToast("Tap Verify my ID now to continue upgrade.", 2200);
           return;
         }
         pendingMembershipTier = tier;
@@ -36817,7 +36817,7 @@ let onboardingIndex = 0;
       }
       const venuesNavBtn = bottomNav ? bottomNav.querySelector('[data-bottom-nav="venues"]') : null;
       if (venuesNavBtn) {
-        venuesNavBtn.classList.toggle("locked", tier === "explorer");
+        venuesNavBtn.classList.toggle("locked", isVenuesTabLockedForMember({ ...(memberProfile || {}), tier }));
         venuesNavBtn.textContent = "Venues";
       }
       const leaveReviewAction = menuScreen ? menuScreen.querySelector('[data-menu-action="review"]') : null;
