@@ -3351,6 +3351,58 @@
     #passScreen .pass-card.explorer-locked .explorer-pass-lock-overlay {
       display: flex;
     }
+    .explorer-screen-lock {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1400;
+      background: rgba(247, 250, 255, 0.58);
+      backdrop-filter: blur(12px) saturate(0.72);
+      -webkit-backdrop-filter: blur(12px) saturate(0.72);
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+    .explorer-screen-lock-card {
+      width: min(460px, 100%);
+      border-radius: 24px;
+      border: 1px solid rgba(251, 191, 36, 0.56);
+      background: linear-gradient(160deg, rgba(2, 6, 23, 0.94), rgba(15, 23, 42, 0.9));
+      box-shadow: 0 24px 56px rgba(2, 6, 23, 0.52), 0 0 36px rgba(251, 191, 36, 0.24);
+      padding: 22px 18px;
+      display: grid;
+      gap: 12px;
+      justify-items: center;
+      text-align: center;
+    }
+    .explorer-screen-lock-icon {
+      width: 62px;
+      height: 62px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 26px;
+      border: 1px solid rgba(251, 191, 36, 0.6);
+      color: #fde68a;
+      background: radial-gradient(circle at 50% 35%, rgba(251, 191, 36, 0.24), rgba(30, 41, 59, 0.22) 72%);
+      box-shadow: 0 0 24px rgba(251, 191, 36, 0.3);
+    }
+    .explorer-screen-lock-title {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fde68a;
+    }
+    .explorer-screen-lock-copy {
+      font-size: 14px;
+      line-height: 1.45;
+      color: #dbe4f4;
+      max-width: 34ch;
+    }
+    #passScreen.explorer-screen-locked .explorer-screen-lock {
+      display: flex;
+    }
     .age-verify-card {
       margin-top: 14px;
       border-radius: 18px;
@@ -12940,6 +12992,14 @@
 
     <!-- PASS SCREEN -->
       <div id="passScreen" class="screen">
+        <div class="explorer-screen-lock" id="explorerScreenLock" aria-live="polite">
+          <div class="explorer-screen-lock-card">
+            <div class="explorer-screen-lock-icon" aria-hidden="true">🔒</div>
+            <div class="explorer-screen-lock-title">FREE (Explorer) view</div>
+            <div class="explorer-screen-lock-copy">Your pass and redemptions are locked until you upgrade to a paid membership.</div>
+            <button type="button" class="btn btn-primary" id="explorerScreenUpgradeBtn">Upgrade membership</button>
+          </div>
+        </div>
         <div class="pass-top">
           <div class="nav-dropdown">
             <button type="button" class="nav-toggle" id="navMenuToggle">Menu ▾</button>
@@ -17756,6 +17816,10 @@
       const pendingUid = localStorage.getItem(PENDING_MEMBERSHIP_STORAGE_KEY);
       let storedTier = memberProfile?.tier || (allowLocalCache() && user.uid ? localStorage.getItem(`membership_${user.uid}`) : null);
       if (memberProfile?.freeMembership) storedTier = "free";
+      const membershipStatusKey = String(memberProfile?.membershipStatus || "").toLowerCase();
+      if (!memberProfile?.freeMembership && membershipStatusKey === "explorer") {
+        storedTier = "explorer";
+      }
       if (!storedTier && normalizeTierKey(memberProfile?.requestedTier) === "explorer") {
         storedTier = "explorer";
       }
@@ -17829,6 +17893,7 @@
     const profileBadges = document.getElementById("profileBadges");
     const statusPill = document.getElementById("statusPill");
     const passCard = document.getElementById("passCard");
+    const explorerScreenUpgradeBtn = document.getElementById("explorerScreenUpgradeBtn");
     const explorerLockBanner = document.getElementById("explorerLockBanner");
     const explorerUpgradeBtn = document.getElementById("explorerUpgradeBtn");
     const explorerUpgradeBtnLarge = document.getElementById("explorerUpgradeBtnLarge");
@@ -36300,6 +36365,11 @@ let onboardingIndex = 0;
         openMembershipChooser();
       });
     }
+    if (explorerScreenUpgradeBtn) {
+      explorerScreenUpgradeBtn.addEventListener("click", () => {
+        openMembershipChooser();
+      });
+    }
     tierModalAction.addEventListener("click", async () => {
       const targetTier = tierModalAction.dataset.targetTier;
       if (!targetTier) {
@@ -36330,7 +36400,7 @@ let onboardingIndex = 0;
       if (profileExperienceTag) {
         if (mode === "ceo") profileExperienceTag.textContent = "Founder Mode";
         else if (mode === "ceo_free") profileExperienceTag.textContent = "CEO ISSUED";
-        else if (mode === "explorer") profileExperienceTag.textContent = "Explorer";
+        else if (mode === "explorer") profileExperienceTag.textContent = "FREE";
         else if (mode === "vip") profileExperienceTag.textContent = "VIP";
         else profileExperienceTag.textContent = "Standard";
       }
@@ -36414,11 +36484,14 @@ let onboardingIndex = 0;
           <li class="perk-row"><span class="perk-dot"></span> Preview Standard + VIP perks in locked mode</li>
           <li class="perk-row"><span class="perk-dot"></span> Upgrade to unlock pass + redemptions</li>
         `;
-        statusPill.textContent = "Explorer";
-        passTierText.textContent = "Nightlife Pass • Explorer";
+        statusPill.textContent = "FREE";
+        passTierText.textContent = "Nightlife Pass • FREE (Explorer)";
         if (expiryText) expiryText.textContent = "Upgrade to activate digital pass";
       } else {
         statusPill.classList.remove("vip-status", "ceo");
+      }
+      if (screens?.pass) {
+        screens.pass.classList.toggle("explorer-screen-locked", tier === "explorer");
       }
       if (passCard) {
         passCard.classList.toggle("explorer-locked", tier === "explorer");
