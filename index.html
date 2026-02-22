@@ -13019,7 +13019,7 @@
       </div>
       <div class="payment-actions" style="margin-bottom:18px;">
         <button type="button" class="btn btn-secondary back-btn" id="membershipBackBtn">
-          Back to start
+          Back
         </button>
       </div>
 
@@ -15809,6 +15809,7 @@
     };
     let currentScreenName = "landing";
     let ageVerifyReturnScreen = "tonight";
+    let membershipReturnScreen = "pass";
     let memberProfile = null;
     let staffSession = null;
     let forceStaffLogoutOnLoad = false;
@@ -15982,6 +15983,13 @@
         && previousScreenName !== "membership"
       ) {
         ageVerifyReturnScreen = previousScreenName;
+      }
+      if (
+        name === "membership"
+        && previousScreenName
+        && previousScreenName !== "membership"
+      ) {
+        membershipReturnScreen = previousScreenName;
       }
       currentScreenName = name;
       Object.values(screens).forEach(s => s.classList.remove("active", "screen-in"));
@@ -16763,8 +16771,10 @@
       ageVerifyBackBtn.addEventListener("click", async () => {
         stopAgeVerifyAutoPoll();
         suppressAgeVerifyAutoContinue = true;
-        const hasExplorerUpgradeInProgress = isExplorerMember() && onboardingMembershipFlow && !!pendingMembershipTier;
-        if (hasExplorerUpgradeInProgress) {
+        const explorerUpgradePending = isExplorerMember()
+          && !isAgeVerifiedClient(memberProfile)
+          && normalizeMembershipTierSelection(getRequestedTier(memberProfile)) !== "explorer";
+        if (explorerUpgradePending) {
           onboardingMembershipFlow = false;
           forceMembershipScreen = false;
           pendingMembershipTier = null;
@@ -16787,19 +16797,13 @@
           }).catch((err) => console.warn("Explorer upgrade cancel sync failed", err));
           applyMembershipToPass("explorer");
           showToast("Upgrade canceled.", 1800);
-          const target = ageVerifyReturnScreen && ageVerifyReturnScreen !== "ageVerify"
-            ? ageVerifyReturnScreen
-            : "tonight";
-          showScreen(target);
+          showScreen("tonight");
           return;
         }
         const fallback = firebaseAuth?.currentUser ? "tonight" : "auth";
-        let target = ageVerifyReturnScreen && ageVerifyReturnScreen !== "ageVerify"
+        const target = ageVerifyReturnScreen && ageVerifyReturnScreen !== "ageVerify"
           ? ageVerifyReturnScreen
           : fallback;
-        if (requiresAgeVerificationClient(memberProfile, firebaseAuth?.currentUser)) {
-          target = "auth";
-        }
         showScreen(target);
       });
     }
@@ -23032,6 +23036,10 @@ let onboardingIndex = 0;
             showToast("Profile activity unlocks after upgrading your membership.", 2200);
             return;
           }
+          if (target === "venues" && isExplorerMember()) {
+            showToast("Venues tab unlocks on paid membership.", 2200);
+            return;
+          }
           if (target === "venues") {
             markLiveFeedSeen("featured");
             markMemberFeedSeen();
@@ -24038,7 +24046,11 @@ let onboardingIndex = 0;
     const membershipBackBtn = document.getElementById("membershipBackBtn");
     if (membershipBackBtn) {
       membershipBackBtn.addEventListener("click", () => {
-        showScreen(firebaseAuth.currentUser ? "pass" : "landing");
+        const fallback = firebaseAuth.currentUser ? "tonight" : "landing";
+        const target = membershipReturnScreen && membershipReturnScreen !== "membership"
+          ? membershipReturnScreen
+          : fallback;
+        showScreen(target);
       });
     }
     if (supportTrigger) {
@@ -36586,6 +36598,7 @@ let onboardingIndex = 0;
     function openMembershipChooser(sourceScreen = currentScreenName) {
       if (sourceScreen && sourceScreen !== "ageVerify" && sourceScreen !== "membership") {
         ageVerifyReturnScreen = sourceScreen;
+        membershipReturnScreen = sourceScreen;
       }
       if (!firebaseAuth.currentUser && !betaPassMode) {
         showScreen("auth");
@@ -36801,6 +36814,11 @@ let onboardingIndex = 0;
       if (profileNavBtn) {
         profileNavBtn.classList.toggle("locked", tier === "explorer");
         profileNavBtn.textContent = "Profile";
+      }
+      const venuesNavBtn = bottomNav ? bottomNav.querySelector('[data-bottom-nav="venues"]') : null;
+      if (venuesNavBtn) {
+        venuesNavBtn.classList.toggle("locked", tier === "explorer");
+        venuesNavBtn.textContent = "Venues";
       }
       const leaveReviewAction = menuScreen ? menuScreen.querySelector('[data-menu-action="review"]') : null;
       if (leaveReviewAction) {
