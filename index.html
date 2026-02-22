@@ -12513,6 +12513,49 @@
       width: 100%;
       text-align: left;
     }
+    #tonightScreen .tonight-redeem-cta {
+      width: 100%;
+      min-height: 108px;
+      text-align: left;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 6px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 52%, rgba(148, 163, 184, 0.35));
+      background:
+        radial-gradient(130% 130% at 14% 50%, color-mix(in srgb, var(--accent-primary-live) 20%, transparent), transparent 62%),
+        linear-gradient(138deg, rgba(8, 14, 30, 0.96), rgba(7, 12, 26, 0.9));
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 42%, transparent) inset,
+        0 0 28px color-mix(in srgb, var(--accent-primary-live) 34%, transparent),
+        0 14px 30px rgba(2, 8, 24, 0.46);
+      transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    #tonightScreen .tonight-redeem-cta:hover {
+      transform: translateY(-1px);
+      border-color: color-mix(in srgb, var(--accent-primary-live) 72%, rgba(148, 163, 184, 0.45));
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 56%, transparent) inset,
+        0 0 36px color-mix(in srgb, var(--accent-primary-live) 46%, transparent),
+        0 16px 34px rgba(2, 8, 24, 0.52);
+    }
+    #tonightScreen .tonight-redeem-title {
+      display: block;
+      font-size: clamp(15px, 2.4vw, 18px);
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      text-shadow: 0 0 12px color-mix(in srgb, var(--accent-primary-live) 48%, transparent);
+    }
+    #tonightScreen .tonight-redeem-sub {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+      letter-spacing: 0.02em;
+      color: color-mix(in srgb, #dbeafe 78%, var(--accent-primary-live) 22%);
+      text-shadow: 0 0 9px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+      max-width: 36ch;
+    }
     #tonightScreen .tonight-list-item,
     #mapScreen .map-venue-item {
       display: grid;
@@ -13573,7 +13616,8 @@
         <span class="tonight-mini-hint">Tap for full pass</span>
       </button>
       <button type="button" class="tonight-redeem-cta card-hd" id="tonightRedeemBtn">
-        <span class="tonight-redeem-title">Redeem a Perk</span>
+        <span class="tonight-redeem-title">Claim Tonight’s Perk</span>
+        <span class="tonight-redeem-sub">Tap to generate your live voucher code instantly.</span>
       </button>
       <div class="tonight-card card-hd">
         <div class="tonight-card-title">Open now venues</div>
@@ -36865,7 +36909,18 @@ let onboardingIndex = 0;
         redeemTrigger.textContent = tier === "explorer" ? "Unlock redemption" : "Redeem a perk";
       }
       if (tonightRedeemBtn) {
-        tonightRedeemBtn.querySelector(".tonight-redeem-title")?.replaceChildren(document.createTextNode(tier === "explorer" ? "Upgrade to Redeem" : "Redeem a Perk"));
+        const redeemTitle = tonightRedeemBtn.querySelector(".tonight-redeem-title");
+        const redeemSub = tonightRedeemBtn.querySelector(".tonight-redeem-sub");
+        if (redeemTitle) {
+          redeemTitle.replaceChildren(document.createTextNode(tier === "explorer" ? "Upgrade to Redeem" : "Claim Tonight’s Perk"));
+        }
+        if (redeemSub) {
+          redeemSub.replaceChildren(document.createTextNode(
+            tier === "explorer"
+              ? "Unlock Standard or VIP to generate live voucher codes."
+              : "Tap to generate your live voucher code instantly."
+          ));
+        }
       }
       if (buyDrinksBtn) {
         buyDrinksBtn.style.display = tier === "explorer" ? "none" : "";
