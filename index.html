@@ -20576,6 +20576,8 @@
     }
 
     function getDealPriceFromEntry(entry = {}) {
+      const explicit = Number(entry?.dealPrice);
+      if (Number.isFinite(explicit) && explicit >= 0) return explicit;
       const text = String(
         entry?.venuePerkLabel
         || entry?.perk
@@ -21102,6 +21104,7 @@
             venue: data.venueId || data.venue || null,
             requestedVenue: data.requestedVenue || null,
             alertId: data.alertId || null,
+            dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
             vibeLabel: data.vibeLabel || null,
             vibeKey: data.vibeKey || null,
             ceo: !!data.ceo,
@@ -21764,6 +21767,7 @@
                 venue: data.venueId || data.venue || null,
                 requestedVenue: data.requestedVenue || null,
                 alertId: data.alertId || null,
+                dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
                 vibeLabel: data.vibeLabel || null,
                 vibeKey: data.vibeKey || null,
                 ceo: !!data.ceo,
@@ -29016,6 +29020,7 @@ let onboardingIndex = 0;
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
           alertId: data.alertId || null,
+          dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
           vibeLabel: data.vibeLabel || null,
           vibeKey: data.vibeKey || null,
           ceo: !!data.ceo,
@@ -29728,6 +29733,9 @@ let onboardingIndex = 0;
         const username = getEntryUsername(entry);
         const usernameMeta = username ? ` · @${username}` : "";
         const creatorBadge = isCreatorRedemption(entry) ? '<span class="creator-pill">Creator</span>' : "";
+        const actionLabel = isPending ? "Confirm" : "Set pending";
+        const actionClass = isPending ? "btn btn-secondary" : "btn btn-primary";
+        const actionTarget = isPending ? "confirm" : "pending";
         return `
           <div class="staff-pending-row" data-pending-code="${entry.code}" data-pending-status="${statusLabel}">
             <div class="staff-pending-meta">
@@ -29736,7 +29744,7 @@ let onboardingIndex = 0;
             </div>
             <div class="staff-pending-actions">
               <span class="status-pill-sm ${statusClass}">${statusLabel}</span>
-              ${isPending ? `<button type="button" class="btn btn-secondary" data-pending-confirm="${entry.code}">Confirm</button>` : ""}
+              <button type="button" class="${actionClass}" data-pending-confirm="${entry.code}" data-pending-next="${actionTarget}">${actionLabel}</button>
             </div>
           </div>
         `;
@@ -30359,6 +30367,7 @@ let onboardingIndex = 0;
               venue: data.venueId || data.venue || null,
               requestedVenue: data.requestedVenue || null,
               alertId: data.alertId || null,
+              dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
               vibeLabel: data.vibeLabel || null,
               vibeKey: data.vibeKey || null,
               ceo: !!data.ceo,
@@ -30605,10 +30614,14 @@ let onboardingIndex = 0;
         codeUpper = generateVenueDealCode(alert);
       }
       dealCodes = dealCodes || {};
+      const detailText = String(alert.detail || "").trim();
+      const computedDealPrice = parseDealPriceFromText(`${alert.title || ""} ${detailText}`);
       dealCodes[codeUpper] = {
         alertId: alert.id,
         venue: alert.venueId || staffSession?.venue || null,
         perk: alert.title || "Tonight's deal",
+        detail: detailText || null,
+        dealPrice: Number.isFinite(computedDealPrice) ? computedDealPrice : null,
         timestamp: new Date().toISOString()
       };
       saveDealCodes(dealCodes);
@@ -31114,6 +31127,12 @@ let onboardingIndex = 0;
 
     const LEGACY_RED_COLLECTION = "redemptions";
     const getLegacyRedemptionRef = (code) => db && code ? doc(db, LEGACY_RED_COLLECTION, code.toUpperCase()) : null;
+    const getVenueRedemptionRef = (venueId, code) => {
+      const venueKey = String(venueId || "").trim().toLowerCase();
+      const codeKey = String(code || "").trim().toUpperCase();
+      if (!db || !venueKey || !codeKey) return null;
+      return doc(db, "venues", venueKey, "redemptions", codeKey);
+    };
     const getMemberRedemptionRef = (code) => {
       const uid = firebaseAuth.currentUser?.uid;
       if (!db || !uid || !code) return null;
@@ -31161,6 +31180,7 @@ let onboardingIndex = 0;
         perkKey: entry.perkKey || null,
         venuePerkId: entry.venuePerkId || null,
         venuePerkLabel: entry.venuePerkLabel || null,
+        dealPrice: Number.isFinite(Number(entry.dealPrice)) ? Number(entry.dealPrice) : null,
         passId: passId || undefined,
         member: entry.member || null,
         memberUsername: entry.memberUsername || null,
@@ -31176,6 +31196,30 @@ let onboardingIndex = 0;
       };
       try {
         await setDoc(ref, payload, { merge: true });
+        const isDealEntry = classifyRedemptionCategory(entry) === "deal";
+        const dealVenue = String(entry.venue || entry.requestedVenue || "").toLowerCase();
+        if (isDealEntry && dealVenue) {
+          const venueRef = getVenueRedemptionRef(dealVenue, entry.code);
+          if (venueRef) {
+            await setDoc(venueRef, {
+              code: entry.code.toUpperCase(),
+              perk: entry.perk || "Tonight's deal",
+              perkKey: "deal",
+              perkLabel: entry.venuePerkLabel || entry.perk || null,
+              dealPrice: Number.isFinite(Number(entry.dealPrice)) ? Number(entry.dealPrice) : null,
+              venueId: dealVenue,
+              requestedVenue: entry.requestedVenue || dealVenue,
+              alertId: entry.alertId || null,
+              passCode: passId || "DEAL",
+              memberName: entry.member || "Tonight's deal",
+              memberUsername: entry.memberUsername || null,
+              status: entry.status || "pending",
+              createdAt: entry.timestamp ? toTimestamp(entry.timestamp) : serverTimestamp(),
+              verifiedAt: entry.verifiedAt ? toTimestamp(entry.verifiedAt) : null,
+              timestamp: entry.timestamp ? toTimestamp(entry.timestamp) : serverTimestamp(),
+            }, { merge: true });
+          }
+        }
         return true;
       } catch (err) {
         lastCloudSyncError = err?.code || "write";
@@ -31210,6 +31254,7 @@ let onboardingIndex = 0;
           venue: data.venue || null,
           requestedVenue: data.requestedVenue || null,
           alertId: data.alertId || null,
+          dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
           vibeLabel: data.vibeLabel || null,
           vibeKey: data.vibeKey || null,
           ceo: !!data.ceo,
@@ -32548,16 +32593,27 @@ let onboardingIndex = 0;
           const row = e.target.closest("[data-pending-code]");
           if (!row || !staffSession) return;
           if (btn?.dataset.busy === "1") return;
-          if ((row.dataset.pendingStatus || "") !== "pending") return;
           const code = (btn?.dataset.pendingConfirm || row.dataset.pendingCode || "").toUpperCase();
           if (!code) return;
           const venueId = staffSession.venue;
+          const requestedAction = String(btn?.dataset.pendingNext || "").toLowerCase() || "confirm";
           if (btn) {
             btn.dataset.busy = "1";
             btn.disabled = true;
-            btn.textContent = "Verifying…";
+            btn.textContent = requestedAction === "pending" ? "Updating…" : "Verifying…";
           }
           try {
+            if (requestedAction === "pending") {
+              const pendingResult = await setRedemptionPending(code, venueId);
+              if (!pendingResult.success) {
+                verifyError.textContent = pendingResult.message || "Could not set pending right now.";
+                return;
+              }
+              verifyError.textContent = "";
+              showNeonSuccess(verifySuccess, `Code ${code} marked pending.`, 4200);
+              return;
+            }
+            if ((row.dataset.pendingStatus || "") !== "pending") return;
             const result = await verifyCode(code, venueId);
             if (!result.success) {
               const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
@@ -32605,11 +32661,15 @@ let onboardingIndex = 0;
             return;
           }
           const code = confirmVenueDealCode(alert, draftCode);
+          const alertDetailText = String(alert.detail || "").trim();
+          const alertDealPrice = parseDealPriceFromText(`${alert.title || ""} ${alertDetailText}`);
           const redemptionEntry = {
             code,
             perk: alert.title || "Tonight's deal",
             perkKey: "deal",
             alertId: alert.id || alertId || null,
+            venuePerkLabel: alertDetailText || null,
+            dealPrice: Number.isFinite(alertDealPrice) ? alertDealPrice : null,
             passId: "DEAL",
             venue: (alert.venueId || staffSession?.venue || null),
             requestedVenue: (alert.venueId || staffSession?.venue || null),
@@ -35367,6 +35427,7 @@ let onboardingIndex = 0;
         venue: payload.venueId || payload.venue || null,
         requestedVenue: payload.requestedVenue || null,
         alertId: payload.alertId || null,
+        dealPrice: Number.isFinite(Number(payload.dealPrice)) ? Number(payload.dealPrice) : null,
         vibeLabel: payload.vibeLabel || null,
         vibeKey: payload.vibeKey || null,
         ceo: !!payload.ceo,
@@ -35432,6 +35493,8 @@ let onboardingIndex = 0;
             perk: info.perk || "Tonight's deal",
             perkKey: "deal",
             alertId: info.alertId || null,
+            venuePerkLabel: info.detail || null,
+            dealPrice: Number.isFinite(Number(info.dealPrice)) ? Number(info.dealPrice) : null,
             passId: "DEAL",
             venue: info.venue || venueId || null,
             status: "verified",
@@ -35491,6 +35554,36 @@ let onboardingIndex = 0;
       Object.assign(entry, mapped);
       applyVerifiedEntryToLocalLog(mapped);
       return { success: true, entry: mapped };
+    }
+
+    async function setRedemptionPending(code, venueId) {
+      const codeUpper = String(code || "").toUpperCase().trim();
+      const venueKey = String(venueId || "").toLowerCase().trim();
+      if (!codeUpper) return { success: false, message: "Missing code." };
+      const idx = (Array.isArray(redemptionLog) ? redemptionLog : []).findIndex((entry) => (
+        String(entry?.code || "").toUpperCase() === codeUpper
+      ));
+      if (idx < 0) return { success: false, message: "Code not found." };
+      const existing = redemptionLog[idx];
+      if (venueKey && !entryMatchesVenue(existing, venueKey)) {
+        return { success: false, message: "This code is assigned to another venue." };
+      }
+      const updated = {
+        ...existing,
+        status: "pending",
+        verifiedAt: null,
+      };
+      redemptionLog[idx] = updated;
+      saveRedemptionLog();
+      renderStaffVenueLog();
+      renderStaffPendingQueue();
+      renderStaffDealCodes();
+      renderCeoRedemptionLog();
+      renderCeoVenueLog();
+      renderCeoVerifiedVenueLog();
+      refreshMemberStats();
+      await syncRedemptionToCloud(updated);
+      return { success: true, entry: updated };
     }
 
     function isVerifiedRedemptionStatus(status) {
@@ -36139,6 +36232,7 @@ let onboardingIndex = 0;
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
           alertId: data.alertId || null,
+          dealPrice: Number.isFinite(Number(data.dealPrice)) ? Number(data.dealPrice) : null,
           vibeLabel: data.vibeLabel || null,
           vibeKey: data.vibeKey || null,
           ceo: !!data.ceo,
