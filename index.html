@@ -16692,7 +16692,7 @@
       return tier === "explorer";
     }
     function isPointsLockedForCurrentMember(profile = memberProfile) {
-      return isFreeMember(profile) || isExplorerMember(profile);
+      return isExplorerMember(profile);
     }
     const EXPLORER_LOCKED_ACCENTS = new Set(["jade", "electric", "ember", "glass", "neon_lime", "ruby_night", "paloma"]);
     function isExplorerLockedAccent(theme = "") {
@@ -16760,7 +16760,7 @@
     }
     function isVenuesTabLockedForMember(profile = memberProfile) {
       const tier = normalizeTierKey(profile?.tier || currentMembershipTier || "");
-      return tier === "explorer" || tier === "free";
+      return tier === "explorer";
     }
     if (signupBackBtn) {
       signupBackBtn.addEventListener("click", () => {

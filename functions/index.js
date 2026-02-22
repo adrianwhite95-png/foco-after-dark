@@ -2367,20 +2367,11 @@ function extractAchievementIdFromAwardKey(awardKey = "") {
 }
 
 function isPointsLockedMember(member = {}) {
-  const overrideRaw = member?.membershipOverride
-    || member?.override
-    || member?.membership_override
-    || member?.membershipTierOverride
-    || "";
-  const override = String(overrideRaw || "").toUpperCase();
   const tier = String(member?.tier || member?.membershipTier || "").toLowerCase();
   const requestedTier = String(member?.requestedTier || "").toLowerCase();
   const membershipStatus = String(member?.membershipStatus || "").toLowerCase();
   return (
-    member?.freeMembership === true
-    || override === "CEO_FREE"
-    || tier === "explorer"
-    || tier === "free"
+    tier === "explorer"
     || requestedTier === "explorer"
     || membershipStatus === "explorer"
   );
