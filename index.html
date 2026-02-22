@@ -3403,6 +3403,52 @@
     #passScreen.explorer-screen-locked .explorer-screen-lock {
       display: flex;
     }
+    #tonightScreen.explorer-tonight-locked .tonight-redeem-cta,
+    #tonightScreen.explorer-tonight-locked #tonightAlertsList {
+      filter: blur(2px) grayscale(0.2);
+      opacity: 0.56;
+      pointer-events: none;
+      user-select: none;
+    }
+    #tonightScreen.explorer-tonight-locked .tonight-redeem-cta {
+      position: relative;
+    }
+    #tonightScreen.explorer-tonight-locked .tonight-redeem-cta::after {
+      content: "🔒 Upgrade required";
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #fde68a;
+      background: rgba(15, 23, 42, 0.45);
+      border-radius: inherit;
+    }
+    #tonightScreen.explorer-tonight-locked #tonightAlertsCard {
+      position: relative;
+    }
+    #tonightScreen.explorer-tonight-locked #tonightAlertsCard::after {
+      content: "🔒 Alerts preview only";
+      position: absolute;
+      inset: auto 10px 10px 10px;
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fde68a;
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(251, 191, 36, 0.42);
+      background: rgba(15, 23, 42, 0.62);
+    }
+    #bottomNav .bottom-nav-item.locked {
+      opacity: 0.7;
+      border-color: rgba(251, 191, 36, 0.45);
+      box-shadow: 0 0 20px rgba(251, 191, 36, 0.2);
+    }
     .age-verify-card {
       margin-top: 14px;
       border-radius: 18px;
@@ -13454,7 +13500,7 @@
         <div class="tonight-card-title">Open now venues</div>
         <div class="tonight-list" id="tonightOpenNowList"></div>
       </div>
-      <div class="tonight-card card-hd">
+      <div class="tonight-card card-hd" id="tonightAlertsCard">
         <div class="tonight-card-title">Tonight's alerts</div>
         <ul class="tonight-alerts-list" id="tonightAlertsList">
           <li class="empty"><span>No live alerts posted yet.</span></li>
@@ -16537,6 +16583,19 @@
       const tier = normalizeTierKey(profile?.tier || currentMembershipTier || "");
       return tier === "explorer";
     }
+    function shouldForceExplorerTier(profile = memberProfile) {
+      if (!profile) return false;
+      if (profile?.ceo || isFreeMember(profile)) return false;
+      const tier = normalizeTierKey(profile?.tier || "");
+      const requested = normalizeTierKey(profile?.requestedTier || "");
+      const status = String(profile?.membershipStatus || "").toLowerCase();
+      const ageStatus = String(profile?.ageVerificationStatus || "").toLowerCase();
+      if (tier === "explorer" || requested === "explorer" || status === "explorer" || ageStatus === "skipped_explorer") return true;
+      const paymentStatus = String(profile?.paymentStatus || "").toLowerCase();
+      const hasBilling = !!(profile?.stripeSubscriptionId || profile?.stripeCustomerId || profile?.cardLast4 || profile?.cardBrand || profile?.lastPaymentIntentId);
+      if (!hasBilling && paymentStatus === "active" && (tier === "standard" || tier === "")) return true;
+      return false;
+    }
     function isStripeExcludedMember(profile = memberProfile) {
       const override = (profile?.membershipOverride || "").toString().toUpperCase();
       const email = (profile?.email || firebaseAuth?.currentUser?.email || "").toLowerCase();
@@ -17816,6 +17875,7 @@
       const pendingUid = localStorage.getItem(PENDING_MEMBERSHIP_STORAGE_KEY);
       let storedTier = memberProfile?.tier || (allowLocalCache() && user.uid ? localStorage.getItem(`membership_${user.uid}`) : null);
       if (memberProfile?.freeMembership) storedTier = "free";
+      if (shouldForceExplorerTier(memberProfile)) storedTier = "explorer";
       const membershipStatusKey = String(memberProfile?.membershipStatus || "").toLowerCase();
       if (!memberProfile?.freeMembership && membershipStatusKey === "explorer") {
         storedTier = "explorer";
@@ -19354,6 +19414,7 @@
     function getEffectiveTierForDisplay() {
       if (isCeoActive()) return "ceo";
       if (isFreeMember()) return "free";
+      if (shouldForceExplorerTier(memberProfile)) return "explorer";
       return normalizeMembershipTierSelection(
         memberProfile?.tier
         || currentMembershipTier
@@ -19364,7 +19425,7 @@
     function tierLabelFromKey(tierRaw = "standard") {
       if (tierRaw === "vip") return "VIP";
       if (tierRaw === "free") return "CEO ISSUED";
-      if (tierRaw === "explorer") return "Explorer";
+      if (tierRaw === "explorer") return "FREE";
       if (tierRaw === "ceo") return "Founder Mode";
       return "Standard";
     }
@@ -22781,6 +22842,10 @@ let onboardingIndex = 0;
             showScreen("pass");
             return;
           }
+          if (target === "profileActivity" && isExplorerMember()) {
+            showToast("Profile activity unlocks after upgrading your membership.", 2200);
+            return;
+          }
           if (target === "venues") {
             markLiveFeedSeen("featured");
             markMemberFeedSeen();
@@ -23439,6 +23504,23 @@ let onboardingIndex = 0;
       if (!memberProfile.perks) {
         memberProfile.perks = { tier: memberProfile.tier || "standard", remaining: getDefaultPerkState(memberProfile.tier || "standard") };
         updateMemberProfile({ perks: memberProfile.perks });
+      }
+      if (shouldForceExplorerTier(memberProfile)) {
+        memberProfile.tier = "explorer";
+        memberProfile.requestedTier = "explorer";
+        memberProfile.membershipStatus = "explorer";
+        memberProfile.paymentStatus = "active";
+        memberProfile.ageVerificationRequired = false;
+        memberProfile.ageVerificationStatus = memberProfile.ageVerificationStatus || "skipped_explorer";
+        memberProfile.perks = { tier: "explorer", remaining: getDefaultPerkState("explorer") };
+        updateMemberProfile({
+          tier: "explorer",
+          requestedTier: "explorer",
+          membershipStatus: "explorer",
+          paymentStatus: "active",
+          ageVerificationRequired: false,
+          ageVerificationStatus: memberProfile.ageVerificationStatus
+        });
       }
       // Normalize free membership from doc/cache
       if (memberProfile.freeMembership) {
@@ -36480,9 +36562,7 @@ let onboardingIndex = 0;
         statusPill.classList.remove("vip-status", "ceo");
         statusPill.classList.add("danger");
         perksListEl.innerHTML = `
-          <li class="perk-row"><span class="perk-dot"></span> Browse participating venues and map</li>
-          <li class="perk-row"><span class="perk-dot"></span> Preview Standard + VIP perks in locked mode</li>
-          <li class="perk-row"><span class="perk-dot"></span> Upgrade to unlock pass + redemptions</li>
+          <li class="perk-row"><span class="perk-dot"></span> None — upgrade to unlock perks</li>
         `;
         statusPill.textContent = "FREE";
         passTierText.textContent = "Nightlife Pass • FREE (Explorer)";
@@ -36507,6 +36587,14 @@ let onboardingIndex = 0;
       }
       if (buyDrinksBtn) {
         buyDrinksBtn.style.display = tier === "explorer" ? "none" : "";
+      }
+      if (screens?.tonight) {
+        screens.tonight.classList.toggle("explorer-tonight-locked", tier === "explorer");
+      }
+      const profileNavBtn = bottomNav ? bottomNav.querySelector('[data-bottom-nav="profileActivity"]') : null;
+      if (profileNavBtn) {
+        profileNavBtn.classList.toggle("locked", tier === "explorer");
+        profileNavBtn.textContent = tier === "explorer" ? "🔒 Profile" : "Profile";
       }
       if (tier === "free") {
         localStorage.setItem(`${FREE_NOTICE_PREFIX}${(currentPassCode || "").toUpperCase()}`, "1");
