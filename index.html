@@ -12840,7 +12840,7 @@
         </div>
         <div class="field signup-only" id="usernameField">
           <label for="username"><span class="required-asterisk">*</span> Username (public)</label>
-          <input id="username" type="text" autocomplete="nickname" placeholder="yourhandle" />
+          <input id="username" type="text" maxlength="15" autocomplete="nickname" placeholder="yourhandle" />
         </div>
         <div class="field">
         <label for="authEmail" id="authEmailLabel"><span class="required-asterisk">*</span> Email</label>
@@ -14602,10 +14602,10 @@
         <div class="modal-title">Edit username</div>
         <button class="modal-close" id="usernameClose" type="button">Close</button>
       </div>
-      <p style="font-size:13px;color:#94a3b8;margin:0 0 10px;">Use 3–10 characters. Letters, numbers, underscores, and spaces only.</p>
+      <p style="font-size:13px;color:#94a3b8;margin:0 0 10px;">Use 3–15 characters. Letters, numbers, underscores, and spaces only.</p>
       <div class="field">
         <label for="usernameEditInput">Username</label>
-        <input id="usernameEditInput" type="text" maxlength="10" autocomplete="nickname" />
+        <input id="usernameEditInput" type="text" maxlength="15" autocomplete="nickname" />
       </div>
       <div class="error" id="usernameEditError"></div>
       <div class="modal-actions" style="margin-top:12px;">
@@ -23466,10 +23466,10 @@ let onboardingIndex = 0;
       localStorage.setItem(VENUE_USER_RATINGS_KEY, JSON.stringify(data || {}));
     }
     function validateUsername(name) {
-      if (!name) return { ok: false, message: "Username is required (3-10 characters)." };
+      if (!name) return { ok: false, message: "Username is required (3-15 characters)." };
       const trimmed = name.trim();
       if (trimmed.length < 3) return { ok: false, message: "Username is too short. Use at least 3 characters." };
-      if (trimmed.length > 10) return { ok: false, message: "Username is too long. Use 10 characters max." };
+      if (trimmed.length > 15) return { ok: false, message: "Username is too long. Use 15 characters max." };
       if (!/^[A-Za-z0-9_]+$/.test(trimmed)) return { ok: false, message: "Username can only use letters, numbers, and underscores." };
       const lower = trimmed.toLowerCase();
       if (BANNED_USER_WORDS.some(word => lower.includes(word))) {
@@ -26566,7 +26566,7 @@ let onboardingIndex = 0;
         return;
       }
       const current = preferredUsername();
-      const next = prompt("Choose a unique username (3-10 chars, letters/numbers/underscore/space)", current);
+      const next = prompt("Choose a unique username (3-15 chars, letters/numbers/underscore/space)", current);
       if (!next) return;
       const cleaned = next.trim();
       const check = validateUsername(cleaned);

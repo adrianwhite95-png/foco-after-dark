@@ -2107,7 +2107,7 @@ exports.checkUsernameAvailability = functions.https.onCall(async (data, context)
   });
   const requesterUid = String(context?.auth?.uid || "").trim();
   const desired = (data && data.username ? String(data.username) : '').trim().toLowerCase();
-  if (!desired || desired.length < 3 || desired.length > 10 || !/^[a-z0-9_]+$/.test(desired)) {
+  if (!desired || desired.length < 3 || desired.length > 15 || !/^[a-z0-9_]+$/.test(desired)) {
     throw new HttpsError('invalid-argument', 'Invalid username format');
   }
   const unameSnap = await db.collection("usernames").doc(desired).get();
@@ -2128,7 +2128,7 @@ exports.reserveUsername = functions.https.onCall(async (data, context) => {
   });
   const uid = context.auth.uid;
   const desired = (data && data.username ? String(data.username) : '').trim().toLowerCase();
-  if (!desired || desired.length < 3 || desired.length > 10 || !/^[a-z0-9_]+$/.test(desired)) {
+  if (!desired || desired.length < 3 || desired.length > 15 || !/^[a-z0-9_]+$/.test(desired)) {
     throw new HttpsError('invalid-argument', 'Invalid username format');
   }
   const memberRef = db.collection('members').doc(uid);
