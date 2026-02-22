@@ -13002,6 +13002,7 @@
         <div class="payment-actions">
           <button type="button" class="btn btn-primary" id="ageVerifyStartBtn">Verify my ID now</button>
           <button type="button" class="btn btn-secondary" id="ageVerifyRefreshBtn">Check Status and Continue to Billing</button>
+          <button type="button" class="btn btn-secondary" id="ageVerifyBackBtn">Back</button>
           <button type="button" class="btn btn-secondary" id="ageVerifyLogoutBtn">Log out</button>
         </div>
       </div>
@@ -15807,6 +15808,7 @@
       scanConfirm: document.getElementById("scanConfirmScreen"),
     };
     let currentScreenName = "landing";
+    let ageVerifyReturnScreen = "tonight";
     let memberProfile = null;
     let staffSession = null;
     let forceStaffLogoutOnLoad = false;
@@ -15957,6 +15959,7 @@
     }
 
     function showScreen(name) {
+      const previousScreenName = currentScreenName;
       if (maintenanceModeActive && name !== "maintenance" && !canBypassMaintenance()) {
         name = "maintenance";
       }
@@ -15971,6 +15974,14 @@
       }
       if ((name === "pass" || name === "tonight" || name === "map" || name === "profileActivity" || name === "menu") && requiresMembershipSelection()) {
         name = "membership";
+      }
+      if (
+        name === "ageVerify"
+        && previousScreenName
+        && previousScreenName !== "ageVerify"
+        && previousScreenName !== "membership"
+      ) {
+        ageVerifyReturnScreen = previousScreenName;
       }
       currentScreenName = name;
       Object.values(screens).forEach(s => s.classList.remove("active", "screen-in"));
@@ -16219,6 +16230,7 @@
     const ageVerifyHint = document.getElementById("ageVerifyHint");
     const ageVerifyStartBtn = document.getElementById("ageVerifyStartBtn");
     const ageVerifyRefreshBtn = document.getElementById("ageVerifyRefreshBtn");
+    const ageVerifyBackBtn = document.getElementById("ageVerifyBackBtn");
     const ageVerifyLogoutBtn = document.getElementById("ageVerifyLogoutBtn");
     const alertForm = document.getElementById("alertForm");
     const alertTitleInput = document.getElementById("alertTitle");
@@ -16745,6 +16757,50 @@
           ageVerifyRefreshBtn.textContent = original;
           ageVerifyRefreshBtn.disabled = ageVerificationInFlight;
         }
+      });
+    }
+    if (ageVerifyBackBtn) {
+      ageVerifyBackBtn.addEventListener("click", async () => {
+        stopAgeVerifyAutoPoll();
+        suppressAgeVerifyAutoContinue = true;
+        const hasExplorerUpgradeInProgress = isExplorerMember() && onboardingMembershipFlow && !!pendingMembershipTier;
+        if (hasExplorerUpgradeInProgress) {
+          onboardingMembershipFlow = false;
+          forceMembershipScreen = false;
+          pendingMembershipTier = null;
+          memberProfile = {
+            ...(memberProfile || {}),
+            tier: "explorer",
+            requestedTier: "explorer",
+            membershipStatus: "explorer",
+            ageVerificationRequired: false,
+            ageVerificationStatus: "skipped_explorer",
+            ageVerified21: false
+          };
+          updateMemberProfile({
+            tier: "explorer",
+            requestedTier: "explorer",
+            membershipStatus: "explorer",
+            ageVerificationRequired: false,
+            ageVerificationStatus: "skipped_explorer",
+            ageVerified21: false
+          }).catch((err) => console.warn("Explorer upgrade cancel sync failed", err));
+          applyMembershipToPass("explorer");
+          showToast("Upgrade canceled.", 1800);
+          const target = ageVerifyReturnScreen && ageVerifyReturnScreen !== "ageVerify"
+            ? ageVerifyReturnScreen
+            : "tonight";
+          showScreen(target);
+          return;
+        }
+        const fallback = firebaseAuth?.currentUser ? "tonight" : "auth";
+        let target = ageVerifyReturnScreen && ageVerifyReturnScreen !== "ageVerify"
+          ? ageVerifyReturnScreen
+          : fallback;
+        if (requiresAgeVerificationClient(memberProfile, firebaseAuth?.currentUser)) {
+          target = "auth";
+        }
+        showScreen(target);
       });
     }
     if (ageVerifyLogoutBtn) {
@@ -36527,7 +36583,10 @@ let onboardingIndex = 0;
       });
     }
 
-    function openMembershipChooser() {
+    function openMembershipChooser(sourceScreen = currentScreenName) {
+      if (sourceScreen && sourceScreen !== "ageVerify" && sourceScreen !== "membership") {
+        ageVerifyReturnScreen = sourceScreen;
+      }
       if (!firebaseAuth.currentUser && !betaPassMode) {
         showScreen("auth");
         return;
