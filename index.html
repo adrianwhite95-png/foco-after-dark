@@ -29797,6 +29797,8 @@ let onboardingIndex = 0;
     function maybePromptStartShift() {
       if (!staffSession?.venue || suppressStaffShiftPrompt) return;
       if (getActiveShiftForVenue(staffSession.venue)) return;
+      // Avoid false "start shift" prompts while claims/session listeners are still hydrating.
+      if (db && (!authClaimsReady || !hasStaffClaim())) return;
       if (currentScreenName !== "staffPortal") return;
       openStaffShiftModal();
     }
