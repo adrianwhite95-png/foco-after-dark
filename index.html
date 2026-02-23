@@ -28751,7 +28751,9 @@ let onboardingIndex = 0;
       const tierKey = normalizeTierKey(profile.tier || profile.membershipTier || profile.membership || profile.plan || "");
       let tierLabel = tierKey ? tierKey.toUpperCase() : "STANDARD";
       if (profile.ceo === true || override === "CEO" || passCode === CEO_PASS_ID) tierLabel = "CEO";
-      else if (profile.freeMembership === true || override === "CEO_FREE") tierLabel = "FREE";
+      else if (override === "CEO_FREE") tierLabel = "CEO FREE";
+      else if (tierKey === "explorer") tierLabel = "FREE (EXPLORER)";
+      else if (profile.freeMembership === true) tierLabel = "FREE";
       const rawStatus = profile.paused === true
         ? "paused"
         : String(profile.paymentStatus || profile.membershipStatus || profile.status || "active").toLowerCase();
@@ -36076,10 +36078,10 @@ let onboardingIndex = 0;
       if (rawTier.toLowerCase() === "beta") {
         tierLabel = "BETA";
       }
-      if (override === "CEO_FREE") tierLabel = "CEO_FREE";
+      if (override === "CEO_FREE") tierLabel = "CEO FREE";
       if (override === "CEO") tierLabel = "CEO";
       if (isExplorerAccount) tierLabel = "EXPLORER";
-      if (data.freeMembership === true) tierLabel = "FREE";
+      if (data.freeMembership === true && override !== "CEO_FREE") tierLabel = "FREE";
       const paused = data.paused === true;
       const statusKey = paused ? "paused" : ((data.paymentStatus || data.membershipStatus || "active").toString().toLowerCase());
       const statusLabel = paused ? "Paused" : statusKey.replace("_", " ");
