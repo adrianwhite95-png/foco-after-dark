@@ -16016,6 +16016,8 @@
     let settingsPollTimer = null;
     let ceoMembersUnsub = null;
     let ceoMembersCache = [];
+    let ceoAuthUidAllowlist = null;
+    let ceoMembersHydrating = false;
     let ceoAnalyticsLatestSnapshot = null;
     let ceoAnalyticsWeeklyHistory = [];
     let ceoMembersFilterKey = "all";
@@ -35279,7 +35281,7 @@ let onboardingIndex = 0;
         }
         await handleAuthenticatedUser(user);
         if (isCeoAccount && authClaimsReady && hasCeoClaim()) {
-          startCeoMembersRealtime(true);
+          await loadCeoMembersSummaryLegacy();
         }
         attachRealtimeForCurrentContext("auth-change");
         requestBadgeClear();
@@ -35684,6 +35686,7 @@ let onboardingIndex = 0;
       }
       if (clearCache) {
         ceoMembersCache = [];
+        ceoAuthUidAllowlist = null;
       }
     }
     function formatCeoDate(value) {
@@ -36293,7 +36296,11 @@ let onboardingIndex = 0;
         ceoMembersUnsub = subscribeSnapshot("ceoMembers", q, null, (snap) => {
           const candidates = snap.docs
             .map(docSnap => ({ data: docSnap.data() || {}, uid: docSnap.id }))
-            .filter(item => shouldIncludeCeoMember(item.data, item.uid));
+            .filter(item => shouldIncludeCeoMember(item.data, item.uid))
+            .filter(item => {
+              if (!ceoAuthUidAllowlist) return true;
+              return ceoAuthUidAllowlist.has(item.uid);
+            });
           ceoMembersCache = dedupeActiveMembersByProfile(candidates)
             .map(item => normalizeCeoMemberData(item.data || {}, item.uid || ""))
             .sort((a, b) => {
@@ -36347,6 +36354,8 @@ let onboardingIndex = 0;
 
     async function loadCeoMembersSummaryLegacy() {
       if (!functionsClient || !isCeoAccount || !authClaimsReady || !hasCeoClaim() || !ceoMembersCard) return;
+      if (ceoMembersHydrating) return;
+      ceoMembersHydrating = true;
       if (ceoMembersTotals) ceoMembersTotals.textContent = "Loading…";
       if (ceoMembersList) ceoMembersList.innerHTML = "";
       try {
@@ -36381,12 +36390,16 @@ let onboardingIndex = 0;
           if (filterKey === "past_due") return (u.paymentStatus || "").toLowerCase() === "past_due";
           return true;
         });
+        ceoAuthUidAllowlist = new Set(users.map((u) => String(u.uid || "")).filter(Boolean));
         ceoMembersCache = users.map(u => normalizeCeoMemberData(u || {}, u.uid || ""));
         renderCeoMembersTable();
+        startCeoMembersRealtime(true);
       } catch (err) {
         console.warn("ceo members summary failed", err);
         const msg = err?.message || "Could not load members.";
         if (ceoMembersTotals) ceoMembersTotals.textContent = msg;
+      } finally {
+        ceoMembersHydrating = false;
       }
     }
 
@@ -36394,7 +36407,7 @@ let onboardingIndex = 0;
       ceoMembersRefresh.addEventListener("click", async () => {
         ceoMembersRefresh.disabled = true;
         try {
-          await startCeoMembersRealtime(true);
+          await loadCeoMembersSummaryLegacy();
           showToast("Members refreshed.");
         } finally {
           ceoMembersRefresh.disabled = false;
@@ -38274,7 +38287,13 @@ let onboardingIndex = 0;
       }
       if (ceoMembersCard) {
         ceoMembersCard.style.display = ceoActive ? "" : "none";
-        if (ceoActive && canCeoRealtime) startCeoMembersRealtime();
+        if (ceoActive && canCeoRealtime) {
+          if (!ceoAuthUidAllowlist) {
+            loadCeoMembersSummaryLegacy();
+          } else {
+            startCeoMembersRealtime();
+          }
+        }
       }
       if (ceoLaunchCard) {
         ceoLaunchCard.style.display = ceoActive ? "" : "none";
