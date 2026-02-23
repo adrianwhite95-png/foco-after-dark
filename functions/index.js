@@ -1228,7 +1228,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
           }
           const expiresAtMs = getPendingRedemptionExpiryMs(now.toDate());
           const expiresAt = admin.firestore.Timestamp.fromMillis(expiresAtMs);
-          const storedPayload = {
+          const basePayload = {
             redemptionId,
             passCode: resolvedPassCode || passCode,
             memberUid: resolved.uid,
@@ -1248,17 +1248,17 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
             timestamp: serverNow,
             requestedVenue: venueId
           };
-          if (activeShiftKey) {
-            storedPayload.shiftKey = activeShiftKey;
-          }
+          if (activeShiftKey) basePayload.shiftKey = activeShiftKey;
+          const venuePayload = { ...basePayload, queueScope: "venue" };
+          const memberPayload = { ...basePayload, queueScope: "member" };
           const returnPayload = {
-            ...storedPayload,
+            ...venuePayload,
             createdAt: now,
             updatedAt: now,
             timestamp: now
           };
-          tx.set(venueRedRef, storedPayload);
-          tx.set(memberRedRef, storedPayload);
+          tx.set(venueRedRef, venuePayload);
+          tx.set(memberRedRef, memberPayload);
           tx.set(resolved.memberRef, {
             lastRedemptionAt: serverNow,
             lastRedemptionVenue: venueId,
@@ -1581,7 +1581,8 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
         timestamp: ceoSnap.data()?.createdAt || now,
         requestedVenue: venueId,
         shiftKey: shiftKey || null,
-        ceo: true
+        ceo: true,
+        queueScope: "venue"
       };
       tx.set(venueRedRef, ceoPayload, { merge: true });
       tx.set(ceoVoucherRef, { used: true, usedAt: now, venueId }, { merge: true });
@@ -1612,7 +1613,8 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
       lastActionType: action === "confirm" ? "verify_redemption" : action === "deny" ? "deny_redemption" : "set_pending",
       lastActionAt: serverNow,
       lastActionStaffId: staffActionId,
-      lastActionStaffName: staffActionName
+      lastActionStaffName: staffActionName,
+      queueScope: "venue"
     };
     if (shiftKey) {
       storedUpdates.shiftKey = shiftKey;
@@ -1642,7 +1644,7 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
 
     if (memberUid) {
       const memberRedRef = db.collection("members").doc(memberUid).collection("redemptions").doc(redemptionId);
-      tx.set(memberRedRef, storedUpdates, { merge: true });
+      tx.set(memberRedRef, { ...storedUpdates, queueScope: "member" }, { merge: true });
       if (memberSnap && memberSnap.exists) {
         const memberData = memberSnap.data() || {};
         const remaining = memberData.perksRemaining;
@@ -1875,6 +1877,7 @@ async function runNightlyCloseOutCore(source = "nightlyCloseOut") {
   // Redemptions in last 24h
   try {
     const redSnap = await db.collectionGroup('redemptions')
+      .where('queueScope', '==', 'venue')
       .where('timestamp', '>=', dayStart)
       .get();
     summary.scansToday = redSnap.size;
@@ -5369,9 +5372,19 @@ exports.getMembersSummary = functions.https.onCall(async (data, context) => {
       const uid = authUser.uid;
       const d = memberMap.get(uid) || {};
       const override = String(d.membershipOverride || d.override || "").toUpperCase();
-      let tier = String(d.tier || d.membershipTier || d.membership || d.plan || "").toLowerCase();
-      if (!tier && (d.freeMembership === true || override === "CEO_FREE")) tier = "free";
-      if (!tier && String(d.requestedTier || "").toLowerCase() === "explorer") tier = "explorer";
+      const requestedTier = String(d.requestedTier || "").toLowerCase();
+      const membershipStatus = String(d.membershipStatus || "").toLowerCase();
+      const ageStatus = String(d.ageVerificationStatus || "").toLowerCase();
+      const rawTier = String(d.tier || d.membershipTier || d.membership || d.plan || "").toLowerCase();
+      let tier = rawTier;
+      if (override === "CEO") tier = "ceo";
+      else if (override === "CEO_FREE") tier = "ceo_free";
+      else if (
+        requestedTier === "explorer"
+        || membershipStatus === "explorer"
+        || ageStatus.includes("explorer")
+      ) tier = "explorer";
+      else if (!tier && d.freeMembership === true) tier = "free";
       if (!tier) tier = "standard";
       const gender = String(d.gender || "unspecified").toLowerCase();
       const status = d.paused === true
@@ -5394,13 +5407,19 @@ exports.getMembersSummary = functions.https.onCall(async (data, context) => {
         uid,
         username: d.username || d.displayName || authUser.displayName || null,
         passCode: d.passCode || null,
+        requestedTier: d.requestedTier || null,
+        membershipStatus: d.membershipStatus || null,
+        membershipOverride: override || null,
+        freeMembership: d.freeMembership === true || override === "CEO_FREE",
         gender,
         tier,
         paymentStatus: status,
         paused: !!d.paused,
         createdAt,
         lastLogin,
-        email: d.email || authUser.email || null
+        email: d.email || authUser.email || null,
+        birthDate: d.birthDate || d.dob || null,
+        signUpSource: d.signUpSource || d.signupSource || "App signup"
       });
     });
     return { counts, users };
@@ -5556,6 +5575,9 @@ function normalizeLookupPayload(memberData = {}, uid = "") {
     if (!firstName && parts.length) firstName = parts[0];
     if (!lastName && parts.length > 1) lastName = parts.slice(1).join(" ");
   }
+  const override = String(memberData.membershipOverride || memberData.override || "").toUpperCase();
+  const rawTier = memberData.tier || memberData.membershipTier || memberData.membership || memberData.plan || null;
+  const effectiveTier = override === "CEO_FREE" ? "ceo_free" : rawTier;
   return {
     uid: String(uid || "").trim(),
     passCode,
@@ -5564,14 +5586,14 @@ function normalizeLookupPayload(memberData = {}, uid = "") {
     displayName,
     firstName,
     lastName,
-    tier: memberData.tier || memberData.membershipTier || memberData.membership || memberData.plan || null,
+    tier: effectiveTier,
     membershipTier: memberData.membershipTier || memberData.tier || null,
-    membershipOverride: memberData.membershipOverride || memberData.override || null,
+    membershipOverride: override || null,
     paymentStatus: memberData.paymentStatus || null,
     membershipStatus: memberData.membershipStatus || null,
     paused: memberData.paused === true,
     ceo: memberData.ceo === true || passCode === CEO_PASS_ID,
-    freeMembership: memberData.freeMembership === true || String(memberData.membershipOverride || "").toUpperCase() === "CEO_FREE",
+    freeMembership: memberData.freeMembership === true || override === "CEO_FREE",
     blackCard: memberData.blackCard === true
   };
 }
@@ -5708,6 +5730,87 @@ exports.staffLookupMember = functions.https.onCall(async (data, context) => {
     console.warn("staffLookupMember failed", err?.message || err);
     throw err instanceof HttpsError ? err : new HttpsError("internal", "Member lookup failed");
   }
+});
+
+function inferQueueScopeFromPath(path = "") {
+  const p = String(path || "");
+  if (p.includes("/venues/") && p.includes("/redemptions/")) return "venue";
+  if (p.includes("/members/") && p.includes("/redemptions/")) return "member";
+  return "legacy";
+}
+
+exports.backfillRedemptionQueueScope = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    rateLimit: { maxPerMin: 6, maxPerDay: 60 }
+  });
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  const claims = context.auth.token || {};
+  if (!(claims.admin === true || claims.ceo === true || String(claims.email || "").toLowerCase() === "ceo@gmail.com")) {
+    throw new HttpsError("permission-denied", "CEO/admin access required");
+  }
+
+  const days = Math.max(1, Math.min(365, Number(data?.days || 90)));
+  const maxDocs = Math.max(100, Math.min(20000, Number(data?.maxDocs || 10000)));
+  const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - (days * 24 * 60 * 60 * 1000));
+
+  const snap = await db
+    .collectionGroup("redemptions")
+    .where("createdAt", ">=", cutoff)
+    .limit(maxDocs)
+    .get();
+
+  let scanned = 0;
+  let updated = 0;
+  let unchanged = 0;
+  let venueCount = 0;
+  let memberCount = 0;
+  let legacyCount = 0;
+
+  let batch = db.batch();
+  let batchOps = 0;
+  const commitBatch = async () => {
+    if (!batchOps) return;
+    await batch.commit();
+    batch = db.batch();
+    batchOps = 0;
+  };
+
+  for (const docSnap of snap.docs) {
+    scanned += 1;
+    const expected = inferQueueScopeFromPath(docSnap.ref.path);
+    if (expected === "venue") venueCount += 1;
+    else if (expected === "member") memberCount += 1;
+    else legacyCount += 1;
+    const current = String((docSnap.data() || {}).queueScope || "").toLowerCase();
+    if (current === expected) {
+      unchanged += 1;
+      continue;
+    }
+    batch.set(docSnap.ref, {
+      queueScope: expected,
+      queueScopeBackfilledAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    batchOps += 1;
+    updated += 1;
+    if (batchOps >= 400) {
+      await commitBatch();
+    }
+  }
+  await commitBatch();
+
+  return {
+    ok: true,
+    days,
+    scanned,
+    updated,
+    unchanged,
+    byScope: {
+      venue: venueCount,
+      member: memberCount,
+      legacy: legacyCount
+    },
+    cutoffMs: cutoff.toMillis()
+  };
 });
 
 // CEO login via shared passphrase: returns custom token with CEO claims.

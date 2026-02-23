@@ -221,8 +221,8 @@ service cloud.firestore {
 
     // Voucher redemptions (codes)
     match /redemptions/{code} {
-      // Auth required to read
-      allow read: if isSignedIn() && canAccessApp();
+      // Global redemption ledger is staff/CEO/admin only.
+      allow read: if isSignedIn() && hasPrivilegedRole() && canAccessApp();
 
       // Allow clients to create redemptions, but prevent client-created CEO redemptions.
       // CEO redemptions are allowed only if the code exists in ceoVouchers.
