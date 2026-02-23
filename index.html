@@ -14815,7 +14815,7 @@
         </div>
 
         <p style="margin-top:12px;font-size:12px;color:#9ca3af;">Last updated: January 13, 2026</p>
-        <div style="margin-top:14px;border-top:1px solid rgba(148,163,184,0.06);padding-top:10px;text-align:center;color:var(--accent-magenta);font-weight:700;">© 2026 FoCo After Dark</div>
+        <div style="margin-top:14px;border-top:1px solid rgba(148,163,184,0.06);padding-top:10px;text-align:center;color:var(--accent-magenta);font-weight:700;">© 2026 FoCo After Dark<br/>Founded &amp; Designed by Adrian White</div>
       </div>
     </div>
   </div>
@@ -15122,7 +15122,7 @@
     </div>
   </div>
 
-  <footer class="global-footer">© 2026 FoCo After Dark</footer>
+  <footer class="global-footer">© 2026 FoCo After Dark<br/>Founded &amp; Designed by Adrian White</footer>
 
   <!-- Firebase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" crossorigin="anonymous"></script>
@@ -19399,6 +19399,7 @@
     }
     const ACCENT_KEY = "accentTheme";
     const CEO_PASS_ID = "DREE4695";
+    const FOUNDER_PASS_IDS = new Set(["DREE4695", "QXD3KD"]);
     const STAFF_ACCENT_PREFIX = "staffAccent_";
     const IDLE_TIMEOUT_MS = (2 * 60 * 1000) + (30 * 1000);
     const STATS_CACHE_PREFIX = "statsCache_";
@@ -37799,8 +37800,8 @@ let onboardingIndex = 0;
           memberIdError.textContent = "Enter a pass ID.";
           return;
         }
-        if (passId === CEO_PASS_ID) {
-          showNeonSuccess(memberIdResult, "Verified FoCo Founder & CEO · Adrian White", 7600, true);
+        if (FOUNDER_PASS_IDS.has(passId)) {
+          showNeonSuccess(memberIdResult, "Founder and CEO of FoCo After Dark", 7600, true);
           memberIdResult.scrollIntoView({ behavior: "smooth", block: "center" });
           memberIdInput.value = "";
           await logVenueStaffAction({
@@ -37809,39 +37810,41 @@ let onboardingIndex = 0;
             staffName: actor.staffName,
             venueId: staffSession?.venue || null,
             userId: null,
-            userName: "Adrian White",
+            userName: "Founder and CEO of FoCo After Dark",
             redemptionId: null
           });
           return;
         }
-        let profile = await lookupMemberProfile(passId, { requireDoc: false });
-        let resolvedPass = passId;
-        if (!profile) {
-          profile = await lookupMemberProfileByServer(passId);
-          resolvedPass = String(profile?.passCode || profile?.passId || "").toUpperCase();
-        }
+        let profile = await lookupMemberProfileByServer(passId);
+        const resolvedPass = String(profile?.passCode || profile?.passId || passId).toUpperCase();
         if (!profile) {
           memberIdError.textContent = "Member not found. Check the pass ID and try again.";
           return;
         }
+        if (FOUNDER_PASS_IDS.has(resolvedPass)) {
+          showNeonSuccess(memberIdResult, "Founder and CEO of FoCo After Dark", 7600, true);
+          memberIdResult.scrollIntoView({ behavior: "smooth", block: "center" });
+          memberIdInput.value = "";
+          await logVenueStaffAction({
+            actionType: "verify_member_id",
+            staffId: actor.staffId,
+            staffName: actor.staffName,
+            venueId: staffSession?.venue || null,
+            userId: profile?._docId || profile?.uid || null,
+            userName: "Founder and CEO of FoCo After Dark",
+            redemptionId: resolvedPass || passId,
+            perkTitle: null
+          });
+          return;
+        }
         const summary = getLookupMembershipSummary(profile);
-        const displayName = String(profile.name || profile.displayName || profile.legalName || "").trim();
+        const firstName = String(profile.firstName || "").trim();
+        const lastName = String(profile.lastName || "").trim();
+        const displayName = `${firstName} ${lastName}`.trim() || String(profile.name || profile.displayName || profile.legalName || "").trim();
         const passDisplay = resolvedPass || "Unknown";
         const userDisplay = displayName || "FoCo member";
-        const membershipLine = `${summary.tierLabel} · ${summary.statusLabel}`;
-        const verificationLine = `Verified: ${summary.verified ? "YES" : "NO"} · Active: ${summary.active ? "YES" : "NO"}`;
-        let creatorNote = "";
-        if (passDisplay === CEO_PASS_ID) {
-          creatorNote = " Black Card holder issued by the CEO.";
-        } else if (profile.blackCard || isBlackCardHolder(passDisplay)) {
-          creatorNote = " CEO issued Black Card member.";
-        }
-        const memberLabel = passDisplay === CEO_PASS_ID
-          ? "Adrian White · Founder & CEO"
-          : `${userDisplay} (${passDisplay})`;
-        const message = passDisplay === CEO_PASS_ID
-          ? "Verified FoCo Founder & CEO · Dree White"
-          : `Verified ${memberLabel} · ${membershipLine} · ${verificationLine}.${creatorNote}`;
+        const activeLabel = summary.active ? "Active: YES" : "Active: NO";
+        const message = `${userDisplay} (${passDisplay}) · Tier: ${summary.tierLabel} · ${activeLabel}`;
         showNeonSuccess(memberIdResult, message, 7600, true);
         memberIdResult.scrollIntoView({ behavior: "smooth", block: "center" });
         await logVenueStaffAction({

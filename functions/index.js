@@ -5546,12 +5546,21 @@ function normalizeLookupPayload(memberData = {}, uid = "") {
     memberData.fullName ||
     ""
   ).trim();
+  let firstName = String(memberData.firstName || "").trim();
+  let lastName = String(memberData.lastName || "").trim();
+  if ((!firstName || !lastName) && displayName) {
+    const parts = displayName.split(/\s+/).filter(Boolean);
+    if (!firstName && parts.length) firstName = parts[0];
+    if (!lastName && parts.length > 1) lastName = parts.slice(1).join(" ");
+  }
   return {
     uid: String(uid || "").trim(),
     passCode,
     username,
     name: displayName,
     displayName,
+    firstName,
+    lastName,
     tier: memberData.tier || memberData.membershipTier || memberData.membership || memberData.plan || null,
     membershipTier: memberData.membershipTier || memberData.tier || null,
     membershipOverride: memberData.membershipOverride || memberData.override || null,
@@ -5564,6 +5573,27 @@ function normalizeLookupPayload(memberData = {}, uid = "") {
   };
 }
 
+async function buildAuthBackedLookupPayload(memberData = {}, uid = "") {
+  const memberUid = String(uid || "").trim();
+  if (!memberUid) return null;
+  let authUser = null;
+  try {
+    authUser = await admin.auth().getUser(memberUid);
+  } catch (err) {
+    if (err?.code === "auth/user-not-found") return null;
+    throw err;
+  }
+  const email = String(authUser?.email || "").toLowerCase();
+  const isAnonymousUser = !email && (!authUser?.providerData || authUser.providerData.length === 0);
+  const isStaffUser = memberUid.startsWith("staff_") || authUser?.customClaims?.staff === true;
+  if (isAnonymousUser || isStaffUser) return null;
+  return normalizeLookupPayload({
+    ...memberData,
+    email: memberData.email || authUser.email || null,
+    displayName: memberData.displayName || memberData.name || memberData.legalName || authUser.displayName || "",
+  }, memberUid);
+}
+
 async function findMemberForStaffLookup(rawQuery = "") {
   const raw = String(rawQuery || "").trim();
   if (!raw) return null;
@@ -5572,20 +5602,20 @@ async function findMemberForStaffLookup(rawQuery = "") {
   const usernameCandidate = usernameCandidateRaw.toLowerCase();
   const candidates = Array.from(new Set([passCandidate, raw, raw.toLowerCase()].filter(Boolean)));
 
-  const snapshotToMember = (snap) => {
+  const snapshotToMember = async (snap) => {
     if (!snap || snap.empty) return null;
     const docSnap = snap.docs[0];
     const data = docSnap.data() || {};
-    return normalizeLookupPayload(data, docSnap.id);
+    return buildAuthBackedLookupPayload(data, docSnap.id);
   };
 
   for (const value of candidates) {
     const byPassCode = await db.collection("members").where("passCode", "==", value).limit(1).get();
-    const passCodeHit = snapshotToMember(byPassCode);
+    const passCodeHit = await snapshotToMember(byPassCode);
     if (passCodeHit) return passCodeHit;
 
     const byPassId = await db.collection("members").where("passId", "==", value).limit(1).get();
-    const passIdHit = snapshotToMember(byPassId);
+    const passIdHit = await snapshotToMember(byPassId);
     if (passIdHit) return passIdHit;
   }
 
@@ -5598,7 +5628,7 @@ async function findMemberForStaffLookup(rawQuery = "") {
     ].filter(Boolean)));
     for (const candidate of usernameVariants) {
       const byUsername = await db.collection("members").where("username", "==", candidate).limit(1).get();
-      const usernameHit = snapshotToMember(byUsername);
+      const usernameHit = await snapshotToMember(byUsername);
       if (usernameHit) return usernameHit;
     }
 
@@ -5609,19 +5639,19 @@ async function findMemberForStaffLookup(rawQuery = "") {
       if (mappedUid) {
         const memberSnap = await db.collection("members").doc(mappedUid).get();
         if (memberSnap.exists) {
-          return normalizeLookupPayload(memberSnap.data() || {}, mappedUid);
+          return buildAuthBackedLookupPayload(memberSnap.data() || {}, mappedUid);
         }
       }
       const mappedPassCode = String(usernameData.passCode || "").trim().toUpperCase();
       if (mappedPassCode) {
         const byMappedPassCode = await db.collection("members").where("passCode", "==", mappedPassCode).limit(1).get();
-        const mappedPassHit = snapshotToMember(byMappedPassCode);
+        const mappedPassHit = await snapshotToMember(byMappedPassCode);
         if (mappedPassHit) return mappedPassHit;
       }
       const mappedEmail = String(usernameData.email || "").trim().toLowerCase();
       if (mappedEmail) {
         const byMappedEmail = await db.collection("members").where("email", "==", mappedEmail).limit(1).get();
-        const mappedEmailHit = snapshotToMember(byMappedEmail);
+        const mappedEmailHit = await snapshotToMember(byMappedEmail);
         if (mappedEmailHit) return mappedEmailHit;
       }
     }
@@ -5641,7 +5671,7 @@ async function findMemberForStaffLookup(rawQuery = "") {
       if (uid) {
         const memberSnap = await db.collection("members").doc(uid).get();
         if (memberSnap.exists) {
-          return normalizeLookupPayload(memberSnap.data() || {}, uid);
+          return buildAuthBackedLookupPayload(memberSnap.data() || {}, uid);
         }
       }
     }
