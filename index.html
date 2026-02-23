@@ -20436,7 +20436,7 @@
         const cycleStart = shiftMonth(startDate, i);
         const cycleEnd = oneMonthFrom(cycleStart);
         const isCurrent = i === cycles - 1;
-        const cycleUsed = countRedemptionsInWindow(entries, { start: cycleStart, end: cycleEnd }, { includePending: isCurrent });
+        const cycleUsed = countRedemptionsInWindow(entries, { start: cycleStart, end: cycleEnd }, { includePending: false });
         const regularAllowance = effectiveLimit + carryover;
         const regularAllowanceWithGrant = regularAllowance + (isCurrent ? monthlyGrant : 0);
         const consumedTokens = Math.max(0, cycleUsed - regularAllowanceWithGrant);

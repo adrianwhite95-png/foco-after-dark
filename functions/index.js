@@ -1000,7 +1000,7 @@ function computeVoucherBalanceForWallet(memberData = {}, entries = [], now = new
     const cycleUsed = countRedemptionsInWindow(
       entries,
       { start: cycleStart, end: cycleEnd },
-      { includePending: isCurrent, now, pendingMaxMs: PENDING_REDEMPTION_TIMEOUT_MS }
+      { includePending: false, now, pendingMaxMs: PENDING_REDEMPTION_TIMEOUT_MS }
     );
     const regularAllowance = limit + carryover;
     const regularAllowanceWithGrant = regularAllowance + (isCurrent ? monthlyGrant : 0);
