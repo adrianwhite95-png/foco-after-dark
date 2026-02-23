@@ -75,6 +75,8 @@ notes/stripe_backup_code.txt
 # Firebase CLI local config (may contain tokens)
 functions/.config/
 functions/.config-tmp/
+functions/*admin-key*.json
+functions/*service-account*.json
 
 # dataconnect generated files
 .dataconnect
