@@ -37608,6 +37608,21 @@ let onboardingIndex = 0;
           reviewSuccess.classList.add("visible");
           return;
         }
+        const passCodeKey = (currentPassCode || "").toUpperCase();
+        const uidKey = firebaseAuth.currentUser?.uid || "";
+        const existingReviews = getStoredReviews();
+        const hasExistingReview = existingReviews.some((item) => {
+          const itemPass = String(item?.passCode || "").toUpperCase();
+          const itemUid = String(item?.uid || "");
+          if (passCodeKey && itemPass) return itemPass === passCodeKey;
+          if (uidKey && itemUid) return itemUid === uidKey;
+          return false;
+        });
+        if (hasExistingReview) {
+          reviewSuccess.textContent = "You already submitted your one app review.";
+          reviewSuccess.classList.add("visible");
+          return;
+        }
         const reviewEntry = {
           stars: selectedReviewStars,
           notes: reviewNotes.value.trim(),
@@ -37615,12 +37630,12 @@ let onboardingIndex = 0;
           tier: currentMembershipTier,
           timestamp: new Date().toISOString(),
           timestampMs: Date.now(),
-          passCode: (currentPassCode || "").toUpperCase(),
+          passCode: passCodeKey,
           uid: firebaseAuth.currentUser?.uid || "",
           email: firebaseAuth.currentUser?.email || "",
           username: preferredUsername()
         };
-        const reviews = getStoredReviews();
+        const reviews = existingReviews;
         reviews.unshift(reviewEntry);
         saveReviews(reviews);
         if (db) {
@@ -37643,7 +37658,9 @@ let onboardingIndex = 0;
           reviews: badgeState.reviews || newCount >= 3
         });
         evaluateAchievements();
-        addPoints(POINT_RULES.review, "Review");
+        addPoints(POINT_RULES.review, "Review", {
+          awardKey: `review:first:${passCodeKey || uidKey || "member"}`
+        });
         setTimeout(() => {
           reviewModal.classList.remove("active");
           reviewSuccess.classList.remove("visible");
