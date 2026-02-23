@@ -88,7 +88,7 @@ const STAFF_VENUE_ALIASES = {
   elliott: "elliotts",
   elliotts: "elliotts",
   "elliott's": "elliotts",
-  "elliott’s": "elliotts",
+  "elliott's": "elliotts",
   townpump: "town_pump",
   "town pump": "town_pump",
   mayor: "mayor_old_town",
@@ -1826,7 +1826,7 @@ async function runNightlyCloseOutCore(source = "nightlyCloseOut") {
     rec_room: "Rec Room Fort Collins",
     bondi_beach: "Bondi Beach Bar & Grill",
     surfside: "Surfside",
-    lucky_joes: "Lucky Joe’s Sidewalk Saloon",
+    lucky_joes: "Lucky Joe's Sidewalk Saloon",
     trail_head: "Trail Head Tavern",
     steak_out: "Steak-Out Saloon",
     road_34: "Road 34 Bike Bar",
@@ -1835,7 +1835,7 @@ async function runNightlyCloseOutCore(source = "nightlyCloseOut") {
     tap_handle: "Tap and Handle",
     high_point: "High Point",
     pinball_jones: "Pinball Jones",
-    elliotts: "Elliott’s Martini Bar",
+    elliotts: "Elliott's Martini Bar",
     town_pump: "Town Pump",
     mayor_old_town: "The Mayor of Old Town"
   };
@@ -2602,7 +2602,7 @@ exports.spinNightWheel = functions.https.onCall(async (data, context) => {
     "Trade bracelets",
     "Get a group of 4 to yell “FoCo!”",
     "Gift a free water to someone",
-    "Toast to a stranger’s night",
+    "Toast to a stranger's night",
     "Start a mini shuffle",
     "Teach someone a handshake",
     "Challenge a friend to a dance battle",
@@ -2610,9 +2610,9 @@ exports.spinNightWheel = functions.https.onCall(async (data, context) => {
     "Start a slow-mo walk",
     "Start a “cheers” wave",
     "Find someone from your hometown",
-    "Compliment someone’s outfit",
+    "Compliment someone's outfit",
     "Get a selfie with 3 people",
-    "Spell FOCO with friends’ bodies",
+    "Spell FOCO with friends' bodies",
     "Create a human tunnel",
     "Start a karaoke chant"
   ];
