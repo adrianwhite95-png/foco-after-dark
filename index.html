@@ -32461,7 +32461,15 @@ let onboardingIndex = 0;
         .map((perk) => `<li>${perk.perkTitle}: ${perk.verifiedCount} verified · ${perk.pendingCount} pending</li>`)
         .join("") || "<li>No perk activity yet.</li>";
       const pendingLines = (report.pendingList || [])
-        .map((item) => `<li><strong>${item.redemptionId || "—"}</strong> · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${formatMST(item.attemptedAt || Date.now(), { hour: "2-digit", minute: "2-digit" })}${item.pendingReasonCode ? ` · ${item.pendingReasonCode}` : ""}</li>`)
+        .map((item) => {
+          const reasonCode = String(item.pendingReasonCode || "").trim();
+          const reasonNote = String(item.pendingReasonNote || "").trim();
+          const byStaff = String(item.lastActionStaffName || "").trim();
+          const reasonText = reasonCode || reasonNote
+            ? `${reasonCode || "manual"}${reasonNote ? ` · ${reasonNote}` : ""}`
+            : "reason n/a";
+          return `<li><strong>${item.redemptionId || "—"}</strong> · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${formatMST(item.attemptedAt || Date.now(), { hour: "2-digit", minute: "2-digit" })} · ${reasonText}${byStaff ? ` · by ${byStaff}` : ""}</li>`;
+        })
         .join("") || "<li>No pending redemptions.</li>";
       const ledgerLines = (report.ledger || [])
         .sort((a, b) => new Date(b.verifiedAt || 0) - new Date(a.verifiedAt || 0))
@@ -32539,7 +32547,13 @@ let onboardingIndex = 0;
       lines.push("");
       lines.push("Pending:");
       (report.pendingList || []).slice(0, 40).forEach((item) => {
-        lines.push(`- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.pendingReasonCode || "reason n/a"}`);
+        const reasonCode = String(item.pendingReasonCode || "").trim();
+        const reasonNote = String(item.pendingReasonNote || "").trim();
+        const byStaff = String(item.lastActionStaffName || "").trim();
+        const reasonText = reasonCode || reasonNote
+          ? `${reasonCode || "manual"}${reasonNote ? ` · ${reasonNote}` : ""}`
+          : "reason n/a";
+        lines.push(`- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${reasonText}${byStaff ? ` · by ${byStaff}` : ""}`);
       });
       if (!(report.pendingList || []).length) lines.push("- None.");
       lines.push("");
@@ -32711,9 +32725,15 @@ let onboardingIndex = 0;
       const perkLines = (report.perks || []).map((perk) => (
         `- ${perk.perkTitle}: verified ${perk.verifiedCount}, pending ${perk.pendingCount}`
       ));
-      const pendingLines = (report.pendingList || []).map((item) => (
-        `- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.pendingReasonCode || "reason n/a"}`
-      ));
+      const pendingLines = (report.pendingList || []).map((item) => {
+        const reasonCode = String(item.pendingReasonCode || "").trim();
+        const reasonNote = String(item.pendingReasonNote || "").trim();
+        const byStaff = String(item.lastActionStaffName || "").trim();
+        const reasonText = reasonCode || reasonNote
+          ? `${reasonCode || "manual"}${reasonNote ? ` · ${reasonNote}` : ""}`
+          : "reason n/a";
+        return `- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${reasonText}${byStaff ? ` · by ${byStaff}` : ""}`;
+      });
       const ledgerLines = (report.ledger || []).slice(0, 80).map((item) => (
         `- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${formatMST(item.verifiedAt || Date.now(), { hour: "2-digit", minute: "2-digit" })} · ${item.verifiedByStaffName || "Staff"}`
       ));
