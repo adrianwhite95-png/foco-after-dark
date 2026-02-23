@@ -29847,6 +29847,13 @@ let onboardingIndex = 0;
       if (staffShiftModal) staffShiftModal.classList.remove("active");
       if (staffShiftError) staffShiftError.textContent = "";
     }
+    function resetStaffShiftStartButtonState() {
+      if (!staffShiftStartBtn) return;
+      const baseText = staffShiftStartBtn.dataset.baseText || "Start shift";
+      staffShiftStartBtn.dataset.busy = "";
+      staffShiftStartBtn.disabled = false;
+      staffShiftStartBtn.textContent = baseText;
+    }
     function openStaffShiftModal() {
       if (!staffSession?.venue) return;
       const activeShift = getActiveShiftForVenue(staffSession.venue);
@@ -33706,11 +33713,15 @@ let onboardingIndex = 0;
       });
     }
     if (staffShiftStartBtn) {
+      if (!staffShiftStartBtn.dataset.baseText) {
+        staffShiftStartBtn.dataset.baseText = staffShiftStartBtn.textContent || "Start shift";
+      }
       staffShiftStartBtn.addEventListener("click", async () => {
         if (staffShiftStartBtn.dataset.busy === "1") return;
         staffShiftStartBtn.dataset.busy = "1";
         staffShiftStartBtn.disabled = true;
-        const originalText = staffShiftStartBtn.textContent;
+        const originalText = staffShiftStartBtn.dataset.baseText || staffShiftStartBtn.textContent || "Start shift";
+        staffShiftStartBtn.dataset.baseText = originalText;
         staffShiftStartBtn.textContent = "Starting…";
         try {
           if (staffShiftError) staffShiftError.textContent = "";
@@ -33722,9 +33733,7 @@ let onboardingIndex = 0;
           console.warn("start shift failed", err);
           if (staffShiftError) staffShiftError.textContent = err?.message || "Could not start shift right now.";
         } finally {
-          staffShiftStartBtn.dataset.busy = "";
-          staffShiftStartBtn.disabled = false;
-          staffShiftStartBtn.textContent = originalText;
+          resetStaffShiftStartButtonState();
         }
       });
     }
@@ -33735,13 +33744,19 @@ let onboardingIndex = 0;
       });
     }
     if (staffShiftClose) {
-      staffShiftClose.addEventListener("click", () => {
+      staffShiftClose.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
+        resetStaffShiftStartButtonState();
         closeStaffShiftModal();
       });
     }
     if (staffShiftModal) {
       staffShiftModal.addEventListener("click", (e) => {
         if (e.target !== staffShiftModal) return;
+        if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
+        resetStaffShiftStartButtonState();
         closeStaffShiftModal();
       });
     }
