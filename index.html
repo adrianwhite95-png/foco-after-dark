@@ -33651,6 +33651,20 @@ let onboardingIndex = 0;
       e.preventDefault();
       processStaffLogin();
     });
+    if (staffVenue) {
+      staffVenue.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        processStaffLogin();
+      });
+    }
+    if (staffPass) {
+      staffPass.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        processStaffLogin();
+      });
+    }
     if (staffLoginSubmit) {
       staffLoginSubmit.addEventListener("click", (e) => {
         e.preventDefault();
@@ -33683,6 +33697,9 @@ let onboardingIndex = 0;
       if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
       closeStaffActorModal();
       closeStaffShiftModal({ force: true });
+      if (staffCloseOutModal?.classList.contains("active")) {
+        closeStaffCloseOutModal();
+      }
       const previousVenue = String(staffSession?.venue || "").toLowerCase();
       if (staffSession?.venue) {
         saveStaffRedemptionCache(staffSession.venue, redemptionLog);
