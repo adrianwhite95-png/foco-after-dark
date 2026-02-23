@@ -14219,6 +14219,7 @@
               <div class="ceo-panel-tools">
                 <input id="ceoMemberSearch" type="text" placeholder="Search username, UID, tier…" />
                 <button type="button" class="btn btn-secondary" id="ceoMembersExport">Export CSV</button>
+                <button type="button" class="btn btn-secondary" id="ceoMembersRefresh">Refresh</button>
               </div>
               <div class="ceo-filter-chips" id="ceoMemberFilters">
                 <span class="pill-ghost active" data-ceo-filter="all">All</span>
@@ -14249,7 +14250,6 @@
                 </table>
               </div>
             </div>
-            <button type="button" class="btn btn-secondary" id="ceoMembersRefresh">Refresh</button>
           </div>
         </section>
 
@@ -31899,7 +31899,7 @@ let onboardingIndex = 0;
         acc.total += 1;
         if (m.tierKey === "vip") acc.vip += 1;
         if (m.tierKey === "standard") acc.standard += 1;
-        if (m.tierKey === "free" || m.tierKey === "ceo_free" || m.tierKey === "ceo") acc.free += 1;
+        if (m.tierKey === "free" || m.tierKey === "ceo_free" || m.tierKey === "explorer" || m.tierKey === "ceo") acc.free += 1;
         if (m.statusKey === "paused") acc.paused += 1;
         if (m.statusKey === "past_due") acc.pastDue += 1;
         return acc;
@@ -35812,13 +35812,23 @@ let onboardingIndex = 0;
     function normalizeCeoMemberData(data = {}, uid = "") {
       const rawTier = (data.tier || data.membershipTier || data.membership || data.plan || "").toString();
       const tierKey = normalizeTierKey(rawTier);
+      const requestedTierKey = normalizeTierKey(data.requestedTier || "");
+      const membershipStatusTierKey = normalizeTierKey(data.membershipStatus || "");
+      const ageStatus = String(data.ageVerificationStatus || "").toLowerCase();
       const override = (data.membershipOverride || data.override || "").toString().toUpperCase();
+      const isExplorerAccount = (
+        tierKey === "explorer"
+        || requestedTierKey === "explorer"
+        || membershipStatusTierKey === "explorer"
+        || ageStatus.includes("explorer")
+      );
       let tierLabel = tierKey ? tierKey.toUpperCase() : (data.ceo ? "CEO" : "STANDARD");
       if (rawTier.toLowerCase() === "beta") {
         tierLabel = "BETA";
       }
       if (override === "CEO_FREE") tierLabel = "CEO_FREE";
       if (override === "CEO") tierLabel = "CEO";
+      if (isExplorerAccount) tierLabel = "EXPLORER";
       if (data.freeMembership === true) tierLabel = "FREE";
       const paused = data.paused === true;
       const statusKey = paused ? "paused" : ((data.paymentStatus || data.membershipStatus || "active").toString().toLowerCase());
@@ -35832,7 +35842,7 @@ let onboardingIndex = 0;
         username: data.username || data.displayName || data.name || data.legalName || data.passCode || "Member",
         passCode: data.passCode || "",
         tier: tierLabel,
-        tierKey: tierKey || tierLabel.toLowerCase(),
+        tierKey: isExplorerAccount ? "explorer" : (tierKey || tierLabel.toLowerCase()),
         statusKey,
         statusLabel,
         paused,
@@ -35844,9 +35854,10 @@ let onboardingIndex = 0;
         email: (data.email || data.contactEmail || "").toString().trim(),
         paymentStatus: (data.paymentStatus || data.membershipStatus || "").toString().trim(),
         membershipOverride: override || "",
-        freeMembership: data.freeMembership === true || override === "CEO_FREE",
+        freeMembership: data.freeMembership === true || override === "CEO_FREE" || isExplorerAccount,
+        accountType: isExplorerAccount ? "Explorer (FREE)" : tierLabel,
         birthDateLabel: formatCeoDate(data.birthDate || data.dob || null),
-        phone: (data.phone || data.phoneNumber || "").toString().trim()
+        source: String(data.signUpSource || data.signupSource || "App signup")
       };
     }
     function escapeHtmlText(value) {
@@ -36138,6 +36149,7 @@ let onboardingIndex = 0;
         { label: "Pass ID", value: member.passCode || "—" },
         { label: "UID", value: member.uid || "—" },
         { label: "Tier", value: member.tier || "—" },
+        { label: "Account type", value: member.accountType || member.tier || "—" },
         { label: "Status", value: member.statusLabel || "—" },
         { label: "Perks redeemed", value: "0", key: "perksRedeemed" },
         { label: "Nights active", value: "0", key: "nightsActive" },
@@ -36147,9 +36159,8 @@ let onboardingIndex = 0;
         { label: "Last active", value: member.lastActiveLabel || "—" },
         { label: "Email", value: member.email || "—" },
         { label: "Birthday", value: member.birthDateLabel || "—" },
-        { label: "Phone", value: member.phone || "—" },
-        { label: "Override", value: member.membershipOverride || "—" },
-        { label: "Free membership", value: member.freeMembership ? "Yes" : "No" },
+        { label: "Signup source", value: member.source || "App signup" },
+        { label: "Free account", value: member.freeMembership ? "Yes" : "No" },
         { label: "Payment state", value: member.paymentStatus || "—" }
       ];
       if (ceoMemberPreviewTitle) ceoMemberPreviewTitle.textContent = member.username || "Member profile";
@@ -36185,7 +36196,7 @@ let onboardingIndex = 0;
         list = list.filter(m => {
           if (ceoMembersFilterKey === "vip") return m.tierKey === "vip";
           if (ceoMembersFilterKey === "standard") return m.tierKey === "standard";
-          if (ceoMembersFilterKey === "free") return m.tierKey === "free" || m.tierKey === "ceo_free";
+          if (ceoMembersFilterKey === "free") return m.tierKey === "free" || m.tierKey === "ceo_free" || m.tierKey === "explorer";
           if (ceoMembersFilterKey === "paused") return m.statusKey === "paused";
           if (ceoMembersFilterKey === "past_due") return m.statusKey === "past_due";
           return true;
@@ -36228,7 +36239,7 @@ let onboardingIndex = 0;
         acc.total += 1;
         if (m.tierKey === "vip") acc.vip += 1;
         if (m.tierKey === "standard") acc.standard += 1;
-        if (m.tierKey === "free" || m.tierKey === "ceo_free") acc.free += 1;
+        if (m.tierKey === "free" || m.tierKey === "ceo_free" || m.tierKey === "explorer" || m.tierKey === "ceo") acc.free += 1;
         if (m.statusKey === "paused") acc.paused += 1;
         if (m.statusKey === "past_due") acc.pastDue += 1;
         return acc;
@@ -36265,6 +36276,7 @@ let onboardingIndex = 0;
         `;
       });
       ceoMembersList.innerHTML = rows.join("") || `<tr><td colspan="10" style="color:#94a3b8;font-size:12px;">No members found.</td></tr>`;
+      updateCeoMetrics();
     }
     function startCeoMembersRealtime(force = false) {
       if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim() || !ceoMembersCard) return;
