@@ -37012,7 +37012,13 @@ let onboardingIndex = 0;
         verifiedAt: null,
         deniedAt: null,
         deniedReasonCode: null,
-        deniedReasonNote: null
+        deniedReasonNote: null,
+        pendingReasonCode: options?.reasonCode || existing.pendingReasonCode || null,
+        pendingReasonNote: options?.reasonNote || existing.pendingReasonNote || null,
+        lastActionType: "set_pending",
+        lastActionAt: new Date().toISOString(),
+        lastActionStaffId: options?.staffId || existing.lastActionStaffId || null,
+        lastActionStaffName: options?.staffName || existing.lastActionStaffName || null
       };
       if (functionsClient) {
         try {
@@ -37033,7 +37039,13 @@ let onboardingIndex = 0;
               status: String(payload.status || "pending").toLowerCase(),
               shiftKey: payload.shiftKey || updated.shiftKey || null,
               verifiedAt: payload.verifiedAt ? toDateSafe(payload.verifiedAt)?.toISOString?.() || payload.verifiedAt : null,
-              deniedAt: payload.deniedAt ? toDateSafe(payload.deniedAt)?.toISOString?.() || payload.deniedAt : null
+              deniedAt: payload.deniedAt ? toDateSafe(payload.deniedAt)?.toISOString?.() || payload.deniedAt : null,
+              pendingReasonCode: payload.pendingReasonCode ?? updated.pendingReasonCode ?? null,
+              pendingReasonNote: payload.pendingReasonNote ?? updated.pendingReasonNote ?? null,
+              lastActionStaffId: payload.lastActionStaffId ?? updated.lastActionStaffId ?? null,
+              lastActionStaffName: payload.lastActionStaffName ?? updated.lastActionStaffName ?? null,
+              lastActionType: payload.lastActionType || updated.lastActionType || "set_pending",
+              lastActionAt: payload.lastActionAt ? toDateSafe(payload.lastActionAt)?.toISOString?.() || payload.lastActionAt : (updated.lastActionAt || new Date().toISOString())
             });
           }
         } catch (err) {
