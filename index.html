@@ -28749,11 +28749,20 @@ let onboardingIndex = 0;
       const passCode = String(profile.passCode || profile.passId || "").toUpperCase();
       const override = String(profile.membershipOverride || profile.override || "").toUpperCase();
       const tierKey = normalizeTierKey(profile.tier || profile.membershipTier || profile.membership || profile.plan || "");
+      const requestedTierKey = normalizeTierKey(profile.requestedTier || "");
+      const membershipStatusTierKey = normalizeTierKey(profile.membershipStatus || "");
+      const ageStatus = String(profile.ageVerificationStatus || "").toLowerCase();
+      const isExplorerAccount = (
+        tierKey === "explorer"
+        || requestedTierKey === "explorer"
+        || membershipStatusTierKey === "explorer"
+        || ageStatus.includes("explorer")
+      );
       let tierLabel = tierKey ? tierKey.toUpperCase() : "STANDARD";
       if (profile.ceo === true || override === "CEO" || passCode === CEO_PASS_ID) tierLabel = "CEO";
       else if (override === "CEO_FREE") tierLabel = "CEO FREE";
-      else if (tierKey === "explorer") tierLabel = "FREE (EXPLORER)";
-      else if (profile.freeMembership === true) tierLabel = "FREE";
+      else if (isExplorerAccount) tierLabel = "FREE (EXPLORER)";
+      else if (profile.freeMembership === true) tierLabel = "CEO FREE";
       const rawStatus = profile.paused === true
         ? "paused"
         : String(profile.paymentStatus || profile.membershipStatus || profile.status || "active").toLowerCase();
@@ -36081,7 +36090,7 @@ let onboardingIndex = 0;
       if (override === "CEO_FREE") tierLabel = "CEO FREE";
       if (override === "CEO") tierLabel = "CEO";
       if (isExplorerAccount) tierLabel = "EXPLORER";
-      if (data.freeMembership === true && override !== "CEO_FREE") tierLabel = "FREE";
+      if (data.freeMembership === true && !isExplorerAccount) tierLabel = "CEO FREE";
       const paused = data.paused === true;
       const statusKey = paused ? "paused" : ((data.paymentStatus || data.membershipStatus || "active").toString().toLowerCase());
       const statusLabel = paused ? "Paused" : statusKey.replace("_", " ");

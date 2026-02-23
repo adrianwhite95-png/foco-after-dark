@@ -1656,6 +1656,9 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
           }
         } else if (wasVerified && nextStatus !== "verified") {
           memberUpdates.totalRedemptions = admin.firestore.FieldValue.increment(-1);
+          if (remaining && typeof remaining.tokens === "number") {
+            memberUpdates["perksRemaining.tokens"] = remaining.tokens + 1;
+          }
         }
         tx.set(memberRef, memberUpdates, { merge: true });
       }
