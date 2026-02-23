@@ -16641,7 +16641,9 @@
           ...(memberProfile || {}),
           freeMembership: true,
           membershipOverride: "CEO_FREE",
-          tier: "free",
+          tier: "ceo_free",
+          membershipTier: "ceo_free",
+          requestedTier: "ceo_free",
           validUntil: "never"
         };
         applyMembershipToPass("free");
@@ -17739,7 +17741,9 @@
             ...memberProfile,
             freeMembership: true,
             membershipOverride: "CEO_FREE",
-            tier: "free",
+            tier: "ceo_free",
+            membershipTier: "ceo_free",
+            requestedTier: "ceo_free",
             validUntil: "never"
           };
         }
@@ -22027,7 +22031,17 @@
             if (snap.exists()) {
               const data = snap.data() || {};
               if (data && data.active !== false) {
-                memberProfile = { ...(memberProfile || {}), freeMembership: true, passCode: code, tier: "free" };
+                memberProfile = {
+                  ...(memberProfile || {}),
+                  freeMembership: true,
+                  membershipOverride: "CEO_FREE",
+                  passCode: code,
+                  tier: "ceo_free",
+                  membershipTier: "ceo_free",
+                  requestedTier: "ceo_free",
+                  membershipStatus: "active",
+                  paymentStatus: "active"
+                };
                 setMemberDirectoryEntry(code, memberProfile);
                 applyMembershipToPass("free");
                 updateExpiryDisplay();
@@ -24099,10 +24113,23 @@ let onboardingIndex = 0;
       }
       // Normalize free membership from doc/cache
       if (memberProfile.freeMembership) {
-        memberProfile.tier = "free";
+        memberProfile.tier = "ceo_free";
+        memberProfile.membershipTier = "ceo_free";
+        memberProfile.requestedTier = "ceo_free";
+        memberProfile.membershipOverride = "CEO_FREE";
         memberProfile.perks = { tier: "free", remaining: getDefaultPerkState("free") };
         memberProfile.validUntil = "never";
-        updateMemberProfile({ freeMembership: true, tier: "free", perks: memberProfile.perks, validUntil: "never" });
+        updateMemberProfile({
+          freeMembership: true,
+          membershipOverride: "CEO_FREE",
+          tier: "ceo_free",
+          membershipTier: "ceo_free",
+          requestedTier: "ceo_free",
+          membershipStatus: "active",
+          paymentStatus: "active",
+          perks: memberProfile.perks,
+          validUntil: "never"
+        });
         if (allowLocalCache() && user.uid) localStorage.setItem(`membership_${user.uid}`, "free");
       }
       // If not marked free yet, double-check the shared freeMemberships doc by pass code
@@ -24112,10 +24139,23 @@ let onboardingIndex = 0;
           const snap = await getDoc(doc(db, "freeMemberships", code));
           if (snap.exists() && snap.data()?.active !== false) {
             memberProfile.freeMembership = true;
-            memberProfile.tier = "free";
+            memberProfile.tier = "ceo_free";
+            memberProfile.membershipTier = "ceo_free";
+            memberProfile.requestedTier = "ceo_free";
+            memberProfile.membershipOverride = "CEO_FREE";
             memberProfile.validUntil = "never";
             memberProfile.perks = { tier: "free", remaining: getDefaultPerkState("free") };
-            updateMemberProfile({ freeMembership: true, tier: "free", perks: memberProfile.perks, validUntil: "never" });
+            updateMemberProfile({
+              freeMembership: true,
+              membershipOverride: "CEO_FREE",
+              tier: "ceo_free",
+              membershipTier: "ceo_free",
+              requestedTier: "ceo_free",
+              membershipStatus: "active",
+              paymentStatus: "active",
+              perks: memberProfile.perks,
+              validUntil: "never"
+            });
             setMemberDirectoryEntry(code, memberProfile);
             if (allowLocalCache() && user.uid) localStorage.setItem(`membership_${user.uid}`, "free");
           }
@@ -28473,7 +28513,7 @@ let onboardingIndex = 0;
       if (alertAudience && !alertAudience.value) {
         alertAudience.value = "all";
       }
-      const now = Date.now() - ALERT_EXPIRY_SKEW_MS;
+      const now = Date.now();
       if (alertExpiresInput && !alertExpiresInput.value) {
         const defaultDate = new Date();
         defaultDate.setHours(23, 59, 0, 0);
@@ -30705,7 +30745,7 @@ let onboardingIndex = 0;
         return;
       }
       const venueId = (staffSession.venue || "").toLowerCase();
-      const now = Date.now() - ALERT_EXPIRY_SKEW_MS;
+      const now = Date.now();
       const recent = getStaffQueueSource(venueId).filter(entry => {
         const matchesVenue = venueId ? entryMatchesVenue(entry, venueId) : true;
         if (!matchesVenue) return false;
@@ -31287,7 +31327,7 @@ let onboardingIndex = 0;
             if (ts.toDate) return ts.toDate().toISOString();
             return new Date(ts).toISOString();
           };
-          ceoRedemptionsCache = snap.docs.map(docSnap => {
+          const rawEntries = snap.docs.map(docSnap => {
             const data = docSnap.data() || {};
             const queueScope = String(data.queueScope || "").toLowerCase();
             if (queueScope !== "venue") return null;
@@ -31324,6 +31364,24 @@ let onboardingIndex = 0;
               queueScope: "venue"
             };
           }).filter(Boolean);
+          const deduped = new Map();
+          rawEntries.forEach((entry) => {
+            const key = [
+              String(entry.code || "").toUpperCase(),
+              String(entry.venue || "").toLowerCase(),
+              String(entry.passId || "").toUpperCase(),
+              String(entry.status || "").toLowerCase()
+            ].join("|");
+            const prev = deduped.get(key);
+            if (!prev) {
+              deduped.set(key, entry);
+              return;
+            }
+            const prevTs = new Date(prev.verifiedAt || prev.timestamp || 0).getTime() || 0;
+            const nextTs = new Date(entry.verifiedAt || entry.timestamp || 0).getTime() || 0;
+            if (nextTs >= prevTs) deduped.set(key, entry);
+          });
+          ceoRedemptionsCache = Array.from(deduped.values());
           scheduleThrottledRender("ceoRedemptions", () => {
             renderCeoRedemptionLog();
             renderCeoVenueLog();

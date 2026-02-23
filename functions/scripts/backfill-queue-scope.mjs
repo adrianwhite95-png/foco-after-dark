@@ -20,11 +20,22 @@ function inferQueueScope(path = "") {
 async function run() {
   const cutoffMs = Date.now() - days * 24 * 60 * 60 * 1000;
   const cutoff = admin.firestore.Timestamp.fromMillis(cutoffMs);
-  const snap = await db
-    .collectionGroup("redemptions")
-    .where("createdAt", ">=", cutoff)
-    .limit(maxDocs)
-    .get();
+  let snap;
+  try {
+    snap = await db
+      .collectionGroup("redemptions")
+      .where("createdAt", ">=", cutoff)
+      .limit(maxDocs)
+      .get();
+  } catch (err) {
+    const msg = String(err?.message || "");
+    if (!msg.includes("FAILED_PRECONDITION")) throw err;
+    console.warn("createdAt query needs an index; falling back to client-side date filtering.");
+    snap = await db
+      .collectionGroup("redemptions")
+      .limit(maxDocs)
+      .get();
+  }
 
   let scanned = 0;
   let updated = 0;
@@ -41,10 +52,17 @@ async function run() {
   };
 
   for (const docSnap of snap.docs) {
+    const data = docSnap.data() || {};
+    const createdAt = data.createdAt;
+    let createdAtMs = 0;
+    if (createdAt?.toMillis) createdAtMs = createdAt.toMillis();
+    else if (createdAt) createdAtMs = new Date(createdAt).getTime() || 0;
+    if (createdAtMs && createdAtMs < cutoffMs) continue;
+
     scanned += 1;
     const expected = inferQueueScope(docSnap.ref.path);
     byScope[expected] = (byScope[expected] || 0) + 1;
-    const current = String((docSnap.data() || {}).queueScope || "").toLowerCase();
+    const current = String((data || {}).queueScope || "").toLowerCase();
     if (current === expected) {
       unchanged += 1;
       continue;
@@ -86,4 +104,3 @@ run().catch((err) => {
   console.error("Backfill failed:", err?.message || err);
   process.exitCode = 1;
 });
-

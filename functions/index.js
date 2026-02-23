@@ -2418,7 +2418,11 @@ exports.claimCeoFreeSignupCode = functions.https.onCall(async (data, context) =>
     tx.set(memberRef, {
       freeMembership: true,
       membershipOverride: "CEO_FREE",
-      tier: "free",
+      tier: "ceo_free",
+      membershipTier: "ceo_free",
+      requestedTier: "ceo_free",
+      membershipStatus: "active",
+      paymentStatus: "active",
       revoked: false,
       validUntil: "never",
       freeGrantedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -2432,7 +2436,7 @@ exports.claimCeoFreeSignupCode = functions.https.onCall(async (data, context) =>
       oneTimeCode: code,
       freeMembership: true,
       membershipOverride: "CEO_FREE",
-      tier: "free",
+      tier: "ceo_free",
       grantedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
