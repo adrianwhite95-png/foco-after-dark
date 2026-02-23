@@ -33682,6 +33682,8 @@ let onboardingIndex = 0;
     }
 
     const handleStaffLogout = () => {
+      if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
+      closeStaffActorModal();
       closeStaffShiftModal({ force: true });
       const previousVenue = String(staffSession?.venue || "").toLowerCase();
       if (staffSession?.venue) {
@@ -33879,45 +33881,54 @@ let onboardingIndex = 0;
         closeStaffActorModal();
       });
     }
+    async function handleStaffShiftStartTap() {
+      if (!staffShiftStartBtn) return;
+      if (staffShiftStartBtn.dataset.busy === "1") return;
+      if (staffShiftError) staffShiftError.textContent = "";
+      let actor = null;
+      const venueId = String(staffSession?.venue || "").toLowerCase();
+      if (venueId && getActiveStaffMembers(venueId).length) {
+        actor = await requireStaffActor({
+          actionType: "start_shift",
+          prompt: "Who are you? Select the staff member starting this shift."
+        });
+        if (!actor) {
+          if (staffShiftError) staffShiftError.textContent = "Select a staff member to start shift.";
+          resetStaffShiftStartButtonState();
+          return;
+        }
+      }
+      staffShiftStartBtn.dataset.busy = "1";
+      staffShiftStartBtn.disabled = true;
+      const originalText = staffShiftStartBtn.dataset.baseText || staffShiftStartBtn.textContent || "Start shift";
+      staffShiftStartBtn.dataset.baseText = originalText;
+      staffShiftStartBtn.textContent = "Starting…";
+      try {
+        const started = await startVenueShiftForCurrentSession(actor);
+        if (!started && staffShiftError) {
+          staffShiftError.textContent = "Shift was not started.";
+        }
+      } catch (err) {
+        console.warn("start shift failed", err);
+        if (staffShiftError) staffShiftError.textContent = err?.message || "Could not start shift right now.";
+      } finally {
+        resetStaffShiftStartButtonState();
+      }
+    }
     if (staffShiftStartBtn) {
       if (!staffShiftStartBtn.dataset.baseText) {
         staffShiftStartBtn.dataset.baseText = staffShiftStartBtn.textContent || "Start shift";
       }
-      staffShiftStartBtn.addEventListener("click", async () => {
-        if (staffShiftStartBtn.dataset.busy === "1") return;
-        if (staffShiftError) staffShiftError.textContent = "";
-        let actor = null;
-        const venueId = String(staffSession?.venue || "").toLowerCase();
-        if (venueId && getActiveStaffMembers(venueId).length) {
-          actor = await requireStaffActor({
-            actionType: "start_shift",
-            prompt: "Who are you? Select the staff member starting this shift."
-          });
-          if (!actor) {
-            resetStaffShiftStartButtonState();
-            return;
-          }
-        }
-        staffShiftStartBtn.dataset.busy = "1";
-        staffShiftStartBtn.disabled = true;
-        const originalText = staffShiftStartBtn.dataset.baseText || staffShiftStartBtn.textContent || "Start shift";
-        staffShiftStartBtn.dataset.baseText = originalText;
-        staffShiftStartBtn.textContent = "Starting…";
-        try {
-          const started = await startVenueShiftForCurrentSession(actor);
-          if (!started && staffShiftError) {
-            staffShiftError.textContent = "Shift was not started.";
-          }
-        } catch (err) {
-          console.warn("start shift failed", err);
-          if (staffShiftError) staffShiftError.textContent = err?.message || "Could not start shift right now.";
-        } finally {
-          resetStaffShiftStartButtonState();
-        }
-      });
+      staffShiftStartBtn.addEventListener("click", handleStaffShiftStartTap);
+      staffShiftStartBtn.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        handleStaffShiftStartTap();
+      }, { passive: false });
     }
     if (staffShiftLogout) {
       staffShiftLogout.addEventListener("click", () => {
+        if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
+        closeStaffActorModal();
         closeStaffShiftModal({ force: true });
         handleStaffLogout();
       });
