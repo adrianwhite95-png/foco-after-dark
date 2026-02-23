@@ -36859,6 +36859,31 @@ let onboardingIndex = 0;
       if (e.target === tierModal) closeTierModal();
     });
 
+    let redemptionUiRefreshFrame = null;
+    let redemptionUiNeedsCeo = false;
+    function flushRedemptionUiRefresh() {
+      redemptionUiRefreshFrame = null;
+      renderStaffVenueLog();
+      renderStaffPendingQueue();
+      renderStaffDealCodes();
+      renderStaffDealRedemptionLog();
+      if (redemptionUiNeedsCeo) {
+        renderCeoRedemptionLog();
+        renderCeoVenueLog();
+        renderCeoVerifiedVenueLog();
+      }
+      refreshMemberStats();
+      redemptionUiNeedsCeo = false;
+    }
+    function scheduleRedemptionUiRefresh({ includeCeo = false } = {}) {
+      if (includeCeo) redemptionUiNeedsCeo = true;
+      if (redemptionUiRefreshFrame) return;
+      const scheduler = (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function")
+        ? window.requestAnimationFrame.bind(window)
+        : ((cb) => setTimeout(cb, 16));
+      redemptionUiRefreshFrame = scheduler(flushRedemptionUiRefresh);
+    }
+
     async function verifyCode(code, venueId) {
       if (!code) return { success: false, message: "Enter a code." };
       if (!guardWriteAction("verifyRedemption")) {
@@ -36922,11 +36947,7 @@ let onboardingIndex = 0;
         if (staffSession?.venue) {
           saveStaffRedemptionCache(staffSession.venue, redemptionLog);
         }
-        renderStaffVenueLog();
-        renderStaffPendingQueue();
-        renderStaffDealCodes();
-        renderStaffDealRedemptionLog();
-        refreshMemberStats();
+        scheduleRedemptionUiRefresh();
       };
       const isVenueMismatch = (payload) => {
         if (!venueKey) return false;
@@ -37106,14 +37127,7 @@ let onboardingIndex = 0;
       }
       redemptionLog[idx] = updated;
       saveRedemptionLog();
-      renderStaffVenueLog();
-      renderStaffPendingQueue();
-      renderStaffDealCodes();
-      renderStaffDealRedemptionLog();
-      renderCeoRedemptionLog();
-      renderCeoVenueLog();
-      renderCeoVerifiedVenueLog();
-      refreshMemberStats();
+      scheduleRedemptionUiRefresh({ includeCeo: true });
       await syncRedemptionToCloud(updated);
       return { success: true, entry: updated };
     }
@@ -37154,11 +37168,7 @@ let onboardingIndex = 0;
           redemptionLog.unshift(normalized);
         }
         saveRedemptionLog();
-        renderStaffVenueLog();
-        renderStaffPendingQueue();
-        renderStaffDealCodes();
-        renderStaffDealRedemptionLog();
-        refreshMemberStats();
+        scheduleRedemptionUiRefresh();
         return { success: true, entry: normalized };
       } catch (err) {
         const message = err?.message || "Could not deny redemption right now.";
