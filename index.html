@@ -16018,6 +16018,7 @@
     let ceoMembersCache = [];
     let ceoAuthUidAllowlist = null;
     let ceoMembersHydrating = false;
+    let ceoAuthSummarySyncTimer = null;
     let ceoAnalyticsLatestSnapshot = null;
     let ceoAnalyticsWeeklyHistory = [];
     let ceoMembersFilterKey = "all";
@@ -35684,10 +35685,22 @@ let onboardingIndex = 0;
         try { ceoMembersUnsub(); } catch (_) {}
         ceoMembersUnsub = null;
       }
+      if (ceoAuthSummarySyncTimer) {
+        clearInterval(ceoAuthSummarySyncTimer);
+        ceoAuthSummarySyncTimer = null;
+      }
       if (clearCache) {
         ceoMembersCache = [];
         ceoAuthUidAllowlist = null;
       }
+    }
+
+    function startCeoAuthSummarySync() {
+      if (ceoAuthSummarySyncTimer || !isCeoAccount || !authClaimsReady || !hasCeoClaim()) return;
+      ceoAuthSummarySyncTimer = setInterval(() => {
+        if (!isCeoAccount || !authClaimsReady || !hasCeoClaim()) return;
+        loadCeoMembersSummaryLegacy({ silent: true });
+      }, 30000);
     }
     function formatCeoDate(value) {
       if (!value) return "—";
@@ -36285,6 +36298,7 @@ let onboardingIndex = 0;
     function startCeoMembersRealtime(force = false) {
       if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim() || !ceoMembersCard) return;
       if (ceoMembersUnsub && !force) {
+        startCeoAuthSummarySync();
         renderCeoMembersTable();
         return;
       }
@@ -36315,6 +36329,7 @@ let onboardingIndex = 0;
           console.warn("ceo members realtime failed", err);
           loadCeoMembersSummaryLegacy();
         });
+        startCeoAuthSummarySync();
       } catch (err) {
         console.warn("ceo members realtime failed", err);
       }
@@ -36352,12 +36367,15 @@ let onboardingIndex = 0;
       URL.revokeObjectURL(url);
     }
 
-    async function loadCeoMembersSummaryLegacy() {
+    async function loadCeoMembersSummaryLegacy(options = {}) {
+      const silent = options?.silent === true;
       if (!functionsClient || !isCeoAccount || !authClaimsReady || !hasCeoClaim() || !ceoMembersCard) return;
       if (ceoMembersHydrating) return;
       ceoMembersHydrating = true;
-      if (ceoMembersTotals) ceoMembersTotals.textContent = "Loading…";
-      if (ceoMembersList) ceoMembersList.innerHTML = "";
+      if (!silent) {
+        if (ceoMembersTotals) ceoMembersTotals.textContent = "Loading…";
+        if (ceoMembersList) ceoMembersList.innerHTML = "";
+      }
       try {
         const fn = httpsCallable(functionsClient, "getMembersSummary");
         const resp = await fn({ limit: 1500 });
@@ -36374,30 +36392,19 @@ let onboardingIndex = 0;
             return true;
           });
         }
-        const filter = document.querySelector(".ceo-reset-card [data-ceo-filter].active");
-        const filterKey = filter ? filter.getAttribute("data-ceo-filter") : "all";
         users = users.filter(u => shouldIncludeCeoMember(u || {}, u?.uid || ""));
         users = dedupeActiveMembersByProfile(users).map(item => ({ ...(item.data || {}), uid: item.uid || "" }));
-        users = users.filter(u => {
-          if (filterKey === "vip") return (u.tier || "").toLowerCase() === "vip";
-          if (filterKey === "standard") return (u.tier || "").toLowerCase() === "standard";
-          if (filterKey === "free") {
-            const tier = (u.tier || "").toLowerCase();
-            const override = (u.membershipOverride || "").toString().toUpperCase();
-            return tier === "free" || tier === "explorer" || tier === "ceo" || override === "CEO_FREE";
-          }
-          if (filterKey === "paused") return !!u.paused;
-          if (filterKey === "past_due") return (u.paymentStatus || "").toLowerCase() === "past_due";
-          return true;
-        });
         ceoAuthUidAllowlist = new Set(users.map((u) => String(u.uid || "")).filter(Boolean));
         ceoMembersCache = users.map(u => normalizeCeoMemberData(u || {}, u.uid || ""));
         renderCeoMembersTable();
         startCeoMembersRealtime(true);
+        startCeoAuthSummarySync();
       } catch (err) {
         console.warn("ceo members summary failed", err);
-        const msg = err?.message || "Could not load members.";
-        if (ceoMembersTotals) ceoMembersTotals.textContent = msg;
+        if (!silent) {
+          const msg = err?.message || "Could not load members.";
+          if (ceoMembersTotals) ceoMembersTotals.textContent = msg;
+        }
       } finally {
         ceoMembersHydrating = false;
       }
