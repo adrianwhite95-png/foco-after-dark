@@ -270,7 +270,17 @@ service cloud.firestore {
         allow read: if isSignedIn() && (
           isAdmin() || isCeo() || staffVenueMatches(venueId)
         );
-        allow create, update, delete: if false;
+        allow create, update: if isSignedIn() && canWriteApp() && (
+          isAdmin() || isCeo()
+          || (
+            staffVenueMatches(venueId)
+            && (
+              request.resource.data.venueId == venueId
+              || resource.data.venueId == venueId
+            )
+          )
+        );
+        allow delete: if false;
       }
 
       match /staffMembers/{staffId} {
