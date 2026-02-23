@@ -19911,15 +19911,26 @@
       });
       return list;
     }
-    function refreshFeaturedVenuesData() {
-      const next = buildFeaturedVenuesFromPerks();
-      featuredVenuesData = next;
+    let featuredRefreshFrame = null;
+    function runFeaturedVenuesRefresh() {
       renderFeaturedVenuesGrid();
       renderPassFeaturedGrid();
       renderTonightHub();
       renderMapVenueList();
       setHeroSlideActive(0);
       refreshLiveNewBadges();
+    }
+    function refreshFeaturedVenuesData() {
+      const next = buildFeaturedVenuesFromPerks();
+      featuredVenuesData = next;
+      if (featuredRefreshFrame) return;
+      const scheduler = (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function")
+        ? window.requestAnimationFrame.bind(window)
+        : ((cb) => setTimeout(cb, 16));
+      featuredRefreshFrame = scheduler(() => {
+        featuredRefreshFrame = null;
+        runFeaturedVenuesRefresh();
+      });
     }
     function renderTonightHub() {
       if (!tonightMiniName) return;
@@ -21958,7 +21969,11 @@
       }
     }
 
-    async function refreshMemberStats() {
+    let memberStatsRefreshInFlight = false;
+    let memberStatsRefreshQueued = false;
+    let memberStatsRefreshTimer = null;
+    let memberStatsLastRunAt = 0;
+    async function refreshMemberStatsCore() {
       const now = Date.now();
       const localEntries = getMemberRedemptionEntries();
       const passCode = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
@@ -22013,6 +22028,38 @@
             statsCloudBackfillPromise = null;
             statsCloudBackfillPass = "";
           });
+      }
+    }
+    async function refreshMemberStats() {
+      if (memberStatsRefreshInFlight) {
+        memberStatsRefreshQueued = true;
+        return;
+      }
+      const sinceLastRun = Date.now() - memberStatsLastRunAt;
+      if (sinceLastRun < 80) {
+        if (!memberStatsRefreshTimer) {
+          memberStatsRefreshTimer = setTimeout(() => {
+            memberStatsRefreshTimer = null;
+            refreshMemberStats();
+          }, 80 - sinceLastRun);
+        }
+        return;
+      }
+      memberStatsRefreshInFlight = true;
+      try {
+        await refreshMemberStatsCore();
+      } finally {
+        memberStatsLastRunAt = Date.now();
+        memberStatsRefreshInFlight = false;
+      }
+      if (memberStatsRefreshQueued) {
+        memberStatsRefreshQueued = false;
+        if (!memberStatsRefreshTimer) {
+          memberStatsRefreshTimer = setTimeout(() => {
+            memberStatsRefreshTimer = null;
+            refreshMemberStats();
+          }, 0);
+        }
       }
     }
     refreshMemberStats();
