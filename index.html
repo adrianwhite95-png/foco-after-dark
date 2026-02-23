@@ -16022,6 +16022,7 @@
     let ceoAuthSummarySyncTimer = null;
     let ceoAnalyticsLatestSnapshot = null;
     let ceoAnalyticsWeeklyHistory = [];
+    let ceoAnalyticsVenueRoiLines = [];
     let ceoMembersFilterKey = "all";
     let ceoMembersSearchTerm = "";
     let rewardsProgress = { count: 0, threshold: 5, available: false, rewardType: null, cycleKey: null, claimed: 0 };
@@ -20609,6 +20610,12 @@
       if (value.includes("free")) return 0;
       const dollarMatch = value.match(/\$\s*(\d+(?:\.\d{1,2})?)/);
       if (dollarMatch) return Math.max(0, Number(dollarMatch[1]) || 0);
+      const stdMatch = value.match(/\bstd(?:andard)?\s*[:\-]?\s*(\d+(?:\.\d{1,2})?)/i);
+      if (stdMatch) return Math.max(0, Number(stdMatch[1]) || 0);
+      const vipMatch = value.match(/\bvip\s*[:\-]?\s*(\d+(?:\.\d{1,2})?)/i);
+      if (vipMatch) return Math.max(0, Number(vipMatch[1]) || 0);
+      const forMatch = value.match(/\bfor\s+(\d+(?:\.\d{1,2})?)/i);
+      if (forMatch) return Math.max(0, Number(forMatch[1]) || 0);
       return 0;
     }
 
@@ -20726,7 +20733,12 @@
         || entry?.perkLabel
         || ""
       ).toLowerCase();
-      return parseDealPriceFromText(text);
+      const parsed = parseDealPriceFromText(text);
+      if (parsed > 0 || text.includes("free")) return parsed;
+      const category = parseDealCategoryFromText(text);
+      if (category === "beer") return 2;
+      if (category === "shot") return 2;
+      return 3;
     }
 
     function computeSavingsMetrics(entries = [], tier = null) {
@@ -20805,6 +20817,57 @@
       } catch (_) {
         return date.toISOString().slice(0, 10);
       }
+    }
+    function getMstDateParts(date = new Date()) {
+      const value = date instanceof Date ? date : new Date(date);
+      try {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/Denver",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          weekday: "short"
+        }).formatToParts(value);
+        const map = {};
+        parts.forEach((p) => { map[p.type] = p.value; });
+        const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+        return {
+          year: Number(map.year) || value.getFullYear(),
+          month: Number(map.month) || (value.getMonth() + 1),
+          day: Number(map.day) || value.getDate(),
+          dow: weekdayMap[map.weekday] ?? value.getDay()
+        };
+      } catch (_) {
+        return {
+          year: value.getFullYear(),
+          month: value.getMonth() + 1,
+          day: value.getDate(),
+          dow: value.getDay()
+        };
+      }
+    }
+    function getMstDateAtMidnightMs(parts = {}) {
+      return Date.UTC(
+        Number(parts.year) || 1970,
+        (Number(parts.month) || 1) - 1,
+        Number(parts.day) || 1,
+        7, 0, 0, 0
+      );
+    }
+    function getAnalyticsWeekWindow(now = new Date()) {
+      const current = getMstDateParts(now);
+      const mondayOffset = (current.dow + 6) % 7;
+      const currentMidnightMs = getMstDateAtMidnightMs(current);
+      const startMs = currentMidnightMs - (mondayOffset * 24 * 60 * 60 * 1000);
+      const endMs = startMs + (7 * 24 * 60 * 60 * 1000);
+      const startDate = new Date(startMs);
+      const endDate = new Date(endMs - 1);
+      return {
+        startMs,
+        endMs,
+        weekKey: `${getMstDateKey(startDate)}_to_${getMstDateKey(endDate)}`,
+        isSundayMst: current.dow === 0
+      };
     }
     function getLoginSessionKey(uid) {
       return uid ? `${LOGIN_SESSION_PREFIX}${uid}` : null;
@@ -29887,13 +29950,13 @@ let onboardingIndex = 0;
       openStaffShiftModal();
       return null;
     }
-    async function startVenueShiftForCurrentSession() {
+    async function startVenueShiftForCurrentSession(actorOverride = null) {
       const venueId = String(staffSession?.venue || "").toLowerCase();
       if (!venueId) return null;
       const existing = getActiveShiftForVenue(venueId);
       if (existing) return existing;
-      let actor = null;
-      if (getActiveStaffMembers(venueId).length) {
+      let actor = actorOverride;
+      if (!actor && getActiveStaffMembers(venueId).length) {
         actor = await requireStaffActor({
           actionType: "start_shift",
           prompt: "Who are you? Select the staff member starting this shift."
@@ -31614,6 +31677,8 @@ let onboardingIndex = 0;
     }
 
     const CEO_ANALYTICS_WEEKLY_KEY = "ceoAnalyticsWeeklySnapshots_v1";
+    const CEO_ANALYTICS_DOWNLOAD_TRACK_KEY = "ceoAnalyticsDownloadTrack_v1";
+    const CEO_ANALYTICS_PROMPT_TRACK_KEY = "ceoAnalyticsPromptTrack_v1";
     function loadWeeklyAnalyticsSnapshots() {
       if (!allowLocalCache()) return {};
       try {
@@ -31626,6 +31691,58 @@ let onboardingIndex = 0;
     function saveWeeklyAnalyticsSnapshots(map) {
       if (!allowLocalCache()) return;
       localStorage.setItem(CEO_ANALYTICS_WEEKLY_KEY, JSON.stringify(map || {}));
+    }
+    function loadAnalyticsTrackMap(key) {
+      if (!allowLocalCache()) return {};
+      try {
+        const parsed = JSON.parse(localStorage.getItem(key) || "{}");
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (_) {
+        return {};
+      }
+    }
+    function saveAnalyticsTrackMap(key, map) {
+      if (!allowLocalCache()) return;
+      localStorage.setItem(key, JSON.stringify(map || {}));
+    }
+    function markAnalyticsWeekDownloaded(weekKey) {
+      const token = String(weekKey || "").trim();
+      if (!token) return;
+      const map = loadAnalyticsTrackMap(CEO_ANALYTICS_DOWNLOAD_TRACK_KEY);
+      map[token] = new Date().toISOString();
+      saveAnalyticsTrackMap(CEO_ANALYTICS_DOWNLOAD_TRACK_KEY, map);
+    }
+    function markAnalyticsPromptShown(weekKey) {
+      const token = String(weekKey || "").trim();
+      if (!token) return;
+      const map = loadAnalyticsTrackMap(CEO_ANALYTICS_PROMPT_TRACK_KEY);
+      map[token] = new Date().toISOString();
+      saveAnalyticsTrackMap(CEO_ANALYTICS_PROMPT_TRACK_KEY, map);
+    }
+    function hasAnalyticsPromptShown(weekKey) {
+      const token = String(weekKey || "").trim();
+      if (!token) return false;
+      return !!loadAnalyticsTrackMap(CEO_ANALYTICS_PROMPT_TRACK_KEY)[token];
+    }
+    function hasAnalyticsWeekDownloaded(weekKey) {
+      const token = String(weekKey || "").trim();
+      if (!token) return false;
+      return !!loadAnalyticsTrackMap(CEO_ANALYTICS_DOWNLOAD_TRACK_KEY)[token];
+    }
+    function maybePromptCeoWeeklyAnalyticsDownload() {
+      if (!isCeoAccount) return;
+      const currentWindow = getAnalyticsWeekWindow(new Date());
+      const previousWindow = getAnalyticsWeekWindow(new Date(currentWindow.startMs - 1000));
+      const targetWeekKey = currentWindow.isSundayMst ? currentWindow.weekKey : previousWindow.weekKey;
+      if (!targetWeekKey) return;
+      if (hasAnalyticsPromptShown(targetWeekKey) || hasAnalyticsWeekDownloaded(targetWeekKey)) return;
+      markAnalyticsPromptShown(targetWeekKey);
+      const accepted = window.confirm("Weekly HQ analytics report is ready. Download PDF now?");
+      if (!accepted) return;
+      renderCeoAnalytics();
+      if (ceoAnalyticsModal) ceoAnalyticsModal.classList.add("active");
+      const snapshot = ceoAnalyticsLatestSnapshot || computeAnalyticsSnapshot();
+      downloadCeoAnalyticsReportPdf(snapshot, ceoAnalyticsWeeklyHistory);
     }
     function upsertWeeklyAnalyticsSnapshot(snapshot = {}) {
       const weekKey = snapshot.weekKey || getWeekToken();
@@ -31652,21 +31769,15 @@ let onboardingIndex = 0;
     }
 
     function computeAnalyticsSnapshot() {
-      const directory = loadMemberDirectory();
-      const members = Object.entries(directory)
-        .map(([passId, data]) => ({ passId, ...(data || {}) }))
-        .filter(member => isActiveProfileEntry(member, member.uid || member.passId))
-        .filter(member => !isAnonymousMemberEntry(member));
-      const tierCounts = { standard: 0, vip: 0, ceo: 0 };
-      members.forEach(member => {
-        const tier = member.tier?.toLowerCase() || "standard";
-        if (tierCounts[tier] !== undefined) tierCounts[tier] += 1;
+      const window = getAnalyticsWeekWindow(new Date());
+      const members = Array.isArray(ceoMembersCache) ? ceoMembersCache : [];
+      const entries = getCeoRedemptions().filter((entry) => {
+        const ts = new Date(entry?.verifiedAt || entry?.timestamp || entry?.createdAt || 0).getTime();
+        return Number.isFinite(ts) && ts >= window.startMs && ts < window.endMs;
       });
-      const totalMembers = Math.max(1, members.length);
-      const entries = getCeoRedemptions();
-      const verified = entries.filter(entry => entry.status === "verified");
-      const pending = entries.filter(entry => entry.status === "pending");
-      const denied = entries.filter(entry => entry.status === "denied" || entry.status === "canceled");
+      const verified = entries.filter(entry => isVerifiedRedemptionEntry(entry));
+      const pending = entries.filter(entry => String(entry?.status || "").toLowerCase() === "pending");
+      const denied = entries.filter(entry => ["denied", "canceled", "cancelled"].includes(String(entry?.status || "").toLowerCase()));
       const perkCounts = {};
       const hourBuckets = {};
       const nightlyBuckets = {};
@@ -31686,8 +31797,9 @@ let onboardingIndex = 0;
         const venueId = (entry.venue || entry.requestedVenue || "unknown").toLowerCase();
         venueCounts[venueId] = (venueCounts[venueId] || 0) + 1;
       });
+      const redeemerCount = Object.keys(memberRedemptionCounts).length;
       const returningMembers = Object.values(memberRedemptionCounts).filter(count => count > 1).length;
-      const memberReturnRate = members.length ? Math.round((returningMembers / members.length) * 100) : 0;
+      const memberReturnRate = redeemerCount ? Math.round((returningMembers / redeemerCount) * 100) : 0;
       const peakHours = Object.entries(hourBuckets)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
@@ -31704,24 +31816,44 @@ let onboardingIndex = 0;
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(([passId, count]) => `${passId || "Unknown"}: ${count}`);
+      const verifiedByVenue = {};
+      const pendingByVenue = {};
+      entries.forEach((entry) => {
+        const venueId = String(entry?.venue || entry?.requestedVenue || "unknown").toLowerCase();
+        const status = String(entry?.status || "").toLowerCase();
+        if (isVerifiedRedemptionEntry(entry)) {
+          verifiedByVenue[venueId] = (verifiedByVenue[venueId] || 0) + 1;
+        } else if (status === "pending") {
+          pendingByVenue[venueId] = (pendingByVenue[venueId] || 0) + 1;
+        }
+      });
+      const venueActivity = Object.keys({ ...verifiedByVenue, ...pendingByVenue })
+        .map((venueId) => `${getVenueDisplayName(venueId)}: ${verifiedByVenue[venueId] || 0} verified · ${pendingByVenue[venueId] || 0} pending`)
+        .sort((a, b) => {
+          const aCount = Number((a.match(/(\d+)\s+verified/) || [0, 0])[1]) + Number((a.match(/(\d+)\s+pending/) || [0, 0])[1]);
+          const bCount = Number((b.match(/(\d+)\s+verified/) || [0, 0])[1]) + Number((b.match(/(\d+)\s+pending/) || [0, 0])[1]);
+          return bCount - aCount;
+        })
+        .slice(0, 8);
+      const activeVenueCount = Object.keys(venueCounts).length;
       const tokenReceipts = sanitizePurchaseReceipts(purchaseReceipts);
       const tokenRevenue = tokenReceipts.reduce((sum, entry) => sum + parseCurrency(entry.total || entry.detail || ""), 0);
       const tokenCount = tokenReceipts.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
       return {
         capturedAt: new Date().toISOString(),
-        weekKey: getWeekToken(),
+        weekKey: window.weekKey,
+        weekStartMs: window.startMs,
+        weekEndMs: window.endMs,
         activeProfiles: members.length,
+        activeVenues: activeVenueCount,
+        redeemerCount,
         verifiedCount: verified.length,
         pendingCount: pending.length,
         deniedCount: denied.length,
-        demographics: [
-          `VIP: ${Math.round((tierCounts.vip / totalMembers) * 100)}% (${tierCounts.vip})`,
-          `Standard: ${Math.round((tierCounts.standard / totalMembers) * 100)}% (${tierCounts.standard})`,
-          `Black Card / CEO: ${tierCounts.ceo}`
-        ],
         peakTimes: peakHours,
         nightlyTrends,
         memberReturnRate,
+        venueActivity,
         perkPopularity: Object.entries(perkCounts)
           .sort((a, b) => b[1] - a[1])
           .map(([key, count]) => `${key}: ${count}`),
@@ -31774,8 +31906,12 @@ let onboardingIndex = 0;
       const venueRoiLines = Object.values(venueRoiMap).map((row) => {
         const vouchers = computeEstimatedRoiFromEntries(row.vouchers);
         const deals = computeEstimatedRoiFromEntries(row.deals);
-        const voucherText = vouchers.valid ? `${formatRoiPercent(vouchers.roi)} (${vouchers.redemptions})` : `Unavailable (${vouchers.redemptions})`;
-        const dealText = deals.valid ? `${formatRoiPercent(deals.roi)} (${deals.redemptions})` : `Unavailable (${deals.redemptions})`;
+        const voucherText = vouchers.valid
+          ? `${formatRoiPercent(vouchers.roi)} · cost $${(vouchers.grossCost || 0).toFixed(2)} · uplift $${(vouchers.grossUplift || 0).toFixed(2)} (${vouchers.redemptions})`
+          : `Unavailable · cost $${(vouchers.grossCost || 0).toFixed(2)} (${vouchers.redemptions})`;
+        const dealText = deals.valid
+          ? `${formatRoiPercent(deals.roi)} · cost $${(deals.grossCost || 0).toFixed(2)} · uplift $${(deals.grossUplift || 0).toFixed(2)} (${deals.redemptions})`
+          : `Unavailable · cost $${(deals.grossCost || 0).toFixed(2)} (${deals.redemptions})`;
         const total = vouchers.redemptions + deals.redemptions;
         return { line: `${row.venueName}: Vouchers ROI ${voucherText} · Tonight's Deal ROI ${dealText}`, total };
       })
@@ -31788,12 +31924,16 @@ let onboardingIndex = 0;
         .slice(0, 6)
         .map(entry => `${entry.weekKey}: ${entry.verifiedCount} verified · ${entry.activeProfiles} active profiles`);
       ceoAnalyticsWeeklyHistory = weeklyHistory.slice();
+      ceoAnalyticsVenueRoiLines = venueRoiLines.slice();
       const vipPurchases = summarizeVipVoucherPurchases();
       ceoAnalyticsContent.innerHTML = `
         <div class="analytics-grid">
           <div class="analytics-section">
-            <h5>Customer demographics</h5>
-            <ul>${snapshot.demographics.map(item => `<li>${item}</li>`).join("")}</ul>
+            <h5>Weekly window (Mon-Sun · MST)</h5>
+            <ul>
+              <li>${snapshot.weekKey}</li>
+              <li>Updated: ${formatMST(snapshot.capturedAt)}</li>
+            </ul>
           </div>
           <div class="analytics-section">
             <h5>Peak-times heat map</h5>
@@ -31813,15 +31953,22 @@ let onboardingIndex = 0;
           </div>
           <div class="analytics-section">
             <h5>Member return rate</h5>
-            <ul><li>${snapshot.memberReturnRate}% of members have redeemed more than once</li></ul>
+            <ul>
+              <li>${snapshot.memberReturnRate}% of redeemers returned this week</li>
+              <li>Unique redeemers: ${snapshot.redeemerCount || 0}</li>
+            </ul>
           </div>
           <div class="analytics-section">
-            <h5>Breakdown of perk popularity</h5>
+            <h5>Perk popularity (verified)</h5>
             <ul>${snapshot.perkPopularity.map(item => `<li>${item}</li>`).join("")}</ul>
           </div>
           <div class="analytics-section">
             <h5>Top venues by verified scans</h5>
             <ul>${(snapshot.topVenues.length ? snapshot.topVenues : ["No verified scans yet."]).map(item => `<li>${item}</li>`).join("")}</ul>
+          </div>
+          <div class="analytics-section">
+            <h5>Venue activity this week</h5>
+            <ul>${(snapshot.venueActivity?.length ? snapshot.venueActivity : ["No venue activity yet."]).map(item => `<li>${item}</li>`).join("")}</ul>
           </div>
           <div class="analytics-section">
             <h5>Top members by redemptions</h5>
@@ -32632,31 +32779,30 @@ let onboardingIndex = 0;
       }
       return lines.flatMap((line) => wrapPdfLine(sanitizePdfText(line), 90));
     }
-    function buildCeoAnalyticsPdfLines(snapshot = {}, weeklyHistory = []) {
-      const demographics = Array.isArray(snapshot.demographics) ? snapshot.demographics : [];
+    function buildCeoAnalyticsPdfLines(snapshot = {}, weeklyHistory = [], roiLines = []) {
       const peakTimes = Array.isArray(snapshot.peakTimes) ? snapshot.peakTimes : [];
       const nightlyTrends = Array.isArray(snapshot.nightlyTrends) ? snapshot.nightlyTrends : [];
       const perkPopularity = Array.isArray(snapshot.perkPopularity) ? snapshot.perkPopularity : [];
       const topVenues = Array.isArray(snapshot.topVenues) ? snapshot.topVenues : [];
       const topMembers = Array.isArray(snapshot.topMembers) ? snapshot.topMembers : [];
+      const venueActivity = Array.isArray(snapshot.venueActivity) ? snapshot.venueActivity : [];
       const tokenSummary = snapshot.tokenSummary || {};
       const lines = [
         "FoCo After Dark Analytics Report",
         `Generated (MT): ${formatMST(snapshot.capturedAt || Date.now())}`,
-        `Week: ${snapshot.weekKey || getWeekToken()}`,
+        `Week: ${snapshot.weekKey || getAnalyticsWeekWindow(new Date()).weekKey}`,
         `Active profiles: ${snapshot.activeProfiles || 0}`,
+        `Active venues: ${snapshot.activeVenues || 0}`,
         "",
-        "Customer demographics:"
+        "Verification funnel:"
       ];
-      demographics.forEach(item => lines.push(`- ${item}`));
-      lines.push("");
-      lines.push("Verification funnel:");
       lines.push(`- Verified: ${snapshot.verifiedCount || 0}`);
       lines.push(`- Pending: ${snapshot.pendingCount || 0}`);
       lines.push(`- Denied/Canceled: ${snapshot.deniedCount || 0}`);
       lines.push("");
       lines.push("Core metrics:");
-      lines.push(`- Member return rate: ${snapshot.memberReturnRate || 0}%`);
+      lines.push(`- Member return rate: ${snapshot.memberReturnRate || 0}% of redeemers`);
+      lines.push(`- Unique redeemers: ${snapshot.redeemerCount || 0}`);
       lines.push("");
       lines.push("Peak times:");
       (peakTimes.length ? peakTimes : ["No redemptions yet."]).slice(0, 5).forEach(item => lines.push(`- ${item}`));
@@ -32670,8 +32816,14 @@ let onboardingIndex = 0;
       lines.push("Top members:");
       (topMembers.length ? topMembers : ["No member redemptions yet."]).slice(0, 5).forEach(item => lines.push(`- ${item}`));
       lines.push("");
+      lines.push("Venue activity:");
+      (venueActivity.length ? venueActivity : ["No venue activity yet."]).slice(0, 10).forEach(item => lines.push(`- ${item}`));
+      lines.push("");
       lines.push("Perk popularity:");
       (perkPopularity.length ? perkPopularity : ["No verified redemptions yet."]).slice(0, 5).forEach(item => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("Estimated ROI by venue:");
+      (roiLines.length ? roiLines : ["No verified ROI data yet."]).slice(0, 12).forEach(item => lines.push(`- ${item}`));
       lines.push("");
       lines.push("Token purchases:");
       lines.push(`- Purchases: ${tokenSummary.count || 0}`);
@@ -32686,7 +32838,7 @@ let onboardingIndex = 0;
       const activeSnapshot = snapshot || ceoAnalyticsLatestSnapshot || computeAnalyticsSnapshot();
       const activeHistory = Array.isArray(weeklyHistory) ? weeklyHistory : (ceoAnalyticsWeeklyHistory || []);
       if (!activeSnapshot) return;
-      const lines = buildCeoAnalyticsPdfLines(activeSnapshot, activeHistory);
+      const lines = buildCeoAnalyticsPdfLines(activeSnapshot, activeHistory, ceoAnalyticsVenueRoiLines || []);
       const pdf = buildSimplePdf(lines);
       const blob = new Blob([pdf], { type: "application/pdf" });
       const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -32701,6 +32853,7 @@ let onboardingIndex = 0;
           const writable = await handle.createWritable();
           await writable.write(blob);
           await writable.close();
+          markAnalyticsWeekDownloaded(activeSnapshot.weekKey);
           showToast("Analytics PDF saved.");
           return;
         } catch (err) {
@@ -32719,6 +32872,7 @@ let onboardingIndex = 0;
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+      markAnalyticsWeekDownloaded(activeSnapshot.weekKey);
       showToast("Analytics PDF downloaded.");
     }
     function buildSimplePdf(lines) {
@@ -33720,14 +33874,26 @@ let onboardingIndex = 0;
       }
       staffShiftStartBtn.addEventListener("click", async () => {
         if (staffShiftStartBtn.dataset.busy === "1") return;
+        if (staffShiftError) staffShiftError.textContent = "";
+        let actor = null;
+        const venueId = String(staffSession?.venue || "").toLowerCase();
+        if (venueId && getActiveStaffMembers(venueId).length) {
+          actor = await requireStaffActor({
+            actionType: "start_shift",
+            prompt: "Who are you? Select the staff member starting this shift."
+          });
+          if (!actor) {
+            resetStaffShiftStartButtonState();
+            return;
+          }
+        }
         staffShiftStartBtn.dataset.busy = "1";
         staffShiftStartBtn.disabled = true;
         const originalText = staffShiftStartBtn.dataset.baseText || staffShiftStartBtn.textContent || "Start shift";
         staffShiftStartBtn.dataset.baseText = originalText;
         staffShiftStartBtn.textContent = "Starting…";
         try {
-          if (staffShiftError) staffShiftError.textContent = "";
-          const started = await startVenueShiftForCurrentSession();
+          const started = await startVenueShiftForCurrentSession(actor);
           if (!started && staffShiftError) {
             staffShiftError.textContent = "Shift was not started.";
           }
@@ -38340,6 +38506,11 @@ let onboardingIndex = 0;
       if (ceoActive && canCeoRealtime) {
         attachCeoRedemptionsRealtime();
         attachCloseOutReportsRealtime();
+        setTimeout(() => {
+          if (isCeoAccount && authClaimsReady && hasCeoClaim()) {
+            maybePromptCeoWeeklyAnalyticsDownload();
+          }
+        }, 350);
       } else {
         clearCeoRedemptionsRealtime();
         stopCloseOutReportsListener();
