@@ -14959,7 +14959,6 @@
     <div class="modal-card" style="max-width:520px;">
       <div class="modal-header">
         <div class="modal-title">Who are you?</div>
-        <button class="modal-close" id="staffActorClose" type="button">Close</button>
       </div>
       <p class="small" id="staffActorPrompt" style="margin:0 0 10px;">Select the staff member completing this action.</p>
       <div class="field">
@@ -14993,7 +14992,6 @@
     <div class="modal-card" style="max-width:520px;">
       <div class="modal-header">
         <div class="modal-title">Start shift</div>
-        <button class="modal-close" id="staffShiftClose" type="button">Close</button>
       </div>
       <p class="small" id="staffShiftPrompt" style="margin:0 0 10px;color:#cbd5f5;">No active shift for this venue. Start shift to enable verifications, redemptions, and close-out.</p>
       <div class="error" id="staffShiftError"></div>
@@ -33843,6 +33841,15 @@ let onboardingIndex = 0;
     if (staffActorModal) {
       staffActorModal.addEventListener("click", (e) => {
         if (e.target !== staffActorModal) return;
+        const mustSelectStarter = !!(
+          pendingStaffActorResolver?.actionType === "start_shift"
+          && staffSession?.venue
+          && !getActiveShiftForVenue(staffSession.venue)
+        );
+        if (mustSelectStarter) {
+          if (staffActorError) staffActorError.textContent = "Select staff member to start shift.";
+          return;
+        }
         if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
         closeStaffActorModal();
       });
@@ -33888,15 +33895,19 @@ let onboardingIndex = 0;
       let actor = null;
       const venueId = String(staffSession?.venue || "").toLowerCase();
       if (venueId && getActiveStaffMembers(venueId).length) {
+        // Put actor modal on top by temporarily hiding shift modal first.
+        closeStaffShiftModal({ force: true });
         actor = await requireStaffActor({
           actionType: "start_shift",
           prompt: "Who are you? Select the staff member starting this shift."
         });
         if (!actor) {
+          openStaffShiftModal();
           if (staffShiftError) staffShiftError.textContent = "Select a staff member to start shift.";
           resetStaffShiftStartButtonState();
           return;
         }
+        openStaffShiftModal();
       }
       staffShiftStartBtn.dataset.busy = "1";
       staffShiftStartBtn.disabled = true;
