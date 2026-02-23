@@ -21234,10 +21234,10 @@
           const data = docSnap.data() || {};
           return {
             code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
-            perk: data.perkLabel || data.perk || data.perkKey || "Perk",
+            perk: data.perk || data.perkLabel || data.perkKey || "Perk",
             perkKey: data.perkKey || null,
             venuePerkId: data.perkId || data.venuePerkId || null,
-            venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
+            venuePerkLabel: data.venuePerkLabel || data.perkLabel || null,
             member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
             memberUsername: data.memberUsername || null,
             passId: (data.passCode || data.passId || passCode).toUpperCase(),
@@ -21898,10 +21898,10 @@
               const data = change.doc.data() || {};
               memberRedemptionsMap.set(change.doc.id, {
                 code: (data.redemptionId || data.code || change.doc.id || "").toUpperCase(),
-                perk: data.perkLabel || data.perk || data.perkKey || "Perk",
+                perk: data.perk || data.perkLabel || data.perkKey || "Perk",
                 perkKey: data.perkKey || null,
                 venuePerkId: data.perkId || data.venuePerkId || null,
-                venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
+                venuePerkLabel: data.venuePerkLabel || data.perkLabel || null,
                 member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
                 memberUsername: data.memberUsername || null,
                 passId: (data.passCode || data.passId || code).toUpperCase(),
@@ -29153,10 +29153,10 @@ let onboardingIndex = 0;
         const data = docSnap.data() || {};
         staffRedemptionsMap.set(docSnap.id, {
           code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
-          perk: data.perkLabel || data.perk || data.perkKey || "Perk",
+          perk: data.perk || data.perkLabel || data.perkKey || "Perk",
           perkKey: data.perkKey || null,
           venuePerkId: data.perkId || data.venuePerkId || null,
-          venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
+          venuePerkLabel: data.venuePerkLabel || data.perkLabel || null,
           member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
           memberUsername: data.memberUsername || null,
           passId: (data.passCode || data.passId || "").toUpperCase(),
@@ -29577,7 +29577,20 @@ let onboardingIndex = 0;
     }
 
     function addRedemptionLogEntry(entry, opts = {}) {
-      redemptionLog.unshift(entry);
+      const codeKey = String(entry?.code || "").toUpperCase();
+      if (codeKey) {
+        const idx = redemptionLog.findIndex((item) => String(item?.code || "").toUpperCase() === codeKey);
+        if (idx >= 0) {
+          redemptionLog[idx] = { ...redemptionLog[idx], ...entry, code: codeKey };
+        } else {
+          redemptionLog.unshift({ ...entry, code: codeKey });
+        }
+      } else {
+        redemptionLog.unshift(entry);
+      }
+      redemptionLog = redemptionLog
+        .filter((item) => item && item.code)
+        .sort((a, b) => new Date(b.timestamp || b.verifiedAt || 0) - new Date(a.timestamp || a.verifiedAt || 0));
       saveRedemptionLog();
       renderStaffVenueLog();
       renderStaffPendingQueue();
@@ -30452,6 +30465,12 @@ let onboardingIndex = 0;
         const username = getEntryUsername(entry);
         const usernameMeta = username ? ` · @${username}` : "";
         const creatorBadge = isCreatorRedemption(entry) ? '<span class="creator-pill">Creator</span>' : "";
+        const pendingReasonCode = String(entry.pendingReasonCode || "").trim();
+        const pendingReasonNote = String(entry.pendingReasonNote || "").trim();
+        const pendingBy = String(entry.lastActionStaffName || "").trim();
+        const pendingMeta = isPending && (pendingReasonCode || pendingReasonNote || pendingBy)
+          ? `<div class="staff-pending-sub" style="color:#fbbf24;">Pending note: ${pendingReasonCode || "manual"}${pendingReasonNote ? ` · ${pendingReasonNote}` : ""}${pendingBy ? ` · by ${pendingBy}` : ""}</div>`
+          : "";
         const actionLabel = isPending ? "Confirm" : "Confirmed";
         const actionClass = isPending ? "btn btn-primary" : "btn btn-secondary";
         const actionTarget = isPending ? "confirm" : "pending";
@@ -30460,6 +30479,7 @@ let onboardingIndex = 0;
             <div class="staff-pending-meta">
               <div><strong>${entry.code}</strong> · Pass ID: ${entry.passId || "—"}${usernameMeta} ${creatorBadge}</div>
               <div class="staff-pending-sub">${perkLabel}${venueName ? ` · ${venueName}` : ""}${vibeMeta}</div>
+              ${pendingMeta}
             </div>
             <div class="staff-pending-actions">
               <span class="status-pill-sm ${statusClass}">${statusLabel}</span>
@@ -31077,10 +31097,10 @@ let onboardingIndex = 0;
             const data = docSnap.data() || {};
             return {
               code: (data.redemptionId || data.code || docSnap.id || "").toUpperCase(),
-              perk: data.perkLabel || data.perk || data.perkKey || "Perk",
+              perk: data.perk || data.perkLabel || data.perkKey || "Perk",
               perkKey: data.perkKey || null,
               venuePerkId: data.perkId || data.venuePerkId || null,
-              venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
+              venuePerkLabel: data.venuePerkLabel || data.perkLabel || null,
               member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
               memberUsername: data.memberUsername || null,
               passId: (data.passCode || data.passId || "").toUpperCase(),
@@ -31938,7 +31958,8 @@ let onboardingIndex = 0;
               code: entry.code.toUpperCase(),
               perk: entry.perk || entry.perkKey || "Perk",
               perkKey: entry.perkKey || null,
-              perkLabel: entry.venuePerkLabel || entry.perk || null,
+              perkLabel: entry.perk || entry.perkKey || "Perk",
+              venuePerkLabel: entry.venuePerkLabel || null,
               dealPrice: Number.isFinite(Number(entry.dealPrice)) ? Number(entry.dealPrice) : null,
               venueId,
               requestedVenue: entry.requestedVenue || venueId,
@@ -32030,9 +32051,7 @@ let onboardingIndex = 0;
         return;
       }
       const venueId = (staffSession.venue || "").toLowerCase();
-      const allEntries = redemptionLog.filter(item => (
-        entryMatchesVenue(item, venueId) && classifyRedemptionCategory(item) !== "deal"
-      ));
+      const allEntries = redemptionLog.filter(item => entryMatchesVenue(item, venueId));
       const rangeSelect = document.getElementById("staffLogRange");
       const range = rangeSelect?.value || "all";
       const toMstDate = (value) => new Date(new Date(value).toLocaleString("en-US", { timeZone: "America/Denver" }));
@@ -32140,11 +32159,18 @@ let onboardingIndex = 0;
             const statusAttrs = displayStatus === "pending"
               ? `data-code="${entry.code}" data-pass="${entry.passId || ""}" data-perk="${entry.perkKey || ""}"`
               : "";
+            const pendingReasonCode = String(entry.pendingReasonCode || "").trim();
+            const pendingReasonNote = String(entry.pendingReasonNote || "").trim();
+            const pendingBy = String(entry.lastActionStaffName || "").trim();
+            const pendingMeta = displayStatus === "pending" && (pendingReasonCode || pendingReasonNote || pendingBy)
+              ? `<div style="color:#fbbf24;font-size:11px;margin-top:2px;">Pending: ${pendingReasonCode || "manual"}${pendingReasonNote ? ` · ${pendingReasonNote}` : ""}${pendingBy ? ` · by ${pendingBy}` : ""}</div>`
+              : "";
             return `
               <div class="log-row">
                 <strong>${entry.code} · ${label}</strong>
                 <div>${getEntryMemberDisplay(entry)}</div>
                 ${venueText}
+                ${pendingMeta}
                 <div class="log-meta">
                   <span>${date}</span>
                   <span class="status-pill-sm ${displayStatus}" ${statusAttrs}>${displayStatus}</span>
@@ -32290,9 +32316,11 @@ let onboardingIndex = 0;
 
       sortedEntries.forEach((entry) => {
         const status = normalizeCloseOutStatus(entry.status);
-        const perkTitle = String(entry.venuePerkLabel || entry.perk || entry.perkKey || "Perk").trim() || "Perk";
-        const perkBucket = (byPerkMap[perkTitle] ||= {
-          perkTitle,
+        const perkTitle = String((entry.perk || entry.perkKey || "Perk")).trim() || "Perk";
+        const perkDetail = String(entry.venuePerkLabel || "").trim();
+        const perkDisplay = perkDetail ? `${perkTitle} — ${perkDetail}` : perkTitle;
+        const perkBucket = (byPerkMap[perkDisplay] ||= {
+          perkTitle: perkDisplay,
           verifiedCount: 0,
           pendingCount: 0,
           deniedCount: 0
@@ -32301,7 +32329,7 @@ let onboardingIndex = 0;
           totals.verifiedCount += 1;
           totals.verified += 1;
           perkBucket.verifiedCount += 1;
-          totals.byPerk[perkTitle] = (totals.byPerk[perkTitle] || 0) + 1;
+          totals.byPerk[perkDisplay] = (totals.byPerk[perkDisplay] || 0) + 1;
           const tierLabel = getCloseOutTierLabel(entry);
           if (tierLabel === "VIP") totals.vipVerifiedCount += 1;
           else totals.standardVerifiedCount += 1;
@@ -32309,7 +32337,7 @@ let onboardingIndex = 0;
           ledger.push({
             redemptionId: entry.code || "",
             userName: getEntryUserNameForAudit(entry),
-            perkTitle,
+            perkTitle: perkDisplay,
             verifiedAt,
             verifiedByStaffName: entry.lastActionStaffName || null,
             verifiedByStaffId: entry.lastActionStaffId || null
@@ -32327,7 +32355,7 @@ let onboardingIndex = 0;
             redemptionId: entry.code || "",
             userName: getEntryUserNameForAudit(entry),
             tier: getCloseOutTierLabel(entry),
-            perkTitle,
+            perkTitle: perkDisplay,
             attemptedAt: entry.timestamp || entry.createdAt || new Date().toISOString(),
             lastActionStaffName: entry.lastActionStaffName || null,
             pendingReasonCode: entry.pendingReasonCode || null,
@@ -32340,7 +32368,7 @@ let onboardingIndex = 0;
           deniedList.push({
             redemptionId: entry.code || "",
             userName: getEntryUserNameForAudit(entry),
-            perkTitle,
+            perkTitle: perkDisplay,
             deniedAt: entry.deniedAt || entry.lastActionAt || entry.timestamp || new Date().toISOString(),
             deniedByStaffName: entry.lastActionStaffName || null,
             deniedReasonCode: entry.deniedReasonCode || null,
@@ -32416,7 +32444,7 @@ let onboardingIndex = 0;
         alerts,
         items: sortedEntries.map((entry) => ({
           code: entry.code,
-          perk: entry.venuePerkLabel || entry.perk || entry.perkKey || "Perk",
+          perk: (entry.venuePerkLabel ? `${entry.perk || entry.perkKey || "Perk"} — ${entry.venuePerkLabel}` : (entry.perk || entry.perkKey || "Perk")),
           member: getEntryUserNameForAudit(entry),
           status: normalizeCloseOutStatus(entry.status),
           timestamp: entry.verifiedAt || entry.timestamp || new Date().toISOString(),
@@ -32430,14 +32458,11 @@ let onboardingIndex = 0;
       if (!report) return "";
       const totals = report.totals || {};
       const perkLines = (report.perks || [])
-        .map((perk) => `<li>${perk.perkTitle}: ${perk.verifiedCount} verified · ${perk.pendingCount} pending · ${perk.deniedCount} denied</li>`)
+        .map((perk) => `<li>${perk.perkTitle}: ${perk.verifiedCount} verified · ${perk.pendingCount} pending</li>`)
         .join("") || "<li>No perk activity yet.</li>";
       const pendingLines = (report.pendingList || [])
         .map((item) => `<li><strong>${item.redemptionId || "—"}</strong> · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${formatMST(item.attemptedAt || Date.now(), { hour: "2-digit", minute: "2-digit" })}${item.pendingReasonCode ? ` · ${item.pendingReasonCode}` : ""}</li>`)
         .join("") || "<li>No pending redemptions.</li>";
-      const deniedLines = (report.deniedList || [])
-        .map((item) => `<li><strong>${item.redemptionId || "—"}</strong> · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.deniedReasonCode || "Reason n/a"}</li>`)
-        .join("") || "<li>No denied redemptions.</li>";
       const ledgerLines = (report.ledger || [])
         .sort((a, b) => new Date(b.verifiedAt || 0) - new Date(a.verifiedAt || 0))
         .map((item) => `<li><strong>${item.redemptionId || "—"}</strong> · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${formatMST(item.verifiedAt || Date.now(), { hour: "2-digit", minute: "2-digit" })} · ${item.verifiedByStaffName || "Staff"}</li>`)
@@ -32454,7 +32479,6 @@ let onboardingIndex = 0;
             <div><strong>${totals.totalRedemptions || 0}</strong><br/><span style="color:#94a3b8;">Total</span></div>
             <div><strong>${totals.verifiedCount || 0}</strong><br/><span style="color:#94a3b8;">Verified</span></div>
             <div><strong>${totals.pendingCount || 0}</strong><br/><span style="color:#94a3b8;">Pending</span></div>
-            <div><strong>${totals.deniedCount || 0}</strong><br/><span style="color:#94a3b8;">Denied</span></div>
             <div><strong>${totals.vipVerifiedCount || 0}</strong><br/><span style="color:#94a3b8;">VIP verified</span></div>
             <div><strong>${totals.standardVerifiedCount || 0}</strong><br/><span style="color:#94a3b8;">Standard verified</span></div>
           </div>
@@ -32465,10 +32489,6 @@ let onboardingIndex = 0;
           <div style="margin-bottom:8px;">
             <strong style="color:#e2e8f0;">Pending redemptions</strong>
             <ul style="margin:6px 0 0 18px;color:#94a3b8;max-height:140px;overflow:auto;">${pendingLines}</ul>
-          </div>
-          <div style="margin-bottom:8px;">
-            <strong style="color:#e2e8f0;">Denied redemptions</strong>
-            <ul style="margin:6px 0 0 18px;color:#94a3b8;max-height:140px;overflow:auto;">${deniedLines}</ul>
           </div>
           <div style="margin-bottom:8px;">
             <strong style="color:#e2e8f0;">Tonight’s redemption ledger</strong>
@@ -32506,14 +32526,14 @@ let onboardingIndex = 0;
         `Generated (MT): ${formatMST(report.generatedAt)}`,
         report.windowLabel || "Shift session",
         "",
-        `Total: ${totals.totalRedemptions || 0}  Verified: ${totals.verifiedCount || 0}  Pending: ${totals.pendingCount || 0}  Denied: ${totals.deniedCount || 0}`,
+        `Total: ${totals.totalRedemptions || 0}  Verified: ${totals.verifiedCount || 0}  Pending: ${totals.pendingCount || 0}`,
         `VIP verified: ${totals.vipVerifiedCount || 0}  Standard verified: ${totals.standardVerifiedCount || 0}`,
         `Voided: ${totals.voidedCount || 0}  Expired attempts: ${totals.expiredAttemptCount || 0}`,
         "",
         "By perk:"
       ];
       (report.perks || []).forEach((perk) => {
-        lines.push(`- ${perk.perkTitle}: verified ${perk.verifiedCount}, pending ${perk.pendingCount}, denied ${perk.deniedCount}`);
+        lines.push(`- ${perk.perkTitle}: verified ${perk.verifiedCount}, pending ${perk.pendingCount}`);
       });
       if (!(report.perks || []).length) lines.push("- No perk activity.");
       lines.push("");
@@ -32522,12 +32542,6 @@ let onboardingIndex = 0;
         lines.push(`- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.pendingReasonCode || "reason n/a"}`);
       });
       if (!(report.pendingList || []).length) lines.push("- None.");
-      lines.push("");
-      lines.push("Denied:");
-      (report.deniedList || []).slice(0, 40).forEach((item) => {
-        lines.push(`- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.deniedReasonCode || "reason n/a"}`);
-      });
-      if (!(report.deniedList || []).length) lines.push("- None.");
       lines.push("");
       lines.push("Ledger:");
       (report.ledger || []).slice(0, 60).forEach((item) => {
@@ -32695,13 +32709,10 @@ let onboardingIndex = 0;
       if (!report) return false;
       const totals = report.totals || {};
       const perkLines = (report.perks || []).map((perk) => (
-        `- ${perk.perkTitle}: verified ${perk.verifiedCount}, pending ${perk.pendingCount}, denied ${perk.deniedCount}`
+        `- ${perk.perkTitle}: verified ${perk.verifiedCount}, pending ${perk.pendingCount}`
       ));
       const pendingLines = (report.pendingList || []).map((item) => (
         `- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.pendingReasonCode || "reason n/a"}`
-      ));
-      const deniedLines = (report.deniedList || []).map((item) => (
-        `- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${item.deniedReasonCode || "reason n/a"}`
       ));
       const ledgerLines = (report.ledger || []).slice(0, 80).map((item) => (
         `- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${formatMST(item.verifiedAt || Date.now(), { hour: "2-digit", minute: "2-digit" })} · ${item.verifiedByStaffName || "Staff"}`
@@ -32713,14 +32724,13 @@ let onboardingIndex = 0;
         `Total: ${totals.totalRedemptions || 0}`,
         `Verified: ${totals.verifiedCount || 0}`,
         `Pending: ${totals.pendingCount || 0}`,
-        `Denied: ${totals.deniedCount || 0}`,
         `Voided: ${totals.voidedCount || 0}`,
         `Expired attempts: ${totals.expiredAttemptCount || 0}`,
         `VIP verified: ${totals.vipVerifiedCount || 0}`,
         `Standard verified: ${totals.standardVerifiedCount || 0}`,
         report.shiftNotes ? `Shift notes: ${report.shiftNotes}` : "Shift notes: none"
       ].join("\n");
-      const message = `[Close Out Report]\n${summary}\n\nBy Perk:\n${perkLines.length ? perkLines.join("\n") : "- None"}\n\nPending:\n${pendingLines.length ? pendingLines.join("\n") : "- None"}\n\nDenied:\n${deniedLines.length ? deniedLines.join("\n") : "- None"}\n\nTonight Ledger:\n${ledgerLines.length ? ledgerLines.join("\n") : "- None"}\n\nAlerts:\n- Expired attempts: ${report.alerts?.expiredAttempts || 0}\n- Rapid redemptions: ${report.alerts?.rapidRedemptions || 0}\n${(report.alerts?.suspiciousActivityFlags || []).map((flag) => `- ${flag}`).join("\n") || "- No suspicious flags"}`;
+      const message = `[Close Out Report]\n${summary}\n\nBy Perk:\n${perkLines.length ? perkLines.join("\n") : "- None"}\n\nPending:\n${pendingLines.length ? pendingLines.join("\n") : "- None"}\n\nTonight Ledger:\n${ledgerLines.length ? ledgerLines.join("\n") : "- None"}\n\nAlerts:\n- Expired attempts: ${report.alerts?.expiredAttempts || 0}\n- Rapid redemptions: ${report.alerts?.rapidRedemptions || 0}\n${(report.alerts?.suspiciousActivityFlags || []).map((flag) => `- ${flag}`).join("\n") || "- No suspicious flags"}`;
       try {
         // Send via FormSubmit (same endpoint that already works for support)
         const resp = await fetch("https://formsubmit.co/ajax/focoafterdark@gmail.com", {
@@ -32920,10 +32930,9 @@ let onboardingIndex = 0;
           ? "All venues"
           : (venuesInfo[report.venue]?.name || report.venue || "Venue");
         const totals = report.totals || {};
-        const totalSubmitted = totals.totalRedemptions ?? totals.submitted ?? ((totals.verifiedCount || totals.verified || 0) + (totals.pendingCount || totals.pending || 0) + (totals.deniedCount || totals.denied || 0));
+        const totalSubmitted = totals.totalRedemptions ?? totals.submitted ?? ((totals.verifiedCount || totals.verified || 0) + (totals.pendingCount || totals.pending || 0));
         const verifiedCount = totals.verifiedCount ?? totals.verified ?? 0;
         const pendingCount = totals.pendingCount ?? totals.pending ?? 0;
-        const deniedCount = totals.deniedCount ?? totals.denied ?? 0;
         return `
           <div class="log-row ceo-closeout-row" data-report-id="${report.id}">
             <strong>${venueName}</strong>
@@ -32932,7 +32941,6 @@ let onboardingIndex = 0;
               <span>Total: ${totalSubmitted}</span>
               <span>Verified: ${verifiedCount}</span>
               <span>Pending: ${pendingCount}</span>
-              <span>Denied: ${deniedCount}</span>
             </div>
             <div style="display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap;">
               <span style="color:#94a3b8;font-size:12px;">Tap to view details</span>
@@ -34025,15 +34033,21 @@ let onboardingIndex = 0;
         }
       });
     }
-    if (staffDealCodeList) {
+      if (staffDealCodeList) {
       staffDealCodeList.addEventListener("click", async (e) => {
         const btn = e.target.closest("button[data-gen-deal]");
         if (!btn || !staffSession) return;
+        if (btn.dataset.busy === "1") return;
         if (!requireActiveShiftForAction(verifyError)) return;
         if (isShiftClosedForVenue(staffSession.venue)) {
           verifyError.textContent = "Shift is already closed. Start next shift to generate new deal codes.";
           return;
         }
+        btn.dataset.busy = "1";
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = "Generating…";
+        try {
         const actor = await requireStaffActor({
           actionType: "generate_deal_code",
           prompt: "Who are you? Select the staff member generating this deal code."
@@ -34082,6 +34096,11 @@ let onboardingIndex = 0;
           reasonCode: null
         }).catch(() => {});
         showNeonSuccess(verifySuccess, `Deal code ${code} generated and added to pending.`, 4200);
+        } finally {
+          btn.dataset.busy = "";
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
       });
     }
     if (buyDrinksBtn) {
@@ -36788,10 +36807,10 @@ let onboardingIndex = 0;
       };
       const mapEntry = (payload = {}) => ({
         code: (payload.redemptionId || payload.code || codeUpper).toUpperCase(),
-        perk: payload.perkLabel || payload.perk || payload.perkKey || "Perk",
+        perk: payload.perk || payload.perkLabel || payload.perkKey || "Perk",
         perkKey: payload.perkKey || null,
         venuePerkId: payload.perkId || payload.venuePerkId || null,
-        venuePerkLabel: payload.perkLabel || payload.venuePerkLabel || null,
+        venuePerkLabel: payload.venuePerkLabel || payload.perkLabel || null,
         member: payload.memberName || payload.member || "FoCo member",
         memberUsername: payload.memberUsername || null,
         passId: (payload.passCode || payload.passId || "").toUpperCase(),
@@ -37779,10 +37798,10 @@ let onboardingIndex = 0;
         };
         const entry = {
           code: (data.redemptionId || data.code || code).toUpperCase(),
-          perk: data.perkLabel || data.perk || data.perkKey || "Perk",
+          perk: data.perk || data.perkLabel || data.perkKey || "Perk",
           perkKey: data.perkKey || null,
           venuePerkId: data.perkId || data.venuePerkId || null,
-          venuePerkLabel: data.perkLabel || data.venuePerkLabel || null,
+          venuePerkLabel: data.venuePerkLabel || data.perkLabel || null,
           passId: (data.passCode || data.passId || currentPassCode || "").toUpperCase(),
           member: data.memberName || data.member || passUserName?.textContent || (data.ceo ? "Creator" : "FoCo member"),
           memberUsername: data.memberUsername || null,
