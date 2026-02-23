@@ -13050,7 +13050,7 @@
 
       <p class="small" id="authToggleText">
         Already have an account?
-        <span id="authToggleLink" class="linkish">Log in instead</span>
+        <span class="linkish auth-toggle-link">Log in instead</span>
       </p>
       <p class="small" id="authModeSubline">
         You’ll get a digital Nightlife Pass you can show at bars to unlock perks.
@@ -15551,9 +15551,13 @@
     startPushTokenHeartbeat();
 
     function maybeShowNotificationsPrompt() {
-      if (!isStandaloneMode()) return;
+      if (typeof Notification === "undefined") return;
       if (localStorage.getItem(PUSH_PROMPT_KEY)) return;
       if (Notification.permission === "granted") return;
+      if (Notification.permission === "denied") {
+        localStorage.setItem(PUSH_PROMPT_KEY, "1");
+        return;
+      }
       if (notificationsPrompt) {
         notificationsPrompt.classList.add("active");
         localStorage.setItem(PUSH_PROMPT_KEY, "1");
@@ -16452,7 +16456,7 @@
         authModeText.textContent = "Create your account, pick your pass, then verify 21+ ID.";
         if (authModeSubline) authModeSubline.textContent = "You’ll get a digital Nightlife Pass you can show at bars to unlock perks.";
         authToggleText.innerHTML =
-          'Already have an account? <span id="authToggleLink" class="linkish">Log in instead</span>';
+          'Already have an account? <span class="linkish auth-toggle-link">Log in instead</span>';
         authSubmitBtn.textContent = "Create Account and Verify ID";
         if (authEmailLabel) authEmailLabel.innerHTML = '<span class="required-asterisk">*</span> Email';
         if (authPasswordLabel) authPasswordLabel.innerHTML = '<span class="required-asterisk">*</span> Password';
@@ -16465,7 +16469,7 @@
         authModeText.textContent = "Log in to access your Nightlife Pass.";
         if (authModeSubline) authModeSubline.textContent = "Welcome back — your FoCo After Dark pass is ready.";
         authToggleText.innerHTML =
-          'Need an account? <span id="authToggleLink" class="linkish">Sign up instead</span>';
+          'Need an account? <span class="linkish auth-toggle-link">Sign up instead</span>';
         authSubmitBtn.textContent = "Log in";
         if (authEmailLabel) authEmailLabel.textContent = "Email or Username";
         if (authPasswordLabel) authPasswordLabel.textContent = "Password";
@@ -16479,7 +16483,7 @@
         skipLoginBetaLink.style.display = (authMode === "signup" && !isLaunched) ? "" : "none";
       }
       // Reattach listener because we rewrote innerHTML
-      const authToggleLink = document.getElementById("authToggleLink");
+      const authToggleLink = authToggleText ? authToggleText.querySelector(".auth-toggle-link") : null;
       if (authToggleLink) authToggleLink.addEventListener("click", () => {
         authMode = authMode === "signup" ? "login" : "signup";
         updateAuthModeText();
@@ -35269,6 +35273,7 @@ let onboardingIndex = 0;
       }
       handleServerVersionSeen(data?.version, "settings");
       refreshOnLaunch();
+      maybeShowNotificationsPrompt();
       startAuthListener();
     }
     function watchSettingsDoc() {
