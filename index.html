@@ -31889,12 +31889,7 @@ let onboardingIndex = 0;
       if (metricActiveVenues) metricActiveVenues.textContent = uniqueVenues.size;
       if (metricLatestRating) metricLatestRating.textContent = avgRating ? `${avgRating.toFixed(1)}★` : "–";
 
-      const membersList = ceoMembersCache.length
-        ? ceoMembersCache
-        : Object.entries(loadMemberDirectory())
-          .filter(([, data]) => isActiveProfileEntry(data || {}, data?.uid || ""))
-          .filter(([, data]) => !isAnonymousMemberEntry(data || {}))
-          .map(([, data]) => normalizeCeoMemberData(data || {}, data?.uid || ""));
+      const membersList = Array.isArray(ceoMembersCache) ? ceoMembersCache : [];
       const memberCounts = membersList.reduce((acc, m) => {
         acc.total += 1;
         if (m.tierKey === "vip") acc.vip += 1;
@@ -35210,7 +35205,7 @@ let onboardingIndex = 0;
           localStorage.removeItem(BG_KEY);
           applyAccentTheme("cyan");
           applyBackgroundTheme("default");
-          stopCeoMembersRealtime();
+          stopCeoMembersRealtime(true);
           clearCeoRedemptionsRealtime();
           clearCeoReviewsRealtime();
           stopCeoMessagesListener();
@@ -35283,6 +35278,9 @@ let onboardingIndex = 0;
           return;
         }
         await handleAuthenticatedUser(user);
+        if (isCeoAccount && authClaimsReady && hasCeoClaim()) {
+          startCeoMembersRealtime(true);
+        }
         attachRealtimeForCurrentContext("auth-change");
         requestBadgeClear();
         if (!(onboardingMembershipFlow || requiresAgeVerificationClient(memberProfile, user) || requiresMembershipSelection())) {
@@ -35679,10 +35677,13 @@ let onboardingIndex = 0;
       });
     }
 
-    function stopCeoMembersRealtime() {
+    function stopCeoMembersRealtime(clearCache = false) {
       if (ceoMembersUnsub) {
         try { ceoMembersUnsub(); } catch (_) {}
         ceoMembersUnsub = null;
+      }
+      if (clearCache) {
+        ceoMembersCache = [];
       }
     }
     function formatCeoDate(value) {
@@ -36374,7 +36375,7 @@ let onboardingIndex = 0;
           if (filterKey === "free") {
             const tier = (u.tier || "").toLowerCase();
             const override = (u.membershipOverride || "").toString().toUpperCase();
-            return tier === "free" || override === "CEO_FREE";
+            return tier === "free" || tier === "explorer" || tier === "ceo" || override === "CEO_FREE";
           }
           if (filterKey === "paused") return !!u.paused;
           if (filterKey === "past_due") return (u.paymentStatus || "").toLowerCase() === "past_due";
@@ -36393,7 +36394,7 @@ let onboardingIndex = 0;
       ceoMembersRefresh.addEventListener("click", async () => {
         ceoMembersRefresh.disabled = true;
         try {
-          await loadCeoMembersSummaryLegacy();
+          await startCeoMembersRealtime(true);
           showToast("Members refreshed.");
         } finally {
           ceoMembersRefresh.disabled = false;
