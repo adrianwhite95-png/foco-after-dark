@@ -28347,7 +28347,7 @@ let onboardingIndex = 0;
       if (isFreeMember() && (localStorage.getItem(noticeKey) || (!localStorage.getItem(seenKey) && memberProfile?.freeMembership))) {
         localStorage.removeItem(noticeKey);
         localStorage.setItem(seenKey, "1");
-        showToast("CEO issued a never-expiring membership. Unlimited perks activated.");
+        // silent on login
       }
     }
 
@@ -28357,7 +28357,7 @@ let onboardingIndex = 0;
       const seenKey = `${FREE_SEEN_PREFIX}${code}`;
       if (sessionStorage.getItem(seenKey)) return;
       sessionStorage.setItem(seenKey, "1");
-      showToast("CEO issued a never-expiring membership. Unlimited perks activated.");
+      // silent on login
     }
 
     if (nightWheelSpinBtn) {
