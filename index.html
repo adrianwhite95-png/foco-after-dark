@@ -13843,7 +13843,6 @@
 
   <div id="staffPortalScreen" class="screen">
     <div class="staff-portal-top">
-      <button type="button" class="staff-logout-top" id="staffRefreshTop">Refresh</button>
       <button type="button" class="staff-logout-top" id="staffLogoutTop">Log out</button>
     </div>
     <div class="app-title" id="staffPortalTitle"><span>Venue</span> Dashboard</div>
@@ -18363,7 +18362,6 @@
     const landingRefreshBtn = document.getElementById("landingRefreshBtn");
     const memberRefreshBtn = document.getElementById("memberRefreshBtn");
     const globalRefreshBtn = document.getElementById("globalRefreshBtn");
-    const staffRefreshTop = document.getElementById("staffRefreshTop");
     const ceoRefreshBtn = document.getElementById("ceoRefreshBtn");
     const statusBanner = document.getElementById("statusBanner");
     const maintenanceMessage = document.getElementById("maintenanceMessage");
@@ -23440,13 +23438,6 @@ let onboardingIndex = 0;
       globalRefreshBtn.addEventListener("click", () => {
         if (isAuthBusy()) return;
         if (!firebaseAuth?.currentUser || firebaseAuth.currentUser.isAnonymous) return;
-        softRefresh();
-      });
-    }
-    if (staffRefreshTop) {
-      staffRefreshTop.addEventListener("click", () => {
-        if (isAuthBusy()) return;
-        if (!staffSession?.venue) return;
         softRefresh();
       });
     }
@@ -34422,9 +34413,14 @@ let onboardingIndex = 0;
     if (staffShiftModal) {
       staffShiftModal.addEventListener("click", (e) => {
         if (e.target !== staffShiftModal) return;
+        const mustStartShift = !!(staffSession?.venue && !getActiveShiftForVenue(staffSession.venue));
+        if (mustStartShift) {
+          if (staffShiftError) staffShiftError.textContent = "Select staff member and tap Start shift to continue.";
+          return;
+        }
         if (pendingStaffActorResolver?.resolve) pendingStaffActorResolver.resolve(null);
         resetStaffShiftStartButtonState();
-        closeStaffShiftModal();
+        closeStaffShiftModal({ force: true });
       });
     }
 
