@@ -1703,7 +1703,7 @@ exports.verifyRedemption = functions.https.onCall(async (data, context) => {
   return { ok: true, redemption: result };
 });
 
-// Resolve username to email (rate-limited, no auth required)
+// Resolve username to email (public, no auth required)
 exports.resolveUsernameToEmail = functions.https.onCall(async (data, context) => {
   const raw = (data?.username || "").toString().trim().replace(/^@/, "").toLowerCase();
   if (!raw) {
@@ -1712,10 +1712,6 @@ exports.resolveUsernameToEmail = functions.https.onCall(async (data, context) =>
   if (!/^[a-z0-9_]{3,24}$/.test(raw)) {
     throw new HttpsError("invalid-argument", "Invalid username.");
   }
-  const ip = getRequestIp(context) || "unknown";
-  const key = `usernameLookup_${hashLookupKey(ip)}`;
-  await enforceLookupRateLimit({ key, limit: 30, windowMs: 10 * 60 * 1000 });
-
   const unameSnap = await db.collection("usernames").doc(raw).get();
   if (!unameSnap.exists) {
     return { email: null };
@@ -2399,6 +2395,8 @@ exports.claimCeoFreeSignupCode = functions.https.onCall(async (data, context) =>
     }
     const memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
     const codeData = codeSnap.data() || {};
+    const priorTier = normalizeLookupTier(memberData) || "standard";
+    const safePriorTier = ["vip", "standard", "explorer"].includes(priorTier) ? priorTier : "standard";
     const override = String(memberData.membershipOverride || memberData.override || "").toUpperCase();
     const alreadyFree = memberData.freeMembership === true || override === "CEO_FREE";
     if (alreadyFree) {
@@ -2421,6 +2419,10 @@ exports.claimCeoFreeSignupCode = functions.https.onCall(async (data, context) =>
       tier: "ceo_free",
       membershipTier: "ceo_free",
       requestedTier: "ceo_free",
+      baseTierBeforeCeoFree: safePriorTier,
+      priorTierBeforeFree: safePriorTier,
+      preCeoFreePaymentStatus: String(memberData.paymentStatus || "active"),
+      preCeoFreeMembershipStatus: String(memberData.membershipStatus || "active"),
       membershipStatus: "active",
       paymentStatus: "active",
       revoked: false,
@@ -2453,6 +2455,99 @@ exports.claimCeoFreeSignupCode = functions.https.onCall(async (data, context) =>
   });
 
   return result;
+});
+
+exports.setCeoFreeMembershipForPass = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    requireAuth: true,
+    rateLimit: true,
+    maxPerMin: 30,
+    maxPerDay: 600
+  });
+  if (!isCeoContext(context)) throw new HttpsError("permission-denied", "CEO only");
+  const passCode = String(data?.passCode || "").trim().toUpperCase();
+  if (!passCode) throw new HttpsError("invalid-argument", "Pass code required");
+  const enable = data?.enable !== false;
+
+  const memberSnap = await db.collection("members").where("passCode", "==", passCode).limit(1).get();
+  if (memberSnap.empty) throw new HttpsError("not-found", "Member not found");
+  const memberDoc = memberSnap.docs[0];
+  const memberData = memberDoc.data() || {};
+  const freeRef = db.collection("freeMemberships").doc(passCode);
+  const priorTier = normalizeLookupTier(memberData) || "standard";
+  const safePriorTier = ["vip", "standard", "explorer"].includes(priorTier) ? priorTier : "standard";
+
+  await db.runTransaction(async (tx) => {
+    const liveSnap = await tx.get(memberDoc.ref);
+    const live = liveSnap.exists ? (liveSnap.data() || {}) : {};
+    if (enable) {
+      const liveTier = normalizeLookupTier(live) || "standard";
+      const baseTier = ["vip", "standard", "explorer"].includes(liveTier) ? liveTier : "standard";
+      tx.set(memberDoc.ref, {
+        freeMembership: true,
+        membershipOverride: "CEO_FREE",
+        tier: "ceo_free",
+        membershipTier: "ceo_free",
+        requestedTier: "ceo_free",
+        baseTierBeforeCeoFree: live.baseTierBeforeCeoFree || baseTier,
+        priorTierBeforeFree: live.priorTierBeforeFree || baseTier,
+        preCeoFreePaymentStatus: String(live.paymentStatus || "active"),
+        preCeoFreeMembershipStatus: String(live.membershipStatus || "active"),
+        membershipStatus: "active",
+        paymentStatus: "active",
+        revoked: false,
+        validUntil: "never",
+        freeGrantedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      tx.set(freeRef, {
+        active: true,
+        passCode,
+        uid: memberDoc.id,
+        email: String(live.email || "").toLowerCase() || null,
+        freeMembership: true,
+        membershipOverride: "CEO_FREE",
+        tier: "ceo_free",
+        grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      return;
+    }
+    const restoreTier = normalizeLookupTier(
+      live.baseTierBeforeCeoFree
+      || live.priorTierBeforeFree
+      || live.requestedTier
+      || live.membershipTier
+      || safePriorTier
+    ) || "standard";
+    const restorePayment = String(live.preCeoFreePaymentStatus || live.paymentStatus || "active").toLowerCase();
+    const restoreMembership = String(live.preCeoFreeMembershipStatus || live.membershipStatus || "active").toLowerCase();
+    tx.set(memberDoc.ref, {
+      freeMembership: false,
+      membershipOverride: null,
+      tier: restoreTier,
+      membershipTier: restoreTier,
+      requestedTier: restoreTier,
+      paymentStatus: restoreTier === "explorer" ? "active" : restorePayment,
+      membershipStatus: restoreTier === "explorer" ? "explorer" : restoreMembership,
+      revoked: false,
+      validUntil: null,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    tx.set(freeRef, {
+      active: false,
+      revoked: true,
+      revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+      revokedByUid: context.auth.uid,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  });
+
+  return {
+    ok: true,
+    passCode,
+    enabled: enable
+  };
 });
 
 function normalizePointAwardKey(raw = "") {
@@ -5473,9 +5568,7 @@ exports.recountMembers = functions.https.onCall(async (data, context) => {
 exports.getStaffLoginToken = functions.runWith(staffLoginRunConfig).https.onCall(async (data, context) => {
   await enforceCallableSecurity(context, {
     requireAuth: false,
-    rateLimit: true,
-    publicScope: "staffLogin",
-    publicRateLimit: { limit: 25, windowMs: 10 * 60 * 1000 }
+    rateLimit: false
   });
   const expected = readRequiredSecret(process.env.STAFF_GATE_CODE, "STAFF_GATE_CODE").toLowerCase();
   const supplied = (data?.accessCode || "").toString().trim().toLowerCase();
@@ -5547,6 +5640,470 @@ exports.getStaffLoginToken = functions.runWith(staffLoginRunConfig).https.onCall
   } catch (err) {
     console.warn("Staff custom token failed:", err?.message || err);
     throw new HttpsError("internal", "Staff login unavailable right now");
+  }
+});
+
+function isStaffContext(context) {
+  const claims = context?.auth?.token || {};
+  const uid = String(context?.auth?.uid || "");
+  return claims.staff === true || uid.startsWith("staff_");
+}
+
+function getStaffVenueFromContext(context) {
+  const claims = context?.auth?.token || {};
+  const claimVenue = String(claims.venue || "").trim().toLowerCase();
+  if (claimVenue) return resolveStaffVenueId(claimVenue) || claimVenue;
+  const uid = String(context?.auth?.uid || "");
+  if (uid.startsWith("staff_")) {
+    const raw = uid.slice("staff_".length).trim().toLowerCase();
+    return resolveStaffVenueId(raw) || raw;
+  }
+  return "";
+}
+
+function assertVenueMutationAccess(context, venueIdRaw) {
+  if (!context?.auth) throw new HttpsError("unauthenticated", "Auth required");
+  const venueId = resolveStaffVenueId(String(venueIdRaw || "").trim().toLowerCase());
+  if (!venueId) throw new HttpsError("invalid-argument", "Venue required");
+  if (isCeoContext(context)) return venueId;
+  if (!isStaffContext(context)) throw new HttpsError("permission-denied", "Staff or CEO required");
+  const claimVenue = getStaffVenueFromContext(context);
+  if (!claimVenue || claimVenue !== venueId) {
+    throw new HttpsError("permission-denied", "Staff can only modify their own venue");
+  }
+  return venueId;
+}
+
+function normalizeStaffNameForWrite(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, 48);
+}
+
+function normalizeStaffActionType(value = "") {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 48) || "unknown_action";
+}
+
+exports.staffUpsertVenuePerks = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 180, maxPerDay: 2000 });
+    const venueId = assertVenueMutationAccess(context, data?.venueId);
+    const rawPerks = Array.isArray(data?.perks) ? data.perks : [];
+    const normalized = [];
+    const labels = new Set();
+    for (const item of rawPerks) {
+      const id = String(item?.id || "").trim().slice(0, 80);
+      const label = String(item?.label || "").trim().slice(0, 80);
+      const standardQty = Number(item?.standardQty || 0);
+      const vipQty = Number(item?.vipQty || 0);
+      if (!id || !label) continue;
+      if (!Number.isFinite(standardQty) || !Number.isFinite(vipQty) || standardQty <= 0 || vipQty <= 0) {
+        throw new HttpsError("invalid-argument", "Perk quantities must be positive numbers.");
+      }
+      const dedupeKey = label.toLowerCase();
+      if (labels.has(dedupeKey)) throw new HttpsError("invalid-argument", "Perk names must be unique.");
+      labels.add(dedupeKey);
+      normalized.push({ id, label, standardQty: Math.floor(standardQty), vipQty: Math.floor(vipQty) });
+    }
+
+    const perksRef = db.collection("venues").doc(venueId).collection("perks");
+    const snap = await perksRef.get();
+    const keepIds = new Set(normalized.map((perk) => perk.id));
+    const batch = db.batch();
+    const venueName = getStaffVenueName(venueId);
+    normalized.forEach((perk) => {
+      const ref = perksRef.doc(perk.id);
+      batch.set(ref, {
+        venueId,
+        venueName,
+        label: perk.label,
+        standardQty: perk.standardQty,
+        vipQty: perk.vipQty,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    });
+    snap.forEach((docSnap) => {
+      if (!keepIds.has(docSnap.id)) batch.delete(docSnap.ref);
+    });
+    await batch.commit();
+    return { ok: true, venueId, saved: normalized.length };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("staffUpsertVenuePerks failed", err);
+    throw new HttpsError("internal", err?.message || "Could not save perks");
+  }
+});
+
+exports.staffManageVenueMember = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 180, maxPerDay: 2000 });
+    const venueId = assertVenueMutationAccess(context, data?.venueId);
+    const action = String(data?.action || "").toLowerCase();
+    if (action !== "add" && action !== "remove") throw new HttpsError("invalid-argument", "Invalid action");
+    const staffId = String(data?.staffId || "").replace(/\D/g, "").padStart(5, "0").slice(-5);
+    if (!staffId) throw new HttpsError("invalid-argument", "staffId required");
+    const staffRef = db.collection("venues").doc(venueId).collection("staffMembers").doc(staffId);
+    if (action === "add") {
+      const firstName = normalizeStaffNameForWrite(data?.firstName);
+      const lastName = normalizeStaffNameForWrite(data?.lastName);
+      if (!firstName || !lastName) throw new HttpsError("invalid-argument", "First and last name required");
+      await staffRef.set({
+        staffId,
+        firstName,
+        lastName,
+        fullName: `${firstName} ${lastName}`.trim(),
+        isActive: true,
+        removedAt: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return { ok: true, action, staffId };
+    }
+    await staffRef.set({
+      isActive: false,
+      removedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return { ok: true, action, staffId };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("staffManageVenueMember failed", err);
+    throw new HttpsError("internal", err?.message || "Could not update staff member");
+  }
+});
+
+exports.staffShiftAction = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 180, maxPerDay: 2000 });
+    const venueId = assertVenueMutationAccess(context, data?.venueId);
+    const action = String(data?.action || "").toLowerCase();
+    const shiftKey = String(data?.shiftKey || "").trim();
+    const closeoutAttemptId = String(data?.closeoutAttemptId || "").trim().slice(0, 120) || null;
+    const closeoutFallbackUsed = data?.closeoutFallbackUsed === true;
+    const closeoutFallbackErrorCode = String(data?.closeoutFallbackErrorCode || "").trim().slice(0, 80) || null;
+    const actor = {
+      staffId: String(data?.staffId || "").replace(/\D/g, "").padStart(5, "0").slice(-5) || null,
+      staffName: normalizeStaffNameForWrite(data?.staffName || "") || null
+    };
+    if (!shiftKey) throw new HttpsError("invalid-argument", "shiftKey required");
+    if (action === "start") {
+      await db.collection("venues").doc(venueId).collection("shiftState").doc("current").set({
+        shiftKey,
+        active: true,
+        venueId,
+        closeoutStatus: "open",
+        closeoutLastError: null,
+        closeoutLastAttemptId: null,
+        closeoutLastAttemptAt: null,
+        startedByStaffId: actor.staffId,
+        startedByStaffName: actor.staffName,
+        closedAt: null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        startedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      await db.collection("venues").doc(venueId).collection("shiftSessions").doc(shiftKey).set({
+        shiftKey,
+        active: true,
+        venueId,
+        closeoutStatus: "open",
+        closeoutLastError: null,
+        closeoutLastAttemptId: null,
+        closeoutLastAttemptAt: null,
+        startedByStaffId: actor.staffId,
+        startedByStaffName: actor.staffName,
+        closedAt: null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        startedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      return { ok: true, action, venueId, shiftKey };
+    }
+    if (action === "close") {
+      const currentRef = db.collection("venues").doc(venueId).collection("shiftState").doc("current");
+      const sessionRef = db.collection("venues").doc(venueId).collection("shiftSessions").doc(shiftKey);
+      const lockRef = db.collection("venues").doc(venueId).collection("shiftCloseouts").doc(shiftKey);
+      const attemptId = closeoutAttemptId || `shift-close-${Date.now()}`;
+      const result = await db.runTransaction(async (tx) => {
+        const [currentSnap, sessionSnap, lockSnap] = await Promise.all([
+          tx.get(currentRef),
+          tx.get(sessionRef),
+          tx.get(lockRef)
+        ]);
+        const currentData = currentSnap.exists ? (currentSnap.data() || {}) : {};
+        const sessionData = sessionSnap.exists ? (sessionSnap.data() || {}) : {};
+        const lockData = lockSnap.exists ? (lockSnap.data() || {}) : {};
+        const alreadyClosed = currentData.closeoutStatus === "closed"
+          || sessionData.closeoutStatus === "closed"
+          || sessionData.active === false
+          || lockData.shiftClosed === true;
+        if (alreadyClosed) {
+          return { ok: true, action, venueId, shiftKey, alreadyClosed: true, idempotent: true };
+        }
+        tx.set(currentRef, {
+          shiftKey,
+          venueId,
+          closeoutStatus: "closed",
+          closeoutLastError: null,
+          closeoutLastAttemptId: attemptId,
+          closeoutLastAttemptAt: admin.firestore.FieldValue.serverTimestamp(),
+          closeoutFallbackUsed,
+          closeoutFallbackErrorCode: closeoutFallbackErrorCode || null,
+          active: false,
+          reportId: data?.reportId || null,
+          lastClosedByStaffId: actor.staffId,
+          lastClosedByStaffName: actor.staffName,
+          lastClosedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        tx.set(sessionRef, {
+          shiftKey,
+          venueId,
+          closeoutStatus: "closed",
+          closeoutLastError: null,
+          closeoutLastAttemptId: attemptId,
+          closeoutLastAttemptAt: admin.firestore.FieldValue.serverTimestamp(),
+          closeoutFallbackUsed,
+          closeoutFallbackErrorCode: closeoutFallbackErrorCode || null,
+          active: false,
+          closedAt: admin.firestore.FieldValue.serverTimestamp(),
+          closedByStaffId: actor.staffId,
+          closedByStaffName: actor.staffName,
+          reportId: data?.reportId || null,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return { ok: true, action, venueId, shiftKey, closeoutAttemptId: attemptId, idempotent: false };
+      });
+      return result;
+    }
+    throw new HttpsError("invalid-argument", "Unsupported action");
+  } catch (err) {
+    try {
+      const venueId = String(data?.venueId || "").trim().toLowerCase();
+      const action = String(data?.action || "").toLowerCase();
+      if (action === "close" && venueId) {
+        await db.collection("venues").doc(venueId).collection("shiftState").doc("current").set({
+          closeoutStatus: "open",
+          closeoutLastError: String(err?.message || "closeout_failed").slice(0, 300),
+          closeoutLastAttemptAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
+    } catch (_) {}
+    if (err instanceof HttpsError) throw err;
+    console.warn("staffShiftAction failed", err);
+    throw new HttpsError("internal", err?.message || "Could not update shift");
+  }
+});
+
+exports.staffAppendActivityLog = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 180, maxPerDay: 2000 });
+    const venueId = assertVenueMutationAccess(context, data?.venueId);
+    const actionType = normalizeStaffActionType(data?.actionType);
+    const payload = {
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      actionAt: admin.firestore.FieldValue.serverTimestamp(),
+      actionType,
+      staffId: String(data?.staffId || "").replace(/\D/g, "").padStart(5, "0").slice(-5) || null,
+      staffName: normalizeStaffNameForWrite(data?.staffName || "") || null,
+      venueId,
+      redemptionId: String(data?.redemptionId || "").slice(0, 64) || null,
+      userId: String(data?.userId || "").slice(0, 64) || null,
+      userName: normalizeStaffNameForWrite(data?.userName || "") || null,
+      perkId: String(data?.perkId || "").slice(0, 80) || null,
+      perkTitle: String(data?.perkTitle || "").trim().slice(0, 120) || null,
+      reasonCode: String(data?.reasonCode || "").trim().slice(0, 40) || null,
+      reasonNote: String(data?.reasonNote || "").trim().slice(0, 240) || null,
+      source: String(data?.source || "staff_portal").trim().slice(0, 40),
+      createdByUid: context.auth.uid
+    };
+    const ref = await db.collection("venues").doc(venueId).collection("activityLog").add(payload);
+    return { ok: true, id: ref.id };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("staffAppendActivityLog failed", err);
+    throw new HttpsError("internal", err?.message || "Could not append activity log");
+  }
+});
+
+function coerceDateInput(value, fieldName = "date") {
+  if (!value) throw new HttpsError("invalid-argument", `${fieldName} required`);
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value?.toDate === "function") {
+    const d = value.toDate();
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  if (typeof value === "number") {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) throw new HttpsError("invalid-argument", `${fieldName} invalid`);
+  return d;
+}
+
+exports.staffUpsertVenueOffer = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 180, maxPerDay: 2000 });
+    const venueId = assertVenueMutationAccess(context, data?.venueId);
+    const action = String(data?.action || "upsert").trim().toLowerCase();
+    const offerTypeRaw = String(data?.offerType || "alert").trim().toLowerCase();
+    const venueName = getStaffVenueName(venueId);
+    let collectionName = "alerts";
+    if (offerTypeRaw === "deal" || offerTypeRaw === "vip" || offerTypeRaw === "vipdeal") {
+      collectionName = "deals";
+    } else if (offerTypeRaw === "vipdeals") {
+      collectionName = "vipDeals";
+    }
+    let docId = String(data?.docId || "").trim();
+    if (!docId && collectionName !== "alerts") docId = venueId;
+
+    const collectionRef = db.collection(collectionName);
+    const docRef = docId ? collectionRef.doc(docId) : collectionRef.doc();
+
+    if (action === "delete") {
+      await docRef.delete();
+      return { ok: true, action, offerType: offerTypeRaw, id: docRef.id, venueId };
+    }
+
+    if (action === "expire") {
+      await docRef.set({
+        venueId,
+        venueName,
+        expiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() - 1000)),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      return { ok: true, action, offerType: offerTypeRaw, id: docRef.id, venueId };
+    }
+
+    if (action !== "upsert") throw new HttpsError("invalid-argument", "Unsupported offer action");
+
+    const title = String(data?.title || "").trim().slice(0, 120);
+    const detail = String(data?.detail || "").trim().slice(0, 280);
+    const meta = String(data?.meta || "").trim().slice(0, 120);
+    const audience = String(data?.audience || "all").toLowerCase() === "vip" ? "vip" : "all";
+    if (!title || !detail) throw new HttpsError("invalid-argument", "title and detail are required");
+    const expiresDate = coerceDateInput(data?.expiresAt, "expiresAt");
+
+    const payload = {
+      venueId,
+      venueName,
+      title,
+      detail,
+      meta: meta || (audience === "vip" ? `VIP · ${venueName}` : venueName),
+      expiresAt: admin.firestore.Timestamp.fromDate(expiresDate),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    if (collectionName === "alerts") {
+      payload.audience = audience;
+      payload.enabled = true;
+      payload.createdAt = admin.firestore.FieldValue.serverTimestamp();
+    }
+    await docRef.set(payload, { merge: true });
+    return { ok: true, action, offerType: offerTypeRaw, id: docRef.id, venueId };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("staffUpsertVenueOffer failed", err);
+    throw new HttpsError("internal", err?.message || "Could not update venue offer");
+  }
+});
+
+exports.staffPersistCloseOutReport = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 120, maxPerDay: 1200 });
+    const report = data?.report || null;
+    if (!report || typeof report !== "object") throw new HttpsError("invalid-argument", "report required");
+    const venueId = assertVenueMutationAccess(context, report.venue || report.venueId || data?.venueId);
+    const closeoutAttemptId = String(data?.closeoutAttemptId || report?.closeoutAttemptId || "").trim().slice(0, 120) || null;
+    const reportId = String(report.id || `close-${venueId}-${Date.now()}`).trim().slice(0, 120);
+    const generatedAtDate = coerceDateInput(report.generatedAt || new Date(), "generatedAt");
+    const closedAtDate = report.closedAt ? coerceDateInput(report.closedAt, "closedAt") : generatedAtDate;
+    const shiftNotesAtDate = report.shiftNotesAt ? coerceDateInput(report.shiftNotesAt, "shiftNotesAt") : null;
+    const reportRef = db.collection("closeOutReports").doc(reportId);
+    const existing = await reportRef.get();
+    if (existing.exists) {
+      const existingData = existing.data() || {};
+      const existingAttemptId = String(existingData.closeoutAttemptId || "").trim();
+      const existingShift = String(existingData.shiftKey || "").trim();
+      const incomingShift = String(report.shiftKey || "").trim();
+      if ((closeoutAttemptId && existingAttemptId === closeoutAttemptId) || (existingShift && incomingShift && existingShift === incomingShift)) {
+        return { ok: true, reportId, venueId, idempotent: true };
+      }
+    }
+    const payload = {
+      ...report,
+      venue: venueId,
+      venueId,
+      closeoutAttemptId,
+      generatedAt: admin.firestore.Timestamp.fromDate(generatedAtDate),
+      closedAt: admin.firestore.Timestamp.fromDate(closedAtDate),
+      shiftNotesAt: shiftNotesAtDate ? admin.firestore.Timestamp.fromDate(shiftNotesAtDate) : null,
+      source: "staff",
+      immutable: true,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    await reportRef.set(payload, { merge: false });
+    return { ok: true, reportId, venueId };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("staffPersistCloseOutReport failed", err);
+    throw new HttpsError("internal", err?.message || "Could not persist close-out report");
+  }
+});
+
+exports.staffUpsertShiftCloseoutLock = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 120, maxPerDay: 1200 });
+    const venueId = assertVenueMutationAccess(context, data?.venueId);
+    const shiftKey = String(data?.shiftKey || "").trim();
+    if (!shiftKey) throw new HttpsError("invalid-argument", "shiftKey required");
+    const closeoutAttemptId = String(data?.closeoutAttemptId || "").trim().slice(0, 120) || null;
+    const closeoutFallbackUsed = data?.closeoutFallbackUsed === true;
+    const closeoutFallbackErrorCode = String(data?.closeoutFallbackErrorCode || "").trim().slice(0, 80) || null;
+    const report = data?.report || {};
+    const actor = data?.actor || {};
+    const lockRef = db.collection("venues").doc(venueId).collection("shiftCloseouts").doc(shiftKey);
+    const existing = await lockRef.get();
+    if (existing.exists) {
+      const existingData = existing.data() || {};
+      if (existingData.shiftClosed === true) {
+        const existingAttemptId = String(existingData.closeoutAttemptId || "").trim();
+        if (!closeoutAttemptId || !existingAttemptId || existingAttemptId === closeoutAttemptId) {
+          return { ok: true, venueId, shiftKey, idempotent: true };
+        }
+      }
+    }
+    const payload = {
+      shiftKey,
+      shiftClosed: true,
+      closeoutStatus: "closed",
+      closeoutLastError: null,
+      closeoutAttemptId,
+      closeoutLastAttemptAt: admin.firestore.FieldValue.serverTimestamp(),
+      closeoutFallbackUsed,
+      closeoutFallbackErrorCode: closeoutFallbackErrorCode || null,
+      closedAt: admin.firestore.FieldValue.serverTimestamp(),
+      closedByStaffId: String(actor?.staffId || "").replace(/\D/g, "").padStart(5, "0").slice(-5) || null,
+      closedByStaffName: normalizeStaffNameForWrite(actor?.staffName || "") || null,
+      reportId: report?.id || null,
+      venueId,
+      shiftStartedAt: report?.shiftStartedAt ? admin.firestore.Timestamp.fromDate(coerceDateInput(report.shiftStartedAt, "shiftStartedAt")) : null,
+      shiftStartedByStaffId: report?.shiftStartedByStaffId || null,
+      shiftStartedByStaffName: normalizeStaffNameForWrite(report?.shiftStartedByStaffName || "") || null,
+      totals: report?.totals || {},
+      perks: Array.isArray(report?.perks) ? report.perks : [],
+      pendingList: Array.isArray(report?.pendingList) ? report.pendingList : [],
+      deniedList: Array.isArray(report?.deniedList) ? report.deniedList : [],
+      ledger: Array.isArray(report?.ledger) ? report.ledger : [],
+      shiftNotes: String(report?.shiftNotes || "").trim(),
+      shiftNotesAt: report?.shiftNotesAt ? admin.firestore.Timestamp.fromDate(coerceDateInput(report.shiftNotesAt, "shiftNotesAt")) : null,
+      shiftNotesByStaffId: report?.shiftNotesByStaffId || null,
+      alerts: report?.alerts || {},
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    await lockRef.set(payload, { merge: true });
+    return { ok: true, venueId, shiftKey };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("staffUpsertShiftCloseoutLock failed", err);
+    throw new HttpsError("internal", err?.message || "Could not lock shift closeout");
   }
 });
 

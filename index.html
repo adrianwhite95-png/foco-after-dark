@@ -13206,6 +13206,7 @@
         </div>
         <div class="spray-tag">Fort Collins</div>
         <div class="top-right-logout">
+          <span id="memberRefreshBtn" class="logout-link" style="display:none;">Refresh</span>
           <span class="user-mini" id="userMiniDisplay">@member</span>
           <span id="logoutLink" class="logout-link">Log out</span>
         </div>
@@ -13834,6 +13835,7 @@
 
   <div id="staffPortalScreen" class="screen">
     <div class="staff-portal-top">
+      <button type="button" class="staff-logout-top" id="staffRefreshTop">Refresh</button>
       <button type="button" class="staff-logout-top" id="staffLogoutTop">Log out</button>
     </div>
     <div class="app-title" id="staffPortalTitle"><span>Venue</span> Dashboard</div>
@@ -14108,6 +14110,7 @@
             <p class="tagline">Operations control for FoCo After Dark.</p>
           </div>
           <div class="ceo-hq-header-actions">
+            <button type="button" class="btn btn-secondary" id="ceoRefreshBtn">Refresh</button>
             <button type="button" class="btn btn-secondary back-btn" id="ceoPortalBack">Back to member pass</button>
             <button class="btn btn-secondary" id="ceoPassButton">View CEO pass</button>
           </div>
@@ -15201,7 +15204,7 @@
       } catch (_) {}
       return false;
     }
-    let forceLogoutOnReload = detectHardReload();
+    let forceLogoutOnReload = false;
     const REALTIME_RELOAD_GUARD_KEY = "rtReloadGuardTs";
     let realtimeAttachDelayUntil = 0;
     try {
@@ -15842,6 +15845,7 @@
     const vipDealsMap = new Map();
     const alertsMap = new Map();
     const venuePerksMap = new Map();
+    const venueOpenNowMap = new Map();
     let memberRedemptionsMap = new Map();
     let staffRedemptionsMap = new Map();
     let staffQueueEntries = [];
@@ -15890,7 +15894,7 @@
       resetPaymentForm();
       resetSupportForm();
       applyAccentTheme("cyan");
-      localStorage.removeItem(ACCENT_KEY);
+      localStorage.removeItem(ACCENT_KEY_LEGACY);
       localStorage.removeItem(BG_KEY);
       localStorage.removeItem(BG_KEY);
       applyBackgroundTheme("default");
@@ -15992,6 +15996,10 @@
     const MEMBER_HQ_FEED_SEEN_KEY = "memberHqFeedSeen_v1";
     const DEAL_CODES_KEY = "dealCodesCache";
     const BG_KEY = "bgTheme";
+    const LAST_SCREEN_PREFIX = "lastScreen_";
+    const MEMBER_ACCENT_PREFIX = "memberAccent_";
+    const ACCENT_KEY_LEGACY = "accentTheme";
+    const LAST_SCREEN_ALLOWLIST = new Set(["tonight", "pass", "venues", "map", "profileActivity", "support"]);
     const ACHIEVEMENTS_KEY = "achievementsMap";
     const REMEMBER_EMAIL_KEY = "rememberedEmail";
     const REMEMBER_LOGIN_KEY = "rememberedAuthLogin_v2";
@@ -16131,6 +16139,44 @@
       return !useCloudProfile();
     }
 
+    function normalizeLastScreenName(name = "") {
+      const raw = String(name || "").trim().toLowerCase();
+      if (raw === "profile") return "profileActivity";
+      return raw;
+    }
+    function getLastScreenStorageKey(uid = firebaseAuth?.currentUser?.uid) {
+      const safeUid = String(uid || "").trim();
+      return safeUid ? `${LAST_SCREEN_PREFIX}${safeUid}` : "";
+    }
+    function canPersistScreenForUser(screenName, user = firebaseAuth?.currentUser) {
+      if (!user || user.isAnonymous) return false;
+      const normalized = normalizeLastScreenName(screenName);
+      return LAST_SCREEN_ALLOWLIST.has(normalized);
+    }
+    function saveLastScreenForUser(screenName, user = firebaseAuth?.currentUser) {
+      if (!canPersistScreenForUser(screenName, user)) return;
+      const key = getLastScreenStorageKey(user?.uid);
+      const normalized = normalizeLastScreenName(screenName);
+      if (!key || !normalized) return;
+      try { localStorage.setItem(key, normalized); } catch (_) {}
+    }
+    function getRestorableScreenForUser(uid = firebaseAuth?.currentUser?.uid) {
+      const key = getLastScreenStorageKey(uid);
+      if (!key) return "";
+      try {
+        const stored = normalizeLastScreenName(localStorage.getItem(key) || "");
+        return LAST_SCREEN_ALLOWLIST.has(stored) ? stored : "";
+      } catch (_) {
+        return "";
+      }
+    }
+    function updateMemberRefreshVisibility() {
+      if (!memberRefreshBtn) return;
+      const user = firebaseAuth?.currentUser || null;
+      const show = !!(user && !user.isAnonymous && currentScreenName !== "landing" && currentScreenName !== "auth" && currentScreenName !== "maintenance");
+      memberRefreshBtn.style.display = show ? "inline-flex" : "none";
+    }
+
     function showScreen(name) {
       const previousScreenName = currentScreenName;
       if (maintenanceModeActive && name !== "maintenance" && !canBypassMaintenance()) {
@@ -16164,6 +16210,7 @@
         membershipReturnScreen = previousScreenName;
       }
       currentScreenName = name;
+      saveLastScreenForUser(name);
       Object.values(screens).forEach(s => s.classList.remove("active", "screen-in"));
       screens[name].classList.add("active");
       if (screens[name]) {
@@ -16180,6 +16227,7 @@
       } else {
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
       }
+      updateMemberRefreshVisibility();
       if (name === "pass") {
         setPassBrandTagline();
         applyProfileTierMode(currentMembershipTier || memberProfile?.tier || "standard");
@@ -17124,15 +17172,19 @@
           // VIP-only path (previously vipDealForm)
           try {
             if (!guardWriteAction("postVipDeal")) return;
+            if (!functionsClient) throw new Error("Functions unavailable");
             await ensureFirebaseUser();
-            await setDoc(doc(db, "deals", venueId), {
+            const fn = httpsCallable(functionsClient, "staffUpsertVenueOffer");
+            await fn({
+              action: "upsert",
+              offerType: "vipDeal",
               venueId,
-              venueName,
+              docId: venueId,
               title,
               detail,
               meta: meta || `VIP · ${venueName}`,
-              expiresAt: Timestamp.fromDate(expiresDate),
-              updatedAt: serverTimestamp(),
+              expiresAt: expiresDate.toISOString(),
+              audience: "vip"
             });
             const pushResult = await sendVenueUpdatePushFallback({
               title: `VIP Deal - ${venueName}`,
@@ -17156,25 +17208,25 @@
           // All members alert path
           try {
             if (!guardWriteAction("postAlert")) return;
+            if (!functionsClient) throw new Error("Functions unavailable");
             await ensureFirebaseUser();
-            const alertDoc = doc(collection(db, "alerts"));
-            await setDoc(alertDoc, {
+            const fn = httpsCallable(functionsClient, "staffUpsertVenueOffer");
+            const res = await fn({
+              action: "upsert",
+              offerType: "alert",
               venueId,
-              venueName,
-              audience: "all",
-              enabled: true,
               title,
               detail,
               meta,
-              expiresAt: Timestamp.fromDate(expiresDate),
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
+              expiresAt: expiresDate.toISOString(),
+              audience: "all"
             });
+            const alertId = String(res?.data?.id || "").trim();
             const pushResult = await sendVenueUpdatePushFallback({
               title: `Tonight Alert - ${venueName}`,
               body: `${title}${detail ? ` - ${detail}` : ""}`.slice(0, 160),
               source: "staff-alert",
-              dedupeKey: `alert-create:${venueId}:${alertDoc.id}`,
+              dedupeKey: `alert-create:${venueId}:${alertId || "new"}`,
               dedupeWindowMs: 60000
             });
             showPushDispatchToast(pushResult, "Alert posted. Push sent.");
@@ -17322,12 +17374,16 @@
         savedAt: new Date().toISOString()
       }));
     }
-    async function ensureAuthPersistence() {
+    async function ensureAuthPersistence(rememberArg = null) {
+      const remember = (rememberArg === null || rememberArg === undefined)
+        ? !!rememberMe?.checked
+        : !!rememberArg;
+      const desired = remember ? browserLocalPersistence : browserSessionPersistence;
       try {
-        await setPersistence(firebaseAuth, browserSessionPersistence);
-        return "session";
+        await setPersistence(firebaseAuth, desired);
+        return remember ? "local" : "session";
       } catch (err) {
-        console.warn("[auth] session persistence unavailable; using memory", err?.code || err?.message || err);
+        console.warn("[auth] persistence unavailable; using memory", err?.code || err?.message || err);
         try {
           await setPersistence(firebaseAuth, inMemoryPersistence);
           return "memory";
@@ -17541,7 +17597,7 @@
           if (!functionsClient) {
             throw new Error("Secure CEO login is unavailable right now.");
           }
-          await ensureAuthPersistence();
+          await ensureAuthPersistence(remember);
           console.info("[auth] ceo token login", {
             attempt: attemptId,
             email,
@@ -17581,7 +17637,7 @@
       beginAuthSubmit();
       const attemptId = logAuthAttempt(email, authMode);
       try {
-        await ensureAuthPersistence();
+        await ensureAuthPersistence(remember);
         console.info("[auth] pre-signin", {
           mode: authMode,
           email,
@@ -17661,7 +17717,7 @@
       let completedPostAuthBootstrap = false;
       try {
         const remember = !!(rememberMe && rememberMe.checked);
-        await ensureAuthPersistence();
+        await ensureAuthPersistence(remember);
         updateRememberedEmail(remember ? email : null, remember ? password : "");
         suppressLandingRedirectOnce = true;
         const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
@@ -17786,7 +17842,7 @@
         const errCode = String(err?.code || "");
         if (errCode.includes("email-already-in-use")) {
           try {
-            await ensureAuthPersistence();
+            await ensureAuthPersistence(rememberMe?.checked);
             suppressLandingRedirectOnce = true;
             const existingCred = await signInWithEmailAndPassword(firebaseAuth, email, password);
             await handleAuthenticatedUser(existingCred.user);
@@ -17896,7 +17952,6 @@
         });
         if (isStaffAccount(user)) {
           console.info("[staff] claims", authClaims);
-          showToast("Staff claims loaded.", 1400);
         }
         authClaimsReady = true;
         return authClaims;
@@ -18286,13 +18341,17 @@
         showScreen("membership");
         return;
       }
-      showScreen("tonight");
+      const restoredScreen = getRestorableScreenForUser(user.uid);
+      showScreen(restoredScreen || "tonight");
     }
 
     // Pass screen elements
     const userMiniDisplay = document.getElementById("userMiniDisplay");
     const refreshBtn = document.getElementById("refreshBtn");
     const landingRefreshBtn = document.getElementById("landingRefreshBtn");
+    const memberRefreshBtn = document.getElementById("memberRefreshBtn");
+    const staffRefreshTop = document.getElementById("staffRefreshTop");
+    const ceoRefreshBtn = document.getElementById("ceoRefreshBtn");
     const statusBanner = document.getElementById("statusBanner");
     const maintenanceMessage = document.getElementById("maintenanceMessage");
     const maintenanceSubtext = document.getElementById("maintenanceSubtext");
@@ -19404,7 +19463,7 @@
         // ignore
       }
     }
-    const ACCENT_KEY = "accentTheme";
+    const ACCENT_KEY = ACCENT_KEY_LEGACY;
     const CEO_PASS_ID = "DREE4695";
     const FOUNDER_PASS_IDS = new Set(["DREE4695", "QXD3KD"]);
     const STAFF_ACCENT_PREFIX = "staffAccent_";
@@ -19825,6 +19884,7 @@
     }
     function tierLabelFromKey(tierRaw = "standard") {
       if (tierRaw === "vip") return "VIP";
+      if (tierRaw === "ceo_free") return "CEO ISSUED";
       if (tierRaw === "free") return "CEO ISSUED";
       if (tierRaw === "explorer") return "FREE";
       if (tierRaw === "ceo") return "Founder Mode";
@@ -19857,6 +19917,10 @@
       return { startMin, endMin };
     }
     function isVenueOpenNow(venueId, at = new Date()) {
+      const realtime = venueOpenNowMap.get(String(venueId || "").toLowerCase());
+      if (realtime && typeof realtime.openNow === "boolean") {
+        return realtime.openNow;
+      }
       const now = at instanceof Date ? at : new Date(at);
       const day = now.getDay();
       const minuteNow = (now.getHours() * 60) + now.getMinutes();
@@ -21359,6 +21423,7 @@
       try { if (typeof unsub === "function") unsub(); } catch (e) { /* ignore */ }
     });
     globalRealtimeUnsubs = [];
+    venueOpenNowMap.clear();
   }
   function detachRealtime() {
     clearGlobalRealtime();
@@ -21400,10 +21465,6 @@
       }, waitMs);
       return;
     }
-    if (forceLogoutOnReload) {
-      logRealtime("attachSkipped", "reload-logout");
-      return;
-    }
     const user = firebaseAuth.currentUser;
     if (!db) return;
     if (!user) return;
@@ -21430,7 +21491,7 @@
           startStaffRedemptionListener(staffSession.venue);
           startStaffMessagesListener(staffSession.venue);
           console.info("[staff] attach staff listeners", { venueId: staffSession.venue });
-          showToast(`Staff live queue: ${staffSession.venue}`, 1400);
+          // silent: staff queue sync runs in background
         }
       if (!staffSession?.venue) {
         setRealtimeRequiredSources(["settingsApp"]);
@@ -21653,10 +21714,6 @@
       logRealtime("attachSkipped", `${label}:reload-guard`);
       return null;
     }
-    if (forceLogoutOnReload) {
-      logRealtime("attachSkipped", `${label}:reload-logout`);
-      return null;
-    }
     if (isRealtimeLabelBlocked(label)) return null;
     if (!canAttachRealtimeLabel(label)) {
       logRealtime("attachSkipped", `${label}:missing-claim`);
@@ -21739,6 +21796,7 @@
   renderRealtimeStatus();
   function applyVipDealsSnapshot(snapshot) {
     if (!snapshot) return;
+    const now = Date.now() - ALERT_EXPIRY_SKEW_MS;
     const changes = snapshot.docChanges ? snapshot.docChanges() : [];
     if (!changes.length) return;
     changes.forEach(change => {
@@ -21746,7 +21804,16 @@
         vipDealsMap.delete(change.doc.id);
         return;
       }
-      vipDealsMap.set(change.doc.id, change.doc.data());
+      const data = change.doc.data() || {};
+      const enabled = data.enabled !== false && data.disabled !== true;
+      const expiresAt = data.expiresAt?.toMillis
+        ? data.expiresAt.toMillis()
+        : (data.expiresAt ? new Date(data.expiresAt).getTime() : null);
+      if (!enabled || (expiresAt && expiresAt <= now)) {
+        vipDealsMap.delete(change.doc.id);
+        return;
+      }
+      vipDealsMap.set(change.doc.id, data);
     });
     const nextCache = {};
     vipDealsMap.forEach((value, key) => {
@@ -21803,7 +21870,7 @@
     renderStaffAlertPreview();
     renderStaffDealCodes();
   }
-    function applyVenuePerksSnapshot(snapshot) {
+  function applyVenuePerksSnapshot(snapshot) {
       if (!snapshot) return;
       const changes = snapshot.docChanges ? snapshot.docChanges() : [];
       if (!changes.length) return;
@@ -21845,6 +21912,24 @@
     refreshFeaturedVenuesData();
     refreshMemberCommandNewBadge();
   }
+  function applyVenueOpenNowSnapshot(venueId, snapshot) {
+    if (!venueId) return;
+    const key = String(venueId || "").toLowerCase();
+    if (!snapshot || !snapshot.exists()) {
+      venueOpenNowMap.delete(key);
+      refreshFeaturedVenuesData();
+      return;
+    }
+    const data = snapshot.data() || {};
+    const openNow = data.active === true && !data.closedAt;
+    venueOpenNowMap.set(key, {
+      openNow,
+      shiftKey: data.shiftKey || "",
+      updatedAt: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : Date.now()
+    });
+    refreshFeaturedVenuesData();
+  }
+  const OPEN_NOW_LISTENER_CAP = 40;
   function attachGlobalRealtime() {
     if (!db) return;
     if (globalRealtimeUnsubs.length) return;
@@ -21858,22 +21943,62 @@
       console.warn("Global vipDeals listener failed", err);
     }
     try {
-      const alertsQuery = query(collection(db, "alerts"), orderBy("createdAt", "desc"), limit(120));
+      const vipDealsQuery = query(collection(db, "vipDeals"), orderBy("createdAt", "desc"), limit(80));
+      const unsub = subscribeSnapshot("globalVipDeals", vipDealsQuery, null, (snap) => {
+        applyVipDealsSnapshot(snap);
+      });
+      if (unsub) globalRealtimeUnsubs.push(unsub);
+    } catch (err) {
+      console.warn("Global dedicated vipDeals listener failed", err);
+    }
+    try {
+      const alertsQuery = query(
+        collection(db, "alerts"),
+        where("expiresAt", ">", new Date(Date.now() - ALERT_EXPIRY_SKEW_MS)),
+        orderBy("expiresAt", "asc"),
+        limit(120)
+      );
       const unsub = subscribeSnapshot("globalAlerts", alertsQuery, null, (snap) => {
         applyAlertsSnapshot(snap);
       });
       if (unsub) globalRealtimeUnsubs.push(unsub);
     } catch (err) {
-      console.warn("Global alerts listener failed", err);
+      console.warn("Global alerts listener failed (falling back):", err);
+      try {
+        const fallbackQuery = query(collection(db, "alerts"), orderBy("createdAt", "desc"), limit(120));
+        const fallbackUnsub = subscribeSnapshot("globalAlertsFallback", fallbackQuery, null, (snap) => {
+          applyAlertsSnapshot(snap);
+        });
+        if (fallbackUnsub) globalRealtimeUnsubs.push(fallbackUnsub);
+      } catch (fallbackErr) {
+        console.warn("Global alerts fallback listener failed", fallbackErr);
+      }
     }
-    try {
-      const unsub = subscribeSnapshot("globalPerks", collectionGroup(db, "perks"), null, (snap) => {
-        applyVenuePerksSnapshot(snap);
-      });
-      if (unsub) globalRealtimeUnsubs.push(unsub);
-    } catch (err) {
-      console.warn("Global venuePerks listener failed", err);
-    }
+    const venueIdsForRealtime = Object.keys(venuesInfo || {}).slice(0, OPEN_NOW_LISTENER_CAP);
+    venueIdsForRealtime.forEach((venueId) => {
+      try {
+        const perksQuery = query(
+          collection(db, "venues", venueId, "perks"),
+          orderBy("updatedAt", "desc"),
+          limit(30)
+        );
+        const perksUnsub = subscribeSnapshot(`globalPerks:${venueId}`, perksQuery, null, (snap) => {
+          applyVenuePerksSnapshot(snap);
+        });
+        if (perksUnsub) globalRealtimeUnsubs.push(perksUnsub);
+      } catch (err) {
+        console.warn(`Global venuePerks listener failed for ${venueId}`, err);
+      }
+      try {
+        const shiftRef = doc(db, "venues", venueId, "shiftState", "current");
+        const shiftUnsub = subscribeSnapshot(`venueOpenNow:${venueId}`, shiftRef, null, (snap) => {
+          applyVenueOpenNowSnapshot(venueId, snap);
+        });
+        if (shiftUnsub) globalRealtimeUnsubs.push(shiftUnsub);
+      } catch (err) {
+        console.warn(`Venue openNow listener failed for ${venueId}`, err);
+      }
+    });
   }
     function attachPassRealtime(passCodeArg, options = {}) {
       clearPassRealtime();
@@ -22915,7 +23040,7 @@ let onboardingIndex = 0;
           return;
         }
         const venueId = staffSession.venue;
-        if (!db) {
+        if (!db || !functionsClient) {
           if (vipDealError) vipDealError.textContent = "Cloud sync unavailable. Deal not saved.";
           return;
         }
@@ -22926,14 +23051,17 @@ let onboardingIndex = 0;
         try {
           if (!guardWriteAction("postVipDeal")) return;
           await ensureFirebaseUser();
-          await setDoc(doc(db, "deals", venueId), {
+          const fn = httpsCallable(functionsClient, "staffUpsertVenueOffer");
+          await fn({
+            action: "upsert",
+            offerType: "vipDeal",
             venueId,
-            venueName,
+            docId: venueId,
             title,
             detail,
             meta,
-            expiresAt: Timestamp.fromDate(expiresDate),
-            updatedAt: serverTimestamp(),
+            expiresAt: expiresDate.toISOString(),
+            audience: "vip"
           });
           const pushResult = await sendVenueUpdatePushFallback({
             title: `VIP Deal - ${venueName}`,
@@ -23195,7 +23323,7 @@ let onboardingIndex = 0;
       resetPaymentForm();
       resetSupportForm();
       applyAccentTheme("cyan");
-      localStorage.removeItem(ACCENT_KEY);
+      localStorage.removeItem(ACCENT_KEY_LEGACY);
       applyBackgroundTheme("default");
       localStorage.removeItem(BG_KEY);
       memberProfile = null;
@@ -23258,9 +23386,9 @@ let onboardingIndex = 0;
     if (navMenuToggle) {
       navMenuToggle.addEventListener("click", () => toggleNavMenu());
     }
-    async function softRefresh() {
+    function softRefresh() {
       if (navMenu) navMenu.classList.remove("open");
-      await signOutToLanding({ showRefreshToast: true });
+      window.location.reload();
     }
     if (refreshBtn) {
       refreshBtn.addEventListener("click", () => {
@@ -23287,6 +23415,26 @@ let onboardingIndex = 0;
           return;
         }
         window.location.reload();
+      });
+    }
+    if (memberRefreshBtn) {
+      memberRefreshBtn.addEventListener("click", () => {
+        if (isAuthBusy()) return;
+        softRefresh();
+      });
+    }
+    if (staffRefreshTop) {
+      staffRefreshTop.addEventListener("click", () => {
+        if (isAuthBusy()) return;
+        if (!staffSession?.venue) return;
+        softRefresh();
+      });
+    }
+    if (ceoRefreshBtn) {
+      ceoRefreshBtn.addEventListener("click", () => {
+        if (isAuthBusy()) return;
+        if (!isCeoAccount && !isCeoActive()) return;
+        softRefresh();
       });
     }
     function runMemberMenuAction(action = "") {
@@ -23589,10 +23737,12 @@ let onboardingIndex = 0;
             renderStaffDealCodes();
             return;
           }
-          if (!db) return;
+          if (!db || !functionsClient) return;
           try {
             if (!guardWriteAction("deleteAlert")) return;
-            await deleteDoc(doc(db, "alerts", id));
+            await ensureFirebaseUser();
+            const fn = httpsCallable(functionsClient, "staffUpsertVenueOffer");
+            await fn({ action: "delete", offerType: "alert", venueId: staffSession.venue, docId: id });
             await refreshTonightAlerts();
             renderStaffDealCodes();
           } catch (err) {
@@ -23612,13 +23762,12 @@ let onboardingIndex = 0;
             renderStaffAlertPreview();
             return;
           }
-          if (!db) return;
+          if (!db || !functionsClient) return;
           try {
             if (!guardWriteAction("expireAlert")) return;
-            await setDoc(doc(db, "alerts", id), {
-              expiresAt: Timestamp.fromDate(new Date(Date.now() - 1000)),
-              updatedAt: serverTimestamp(),
-            }, { merge: true });
+            await ensureFirebaseUser();
+            const fn = httpsCallable(functionsClient, "staffUpsertVenueOffer");
+            await fn({ action: "expire", offerType: "alert", venueId: staffSession.venue, docId: id });
             await refreshTonightAlerts();
           } catch (err) {
             console.error("Failed to expire alert", err);
@@ -23642,13 +23791,12 @@ let onboardingIndex = 0;
             }
             return;
           }
-          if (!db) return;
+          if (!db || !functionsClient) return;
           try {
             if (!guardWriteAction("expireVipDeal")) return;
-            await setDoc(doc(db, "deals", id), {
-              expiresAt: Timestamp.fromDate(new Date(Date.now() - 1000)),
-              updatedAt: serverTimestamp(),
-            }, { merge: true });
+            await ensureFirebaseUser();
+            const fn = httpsCallable(functionsClient, "staffUpsertVenueOffer");
+            await fn({ action: "expire", offerType: "vipDeal", venueId: staffSession.venue, docId: id });
             await refreshVipDeals();
           } catch (err) {
             console.error("Failed to expire VIP deal", err);
@@ -25598,51 +25746,31 @@ let onboardingIndex = 0;
         return;
       }
       const previousVenuePerks = Array.isArray(venuePerksCache[venueId]) ? [...venuePerksCache[venueId]] : [];
-      try {
-        await ensureFirebaseUser();
-        const perksRef = collection(db, "venues", venueId, "perks");
-        const existing = await getDocs(perksRef);
-        const existingMap = new Map();
-        existing.forEach((docSnap) => {
-          const raw = docSnap.data() || {};
-          existingMap.set(docSnap.id, {
-            label: String(raw.label || "").trim(),
-            standardQty: Number(raw.standardQty || 0),
-            vipQty: Number(raw.vipQty || 0)
-          });
-        });
-        const keepIds = new Set(perks.map(item => item.id));
-        const hasAddedOrChangedPerk = perks.some((perk) => {
-          const prev = existingMap.get(perk.id);
+      const hasAddedOrChangedByCache = (() => {
+        const prevById = new Map(previousVenuePerks.map((item) => [String(item.id || ""), item]));
+        if (previousVenuePerks.length !== perks.length) return true;
+        return perks.some((perk) => {
+          const prev = prevById.get(String(perk.id || ""));
           if (!prev) return true;
           return (
-            String(perk.label || "").trim() !== prev.label ||
-            Number(perk.standardQty || 0) !== prev.standardQty ||
-            Number(perk.vipQty || 0) !== prev.vipQty
+            String(perk.label || "").trim() !== String(prev.label || "").trim() ||
+            Number(perk.standardQty || 0) !== Number(prev.standardQty || 0) ||
+            Number(perk.vipQty || 0) !== Number(prev.vipQty || 0)
           );
         });
-        const batch = writeBatch(db);
-        perks.forEach(perk => {
-          const perkRef = doc(db, "venues", venueId, "perks", perk.id);
-	          batch.set(perkRef, {
-	            venueId,
-	            venueName,
-	            label: perk.label,
-	            standardQty: perk.standardQty,
-	            vipQty: perk.vipQty,
-	            updatedAt: serverTimestamp()
-	          }, { merge: true });
-        });
-        existing.forEach(docSnap => {
-          if (!keepIds.has(docSnap.id)) {
-            batch.delete(docSnap.ref);
-          }
-        });
-        await batch.commit();
+      })();
+      if (!functionsClient) {
+        if (staffPerksError) staffPerksError.textContent = "Cloud sync unavailable. Perks not saved.";
+        return;
+      }
+      try {
+        await ensureFirebaseUser();
+        const fn = httpsCallable(functionsClient, "staffUpsertVenuePerks");
+        await fn({ venueId, perks });
         venuePerksCache[venueId] = perks;
         renderRedemptionOptions();
         refreshFeaturedVenuesData();
-        if (hasAddedOrChangedPerk) {
+        if (hasAddedOrChangedByCache) {
           const pushResult = await sendVenueUpdatePushFallback({
             title: `Perks Updated - ${venueName}`,
             body: `${venueName} just updated this month's perks.`.slice(0, 160),
@@ -25664,7 +25792,7 @@ let onboardingIndex = 0;
         venuePerksCache[venueId] = previousVenuePerks;
         renderRedemptionOptions();
         refreshFeaturedVenuesData();
-        console.warn("Failed to save venue perks", err);
+        console.warn("Failed to save venue perks via callable", err);
         if (staffPerksError) staffPerksError.textContent = "Could not save perks. Try again.";
       }
     }
@@ -25690,7 +25818,11 @@ let onboardingIndex = 0;
         renderStaffPerksEditor(venuePerksCache[venueId] || []);
         return;
       }
-      const ref = collection(db, "venues", venueId, "perks");
+      const ref = query(
+        collection(db, "venues", venueId, "perks"),
+        orderBy("updatedAt", "desc"),
+        limit(30)
+      );
       staffPerksUnsub = subscribeSnapshot("staffPerks", ref, null, (snap) => {
         const perks = snap.docs.map(docSnap => ({
           id: docSnap.id,
@@ -25726,7 +25858,11 @@ let onboardingIndex = 0;
       venuePerksCache[venueId] = [];
       redeemPerksLoading = true;
       if (redeemPerksHint) redeemPerksHint.style.display = "block";
-      const ref = collection(db, "venues", venueId, "perks");
+      const ref = query(
+        collection(db, "venues", venueId, "perks"),
+        orderBy("updatedAt", "desc"),
+        limit(30)
+      );
       redeemPerksUnsub = subscribeSnapshot("redeemPerks", ref, null, (snap) => {
         const perks = snap.docs.map(docSnap => ({
           id: docSnap.id,
@@ -26059,7 +26195,10 @@ let onboardingIndex = 0;
         memberProfile = memberProfile || {};
         memberProfile.freeMembership = true;
         memberProfile.revoked = false;
-        memberProfile.tier = "free";
+        memberProfile.membershipOverride = "CEO_FREE";
+        memberProfile.tier = "ceo_free";
+        memberProfile.membershipTier = "ceo_free";
+        memberProfile.requestedTier = "ceo_free";
         memberProfile.validUntil = "never";
         memberProfile.perks = { tier: "free", remaining: getDefaultPerkState("free") };
         setMemberDirectoryEntry(code, memberProfile);
@@ -26420,6 +26559,37 @@ let onboardingIndex = 0;
       };
       return presets[theme] || presets.cyan;
     }
+    function getMemberAccentStorageKey(uid = firebaseAuth?.currentUser?.uid) {
+      const safeUid = String(uid || "").trim();
+      return safeUid ? `${MEMBER_ACCENT_PREFIX}${safeUid}` : "";
+    }
+    function readMemberAccentFromStorage(uid = firebaseAuth?.currentUser?.uid) {
+      const key = getMemberAccentStorageKey(uid);
+      if (!key) return "";
+      try {
+        return String(localStorage.getItem(key) || "").trim().toLowerCase();
+      } catch (_) {
+        return "";
+      }
+    }
+    function writeMemberAccentToStorage(theme, uid = firebaseAuth?.currentUser?.uid) {
+      const key = getMemberAccentStorageKey(uid);
+      if (!key) return;
+      try {
+        localStorage.setItem(key, String(theme || "cyan"));
+      } catch (_) {}
+    }
+    function migrateLegacyAccentIfNeeded(uid = firebaseAuth?.currentUser?.uid) {
+      const key = getMemberAccentStorageKey(uid);
+      if (!key) return;
+      try {
+        if (localStorage.getItem(key)) return;
+        const legacy = String(localStorage.getItem(ACCENT_KEY_LEGACY) || "").trim().toLowerCase();
+        if (!legacy) return;
+        localStorage.setItem(key, legacy);
+        localStorage.removeItem(ACCENT_KEY_LEGACY);
+      } catch (_) {}
+    }
     function applyAccentTheme(theme = "cyan") {
       const requestedTheme = String(theme || "cyan").toLowerCase();
       const safeTheme = isAccentLockedForCurrentMember(requestedTheme) ? "cyan" : requestedTheme;
@@ -26442,11 +26612,9 @@ let onboardingIndex = 0;
       document.body.classList.add(`theme-${safeTheme}`);
       currentAccentTheme = safeTheme;
       if (currentPassCode) {
-        localStorage.setItem(ACCENT_KEY, safeTheme);
+        writeMemberAccentToStorage(safeTheme);
         setMemberDirectoryEntry(currentPassCode, { accent: safeTheme });
         persistMemberState({ accent: safeTheme });
-      } else {
-        localStorage.removeItem(ACCENT_KEY);
       }
       document.querySelectorAll(".accent-chip").forEach((chip) => {
         chip.classList.toggle("active", chip.dataset.accent === safeTheme);
@@ -26456,7 +26624,6 @@ let onboardingIndex = 0;
     }
     function loadAccentTheme() {
       if (!currentPassCode) {
-        localStorage.removeItem(ACCENT_KEY);
         applyAccentTheme("cyan");
         return;
       }
@@ -26468,7 +26635,8 @@ let onboardingIndex = 0;
         applyAccentTheme("cyan");
         return;
       }
-      const local = localStorage.getItem(ACCENT_KEY);
+      migrateLegacyAccentIfNeeded();
+      const local = readMemberAccentFromStorage();
       let fromProfile = null;
       const directory = loadMemberDirectory();
       const entry = directory[(currentPassCode || "").toUpperCase()];
@@ -27939,6 +28107,59 @@ let onboardingIndex = 0;
         showFreeStatus("Enter a Pass ID.", false);
         return;
       }
+      if (!functionsClient) {
+        showFreeStatus("Cloud sync unavailable. Try again.", false);
+        return;
+      }
+      try {
+        await ensureFirebaseUser();
+        const fn = httpsCallable(functionsClient, "setCeoFreeMembershipForPass");
+        await fn({ passCode: code, enable: enabled !== false });
+        showFreeStatus(enabled ? "CEO FREE granted." : "CEO FREE revoked and tier restored.", true);
+        await refreshFreeMembersList();
+        await refreshCeoMembersTable({ force: true });
+        if ((currentPassCode || "").toUpperCase() === code && memberProfile) {
+          if (enabled) {
+            memberProfile = {
+              ...(memberProfile || {}),
+              freeMembership: true,
+              membershipOverride: "CEO_FREE",
+              tier: "ceo_free",
+              membershipTier: "ceo_free",
+              requestedTier: "ceo_free"
+            };
+            currentMembershipTier = "free";
+            applyMembershipToPass("free");
+          } else {
+            const restoredTier = normalizeTierKey(
+              memberProfile.baseTierBeforeCeoFree
+              || memberProfile.priorTierBeforeFree
+              || memberProfile.requestedTier
+              || memberProfile.membershipTier
+              || "standard"
+            ) || "standard";
+            memberProfile = {
+              ...(memberProfile || {}),
+              freeMembership: false,
+              membershipOverride: null,
+              tier: restoredTier,
+              membershipTier: restoredTier,
+              requestedTier: restoredTier
+            };
+            currentMembershipTier = restoredTier;
+            applyMembershipToPass(restoredTier);
+          }
+          renderRedemptionOptions();
+          renderVipDealForMember();
+          updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
+          updateExpiryDisplay();
+        }
+        return;
+      } catch (err) {
+        console.warn("setCeoFreeMembershipForPass callable failed", err);
+        showFreeStatus("Could not update CEO FREE status right now.", false);
+        return;
+      }
       let profile = null;
       let docRef = null;
       let freeDocRef = null;
@@ -27975,18 +28196,56 @@ let onboardingIndex = 0;
         showFreeStatus("Member not found.", false);
         return;
       }
-      const targetTier = enabled ? "free" : (profile?.tier && profile.tier !== "free" ? profile.tier : "standard");
-      const perkState = { tier: targetTier, remaining: getDefaultPerkState(targetTier) };
+      const previousTier = normalizeTierKey(
+        profile?.baseTierBeforeCeoFree
+        || profile?.priorTierBeforeFree
+        || profile?.requestedTier
+        || profile?.membershipTier
+        || profile?.tier
+      ) || "standard";
+      const safePreviousTier = ["vip", "standard", "explorer"].includes(previousTier) ? previousTier : "standard";
+      const targetTier = enabled ? "ceo_free" : safePreviousTier;
+      const perkState = { tier: enabled ? "free" : targetTier, remaining: getDefaultPerkState(enabled ? "free" : targetTier) };
       const updates = enabled
-        ? { freeMembership: true, revoked: false, tier: targetTier, perks: perkState, validUntil: "never", freeGrantedAt: serverTimestamp ? serverTimestamp() : new Date().toISOString() }
-        : { freeMembership: false, revoked: true, tier: null, perks: null, validUntil: null };
+        ? {
+            freeMembership: true,
+            revoked: false,
+            membershipOverride: "CEO_FREE",
+            tier: "ceo_free",
+            membershipTier: "ceo_free",
+            requestedTier: "ceo_free",
+            baseTierBeforeCeoFree: safePreviousTier,
+            priorTierBeforeFree: safePreviousTier,
+            preCeoFreePaymentStatus: String(profile?.paymentStatus || "active"),
+            preCeoFreeMembershipStatus: String(profile?.membershipStatus || "active"),
+            perks: perkState,
+            validUntil: "never",
+            freeGrantedAt: serverTimestamp ? serverTimestamp() : new Date().toISOString()
+          }
+        : {
+            freeMembership: false,
+            revoked: false,
+            membershipOverride: null,
+            tier: targetTier,
+            membershipTier: targetTier,
+            requestedTier: targetTier,
+            paymentStatus: profile?.preCeoFreePaymentStatus || (targetTier === "explorer" ? "active" : profile?.paymentStatus || "active"),
+            membershipStatus: profile?.preCeoFreeMembershipStatus || (targetTier === "explorer" ? "explorer" : profile?.membershipStatus || "active"),
+            perks: perkState,
+            validUntil: null
+          };
       try {
         const canWrite = guardWriteAction("setFreeMembership", "App is locked (read-only).", { silent: true });
         if (canWrite && docRef) {
           await setDoc(docRef, updates, { merge: true });
         }
         if (canWrite && freeDocRef) {
-          await setDoc(freeDocRef, { ...updates, active: enabled, passCode: code }, { merge: true });
+          await setDoc(freeDocRef, {
+            ...updates,
+            active: enabled,
+            passCode: code,
+            tier: enabled ? "ceo_free" : targetTier
+          }, { merge: true });
         }
       } catch (err) {
         console.warn("Failed to update Firestore free membership (continuing local):", err);
@@ -27995,7 +28254,7 @@ let onboardingIndex = 0;
         const localUpdates = {
           freeMembership: true,
           revoked: false,
-          tier: targetTier,
+          tier: "ceo_free",
           perks: perkState,
           validUntil: "never",
           freeGrantedAt: new Date().toISOString()
@@ -28007,7 +28266,18 @@ let onboardingIndex = 0;
         locals.push({ passCode: code, name: profile?.name || profile?.legalName || "Member", freeGrantedAt: localUpdates.freeGrantedAt });
         saveLocalFreeMembers(locals);
       } else {
-        setMemberDirectoryEntry(code, { freeMembership: false, revoked: true, tier: null, perks: null, validUntil: null });
+        setMemberDirectoryEntry(code, {
+          freeMembership: false,
+          revoked: false,
+          membershipOverride: null,
+          tier: targetTier,
+          membershipTier: targetTier,
+          requestedTier: targetTier,
+          paymentStatus: updates.paymentStatus || "active",
+          membershipStatus: updates.membershipStatus || "active",
+          perks: perkState,
+          validUntil: null
+        });
         localStorage.setItem(`${FREE_REVOKED_PREFIX}${code}`, "1");
         localStorage.removeItem(`${FREE_NOTICE_PREFIX}${code}`);
         const locals = loadLocalFreeMembers().filter(f => f.passCode !== code);
@@ -28015,6 +28285,19 @@ let onboardingIndex = 0;
       }
       if (memberProfile && (currentPassCode || "").toUpperCase() === code) {
         if (enabled) {
+          memberProfile = { ...memberProfile, ...updates };
+          currentMembershipTier = "free";
+          ensurePerkState("free");
+          applyMembershipToPass("free");
+          renderRedemptionOptions();
+          renderVipDealForMember();
+          if (firebaseAuth.currentUser?.uid && allowLocalCache()) {
+            localStorage.setItem(`membership_${firebaseAuth.currentUser.uid}`, "free");
+          }
+          // Force toast immediately for current session
+          sessionStorage.removeItem(`${FREE_SEEN_PREFIX}${code}`);
+          showToast("CEO issued a never-expiring membership. Unlimited perks activated.");
+        } else {
           memberProfile = { ...memberProfile, ...updates };
           currentMembershipTier = targetTier;
           ensurePerkState(targetTier);
@@ -28024,15 +28307,7 @@ let onboardingIndex = 0;
           if (firebaseAuth.currentUser?.uid && allowLocalCache()) {
             localStorage.setItem(`membership_${firebaseAuth.currentUser.uid}`, targetTier);
           }
-          // Force toast immediately for current session
-          sessionStorage.removeItem(`${FREE_SEEN_PREFIX}${code}`);
-          showToast("CEO issued a never-expiring membership. Unlimited perks activated.");
-        } else {
-          // revoke current user: clear caches and sign out
-          removeMemberDirectoryEntry(code);
-          localStorage.removeItem(`membership_${firebaseAuth.currentUser?.uid}`);
-          localStorage.removeItem(`passcode_${firebaseAuth.currentUser?.uid}`);
-          try { await signOut(firebaseAuth); } catch (err) { console.warn("Signout failed after revoke", err); }
+          showToast(`CEO FREE revoked. Tier restored to ${tierLabelFromKey(targetTier)}.`, 2800);
         }
       }
       showFreeStatus(enabled ? "Free membership granted." : "Free membership revoked.", true);
@@ -28413,7 +28688,8 @@ let onboardingIndex = 0;
 
     async function refreshVipDeals(options = {}) {
       if (!db || !firebaseAuth.currentUser) return;
-      const allowFallbackFetch = options.forceFallback === true || !activeRealtimeUnsubs.has("globalDeals");
+      const hasRealtimeVipFeed = activeRealtimeUnsubs.has("globalDeals") || activeRealtimeUnsubs.has("globalVipDeals");
+      const allowFallbackFetch = options.forceFallback === true || !hasRealtimeVipFeed;
       if (!allowFallbackFetch) {
         renderVipDealForMember();
         renderStaffVipDeal();
@@ -28429,13 +28705,29 @@ let onboardingIndex = 0;
         renderStaffVipDeal();
       }
     }
-    function getActiveVipDeals() {
+    function dealTargetsCurrentMember(deal = {}) {
+      const uid = String(firebaseAuth?.currentUser?.uid || "").trim();
+      const passCode = String(memberProfile?.passCode || memberProfile?.passId || currentPassCode || "").trim().toUpperCase();
+      const targetUid = String(deal.targetUid || deal.targetUserId || deal.memberUid || "").trim();
+      const targetPass = String(deal.targetPassCode || deal.passCode || "").trim().toUpperCase();
+      if (targetUid && uid && targetUid !== uid) return false;
+      if (targetPass && passCode && targetPass !== passCode) return false;
+      const audience = String(deal.audience || deal.targetAudience || deal.targetTier || "vip").toLowerCase();
+      if (audience === "all" || audience === "everyone") return true;
+      return audience === "vip";
+    }
+    function getActiveVipDeals(options = {}) {
       const now = Date.now() - ALERT_EXPIRY_SKEW_MS;
+      const forMember = options.forMember === true;
       return Object.values(vipDealsCache)
         .filter(deal => {
+          const enabled = deal?.enabled !== false && deal?.disabled !== true;
+          if (!enabled) return false;
           if (!deal.expiresAt) return true;
           const expires = deal.expiresAt.toMillis ? deal.expiresAt.toMillis() : new Date(deal.expiresAt).getTime();
-          return expires > now;
+          if (!(expires > now)) return false;
+          if (forMember && !dealTargetsCurrentMember(deal)) return false;
+          return true;
         })
         .sort((a, b) => {
           const aTime = a.expiresAt?.toMillis ? a.expiresAt.toMillis() : new Date(a.expiresAt || Date.now()).getTime();
@@ -28446,7 +28738,7 @@ let onboardingIndex = 0;
     function renderVipDealForMember() {
       if (!vipMemberDeal) return;
       const isVip = hasVipAccess();
-      const deals = getActiveVipDeals();
+      const deals = getActiveVipDeals({ forMember: true });
       if (!isVip || !deals.length) {
         vipMemberDeal.style.display = "none";
         vipMemberDeal.innerHTML = "";
@@ -28816,12 +29108,14 @@ let onboardingIndex = 0;
       const membershipStatusTierKey = normalizeTierKey(profile.membershipStatus || "");
       const ageStatus = String(profile.ageVerificationStatus || "").toLowerCase();
       const isCeoFreeIssued = override === "CEO_FREE";
-      const isExplorerAccount = !isCeoFreeIssued && (
-        tierKey === "explorer"
-        || requestedTierKey === "explorer"
-        || membershipStatusTierKey === "explorer"
-        || ageStatus.includes("explorer")
-      );
+      const isExplorerAccount = !isCeoFreeIssued
+        && profile.freeMembership !== true
+        && (
+          tierKey === "explorer"
+          || requestedTierKey === "explorer"
+          || membershipStatusTierKey === "explorer"
+          || ageStatus.includes("explorer")
+        );
       let tierLabel = tierKey ? tierKey.toUpperCase() : "STANDARD";
       if (profile.ceo === true || override === "CEO" || passCode === CEO_PASS_ID) tierLabel = "CEO";
       else if (tierKey === "ceo_free") tierLabel = "CEO FREE";
@@ -29355,8 +29649,7 @@ let onboardingIndex = 0;
     }
     function getRedemptionLookupEntries(venueId = "") {
       const queueEntries = getStaffQueueSource(venueId, { includeAll: true });
-      if (queueEntries.length) return queueEntries;
-      return Array.isArray(redemptionLog) ? redemptionLog : [];
+      return queueEntries;
     }
     function startStaffRedemptionListener(venueId) {
       stopStaffRedemptionListener();
@@ -29367,8 +29660,14 @@ let onboardingIndex = 0;
       }
       const toIso = (ts) => {
         if (!ts) return new Date().toISOString();
-        if (ts.toDate) return ts.toDate().toISOString();
-        return new Date(ts).toISOString();
+        if (ts.toDate) {
+          const d = ts.toDate();
+          if (d && !Number.isNaN(d.getTime())) return d.toISOString();
+          return new Date().toISOString();
+        }
+        const d = new Date(ts);
+        if (!d || Number.isNaN(d.getTime())) return new Date().toISOString();
+        return d.toISOString();
       };
       const applyDoc = (docSnap) => {
         const data = docSnap.data() || {};
@@ -29872,8 +30171,18 @@ let onboardingIndex = 0;
     function isShiftClosedForVenue(venueId = staffSession?.venue, shiftKey = getCurrentShiftKeyForVenue(venueId)) {
       const state = getStaffShiftLockState();
       if (!shiftKey) return false;
+      const activeShift = getActiveShiftForVenue(venueId);
+      if (activeShift?.shiftKey && String(activeShift.shiftKey).trim() === String(shiftKey).trim() && activeShift.active === true) {
+        return false;
+      }
       const rec = state[shiftKey];
       return !!(rec && rec.shiftClosed === true);
+    }
+    function createStaffShiftKey() {
+      const dateKey = getMstDateKey(new Date());
+      const epoch = Date.now();
+      const nonce = Math.random().toString(36).slice(2, 8).toUpperCase();
+      return `${dateKey}-${epoch}-${nonce}`;
     }
     function loadStaffMembersLocal(venueId) {
       if (!venueId) return [];
@@ -30054,7 +30363,15 @@ let onboardingIndex = 0;
       const venueId = String(staffSession?.venue || "").toLowerCase();
       if (!venueId) return null;
       const existing = getActiveShiftForVenue(venueId);
-      if (existing) return existing;
+      if (existing) {
+        const existingShiftKey = String(existing.shiftKey || "").trim();
+        if (!existingShiftKey || isShiftClosedForVenue(venueId, existingShiftKey)) {
+          delete staffActiveShiftMap[venueId];
+          saveStaffActiveShiftLocal(venueId, null);
+        } else {
+          return existing;
+        }
+      }
       let actor = actorOverride;
       if (!actor && getActiveStaffMembers(venueId).length) {
         actor = await requireStaffActor({
@@ -30063,7 +30380,7 @@ let onboardingIndex = 0;
         });
         if (!actor) return null;
       }
-      const shiftKey = `${getMstDateKey(new Date())}-${String(Date.now()).slice(-6)}`;
+      const shiftKey = createStaffShiftKey();
       const shift = {
         shiftKey,
         active: true,
@@ -30079,22 +30396,16 @@ let onboardingIndex = 0;
       staffActiveShiftMap[venueId] = shift;
       saveStaffActiveShiftLocal(venueId, shift);
       renderStaffShiftStatus();
-      if (db && guardWriteAction("startVenueShift", "App is locked (read-only).", { silent: true })) {
-        try {
-          await setDoc(doc(db, "venues", venueId, "shiftState", "current"), {
-            ...shift,
-            startedAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          }, { merge: true });
-          await setDoc(doc(db, "venues", venueId, "shiftSessions", shiftKey), {
-            ...shift,
-            startedAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          }, { merge: true });
-        } catch (err) {
-          console.warn("start shift write failed", err);
-        }
-      }
+      if (!functionsClient) throw new Error("Cloud functions unavailable");
+      await ensureFirebaseUser();
+      const startFn = httpsCallable(functionsClient, "staffShiftAction");
+      await startFn({
+        action: "start",
+        venueId,
+        shiftKey,
+        staffId: shift.startedByStaffId || null,
+        staffName: shift.startedByStaffName || null
+      });
       await logVenueStaffAction({
         actionType: "start_shift",
         staffId: shift.startedByStaffId,
@@ -30104,40 +30415,62 @@ let onboardingIndex = 0;
       pendingCloseOutReport = null;
       suppressStaffShiftPrompt = false;
       closeStaffShiftModal({ force: true });
-      showToast("Shift started.", 2800);
+      // silent: shift state updates in UI without toast
       return shift;
     }
-    async function closeVenueShiftForCurrentSession(report, actor) {
+    async function closeVenueShiftForCurrentSession(report, actor, closeoutAttemptId = "") {
       const venueId = String(staffSession?.venue || "").toLowerCase();
       if (!venueId) return;
       const activeShift = getActiveShiftForVenue(venueId);
       const shiftKey = String(report?.shiftKey || activeShift?.shiftKey || "").trim();
       if (!shiftKey) return;
       const closedAtIso = new Date().toISOString();
-      if (db && guardWriteAction("closeVenueShift", "App is locked (read-only).", { silent: true })) {
-        try {
-          await setDoc(doc(db, "venues", venueId, "shiftSessions", shiftKey), {
-            active: false,
-            closedAt: serverTimestamp(),
-            closedByStaffId: actor?.staffId || null,
-            closedByStaffName: actor?.staffName || null,
-            reportId: report?.id || null,
-            updatedAt: serverTimestamp()
-          }, { merge: true });
-          await setDoc(doc(db, "venues", venueId, "shiftState", "current"), {
-            active: false,
-            shiftKey,
-            venueId,
-            lastClosedAt: serverTimestamp(),
-            lastClosedByStaffId: actor?.staffId || null,
-            lastClosedByStaffName: actor?.staffName || null,
-            reportId: report?.id || null,
-            updatedAt: serverTimestamp()
-          }, { merge: true });
-        } catch (err) {
-          console.warn("close shift write failed", err);
+      if (!functionsClient) throw new Error("Cloud functions unavailable");
+      await ensureFirebaseUser();
+      let closedOnServer = false;
+      try {
+        const closeFn = httpsCallable(functionsClient, "staffShiftAction");
+        await closeFn({
+          action: "close",
+          venueId,
+          shiftKey,
+          reportId: report?.id || null,
+          closeoutAttemptId: closeoutAttemptId || null,
+          staffId: actor?.staffId || null,
+          staffName: actor?.staffName || null
+        });
+        closedOnServer = true;
+      } catch (err) {
+        const errCode = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
+        if (!["not-found", "unimplemented", "internal", "unavailable"].includes(errCode)) {
+          throw err;
         }
+        const fallbackFn = httpsCallable(functionsClient, "staffUpsertShiftCloseoutLock");
+        await fallbackFn({
+          venueId,
+          shiftKey,
+          closeoutAttemptId: closeoutAttemptId || null,
+          closeoutFallbackUsed: true,
+          closeoutFallbackErrorCode: errCode || "unknown",
+          actor: {
+            staffId: actor?.staffId || null,
+            staffName: actor?.staffName || null
+          },
+          report
+        });
+        try {
+          await logVenueStaffAction({
+            actionType: "closeout_fallback_used",
+            staffId: actor?.staffId || null,
+            staffName: actor?.staffName || null,
+            venueId,
+            reasonCode: errCode || "unknown",
+            reasonNote: "staffShiftAction fallback path used"
+          });
+        } catch (_) {}
+        closedOnServer = true;
       }
+      if (!closedOnServer) throw new Error("Could not close shift right now.");
       delete staffActiveShiftMap[venueId];
       saveStaffActiveShiftLocal(venueId, null);
       renderStaffShiftStatus();
@@ -30231,14 +30564,10 @@ let onboardingIndex = 0;
       staffMembersCache = [payload, ...(staffMembersCache || [])];
       saveStaffMembersLocal(venueId, staffMembersCache);
       renderStaffTeamList();
-      if (db) {
-        if (!guardWriteAction("addStaffMember", "App is locked (read-only).", { silent: true })) return payload;
-        await setDoc(doc(db, "venues", venueId, "staffMembers", staffId), {
-          ...payload,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-      }
+      if (!functionsClient) throw new Error("Cloud functions unavailable");
+      await ensureFirebaseUser();
+      const addFn = httpsCallable(functionsClient, "staffManageVenueMember");
+      await addFn({ venueId, action: "add", staffId, firstName, lastName });
       await logVenueStaffAction({
         actionType: "staff_member_added",
         staffId: payload.staffId,
@@ -30265,14 +30594,10 @@ let onboardingIndex = 0;
       if (selectedStaffActor?.staffId === key) {
         selectedStaffActor = null;
       }
-      if (db) {
-        if (!guardWriteAction("removeStaffMember", "App is locked (read-only).", { silent: true })) return true;
-        await setDoc(doc(db, "venues", venueId, "staffMembers", key), {
-          isActive: false,
-          removedAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-      }
+      if (!functionsClient) throw new Error("Cloud functions unavailable");
+      await ensureFirebaseUser();
+      const removeFn = httpsCallable(functionsClient, "staffManageVenueMember");
+      await removeFn({ venueId, action: "remove", staffId: key });
       await logVenueStaffAction({
         actionType: "staff_member_removed",
         staffId: existing.staffId,
@@ -30341,18 +30666,29 @@ let onboardingIndex = 0;
       staffActivityCache.unshift(payload);
       saveStaffActivityLocal(venueId, staffActivityCache);
       renderStaffActivityLog();
-      if (!db) return payload;
+      if (!functionsClient) return payload;
       try {
-        if (!guardWriteAction("staffActivityLog", "App is locked (read-only).", { silent: true })) return payload;
-        await addDoc(collection(db, "venues", venueId, "activityLog"), {
-          ...payload,
-          timestamp: serverTimestamp(),
-          actionAt: serverTimestamp()
+        await ensureFirebaseUser();
+        const fn = httpsCallable(functionsClient, "staffAppendActivityLog");
+        const result = await fn({
+          actionType: payload.actionType,
+          staffId: payload.staffId,
+          staffName: payload.staffName,
+          venueId: payload.venueId,
+          redemptionId: payload.redemptionId,
+          userId: payload.userId,
+          userName: payload.userName,
+          perkId: payload.perkId,
+          perkTitle: payload.perkTitle,
+          reasonCode: payload.reasonCode,
+          reasonNote: payload.reasonNote,
+          source: payload.source
         });
+        return { ...payload, id: result?.data?.id || null };
       } catch (err) {
-        console.warn("staff activity log write failed", err);
+        console.warn("staffAppendActivityLog callable failed", err);
+        return payload;
       }
-      return payload;
     }
     let pendingStaffActorResolver = null;
     function closeStaffActorModal() {
@@ -30616,10 +30952,10 @@ let onboardingIndex = 0;
     function isCreatorRedemption(entry = {}) {
       const passId = (entry.passId || "").toUpperCase();
       const tier = String(entry.tier || "").toLowerCase();
-      return entry.ceo === true || passId === CEO_PASS_ID || tier === "ceo";
+      return entry.ceo === true || FOUNDER_PASS_IDS.has(passId) || tier === "ceo";
     }
     function getEntryMemberDisplay(entry = {}) {
-      if (isCreatorRedemption(entry)) return "Creator";
+      if (isCreatorRedemption(entry)) return "CEO";
       return entry.member || "FoCo member";
     }
     function getEntryVibeLabel(entry = {}) {
@@ -31197,7 +31533,9 @@ let onboardingIndex = 0;
       ceoVenueLog.innerHTML = sorted.map(group => {
         const entriesHtml = group.items.map(entry => {
           const label = entry.perk || entry.perkKey || "Perk";
-          const member = entry.member || entry.passId || "FoCo member";
+          const username = getEntryUsername(entry);
+          const memberLabel = getEntryMemberDisplay(entry);
+          const member = username ? `${memberLabel} (@${username})` : memberLabel;
           const date = formatMST(entry.timestamp);
           const rawStatus = (entry.status || "pending").toLowerCase();
           const statusKey = rawStatus === "cancelled" ? "canceled" : rawStatus;
@@ -33146,61 +33484,40 @@ let onboardingIndex = 0;
       }
       persistMemberState({ closeOutReports: closeOutReports.slice(0, 200) });
     }
-    async function persistCloseOutReportToCloud(report) {
-      if (!report || !db) return;
+    async function persistCloseOutReportToCloud(report, closeoutAttemptId = "") {
+      if (!report || !db || !functionsClient) return;
       try {
-        const generatedAtDate = toDateSafe(report.generatedAt) || new Date();
-        const generatedAt = Timestamp.fromDate(generatedAtDate);
-        const payload = {
-          ...report,
-          generatedAt,
-          closedAt: report.closedAt ? Timestamp.fromDate(new Date(report.closedAt)) : generatedAt,
-          shiftNotesAt: report.shiftNotesAt ? Timestamp.fromDate(new Date(report.shiftNotesAt)) : null,
-          source: "staff",
-          immutable: true
-        };
-        if (!guardWriteAction("persistCloseOutReport", "App is locked (read-only).", { silent: true })) return;
-        const reportRef = doc(db, "closeOutReports", String(report.id || `close-${report.venue}-${Date.now()}`));
-        const existing = await getDoc(reportRef);
-        if (!existing.exists()) {
-          await setDoc(reportRef, payload, { merge: false });
-        }
+        await ensureFirebaseUser();
+        const fn = httpsCallable(functionsClient, "staffPersistCloseOutReport");
+        await fn({
+          venueId: staffSession?.venue || report.venue || null,
+          closeoutAttemptId: closeoutAttemptId || report?.closeoutAttemptId || null,
+          report
+        });
       } catch (err) {
         console.warn("Close-out cloud save failed", err);
       }
     }
-    async function lockStaffShiftInCloud(report, actor) {
-      if (!report || !db || !staffSession?.venue) return;
+    async function lockStaffShiftInCloud(report, actor, closeoutAttemptId = "") {
+      if (!report || !db || !functionsClient || !staffSession?.venue) return;
       const venueId = String(staffSession.venue || "").toLowerCase();
       const shiftKey = String(report.shiftKey || getCurrentShiftKeyForVenue(venueId) || "").trim();
       if (!shiftKey) return;
       const closedAt = new Date().toISOString();
       const closedByStaffId = actor?.staffId || null;
       const closedByStaffName = actor?.staffName || null;
-      const lockPayload = {
-        shiftKey,
-        shiftClosed: true,
-        closedAt: serverTimestamp(),
-        closedByStaffId,
-        closedByStaffName,
-        reportId: report.id || null,
+      await ensureFirebaseUser();
+      const fn = httpsCallable(functionsClient, "staffUpsertShiftCloseoutLock");
+      await fn({
         venueId,
-        shiftStartedAt: report.shiftStartedAt ? Timestamp.fromDate(new Date(report.shiftStartedAt)) : null,
-        shiftStartedByStaffId: report.shiftStartedByStaffId || null,
-        shiftStartedByStaffName: report.shiftStartedByStaffName || null,
-        totals: report.totals || {},
-        perks: report.perks || [],
-        pendingList: report.pendingList || [],
-        deniedList: report.deniedList || [],
-        ledger: report.ledger || [],
-        shiftNotes: report.shiftNotes || "",
-        shiftNotesAt: report.shiftNotesAt ? Timestamp.fromDate(new Date(report.shiftNotesAt)) : null,
-        shiftNotesByStaffId: report.shiftNotesByStaffId || null,
-        alerts: report.alerts || {},
-        updatedAt: serverTimestamp()
-      };
-      if (!guardWriteAction("lockStaffShift", "App is locked (read-only).", { silent: true })) return;
-      await setDoc(doc(db, "venues", venueId, "shiftCloseouts", shiftKey), lockPayload, { merge: true });
+        shiftKey,
+        closeoutAttemptId: closeoutAttemptId || report?.closeoutAttemptId || null,
+        actor: {
+          staffId: closedByStaffId || null,
+          staffName: closedByStaffName || null
+        },
+        report
+      });
       staffShiftLockMap[venueId] = staffShiftLockMap[venueId] || {};
       staffShiftLockMap[venueId][shiftKey] = {
         shiftClosed: true,
@@ -33654,7 +33971,7 @@ let onboardingIndex = 0;
     async function processStaffLogin() {
       staffLoginError.textContent = "";
       console.info("[staff] start");
-      showToast("Staff login starting…", 1400);
+      // silent: keep staff login feedback inline only
       if (!staffGateVerified) {
         staffGateResumeLogin = true;
         openStaffGate();
@@ -33709,7 +34026,7 @@ let onboardingIndex = 0;
         await signInWithCustomToken(firebaseAuth, token);
         await refreshAuthClaims(firebaseAuth.currentUser);
         console.info("[staff] auth ok (token)");
-        showToast("Staff auth verified.", 1400);
+        // silent: keep staff auth feedback inline only
       } catch (err) {
         console.warn("Staff token sign-in failed", err);
         staffLoginError.textContent = "Staff auth failed. Try again.";
@@ -33721,7 +34038,7 @@ let onboardingIndex = 0;
         return;
       }
       console.info("[staff] applyStaffSession", { venueId });
-      showToast(`Staff session set: ${venueId}`, 1400);
+      // silent: keep staff session feedback inline only
       const venueName = venuesInfo[venueId]?.name || "Your venue";
       if (staffVenueChip) staffVenueChip.textContent = venueName;
       if (staffVenueLabel) staffVenueLabel.textContent = venueName;
@@ -33743,7 +34060,7 @@ let onboardingIndex = 0;
       }
       staffGateCodeValue = "";
       staffGateVerified = false;
-      localStorage.removeItem(ACCENT_KEY);
+      localStorage.removeItem(ACCENT_KEY_LEGACY);
       renderStaffVenueLog();
       renderStaffVipDeal();
       renderStaffAlertPreview();
@@ -34166,7 +34483,7 @@ let onboardingIndex = 0;
           staffCloseOutSend.textContent = originalText;
           return;
         }
-        const baseReport = pendingCloseOutReport || buildCloseOutReport({ shift: activeShift });
+        const baseReport = buildCloseOutReport({ shift: activeShift });
         const report = baseReport ? buildCloseOutReport({
           ...baseReport,
           shift: activeShift,
@@ -34211,11 +34528,19 @@ let onboardingIndex = 0;
         }
         try {
           staffCloseOutStatus.textContent = "Sending report…";
+          const closeoutAttemptId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+            ? crypto.randomUUID()
+            : `attempt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          report.closeoutAttemptId = closeoutAttemptId;
           const sent = await sendCloseOutEmail(report);
           persistCloseOutReport(report);
-          await persistCloseOutReportToCloud(report);
-          await lockStaffShiftInCloud(report, actor);
-          await closeVenueShiftForCurrentSession(report, actor);
+          await persistCloseOutReportToCloud(report, closeoutAttemptId);
+          await closeVenueShiftForCurrentSession(report, actor, closeoutAttemptId);
+          try {
+            await lockStaffShiftInCloud(report, actor, closeoutAttemptId);
+          } catch (lockErr) {
+            console.warn("Shift lock sync failed after close-out", lockErr);
+          }
           await logVenueStaffAction({
             actionType: "close_out_shift",
             staffId: actor.staffId,
@@ -34228,6 +34553,9 @@ let onboardingIndex = 0;
           staffCloseOutStatus.textContent = sent ? "Report sent to focoafterdark@gmail.com." : "Report saved locally. Email delivery failed.";
           renderStaffPendingQueue();
           pendingCloseOutReport = report;
+        } catch (err) {
+          console.warn("Close-out send failed", err);
+          staffCloseOutStatus.textContent = err?.message || "Could not send close-out right now. Try again.";
         } finally {
           staffCloseOutSend.dataset.busy = "";
           staffCloseOutSend.disabled = false;
@@ -35518,19 +35846,6 @@ let onboardingIndex = 0;
           email: user?.email || null
         });
         const loginForced = forceShowLogin || window.location.hash === "#login";
-        if (forceLogoutOnReload && user) {
-          forceLogoutOnReload = false;
-          clearLoginSessionFlag(user.uid);
-          try {
-            await signOut(firebaseAuth);
-          } catch (err) {
-            console.warn("Reload sign-out skipped:", err);
-          }
-          applyRememberedEmailToForm();
-          showScreen("landing");
-          initialAuthResolved = true;
-          return;
-        }
         if (!user) {
           clearPushAutoSyncTimers();
           forceLogoutOnReload = false;
@@ -35549,7 +35864,7 @@ let onboardingIndex = 0;
           ceoSession = false;
           isCeoAccount = false;
           document.body.classList.remove("ceo-active");
-          localStorage.removeItem(ACCENT_KEY);
+          localStorage.removeItem(ACCENT_KEY_LEGACY);
           localStorage.removeItem(BG_KEY);
           applyAccentTheme("cyan");
           applyBackgroundTheme("default");
@@ -35573,6 +35888,7 @@ let onboardingIndex = 0;
             showScreen("landing");
             suppressLandingRedirectOnce = false;
           }
+          updateMemberRefreshVisibility();
           updateDebugNotificationControls();
           maybeShowNotificationsPrompt();
           initialAuthResolved = true;
@@ -35606,7 +35922,7 @@ let onboardingIndex = 0;
           memberProfile = null;
           memberDocRef = null;
           currentPassCode = null;
-          localStorage.removeItem(ACCENT_KEY);
+          localStorage.removeItem(ACCENT_KEY_LEGACY);
           localStorage.removeItem(BG_KEY);
           applyAccentTheme("cyan");
           applyBackgroundTheme("default");
@@ -35626,6 +35942,7 @@ let onboardingIndex = 0;
           return;
         }
         await handleAuthenticatedUser(user);
+        updateMemberRefreshVisibility();
         if (isCeoAccount && authClaimsReady && hasCeoClaim()) {
           await loadCeoMembersSummaryLegacy();
         }
@@ -36179,12 +36496,14 @@ let onboardingIndex = 0;
       const ageStatus = String(data.ageVerificationStatus || "").toLowerCase();
       const override = (data.membershipOverride || data.override || "").toString().toUpperCase();
       const isCeoFreeIssued = override === "CEO_FREE";
-      const isExplorerAccount = !isCeoFreeIssued && (
-        tierKey === "explorer"
-        || requestedTierKey === "explorer"
-        || membershipStatusTierKey === "explorer"
-        || ageStatus.includes("explorer")
-      );
+      const isExplorerAccount = !isCeoFreeIssued
+        && data.freeMembership !== true
+        && (
+          tierKey === "explorer"
+          || requestedTierKey === "explorer"
+          || membershipStatusTierKey === "explorer"
+          || ageStatus.includes("explorer")
+        );
       let tierLabel = tierKey ? tierKey.toUpperCase() : (data.ceo ? "CEO" : "STANDARD");
       if (rawTier.toLowerCase() === "beta") {
         tierLabel = "BETA";
@@ -36206,7 +36525,7 @@ let onboardingIndex = 0;
         username: data.username || data.displayName || data.name || data.legalName || data.passCode || "Member",
         passCode: data.passCode || "",
         tier: tierLabel,
-        tierKey: isExplorerAccount ? "explorer" : (tierKey || tierLabel.toLowerCase()),
+        tierKey: isExplorerAccount ? "explorer" : ((isCeoFreeIssued || data.freeMembership === true) ? "ceo_free" : (tierKey || tierLabel.toLowerCase())),
         statusKey,
         statusLabel,
         paused,
@@ -37263,6 +37582,7 @@ let onboardingIndex = 0;
         : ((cb) => setTimeout(cb, 16));
       redemptionUiRefreshFrame = scheduler(flushRedemptionUiRefresh);
     }
+    const verifyCodeInFlight = new Map();
 
     async function verifyCode(code, venueId) {
       if (!code) return { success: false, message: "Enter a code." };
@@ -37282,39 +37602,43 @@ let onboardingIndex = 0;
         if (ts.toDate) return ts.toDate().toISOString();
         return new Date(ts).toISOString();
       };
-      const mapEntry = (payload = {}) => ({
-        code: (payload.redemptionId || payload.code || codeUpper).toUpperCase(),
-        perk: payload.perk || payload.perkLabel || payload.perkKey || "Perk",
-        perkKey: payload.perkKey || null,
-        venuePerkId: payload.perkId || payload.venuePerkId || null,
-        venuePerkLabel: payload.venuePerkLabel || payload.perkLabel || null,
-        member: payload.memberName || payload.member || "FoCo member",
-        memberUsername: payload.memberUsername || null,
-        passId: (payload.passCode || payload.passId || "").toUpperCase(),
-        venue: payload.venueId || payload.venue || null,
-        requestedVenue: payload.requestedVenue || null,
-        alertId: payload.alertId || null,
-        dealPrice: Number.isFinite(Number(payload.dealPrice)) ? Number(payload.dealPrice) : null,
-        vibeLabel: payload.vibeLabel || null,
-        vibeKey: payload.vibeKey || null,
-        ceo: !!payload.ceo,
-        shiftKey: payload.shiftKey || null,
-        status: payload.status || "pending",
-        expiresAt: payload.expiresAt?.toMillis
-          ? payload.expiresAt.toMillis()
-          : (payload.expiresAt ? new Date(payload.expiresAt).getTime() : null),
-        timestamp: toIso(payload.createdAt || payload.timestamp),
-        verifiedAt: toIso(payload.verifiedAt || payload.createdAt || payload.timestamp),
-        deniedAt: toIso(payload.deniedAt),
-        lastActionType: payload.lastActionType || null,
-        lastActionAt: toIso(payload.lastActionAt),
-        lastActionStaffId: payload.lastActionStaffId || null,
-        lastActionStaffName: payload.lastActionStaffName || null,
-        pendingReasonCode: payload.pendingReasonCode || null,
-        pendingReasonNote: payload.pendingReasonNote || null,
-        deniedReasonCode: payload.deniedReasonCode || null,
-        deniedReasonNote: payload.deniedReasonNote || null,
-      });
+      const mapEntry = (payload = {}) => {
+        const resolvedPassId = (payload.passCode || payload.passId || "").toUpperCase();
+        const isFounderRedemption = FOUNDER_PASS_IDS.has(resolvedPassId);
+        return {
+          code: (payload.redemptionId || payload.code || codeUpper).toUpperCase(),
+          perk: payload.perk || payload.perkLabel || payload.perkKey || "Perk",
+          perkKey: payload.perkKey || null,
+          venuePerkId: payload.perkId || payload.venuePerkId || null,
+          venuePerkLabel: payload.venuePerkLabel || payload.perkLabel || null,
+          member: payload.memberName || payload.member || ((payload.ceo || isFounderRedemption) ? "CEO" : "FoCo member"),
+          memberUsername: payload.memberUsername || null,
+          passId: resolvedPassId,
+          venue: payload.venueId || payload.venue || null,
+          requestedVenue: payload.requestedVenue || null,
+          alertId: payload.alertId || null,
+          dealPrice: Number.isFinite(Number(payload.dealPrice)) ? Number(payload.dealPrice) : null,
+          vibeLabel: payload.vibeLabel || null,
+          vibeKey: payload.vibeKey || null,
+          ceo: !!payload.ceo || isFounderRedemption,
+          shiftKey: payload.shiftKey || null,
+          status: payload.status || "pending",
+          expiresAt: payload.expiresAt?.toMillis
+            ? payload.expiresAt.toMillis()
+            : (payload.expiresAt ? new Date(payload.expiresAt).getTime() : null),
+          timestamp: toIso(payload.createdAt || payload.timestamp),
+          verifiedAt: toIso(payload.verifiedAt || payload.createdAt || payload.timestamp),
+          deniedAt: toIso(payload.deniedAt),
+          lastActionType: payload.lastActionType || null,
+          lastActionAt: toIso(payload.lastActionAt),
+          lastActionStaffId: payload.lastActionStaffId || null,
+          lastActionStaffName: payload.lastActionStaffName || null,
+          pendingReasonCode: payload.pendingReasonCode || null,
+          pendingReasonNote: payload.pendingReasonNote || null,
+          deniedReasonCode: payload.deniedReasonCode || null,
+          deniedReasonNote: payload.deniedReasonNote || null,
+        };
+      };
       const applyVerifiedEntryToLocalLog = (updated = {}) => {
         const codeKey = String(updated.code || "").toUpperCase();
         if (!codeKey) return;
@@ -37337,24 +37661,55 @@ let onboardingIndex = 0;
         if (!functionsClient) {
           return { success: false, message: "Verification unavailable." };
         }
-        try {
+        const retryableCodes = new Set([
+          "not-found",
+          "aborted",
+          "cancelled",
+          "internal",
+          "unavailable",
+          "deadline-exceeded",
+          "resource-exhausted",
+          "failed-precondition",
+          "unknown"
+        ]);
+        const inFlightKey = `${venueKey}:${codeUpper}`;
+        if (verifyCodeInFlight.has(inFlightKey)) {
+          return verifyCodeInFlight.get(inFlightKey);
+        }
+        const run = (async () => {
           const fn = httpsCallable(functionsClient, "verifyRedemption");
-          const resp = await fn({
-            redemptionId: codeUpper,
-            venueId: venueKey,
-            action: "confirm",
-            shiftKey: getCurrentShiftKeyForVenue(venueKey) || null
-          });
-          return { success: true, entry: resp?.data?.redemption || {} };
-        } catch (err) {
-          const code = err?.code || "";
+          let lastErr = null;
+          for (let attempt = 0; attempt < 4; attempt += 1) {
+            try {
+              const resp = await fn({
+                redemptionId: codeUpper,
+                venueId: venueKey,
+                action: "confirm",
+                shiftKey: getCurrentShiftKeyForVenue(venueKey) || null
+              });
+              return { success: true, entry: resp?.data?.redemption || {} };
+            } catch (err) {
+              lastErr = err;
+              const errCode = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
+              if (!retryableCodes.has(errCode) || attempt >= 3) break;
+              const waitMs = 200 + (attempt * 260);
+              await new Promise((resolve) => setTimeout(resolve, waitMs));
+            }
+          }
+          const code = String(lastErr?.code || "").replace(/^functions\//, "").toLowerCase();
           if (code === "not-found") {
             return { success: false, message: "Code not found. Ask member to refresh their pass." };
           }
           if (code === "permission-denied") {
             return { success: false, message: "Access denied for this venue." };
           }
-          return { success: false, message: err?.message || "Verification failed." };
+          return { success: false, message: lastErr?.message || "Verification failed." };
+        })();
+        verifyCodeInFlight.set(inFlightKey, run);
+        try {
+          return await run;
+        } finally {
+          verifyCodeInFlight.delete(inFlightKey);
         }
       };
       const entry = getRedemptionLookupEntries(venueKey).find(item => (item?.code || "").toUpperCase() === codeUpper);
@@ -37601,7 +37956,7 @@ let onboardingIndex = 0;
       }) || null;
     }
 
-    async function awaitVerifiedRedemptionForVenue(code, venueId, timeoutMs = 700) {
+    async function awaitVerifiedRedemptionForVenue(code, venueId, timeoutMs = 2500) {
       const start = Date.now();
       let match = getVerifiedRedemptionForVenue(code, venueId);
       while (!match && (Date.now() - start) < timeoutMs) {

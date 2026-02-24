@@ -260,10 +260,8 @@ service cloud.firestore {
 
       match /perks/{perkId} {
         allow read: if true;
-        allow create, update, delete: if isSignedIn() && (
-          (isAdmin() || isCeo())
-          || (staffVenueMatches(venueId) && !isAppLocked())
-        );
+        // Staff mutations are handled by callable Cloud Functions (server-side enforcement).
+        allow create, update, delete: if isSignedIn() && (isAdmin() || isCeo());
       }
 
       match /redemptions/{redemptionId} {
@@ -285,41 +283,33 @@ service cloud.firestore {
 
       match /staffMembers/{staffId} {
         allow read: if isSignedIn() && (isAdmin() || isCeo() || staffVenueMatches(venueId));
-        allow create, update: if isSignedIn() && canWriteApp() && (
-          isAdmin() || isCeo() || (staffVenueMatches(venueId) && !isAppLocked())
-        );
+        allow create, update: if isSignedIn() && canWriteApp() && (isAdmin() || isCeo());
         allow delete: if false;
       }
 
       match /activityLog/{logId} {
         allow read: if isSignedIn() && (isAdmin() || isCeo() || staffVenueMatches(venueId));
-        allow create: if isSignedIn() && canWriteApp() && (
-          isAdmin() || isCeo() || (staffVenueMatches(venueId) && !isAppLocked())
-        );
+        allow create: if isSignedIn() && canWriteApp() && (isAdmin() || isCeo());
         allow update, delete: if false;
       }
 
       match /shiftCloseouts/{shiftKey} {
         allow read: if isSignedIn() && (isAdmin() || isCeo() || staffVenueMatches(venueId));
-        allow create, update: if isSignedIn() && canWriteApp() && (
-          isAdmin() || isCeo() || (staffVenueMatches(venueId) && !isAppLocked())
-        );
+        // Staff writes flow through callable functions only.
+        allow create, update: if isSignedIn() && canWriteApp() && (isAdmin() || isCeo());
         allow delete: if isAdmin() || isCeo();
       }
 
       match /shiftState/{docId} {
-        allow read: if isSignedIn() && (isAdmin() || isCeo() || staffVenueMatches(venueId));
-        allow create, update: if isSignedIn() && canWriteApp() && (
-          isAdmin() || isCeo() || (staffVenueMatches(venueId) && !isAppLocked())
-        );
+        // Expose current venue open/closed state to members for realtime "Open now".
+        allow read: if true;
+        allow create, update: if isSignedIn() && canWriteApp() && (isAdmin() || isCeo());
         allow delete: if isAdmin() || isCeo();
       }
 
       match /shiftSessions/{shiftKey} {
         allow read: if isSignedIn() && (isAdmin() || isCeo() || staffVenueMatches(venueId));
-        allow create, update: if isSignedIn() && canWriteApp() && (
-          isAdmin() || isCeo() || (staffVenueMatches(venueId) && !isAppLocked())
-        );
+        allow create, update: if isSignedIn() && canWriteApp() && (isAdmin() || isCeo());
         allow delete: if isAdmin() || isCeo();
       }
     }
@@ -333,72 +323,29 @@ service cloud.firestore {
     // Tonight’s alerts (staff posts, everyone reads)
     match /alerts/{id} {
       allow read: if true;
-      allow create: if isSignedIn() && canWriteApp() && (
-        isAdmin() || isCeo()
-        || (
-          !isAppLocked()
-          && request.resource.data.venueId is string
-          && staffVenueMatches(request.resource.data.venueId)
-        )
-      );
-      allow update, delete: if isSignedIn() && canWriteApp() && (
-        isAdmin() || isCeo()
-        || (
-          !isAppLocked()
-          && resource.data.venueId is string
-          && staffVenueMatches(resource.data.venueId)
-        )
-      );
+      // Staff writes flow through callable functions only.
+      allow create, update, delete: if isSignedIn() && canWriteApp() && (isAdmin() || isCeo());
     }
 
     // Shared deals (staff posts, everyone reads)
     match /deals/{id} {
       allow read: if true;
-      allow create: if isSignedIn() && canWriteApp() && (
-        isAdmin() || isCeo()
-        || (
-          !isAppLocked()
-          && request.resource.data.venueId is string
-          && staffVenueMatches(request.resource.data.venueId)
-        )
-      );
-      allow update, delete: if isSignedIn() && canWriteApp() && (
-        isAdmin() || isCeo()
-        || (
-          !isAppLocked()
-          && resource.data.venueId is string
-          && staffVenueMatches(resource.data.venueId)
-        )
-      );
+      // Staff writes flow through callable functions only.
+      allow create, update, delete: if isSignedIn() && canWriteApp() && (isAdmin() || isCeo());
     }
 
     // VIP-only deals (staff posts, everyone reads)
     match /vipDeals/{id} {
       allow read: if true;
-      allow create: if isSignedIn() && canWriteApp() && (
-        isAdmin() || isCeo()
-        || (
-          !isAppLocked()
-          && request.resource.data.venueId is string
-          && staffVenueMatches(request.resource.data.venueId)
-        )
-      );
-      allow update, delete: if isSignedIn() && canWriteApp() && (
-        isAdmin() || isCeo()
-        || (
-          !isAppLocked()
-          && resource.data.venueId is string
-          && staffVenueMatches(resource.data.venueId)
-        )
-      );
+      // Staff writes flow through callable functions only.
+      allow create, update, delete: if isSignedIn() && canWriteApp() && (isAdmin() || isCeo());
     }
 
     // Venue-defined monthly perks (staff writes only for their venue; everyone reads)
     match /venuePerks/{venueId} {
       allow read: if true;
-      allow create, update: if isSignedIn() && canWriteApp() && (
-        isAdmin() || isCeo() || (staffVenueMatches(venueId) && !isAppLocked())
-      );
+      // Staff writes flow through callable functions only.
+      allow create, update: if isSignedIn() && canWriteApp() && (isAdmin() || isCeo());
       allow delete: if (isAdmin() || isCeo()) && canWriteApp();
     }
 
@@ -548,7 +495,8 @@ service cloud.firestore {
     // Close-out reports stored per venue (optional; allow only authed writes, public reads)
     match /closeOutReports/{id} {
       allow read: if hasPrivilegedRole();
-      allow write: if hasPrivilegedRole() && canWriteApp();
+      // Staff writes flow through callable functions only.
+      allow write: if (isAdmin() || isCeo()) && canWriteApp();
       allow delete: if isAdmin() || isCeo();
     }
 
