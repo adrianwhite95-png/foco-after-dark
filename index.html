@@ -21335,19 +21335,15 @@
       if (!text) return;
       const isStaffOrCeoContext = !!staffSession || !!ceoSession || isCeoAccount || isCeoActive();
       if (!isStaffOrCeoContext) {
-        const technicalNoise = [
-          /index build/i,
-          /staff (auth|session|login)/i,
-          /cloud sync/i,
-          /push partial/i,
-          /push failed/i,
-          /push dispatch/i,
-          /feed unavailable/i,
-          /safe mode/i,
-          /preview mode/i,
-          /debug/i
+        const userToastAllowlist = [
+          /point/i,
+          /\bpts\b/i,
+          /redeem/i,
+          /redemption/i,
+          /voucher verified/i,
+          /voucher confirmed/i
         ];
-        if (technicalNoise.some((pattern) => pattern.test(text))) return;
+        if (!userToastAllowlist.some((pattern) => pattern.test(text))) return;
       }
       let toast = document.getElementById("focoToast");
       if (!toast) {
