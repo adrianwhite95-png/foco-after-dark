@@ -2765,6 +2765,13 @@
       right: 16px;
       z-index: 6;
     }
+    .global-refresh-btn {
+      position: fixed;
+      top: max(14px, calc(env(safe-area-inset-top, 0px) + 10px));
+      right: max(14px, calc(env(safe-area-inset-right, 0px) + 10px));
+      z-index: 14000;
+      min-width: 94px;
+    }
     /* Hide landing refresh when landing screen not active */
     #landingScreen:not(.active) .refresh-btn {
       display: none !important;
@@ -12787,6 +12794,7 @@
       <div class="realtime-pill" id="realtimeStatusPill" data-state="syncing">Syncing</div>
       <button type="button" class="ceo-preview-exit" id="ceoPreviewExitBtn">Return to CEO</button>
       <div id="statusBanner" class="status-banner" style="display:none;"></div>
+      <button id="globalRefreshBtn" class="refresh-btn global-refresh-btn" title="Refresh" style="display:none;">Refresh</button>
       <div id="app">
         <!-- MAINTENANCE SCREEN -->
         <div id="maintenanceScreen" class="screen maintenance-screen">
@@ -15982,13 +15990,10 @@
     let membershipReturnScreen = "pass";
     let memberProfile = null;
     let staffSession = null;
-    let forceStaffLogoutOnLoad = false;
     try {
       const storedStaffSession = JSON.parse(localStorage.getItem("staffSession") || "null");
       if (storedStaffSession?.venue) {
-        // Force staff to re-auth on hard refresh/reload.
-        forceStaffLogoutOnLoad = true;
-        localStorage.removeItem("staffSession");
+        staffSession = storedStaffSession;
       }
     } catch (_) {}
     const REWARDS_KEY = "rewardsProgress";
@@ -15999,7 +16004,7 @@
     const LAST_SCREEN_PREFIX = "lastScreen_";
     const MEMBER_ACCENT_PREFIX = "memberAccent_";
     const ACCENT_KEY_LEGACY = "accentTheme";
-    const LAST_SCREEN_ALLOWLIST = new Set(["tonight", "pass", "venues", "map", "profileActivity", "support"]);
+    const LAST_SCREEN_ALLOWLIST = new Set(["tonight", "pass", "venues", "map", "profileActivity", "menu", "support", "staffPortal", "ceoPortal"]);
     const ACHIEVEMENTS_KEY = "achievementsMap";
     const REMEMBER_EMAIL_KEY = "rememberedEmail";
     const REMEMBER_LOGIN_KEY = "rememberedAuthLogin_v2";
@@ -16170,11 +16175,18 @@
         return "";
       }
     }
-    function updateMemberRefreshVisibility() {
-      if (!memberRefreshBtn) return;
+    function updateRefreshButtonsVisibility() {
       const user = firebaseAuth?.currentUser || null;
-      const show = !!(user && !user.isAnonymous && currentScreenName !== "landing" && currentScreenName !== "auth" && currentScreenName !== "maintenance");
-      memberRefreshBtn.style.display = show ? "inline-flex" : "none";
+      const memberScreens = new Set(["tonight", "pass", "venues", "map", "profileActivity", "menu", "support"]);
+      const memberShow = !!(user && !user.isAnonymous && memberScreens.has(currentScreenName) && !staffSession && !isCeoAccount && !isCeoActive());
+      const staffShow = !!(currentScreenName === "staffPortal" && staffSession?.venue);
+      const ceoShow = !!(currentScreenName === "ceoPortal" && (isCeoAccount || isCeoActive()));
+      if (memberRefreshBtn) {
+        memberRefreshBtn.style.display = memberShow ? "inline-flex" : "none";
+      }
+      if (globalRefreshBtn) {
+        globalRefreshBtn.style.display = (memberShow || staffShow || ceoShow) ? "inline-flex" : "none";
+      }
     }
 
     function showScreen(name) {
@@ -16227,7 +16239,7 @@
       } else {
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
       }
-      updateMemberRefreshVisibility();
+      updateRefreshButtonsVisibility();
       if (name === "pass") {
         setPassBrandTagline();
         applyProfileTierMode(currentMembershipTier || memberProfile?.tier || "standard");
@@ -18350,6 +18362,7 @@
     const refreshBtn = document.getElementById("refreshBtn");
     const landingRefreshBtn = document.getElementById("landingRefreshBtn");
     const memberRefreshBtn = document.getElementById("memberRefreshBtn");
+    const globalRefreshBtn = document.getElementById("globalRefreshBtn");
     const staffRefreshTop = document.getElementById("staffRefreshTop");
     const ceoRefreshBtn = document.getElementById("ceoRefreshBtn");
     const statusBanner = document.getElementById("statusBanner");
@@ -23420,6 +23433,13 @@ let onboardingIndex = 0;
     if (memberRefreshBtn) {
       memberRefreshBtn.addEventListener("click", () => {
         if (isAuthBusy()) return;
+        softRefresh();
+      });
+    }
+    if (globalRefreshBtn) {
+      globalRefreshBtn.addEventListener("click", () => {
+        if (isAuthBusy()) return;
+        if (!firebaseAuth?.currentUser || firebaseAuth.currentUser.isAnonymous) return;
         softRefresh();
       });
     }
@@ -35888,7 +35908,7 @@ let onboardingIndex = 0;
             showScreen("landing");
             suppressLandingRedirectOnce = false;
           }
-          updateMemberRefreshVisibility();
+          updateRefreshButtonsVisibility();
           updateDebugNotificationControls();
           maybeShowNotificationsPrompt();
           initialAuthResolved = true;
@@ -35897,15 +35917,6 @@ let onboardingIndex = 0;
         if (loginForced) {
           forceShowLogin = false;
           clearLoginHash();
-        }
-        if (user && forceStaffLogoutOnLoad) {
-          forceStaffLogoutOnLoad = false;
-          staffSession = null;
-          localStorage.removeItem("staffSession");
-          showScreen("landing");
-          try { await firebaseAuth.signOut(); } catch (_) {}
-          initialAuthResolved = true;
-          return;
         }
         if (maintenanceModeActive && !canBypassMaintenance(user)) {
           renderMaintenanceScreen(maintenanceSettingsCache);
@@ -35942,7 +35953,7 @@ let onboardingIndex = 0;
           return;
         }
         await handleAuthenticatedUser(user);
-        updateMemberRefreshVisibility();
+        updateRefreshButtonsVisibility();
         if (isCeoAccount && authClaimsReady && hasCeoClaim()) {
           await loadCeoMembersSummaryLegacy();
         }
