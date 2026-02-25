@@ -12928,6 +12928,11 @@
         <label for="authEmail" id="authEmailLabel"><span class="required-asterisk">*</span> Email</label>
         <input id="authEmail" type="text" required autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" />
         </div>
+        <div class="field signup-only" id="signupStudentCodeField" style="display:none;">
+          <label for="signupStudentCode">STUDENT CODE (OPTIONAL)</label>
+          <input id="signupStudentCode" type="text" maxlength="20" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="CSU50" />
+          <p class="small" style="margin-top:4px;text-align:left;color:#94a3b8;">.edu only</p>
+        </div>
         <div class="field">
           <label for="authPassword" id="authPasswordLabel"><span class="required-asterisk">*</span> Password</label>
           <input id="authPassword" type="password" required minlength="6" autocapitalize="none" autocorrect="off" spellcheck="false" />
@@ -16438,6 +16443,8 @@
     const authEmail = document.getElementById("authEmail");
     const authPasswordLabel = document.getElementById("authPasswordLabel");
     const authPassword = document.getElementById("authPassword");
+    const signupStudentCodeField = document.getElementById("signupStudentCodeField");
+    const signupStudentCodeInput = document.getElementById("signupStudentCode");
     const authEnableNotificationsBtn = document.getElementById("authEnableNotificationsBtn");
     const authNotificationsStatus = document.getElementById("authNotificationsStatus");
     const rememberMe = document.getElementById("rememberMe");
@@ -16467,6 +16474,10 @@
     const resetPasswordCancel = document.getElementById("resetPasswordCancel");
     const resetPasswordSuccess = document.getElementById("resetPasswordSuccess");
     const resetPasswordReturn = document.getElementById("resetPasswordReturn");
+    const APPROVED_STUDENT_EMAIL_DOMAINS = new Set([
+      "colostate.edu",
+      "rams.colostate.edu",
+    ]);
     if (signupConfirmModal && signupConfirmModal.parentElement !== document.body) {
       document.body.appendChild(signupConfirmModal);
     }
@@ -16542,6 +16553,7 @@
         if (rememberRow) rememberRow.style.display = "";
         if (forgotWrap) forgotWrap.style.display = "";
       }
+      updateSignupStudentCodeVisibility();
       if (skipLoginBetaLink) {
         skipLoginBetaLink.style.display = (authMode === "signup" && !isLaunched) ? "" : "none";
       }
@@ -16552,6 +16564,41 @@
         updateAuthModeText();
       });
       applyRememberedEmailToForm();
+    }
+    function normalizeStudentPromoCode(value = "") {
+      return String(value || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9-]/g, "")
+        .slice(0, 20);
+    }
+    function emailEligibleForStudentCode(rawEmail = "") {
+      const email = String(rawEmail || "").trim().toLowerCase();
+      if (!email || !email.includes("@")) return false;
+      const domain = email.split("@").pop() || "";
+      return email.endsWith(".edu") || APPROVED_STUDENT_EMAIL_DOMAINS.has(domain);
+    }
+    function updateSignupStudentCodeVisibility() {
+      if (!signupStudentCodeField) return;
+      const visible = authMode === "signup" && emailEligibleForStudentCode(authEmail?.value || "");
+      signupStudentCodeField.style.display = visible ? "block" : "none";
+      if (!visible && signupStudentCodeInput) {
+        signupStudentCodeInput.value = "";
+      }
+    }
+    function resolvePendingStudentPromoCode() {
+      const pending = normalizeStudentPromoCode(pendingSignupData?.studentPromoCode || "");
+      if (pending) return pending;
+      const profileCode = normalizeStudentPromoCode(memberProfile?.pendingStudentPromoCode || "");
+      return profileCode;
+    }
+    function primeMembershipPromoCodeFromSignup() {
+      if (!membershipPromoInput) return;
+      const current = String(membershipPromoInput.value || "").trim();
+      if (current) return;
+      const pendingCode = resolvePendingStudentPromoCode();
+      if (pendingCode) {
+        membershipPromoInput.value = pendingCode;
+      }
     }
     function refreshAuthNotificationStatusLine() {
       if (!authNotificationsStatus) return;
@@ -16609,6 +16656,19 @@
         if (signupInviteCodeInput.value !== normalized) {
           signupInviteCodeInput.value = normalized;
         }
+      });
+    }
+    if (signupStudentCodeInput) {
+      signupStudentCodeInput.addEventListener("input", () => {
+        const normalized = normalizeStudentPromoCode(signupStudentCodeInput.value || "");
+        if (signupStudentCodeInput.value !== normalized) {
+          signupStudentCodeInput.value = normalized;
+        }
+      });
+    }
+    if (authEmail) {
+      authEmail.addEventListener("input", () => {
+        updateSignupStudentCodeVisibility();
       });
     }
 
@@ -17544,6 +17604,7 @@
           return;
         }
         const inviteCode = normalizeCeoFreeInviteCode(signupInviteCodeRaw);
+        const studentPromoCode = normalizeStudentPromoCode(signupStudentCodeInput?.value || "");
         if (signupInviteCodeRaw.trim() && inviteCode.length < 6) {
           const msg = "Invite code format is invalid. Use at least 6 characters.";
           authError.textContent = msg;
@@ -17568,6 +17629,7 @@
           gender: genderValue,
           username: usernameAvailability.username || usernameCheck.value,
           ceoFreeInviteCode: inviteCode || "",
+          studentPromoCode: emailEligibleForStudentCode(email) ? studentPromoCode : "",
           tier: signupTier
         };
         if (signupConfirmTierNote) {
@@ -17716,6 +17778,7 @@
         gender,
         username,
         ceoFreeInviteCode,
+        studentPromoCode,
         tier
       } = data || {};
       if (!email || !password) {
@@ -17742,6 +17805,7 @@
           if (fullName) profilePayload.legalName = fullName;
           if (gender) profilePayload.gender = gender;
           profilePayload.requestedTier = requestedTier;
+          if (studentPromoCode) profilePayload.pendingStudentPromoCode = normalizeStudentPromoCode(studentPromoCode);
           const explorerSignup = requestedTier === "explorer";
           profilePayload.ageVerificationRequired = !explorerSignup;
           profilePayload.ageVerificationStatus = explorerSignup ? "skipped_explorer" : "required";
@@ -17793,6 +17857,12 @@
 	      }
 	      await handleAuthenticatedUser(cred.user);
       completedPostAuthBootstrap = true;
+      if (studentPromoCode) {
+        memberProfile = {
+          ...(memberProfile || {}),
+          pendingStudentPromoCode: normalizeStudentPromoCode(studentPromoCode),
+        };
+      }
       if (!finalizedUsername && username) {
         const retry = await reserveUsernameCloud(username);
         if (retry.ok) {
@@ -24806,9 +24876,13 @@ let onboardingIndex = 0;
       } catch (err) {
         console.warn("prepareStripePayment failed", err);
         const blocked = err?.code === "failed-precondition" && err?.details?.reason === "CEO_OR_CEO_FREE";
+        const rawMessage = String(err?.message || "");
+        const studentPromoDenied = rawMessage.toLowerCase().includes("csu50") && rawMessage.toLowerCase().includes(".edu");
         const msg = blocked
           ? "Billing is disabled for this account."
-          : (err?.message || "Could not start payment. Please try again.");
+          : studentPromoDenied
+            ? "CSU50 is for .edu emails only."
+            : (rawMessage || "Could not start payment. Please try again.");
         paymentError.textContent = msg;
         if (paymentSubmitBtn) {
           paymentSubmitBtn.disabled = false;
@@ -25135,6 +25209,11 @@ let onboardingIndex = 0;
       } catch (err) {
         console.warn("chargeMembershipOnFile failed", err);
         if (err?.code === "failed-precondition") {
+          const rawMessage = String(err?.message || "");
+          if (rawMessage.toLowerCase().includes("csu50") && rawMessage.toLowerCase().includes(".edu")) {
+            showToast("CSU50 is for .edu emails only.");
+            return false;
+          }
           showToast("Add a card to continue.");
           pendingMembershipTier = tier;
           updatePaymentSummary(tier);
@@ -38701,6 +38780,7 @@ let onboardingIndex = 0;
       paymentPlanPrice.textContent = info.price;
       paymentSuccess.classList.remove("visible");
       paymentError.textContent = "";
+      primeMembershipPromoCodeFromSignup();
     }
 
     function resetPaymentForm() {
