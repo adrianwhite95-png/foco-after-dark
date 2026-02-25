@@ -30211,15 +30211,21 @@ let onboardingIndex = 0;
       const activeShift = getActiveShiftForVenue(venueId);
       return String(activeShift?.shiftKey || "").trim();
     }
+    function clearLocalActiveShiftForVenue(venueId) {
+      const venueKey = String(venueId || "").toLowerCase();
+      if (!venueKey) return;
+      delete staffActiveShiftMap[venueKey];
+      saveStaffActiveShiftLocal(venueKey, null);
+    }
     function isShiftClosedForVenue(venueId = staffSession?.venue, shiftKey = getCurrentShiftKeyForVenue(venueId)) {
       const state = getStaffShiftLockState();
       if (!shiftKey) return false;
-      const activeShift = getActiveShiftForVenue(venueId);
-      if (activeShift?.shiftKey && String(activeShift.shiftKey).trim() === String(shiftKey).trim() && activeShift.active === true) {
-        return false;
-      }
       const rec = state[shiftKey];
-      return !!(rec && rec.shiftClosed === true);
+      if (rec && rec.shiftClosed === true) {
+        clearLocalActiveShiftForVenue(venueId);
+        return true;
+      }
+      return false;
     }
     function createStaffShiftKey() {
       const dateKey = getMstDateKey(new Date());
@@ -30869,6 +30875,13 @@ let onboardingIndex = 0;
         });
         staffShiftLockMap[venueKey] = next;
         saveStaffShiftLockLocal(venueKey, next);
+        const activeShift = getActiveShiftForVenue(venueKey);
+        const activeShiftKey = String(activeShift?.shiftKey || "").trim();
+        if (activeShiftKey && next[activeShiftKey]?.shiftClosed === true) {
+          clearLocalActiveShiftForVenue(venueKey);
+        }
+        renderStaffShiftStatus();
+        maybePromptStartShift();
       }, (err) => {
         console.warn("staff shift lock listener failed", err);
       });
@@ -39323,14 +39336,20 @@ let onboardingIndex = 0;
           setRedeemRequestBusy(false);
           return;
         }
-        if ((err?.code || "").includes("permission-denied")) {
-          showToast("Not allowed.", 2600);
-        } else if ((err?.code || "").includes("failed-precondition")) {
-          showToast(err?.message || "Unavailable right now.", 2800);
-        } else if ((err?.code || "").includes("internal")) {
-          showToast("Internal error (see console details).", 3000);
+        const errCode = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
+        const errReason = String(err?.details?.reason || "").toUpperCase();
+        let safeMessage = "Could not start redemption.";
+        if (errReason === "SHIFT_CLOSED" || (errCode.includes("failed-precondition") && /shift/i.test(String(err?.message || "")))) {
+          safeMessage = "This venue isn't accepting redemptions right now. Please ask staff to refresh or try again shortly.";
+        } else if (errCode.includes("permission-denied")) {
+          safeMessage = "Couldn't redeem right now. Please try again.";
+        } else if (errCode.includes("failed-precondition")) {
+          safeMessage = "This redemption isn't available right now. Please try again.";
+        } else if (errCode.includes("internal") || errCode.includes("unavailable")) {
+          safeMessage = "Redemption is temporarily unavailable. Please try again.";
         }
-        creditInfo.textContent = err?.message || "Could not start redemption.";
+        showToast(safeMessage, 3000);
+        creditInfo.textContent = safeMessage;
         setRedeemRequestBusy(false);
         return;
       }

@@ -1102,6 +1102,14 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
 
     const now = admin.firestore.Timestamp.now();
     const serverNow = admin.firestore.FieldValue.serverTimestamp();
+    const callerClaims = context.auth?.token || {};
+    const callerUid = String(context.auth?.uid || "");
+    const callerEmail = String(callerClaims.email || "").toLowerCase();
+    const callerIsStaffLike = callerClaims.staff === true
+      || callerClaims.admin === true
+      || callerClaims.ceo === true
+      || callerUid.startsWith("staff_")
+      || callerEmail.startsWith("staff+");
     const perkRef = db.collection("venues").doc(venueId).collection("perks").doc(perkId);
     const shiftStateRef = db.collection("venues").doc(venueId).collection("shiftState").doc("current");
     const memberDisplayName = (member) =>
@@ -1123,7 +1131,13 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
             const shiftSnap = await tx.get(db.collection("venues").doc(venueId).collection("shiftCloseouts").doc(activeShiftKey));
             const shiftData = shiftSnap.exists ? (shiftSnap.data() || {}) : {};
             if (shiftData.shiftClosed === true) {
-              throw new HttpsError("failed-precondition", "Shift is already closed. Ask venue staff to start a new shift.");
+              throw new HttpsError(
+                "failed-precondition",
+                callerIsStaffLike
+                  ? "Shift is already closed. Ask venue staff to start a new shift."
+                  : "This venue isn't accepting redemptions right now. Please try again shortly.",
+                { reason: "SHIFT_CLOSED", venueId, shiftKey: activeShiftKey }
+              );
             }
           }
           const resolved = await resolveMemberByPassCode(passCode, tx, context.auth?.uid || null);
