@@ -20419,7 +20419,6 @@
       return new Date(Math.max(...candidates.map((d) => d.getTime())));
     }
     function hasActiveLaunchTrial(profile = memberProfile) {
-      const promoTag = String(profile?.membershipPromoTag || "").toLowerCase();
       const membershipStatus = String(profile?.membershipStatus || "").toLowerCase();
       const trialDays = Number(profile?.membershipTrialDays || 0);
       const trialEndsAt = toDateSafe(
@@ -20427,7 +20426,7 @@
         || profile?.currentPeriodEnd
         || profile?.nextRenewal
       );
-      const trialFlag = promoTag === "launch30" || membershipStatus === "trialing" || trialDays >= 30;
+      const trialFlag = membershipStatus === "trialing" || trialDays > 0;
       if (!trialFlag) return false;
       if (trialEndsAt && trialEndsAt < new Date()) return false;
       return true;
@@ -24510,64 +24509,27 @@ let onboardingIndex = 0;
       const originalText = paymentSubmitBtn.textContent;
       paymentSubmitBtn.textContent = "Processing…";
       try {
-        if (membershipPaymentMode === "setup") {
-          const { error, setupIntent } = await stripeInstance.confirmSetup({
-            elements: stripeElements,
-            confirmParams: {
-              payment_method_data: {
-                billing_details: {
-                  name,
-                  email: firebaseAuth.currentUser?.email || undefined
-                }
+        const { error, paymentIntent } = await stripeInstance.confirmPayment({
+          elements: stripeElements,
+          confirmParams: {
+            payment_method_data: {
+              billing_details: {
+                name,
+                email: firebaseAuth.currentUser?.email || undefined
               }
-            },
-            redirect: "if_required"
-          });
-          if (error) {
-            paymentError.textContent = error.message || "Could not save your card. Please try again.";
-            return;
-          }
-          if (setupIntent && setupIntent.status === "succeeded") {
-            const tierToActivate = pendingMembershipTier || "standard";
-            const activated = await chargeMembershipOnFile(tierToActivate, {
-              paymentMethodId: setupIntent.payment_method || ""
-            });
-            if (!activated) return;
-            paymentSuccess.textContent = membershipTrialDays > 0
-              ? `Membership Active • First ${membershipTrialDays} days free`
-              : "Membership Active!";
-            paymentSuccess.classList.add("visible");
-            if (membershipTrialDays > 0) {
-              showToast(`Membership active. First ${membershipTrialDays} days are free.`, 3600);
             }
-            presentReceiptForTier(tierToActivate, "Card on file");
-            completeMembership(tierToActivate, { force: true });
-            showScreen("pass");
-          } else {
-            paymentError.textContent = "Card setup incomplete. Please try again.";
-          }
-        } else {
-          const { error, paymentIntent } = await stripeInstance.confirmPayment({
-            elements: stripeElements,
-            confirmParams: {
-              payment_method_data: {
-                billing_details: {
-                  name,
-                  email: firebaseAuth.currentUser?.email || undefined
-                }
-              }
-            },
-            redirect: "if_required"
-          });
-          if (error) {
-            paymentError.textContent = error.message || "Payment failed. Please try again.";
-            paymentSubmitBtn.disabled = false;
-            paymentSubmitBtn.textContent = originalText;
-            return;
-          }
-          if (paymentIntent && paymentIntent.status === "succeeded") {
-            paymentSuccess.textContent = "Membership Active!";
-            paymentSuccess.classList.add("visible");
+          },
+          redirect: "if_required"
+        });
+        if (error) {
+          paymentError.textContent = error.message || "Payment failed. Please try again.";
+          paymentSubmitBtn.disabled = false;
+          paymentSubmitBtn.textContent = originalText;
+          return;
+        }
+        if (paymentIntent && paymentIntent.status === "succeeded") {
+          paymentSuccess.textContent = "Membership Active!";
+          paymentSuccess.classList.add("visible");
             try {
               const fn = httpsCallable(functionsClient, "confirmMembershipActivation");
               await fn({ paymentIntentId: paymentIntent.id });
@@ -24581,7 +24543,6 @@ let onboardingIndex = 0;
             showScreen("pass");
           } else {
             paymentError.textContent = "Payment incomplete. Please try again.";
-          }
         }
       } catch (err) {
         console.warn("confirmPayment error", err);
@@ -24775,7 +24736,6 @@ let onboardingIndex = 0;
     let stripeClientSecret = null;
     let stripePaymentElement = null;
     let membershipPaymentMode = "payment";
-    let membershipTrialDays = 0;
     let voucherStripeInstance = null;
     let voucherElements = null;
     let voucherClientSecret = null;
@@ -24804,7 +24764,6 @@ let onboardingIndex = 0;
         return;
       }
       membershipPaymentMode = "payment";
-      membershipTrialDays = 0;
       stripeClientSecret = null;
       if (paymentElementContainer) paymentElementContainer.innerHTML = "";
       if (paymentSubmitBtn) {
@@ -24817,43 +24776,14 @@ let onboardingIndex = 0;
         const promoCode = membershipPromoInput?.value?.trim() || "";
         const resp = await fn({ tier, promoCode });
         const data = resp?.data || {};
-        if (data.free) {
-          pendingMembershipTier = tier;
-          completeMembership(tier, { force: true });
-          showToast("Membership activated");
-          showScreen("pass");
-          return;
-        }
         if (data.alreadyActive) {
           pendingMembershipTier = null;
-          if (Number(data.trialDays || 0) > 0) {
-            showToast(`Membership active. First ${Number(data.trialDays)} days are free.`, 3600);
-          } else {
-            showToast("Membership already active.");
-          }
+          showToast("Membership already active.");
           showScreen("pass");
           return;
         }
         if (!data.publishableKey) {
           throw new Error("Missing Stripe publishable key.");
-        }
-        if (data.requiresCardSetup && data.setupClientSecret) {
-          stripeInstance = Stripe(data.publishableKey);
-          stripeClientSecret = data.setupClientSecret;
-          membershipPaymentMode = "setup";
-          membershipTrialDays = Math.max(0, Number(data.trialDays || 0));
-          stripeElements = stripeInstance.elements({ clientSecret: stripeClientSecret });
-          const paymentElementOptions = { layout: "tabs", paymentMethodOrder: ["card"] };
-          stripePaymentElement = stripeElements.create("payment", paymentElementOptions);
-          stripePaymentElement.mount("#paymentElement");
-          if (paymentSubmitBtn) {
-            paymentSubmitBtn.disabled = false;
-            paymentSubmitBtn.textContent = membershipTrialDays > 0 ? "Start free 30-day membership" : "Save card & continue";
-          }
-          if (membershipTrialDays > 0) {
-            showToast(`First ${membershipTrialDays} days are free. Add your card to activate.`, 3600);
-          }
-          return;
         }
         if (!data.clientSecret) {
           throw new Error("Missing client secret or publishable key");
@@ -25161,28 +25091,18 @@ let onboardingIndex = 0;
         const syncLocalMembershipBilling = () => {
           memberProfile = memberProfile || {};
           memberProfile.tier = tier;
-          memberProfile.membershipStatus = String(data.membershipStatus || memberProfile.membershipStatus || (data.launchTrial ? "trialing" : "active")).toLowerCase();
+          memberProfile.membershipStatus = String(data.membershipStatus || memberProfile.membershipStatus || "active").toLowerCase();
           memberProfile.paymentStatus = String(data.paymentStatus || memberProfile.paymentStatus || "active").toLowerCase();
           if (data.membershipPromoTag) memberProfile.membershipPromoTag = data.membershipPromoTag;
-          if (Number(data.trialDays || 0) > 0) memberProfile.membershipTrialDays = Number(data.trialDays || 0);
           if (data.currentPeriodEnd) memberProfile.currentPeriodEnd = data.currentPeriodEnd;
           updateMembershipStatusUI({ status: memberProfile.paymentStatus, paused: memberProfile?.paused });
           updateExpiryDisplay();
           updateVoucherBalanceUI();
           renderRedemptionOptions();
         };
-        if (data.free) {
-          pendingMembershipTier = null;
-          syncLocalMembershipBilling();
-          completeMembership(tier, { force: true });
-          return true;
-        }
         if (data.alreadyActive) {
           pendingMembershipTier = null;
           syncLocalMembershipBilling();
-          if (Number(data.trialDays || 0) > 0) {
-            showToast(`Membership active. First ${Number(data.trialDays)} days are free.`, 3600);
-          }
           completeMembership(tier, { force: true });
           return true;
         }
@@ -25207,9 +25127,6 @@ let onboardingIndex = 0;
         if (data.ok) {
           pendingMembershipTier = null;
           syncLocalMembershipBilling();
-          if (Number(data.trialDays || 0) > 0) {
-            showToast(`Membership active. First ${Number(data.trialDays)} days are free.`, 3600);
-          }
           presentReceiptForTier(tier, "Card on file");
           completeMembership(tier, { force: true });
           return true;
