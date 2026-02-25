@@ -16600,6 +16600,29 @@
         membershipPromoInput.value = pendingCode;
       }
     }
+    async function clearPendingStudentPromoState(options = {}) {
+      const persist = options?.persist === true;
+      const clearPromoInput = options?.clearPromoInput === true;
+      if (pendingSignupData && typeof pendingSignupData === "object" && pendingSignupData.studentPromoCode) {
+        pendingSignupData = { ...pendingSignupData, studentPromoCode: "" };
+      }
+      if (memberProfile && typeof memberProfile === "object" && memberProfile.pendingStudentPromoCode) {
+        memberProfile = { ...memberProfile, pendingStudentPromoCode: "" };
+      }
+      if (signupStudentCodeInput) {
+        signupStudentCodeInput.value = "";
+      }
+      if (clearPromoInput && membershipPromoInput) {
+        membershipPromoInput.value = "";
+      }
+      if (persist && firebaseAuth?.currentUser && memberDocRef && db) {
+        try {
+          await updateMemberProfile({ pendingStudentPromoCode: null });
+        } catch (err) {
+          console.warn("clearPendingStudentPromoState persist failed", err);
+        }
+      }
+    }
     function refreshAuthNotificationStatusLine() {
       if (!authNotificationsStatus) return;
       const permission = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
@@ -23368,6 +23391,7 @@ let onboardingIndex = 0;
       const currentUid = firebaseAuth.currentUser?.uid;
       forceShowLogin = false;
       clearLoginHash();
+      await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
       try {
         await signOut(firebaseAuth);
       } catch (err) {
@@ -23396,6 +23420,7 @@ let onboardingIndex = 0;
       stopMemberNoticesListener();
       updateCeoPassUI();
       pendingMembershipTier = null;
+      pendingSignupData = null;
       resetPaymentForm();
       resetSupportForm();
       applyAccentTheme("cyan");
@@ -24561,6 +24586,7 @@ let onboardingIndex = 0;
       e.preventDefault();
       paymentError.textContent = "";
       paymentSuccess.classList.remove("visible");
+      const attemptedPromoCode = String(membershipPromoInput?.value || "").trim();
       if (!pendingMembershipTier) {
         paymentError.textContent = "Select a membership first.";
         return;
@@ -24608,6 +24634,9 @@ let onboardingIndex = 0;
             }
             const tierToActivate = pendingMembershipTier || paymentIntent.metadata?.tier || "standard";
             pendingMembershipTier = null;
+            if (attemptedPromoCode) {
+              await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
+            }
             presentReceiptForTier(tierToActivate, "Card");
             completeMembership(tierToActivate, { force: true });
             showScreen("pass");
@@ -25156,12 +25185,14 @@ let onboardingIndex = 0;
       try {
         const fn = httpsCallable(functionsClient, "chargeMembershipOnFile");
         const promoCode = membershipPromoInput?.value?.trim() || "";
+        const hasPromoAttempt = !!promoCode;
         const resp = await fn({
           tier,
           promoCode,
           paymentMethodId: options?.paymentMethodId || ""
         });
         const data = resp?.data || {};
+        const hasPromoOutcome = hasPromoAttempt || !!String(data.membershipPromoTag || "").trim();
         const syncLocalMembershipBilling = () => {
           memberProfile = memberProfile || {};
           memberProfile.tier = tier;
@@ -25177,6 +25208,9 @@ let onboardingIndex = 0;
         if (data.alreadyActive) {
           pendingMembershipTier = null;
           syncLocalMembershipBilling();
+          if (hasPromoOutcome) {
+            await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
+          }
           completeMembership(tier, { force: true });
           return true;
         }
@@ -25192,6 +25226,9 @@ let onboardingIndex = 0;
               console.warn("confirmMembershipActivation failed", err);
             }
             pendingMembershipTier = null;
+            if (hasPromoOutcome) {
+              await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
+            }
             presentReceiptForTier(tier, "Card on file");
             completeMembership(tier, { force: true });
             return true;
@@ -25201,6 +25238,9 @@ let onboardingIndex = 0;
         if (data.ok) {
           pendingMembershipTier = null;
           syncLocalMembershipBilling();
+          if (hasPromoOutcome) {
+            await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
+          }
           presentReceiptForTier(tier, "Card on file");
           completeMembership(tier, { force: true });
           return true;
