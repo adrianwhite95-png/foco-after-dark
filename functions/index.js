@@ -3650,6 +3650,10 @@ async function applyVoucherPack(uid, pack) {
 const stripeSecrets = {
   secrets: ["STRIPE_SECRET", "STRIPE_PUBLISHABLE", "REPORTS_SMTP_USER", "REPORTS_SMTP_PASS"]
 };
+const STRIPE_MEMBERSHIP_PRICE_IDS = Object.freeze({
+  standard: "price_1T4Z1KQ4Ij3ax7ma27cvoyeO",
+  vip: "price_1T4Z2mQ4Ij3ax7maznTyPfl4",
+});
 const STRIPE_PROMOS = {
   LAUNCH30: {
     couponId: "iydJPH3m",
@@ -3657,6 +3661,9 @@ const STRIPE_PROMOS = {
   },
   FOCOFAM20: {
     promotionCodeId: "promo_1Sz1GSQ4Ij3ax7macXklpdje",
+  },
+  CSU50: {
+    code: "CSU50",
   },
 };
 const LAUNCH30_RESERVE_MS = 30 * 60 * 1000;
@@ -3837,6 +3844,23 @@ function normalizeTierKey(tier = "standard") {
   return "standard";
 }
 
+function assertValidPurchasableTier(tier = "") {
+  const key = String(tier || "").trim().toLowerCase();
+  if (!["standard", "vip"].includes(key)) {
+    throw new HttpsError("invalid-argument", "Invalid membership tier. Use 'standard' or 'vip'.");
+  }
+  return key;
+}
+
+function priceIdForMembershipTier(tier = "") {
+  const key = assertValidPurchasableTier(tier);
+  const priceId = String(STRIPE_MEMBERSHIP_PRICE_IDS[key] || "").trim();
+  if (!priceId) {
+    throw new HttpsError("failed-precondition", `Missing Stripe price mapping for tier '${key}'.`);
+  }
+  return { tier: key, priceId };
+}
+
 function membershipTierLabel(tier = "standard") {
   return normalizeTierKey(tier).toUpperCase();
 }
@@ -4011,6 +4035,31 @@ function normalizePromoCodeInput(raw) {
   return (raw || "").toString().trim().toUpperCase();
 }
 
+const stripePromotionCodeIdCache = new Map();
+
+async function getStripePromotionCodeIdByCode(stripe, code = "") {
+  const normalizedCode = normalizePromoCodeInput(code);
+  if (!normalizedCode) {
+    throw new HttpsError("invalid-argument", "Promo code is required.");
+  }
+  if (stripePromotionCodeIdCache.has(normalizedCode)) {
+    return stripePromotionCodeIdCache.get(normalizedCode);
+  }
+  const list = await stripe.promotionCodes.list({
+    code: normalizedCode,
+    active: true,
+    limit: 20,
+  });
+  const match = (list?.data || []).find((entry) =>
+    entry?.active === true && normalizePromoCodeInput(entry?.code || "") === normalizedCode
+  );
+  if (!match?.id) {
+    throw new HttpsError("failed-precondition", `Promo code '${normalizedCode}' is not configured in Stripe.`);
+  }
+  stripePromotionCodeIdCache.set(normalizedCode, match.id);
+  return match.id;
+}
+
 function normalizeCeoFreeCodeInput(raw = "") {
   return String(raw || "")
     .toUpperCase()
@@ -4163,7 +4212,7 @@ async function finalizeLaunch30(uid, success) {
   });
 }
 
-async function resolveMembershipPromo({ uid, memberDocData, promoCodeInput }) {
+async function resolveMembershipPromo({ uid, memberDocData, promoCodeInput, authEmail = "", stripe = null }) {
   const promoInput = normalizePromoCodeInput(promoCodeInput);
   const isNew = isNewMembership(memberDocData);
   if (!isNew && promoInput) {
@@ -4174,6 +4223,20 @@ async function resolveMembershipPromo({ uid, memberDocData, promoCodeInput }) {
       return {
         discount: { promotion_code: STRIPE_PROMOS.FOCOFAM20.promotionCodeId },
         promoTag: "focofam20",
+      };
+    }
+    if (promoInput === STRIPE_PROMOS.CSU50.code) {
+      const normalizedAuthEmail = String(authEmail || "").trim().toLowerCase();
+      if (!normalizedAuthEmail.endsWith(".edu")) {
+        throw new HttpsError("failed-precondition", "CSU50 is only available for .edu email addresses.");
+      }
+      if (!stripe) {
+        throw new HttpsError("failed-precondition", "Promo validation requires Stripe to be configured.");
+      }
+      const promotionCodeId = await getStripePromotionCodeIdByCode(stripe, STRIPE_PROMOS.CSU50.code);
+      return {
+        discount: { promotion_code: promotionCodeId },
+        promoTag: "csu50",
       };
     }
     if (promoInput === "LAUNCH30") {
@@ -4462,51 +4525,10 @@ async function ensureStripeCustomer({ stripe, memberRef, memberDocData, uid, ema
   return customer.id;
 }
 
-const stripeMembershipProductIdCache = new Map();
-
-async function getOrCreateMembershipProductId(stripe, tier) {
-  const key = normalizeTierKey(tier);
-  if (stripeMembershipProductIdCache.has(key)) {
-    return stripeMembershipProductIdCache.get(key);
-  }
-  const metadataApp = "foco-after-dark";
-  const metadataTier = key;
-  let productId = "";
-  try {
-    const list = await stripe.products.list({ active: true, limit: 100 });
-    const existing = (list?.data || []).find((p) =>
-      String(p?.metadata?.app || "").toLowerCase() === metadataApp
-      && normalizeTierKey(p?.metadata?.membershipTier || "") === metadataTier
-    );
-    if (existing?.id) {
-      productId = existing.id;
-    }
-  } catch (err) {
-    console.warn("getOrCreateMembershipProductId list failed", err?.message || err);
-  }
-  if (!productId) {
-    const created = await stripe.products.create({
-      name: `FoCo After Dark ${membershipTierLabel(key)}`,
-      metadata: {
-        app: metadataApp,
-        membershipTier: metadataTier,
-      },
-    });
-    productId = created.id;
-  }
-  stripeMembershipProductIdCache.set(key, productId);
-  return productId;
-}
-
-async function subscriptionPriceDataForTier(stripe, tier) {
-  const key = normalizeTierKey(tier);
-  const productId = await getOrCreateMembershipProductId(stripe, key);
-  return {
-    currency: "usd",
-    unit_amount: priceForTier(key),
-    recurring: { interval: "month" },
-    product: productId,
-  };
+function membershipStripePriceSelection(rawTier, source = "unknown") {
+  const { tier, priceId } = priceIdForMembershipTier(rawTier);
+  console.info("membership_price_selection", { source, tier, priceId });
+  return { tier, priceId };
 }
 
 async function retrieveStripeSubscription(stripe, subscriptionId) {
@@ -4541,8 +4563,7 @@ function isStripePromoError(err) {
 }
 
 async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, uid, email, tier, token, discount, promoTag }) {
-  const normalizedTier = normalizeTierKey(tier);
-  const tierPriceData = await subscriptionPriceDataForTier(stripe, normalizedTier);
+  const { tier: normalizedTier, priceId: tierPriceId } = membershipStripePriceSelection(tier, "upsertMembershipSubscription");
   const customerId = await ensureStripeCustomer({
     stripe,
     memberRef,
@@ -4567,7 +4588,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
         metadata: { uid, tier: normalizedTier, ...promoMeta },
         items: [{
           id: currentItem.id,
-          price_data: tierPriceData,
+          price: tierPriceId,
         }],
         expand: ["latest_invoice.payment_intent", "items.data.price"],
       });
@@ -4580,7 +4601,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
   } else {
     const createPayload = {
       customer: customerId,
-      items: [{ price_data: tierPriceData }],
+      items: [{ price: tierPriceId }],
       payment_behavior: "default_incomplete",
       payment_settings: { save_default_payment_method: "on_subscription" },
       metadata: { uid, tier: normalizedTier, ...promoMeta },
@@ -4637,7 +4658,7 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
     if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
     const uid = context.auth.uid;
     const email = (context.auth.token.email || '').toLowerCase();
-    const tier = normalizeTierKey((data?.tier || 'standard').toString());
+    const { tier, priceId } = membershipStripePriceSelection(data?.tier, "createMembershipPaymentIntent");
     const promoCodeInput = (data?.promoCode || "").toString();
     const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
     assertStripeAllowed(context, memberDocData);
@@ -4649,6 +4670,8 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
       uid,
       memberDocData,
       promoCodeInput,
+      authEmail: email,
+      stripe,
     });
 
     if (promoContext.promoTag === "launch30") {
@@ -4675,6 +4698,7 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
       return {
         publishableKey: publishable,
         tier,
+        priceId,
         requiresCardSetup: true,
         setupClientSecret: setupIntent.client_secret,
         launchTrial: true,
@@ -4700,6 +4724,7 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
         publishableKey: publishable,
         subscriptionId: subscription?.id || null,
         tier,
+        priceId,
         alreadyActive: true,
         trialDays: activePromoTag === "launch30" ? 30 : 0,
       };
@@ -4709,6 +4734,7 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
       publishableKey: publishable,
       subscriptionId: subscription?.id || null,
       tier,
+      priceId,
     };
   } catch (err) {
     if (err instanceof HttpsError) throw err;
@@ -5091,7 +5117,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
   if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
   const uid = context.auth.uid;
   const email = (context.auth.token.email || '').toLowerCase();
-  const tier = normalizeTierKey((data?.tier || 'standard').toString());
+  const { tier, priceId: tierPriceId } = membershipStripePriceSelection(data?.tier, "chargeMembershipOnFile");
   const promoCodeInput = (data?.promoCode || "").toString();
   const providedPaymentMethodId = String(data?.paymentMethodId || "").trim();
 
@@ -5105,6 +5131,8 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     uid,
     memberDocData: profile,
     promoCodeInput,
+    authEmail: email,
+    stripe,
   });
   const promoMeta = promoContext.promoTag ? { promo: promoContext.promoTag } : {};
 
@@ -5149,7 +5177,6 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
 
   let subscription = await retrieveStripeSubscription(stripe, profile?.stripeSubscriptionId);
   const hasActiveSubscription = subscription && !["canceled", "incomplete_expired"].includes(subscription.status);
-  const tierPriceData = await subscriptionPriceDataForTier(stripe, tier);
   if (hasActiveSubscription) {
     const currentTier = normalizeTierKey(subscription.metadata?.tier || profile?.tier || tier);
     const sameTierActive = currentTier === tier && subscription.status === "active" && subscription.cancel_at_period_end !== true;
@@ -5199,7 +5226,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
         metadata: { uid, tier, ...promoMeta },
         items: [{
           id: currentItem.id,
-          price_data: tierPriceData,
+          price: tierPriceId,
         }],
         expand: ["latest_invoice.payment_intent", "items.data.price"],
       });
@@ -5208,7 +5235,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     subscription = await stripe.subscriptions.create({
       customer: customerId,
       default_payment_method: defaultPm,
-      items: [{ price_data: tierPriceData }],
+      items: [{ price: tierPriceId }],
       payment_behavior: "default_incomplete",
       payment_settings: { save_default_payment_method: "on_subscription" },
       metadata: { uid, tier, ...promoMeta },
