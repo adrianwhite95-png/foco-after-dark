@@ -14048,8 +14048,25 @@
 
       <!-- Drawer: More (logs, verifications & close-out) -->
       <details class="staff-more" id="staffMore">
-        <summary>More (logs, verifications & close-out)</summary>
+        <summary>More</summary>
         <div class="more-body">
+          <div class="staff-team-card" id="staffAnalyticsCard" style="margin-top:6px;">
+            <div class="staff-ticker-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+              <span>Venue analytics</span>
+              <div id="staffAnalyticsRange" style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="chip ghost active" data-staff-analytics-range="1d">1D</button>
+                <button type="button" class="chip ghost" data-staff-analytics-range="1w">1W</button>
+                <button type="button" class="chip ghost" data-staff-analytics-range="1m">1M</button>
+                <button type="button" class="chip ghost" data-staff-analytics-range="3m">3M</button>
+                <button type="button" class="chip ghost" data-staff-analytics-range="1y">1Y</button>
+                <button type="button" class="chip ghost" data-staff-analytics-range="all">ALL</button>
+              </div>
+            </div>
+            <div class="small" id="staffAnalyticsMeta" style="margin-top:6px;color:#93c5fd;">Live metrics for this venue.</div>
+            <div id="staffAnalyticsSummary" style="margin-top:8px;color:#cbd5f5;"></div>
+            <div style="position:relative;height:180px;margin-top:8px;"><canvas id="staffAnalyticsTrendChart"></canvas></div>
+            <div style="position:relative;height:180px;margin-top:8px;"><canvas id="staffAnalyticsCompareChart"></canvas></div>
+          </div>
           <div class="staff-ticker-header" style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span>Redemptions</span>
             <select id="staffLogRange" style="background:#0b1223;color:#e2e8f0;border:1px solid rgba(148,163,184,0.35);border-radius:10px;padding:6px 10px;font-size:13px;">
@@ -15846,6 +15863,12 @@
     let staffShiftLockMapReady = {};
     let staffPendingActiveShiftSnapshot = {};
     let staffShiftCleanupToastAt = 0;
+    let staffAnalyticsRangeKey = "1d";
+    let staffAnalyticsEntries = [];
+    let staffAnalyticsUnsub = null;
+    let staffAnalyticsTrendChart = null;
+    let staffAnalyticsCompareChart = null;
+    let staffAnalyticsOverlayNotice = "";
     let selectedStaffActor = null;
     let suppressStaffShiftPrompt = false;
     let staffReplyContextId = "";
@@ -15867,6 +15890,8 @@
     const alertsMap = new Map();
     const venuePerksMap = new Map();
     const venueOpenNowMap = new Map();
+    const venueRedeemGateCache = new Map();
+    const MEMBER_SHIFT_INACTIVE_MESSAGE = "Sorry, you\u2019re using a voucher outside of this venue\u2019s shift schedule \u2014 try again tomorrow!";
     let memberRedemptionsMap = new Map();
     let staffRedemptionsMap = new Map();
     let staffQueueEntries = [];
@@ -16249,6 +16274,9 @@
       if (previousScreenName === "ceoPortal" && name !== "ceoPortal") {
         stopCeoLiveAnalyticsWatch();
       }
+      if (previousScreenName === "staffPortal" && name !== "staffPortal") {
+        stopStaffAnalyticsWatch();
+      }
       saveLastScreenForUser(name);
       Object.values(screens).forEach(s => s.classList.remove("active", "screen-in"));
       screens[name].classList.add("active");
@@ -16314,6 +16342,19 @@
           stopIdleTimer();
           renderStaffShiftStatus();
           maybePromptStartShift();
+          if (staffSession?.venue) {
+            startStaffAnalyticsWatch(staffSession.venue, staffAnalyticsRangeKey || "1d");
+            renderStaffAnalytics();
+          }
+          try {
+            const params = new URLSearchParams(window.location.search || "");
+            if (params.get("staffAnalytics") === "1" && staffMore) {
+              staffMore.open = true;
+              requestAnimationFrame(() => {
+                try { scrollToSectionTarget(staffMore); } catch (_) {}
+              });
+            }
+          } catch (_) {}
         } else if (name === "ceoPortal" || name === "venues") {
           startIdleTimer();
           if (name === "venues") {
@@ -19024,6 +19065,12 @@
     const staffPortalTitle = document.getElementById("staffPortalTitle");
     const staffPortalTagline = document.getElementById("staffPortalTagline");
     const staffVenueLog = document.getElementById("staffVenueLog");
+    const staffAnalyticsCard = document.getElementById("staffAnalyticsCard");
+    const staffAnalyticsRange = document.getElementById("staffAnalyticsRange");
+    const staffAnalyticsMeta = document.getElementById("staffAnalyticsMeta");
+    const staffAnalyticsSummary = document.getElementById("staffAnalyticsSummary");
+    const staffAnalyticsTrendCanvas = document.getElementById("staffAnalyticsTrendChart");
+    const staffAnalyticsCompareCanvas = document.getElementById("staffAnalyticsCompareChart");
     const staffCloseOutBtn = document.getElementById("staffCloseOutBtn");
     const staffCloseOutModal = document.getElementById("staffCloseOutModal");
     const staffCloseOutSummary = document.getElementById("staffCloseOutSummary");
@@ -19048,6 +19095,7 @@
     const staffMemberError = document.getElementById("staffMemberError");
     const staffMemberSuccess = document.getElementById("staffMemberSuccess");
     const staffActivityLog = document.getElementById("staffActivityLog");
+    const staffMore = document.getElementById("staffMore");
     const staffActorModal = document.getElementById("staffActorModal");
     const staffActorPrompt = document.getElementById("staffActorPrompt");
     const staffActorSelect = document.getElementById("staffActorSelect");
@@ -20071,6 +20119,46 @@
     }
     function formatVenueOpenStatus(venueId, at = new Date()) {
       return isVenueOpenNow(venueId, at) ? "Open now" : "Closed right now";
+    }
+    async function isVenueAcceptingRedemptionsNow(venueId) {
+      const key = String(venueId || "").toLowerCase();
+      if (!key) return false;
+      const cached = venueRedeemGateCache.get(key);
+      if (cached && (Date.now() - Number(cached.checkedAt || 0)) < 20000) {
+        return cached.accepting === true;
+      }
+      const commit = (accepting, shiftKey = "") => {
+        venueRedeemGateCache.set(key, {
+          accepting: !!accepting,
+          shiftKey: String(shiftKey || "").trim(),
+          checkedAt: Date.now()
+        });
+        return !!accepting;
+      };
+      try {
+        const realtime = venueOpenNowMap.get(key);
+        if (realtime && realtime.openNow === false) {
+          return commit(false, realtime.shiftKey || "");
+        }
+        if (db) {
+          const shiftRef = doc(db, "venues", key, "shiftState", "current");
+          const shiftSnap = await getDoc(shiftRef);
+          if (!shiftSnap.exists()) return commit(false);
+          const shiftData = shiftSnap.data() || {};
+          const active = shiftData.active === true;
+          const shiftKey = String(shiftData.shiftKey || "").trim();
+          if (!active || !shiftKey) {
+            return commit(false, shiftKey);
+          }
+          const lockRef = doc(db, "venues", key, "shiftCloseouts", shiftKey);
+          const lockSnap = await getDoc(lockRef);
+          const locked = lockSnap.exists() && lockSnap.data()?.shiftClosed === true;
+          return commit(!locked, shiftKey);
+        }
+      } catch (err) {
+        console.warn("Redeem preflight shift check failed", err);
+      }
+      return commit(isVenueOpenNow(key));
     }
     function getVenuePerksStatus(venueId) {
       const activeCount = getActiveVenuePerks(venueId).length;
@@ -29800,6 +29888,227 @@ let onboardingIndex = 0;
         console.warn("Staff redemptions listener failed", err);
       }
     }
+    function stopStaffAnalyticsWatch() {
+      if (staffAnalyticsUnsub) {
+        try { staffAnalyticsUnsub(); } catch (_) {}
+        staffAnalyticsUnsub = null;
+      }
+      if (staffAnalyticsTrendChart) {
+        try { staffAnalyticsTrendChart.destroy(); } catch (_) {}
+        staffAnalyticsTrendChart = null;
+      }
+      if (staffAnalyticsCompareChart) {
+        try { staffAnalyticsCompareChart.destroy(); } catch (_) {}
+        staffAnalyticsCompareChart = null;
+      }
+    }
+    function getStaffAnalyticsSource(venueId) {
+      const venueKey = String(venueId || "").toLowerCase();
+      if (!venueKey) return [];
+      const live = Array.isArray(staffAnalyticsEntries) ? staffAnalyticsEntries : [];
+      if (live.length) return live;
+      return getStaffQueueSource(venueKey, { includeAll: true });
+    }
+    function computeStaffAnalyticsSnapshot(venueId, rangeKey = "1d") {
+      const venueKey = String(venueId || "").toLowerCase();
+      const window = getAnalyticsWindow(rangeKey, new Date());
+      const useOverlay = ["3m", "1y", "all"].includes(window.key);
+      const source = getStaffAnalyticsSource(venueKey);
+      const entries = filterAnalyticsEntries(source, window, venueKey);
+      const verified = entries.filter((entry) => isVerifiedRedemptionEntry(entry));
+      const pending = entries.filter((entry) => String(entry?.status || "").toLowerCase() === "pending");
+      const denied = entries.filter((entry) => ["denied", "canceled", "cancelled"].includes(String(entry?.status || "").toLowerCase()));
+      const trendWindow = useOverlay
+        ? { ...window, startMs: Date.now() - (7 * 24 * 60 * 60 * 1000), label: "Live overlay: last 7 days" }
+        : window;
+      const trendEntries = filterAnalyticsEntries(source, trendWindow, venueKey);
+      const trend = buildAnalyticsTrend(trendEntries, trendWindow);
+      const comparison = computeWeekComparison(venueKey);
+      const sales = computeSalesSummary(window, venueKey);
+      const perkCounts = {};
+      verified.forEach((entry) => {
+        const label = String(entry?.perk || entry?.perkLabel || entry?.perkKey || "Perk").trim() || "Perk";
+        perkCounts[label] = (perkCounts[label] || 0) + 1;
+      });
+      const topPerk = Object.entries(perkCounts).sort((a, b) => b[1] - a[1])[0] || null;
+      return {
+        window,
+        overlayMode: useOverlay,
+        entries,
+        verifiedCount: verified.length,
+        pendingCount: pending.length,
+        deniedCount: denied.length,
+        topPerk,
+        trendWindow,
+        trend,
+        comparison,
+        sales
+      };
+    }
+    function renderStaffAnalyticsCharts(snapshot) {
+      if (!staffAnalyticsTrendCanvas || !staffAnalyticsCompareCanvas) return;
+      if (!window.Chart) return;
+      if (staffAnalyticsTrendChart) {
+        try { staffAnalyticsTrendChart.destroy(); } catch (_) {}
+        staffAnalyticsTrendChart = null;
+      }
+      if (staffAnalyticsCompareChart) {
+        try { staffAnalyticsCompareChart.destroy(); } catch (_) {}
+        staffAnalyticsCompareChart = null;
+      }
+      staffAnalyticsTrendChart = new Chart(staffAnalyticsTrendCanvas.getContext("2d"), {
+        type: "line",
+        data: {
+          labels: snapshot?.trend?.labels || [],
+          datasets: [{
+            label: "Verified redemptions",
+            data: snapshot?.trend?.values || [],
+            borderColor: "rgba(34,211,238,1)",
+            backgroundColor: "rgba(34,211,238,0.22)",
+            fill: true,
+            tension: 0.28
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: "#dbeafe" } } },
+          scales: {
+            x: { ticks: { color: "#9fb4d9", maxTicksLimit: 8 }, grid: { color: "rgba(255,255,255,0.06)" } },
+            y: { ticks: { color: "#9fb4d9", precision: 0 }, grid: { color: "rgba(255,255,255,0.06)" } }
+          }
+        }
+      });
+      const thisWeek = snapshot?.comparison?.thisWeek || { gross: 0, net: 0 };
+      const lastWeek = snapshot?.comparison?.lastWeek || { gross: 0, net: 0 };
+      staffAnalyticsCompareChart = new Chart(staffAnalyticsCompareCanvas.getContext("2d"), {
+        type: "bar",
+        data: {
+          labels: ["Gross", "Net"],
+          datasets: [
+            {
+              label: "This week",
+              data: [thisWeek.gross || 0, thisWeek.net || 0],
+              backgroundColor: "rgba(34,197,94,0.55)",
+              borderColor: "rgba(34,197,94,1)",
+              borderWidth: 1
+            },
+            {
+              label: "Last week",
+              data: [lastWeek.gross || 0, lastWeek.net || 0],
+              backgroundColor: "rgba(244,114,182,0.55)",
+              borderColor: "rgba(244,114,182,1)",
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: "#dbeafe" } } },
+          scales: {
+            x: { ticks: { color: "#9fb4d9" }, grid: { color: "rgba(255,255,255,0.06)" } },
+            y: { ticks: { color: "#9fb4d9" }, grid: { color: "rgba(255,255,255,0.06)" } }
+          }
+        }
+      });
+    }
+    function renderStaffAnalytics() {
+      const venueId = String(staffSession?.venue || "").toLowerCase();
+      if (!staffAnalyticsCard || !venueId) return;
+      const snapshot = computeStaffAnalyticsSnapshot(venueId, staffAnalyticsRangeKey);
+      const gross = Number(snapshot?.sales?.gross || 0);
+      const salesCount = Number(snapshot?.sales?.count || 0);
+      const avgSale = Number(snapshot?.sales?.avg || 0);
+      const net = Number(snapshot?.sales?.net || 0);
+      if (staffAnalyticsSummary) {
+        const topPerkLabel = snapshot?.topPerk ? `${snapshot.topPerk[0]} · ${snapshot.topPerk[1]}` : "No perk data";
+        staffAnalyticsSummary.innerHTML = `
+          <div class="analytics-grid">
+            <div class="analytics-section">
+              <h5>Sales summary</h5>
+              <ul>
+                <li>Gross: $${gross.toFixed(2)}</li>
+                <li>Sales: ${salesCount}</li>
+                <li>Avg sale: $${avgSale.toFixed(2)}</li>
+                <li>Net: $${net.toFixed(2)}</li>
+              </ul>
+            </div>
+            <div class="analytics-section">
+              <h5>Redemptions</h5>
+              <ul>
+                <li>Verified: ${snapshot.verifiedCount}</li>
+                <li>Pending: ${snapshot.pendingCount}</li>
+                <li>Denied: ${snapshot.deniedCount}</li>
+                <li>Top perk: ${topPerkLabel}</li>
+              </ul>
+            </div>
+          </div>
+        `;
+      }
+      if (staffAnalyticsMeta) {
+        const overlay = snapshot.overlayMode ? " · Live overlay: last 7 days" : "";
+        staffAnalyticsMeta.textContent = `Window: ${snapshot.window.label}${overlay}`;
+      }
+      renderStaffAnalyticsCharts(snapshot);
+      if (staffAnalyticsRange) {
+        staffAnalyticsRange.querySelectorAll("[data-staff-analytics-range]").forEach((btn) => {
+          const key = String(btn.dataset.staffAnalyticsRange || "").toLowerCase();
+          btn.classList.toggle("active", key === staffAnalyticsRangeKey);
+        });
+      }
+    }
+    function startStaffAnalyticsWatch(venueId, rangeKey = "1d") {
+      const venueKey = String(venueId || "").toLowerCase();
+      if (!db || !venueKey || !authClaimsReady || !hasStaffClaim()) return;
+      stopStaffAnalyticsWatch();
+      staffAnalyticsRangeKey = String(rangeKey || "1d").toLowerCase();
+      staffAnalyticsEntries = [];
+      staffAnalyticsOverlayNotice = "";
+      const requestedWindow = getAnalyticsWindow(staffAnalyticsRangeKey, new Date());
+      const useOverlay = ["3m", "1y", "all"].includes(requestedWindow.key);
+      const streamWindow = useOverlay
+        ? { ...requestedWindow, startMs: Date.now() - (7 * 24 * 60 * 60 * 1000), label: "Live overlay: last 7 days" }
+        : requestedWindow;
+      if (useOverlay) {
+        staffAnalyticsOverlayNotice = "Large range uses summary + live last 7 days.";
+      }
+      try {
+        const startTs = Timestamp.fromMillis(streamWindow.startMs);
+        const buildQuery = (withVenueFilter) => {
+          const parts = [
+            collectionGroup(db, "redemptions"),
+            where("queueScope", "==", "venue"),
+            where("createdAt", ">=", startTs)
+          ];
+          if (withVenueFilter) parts.push(where("venueId", "==", venueKey));
+          parts.push(orderBy("createdAt", "desc"), limit(1200));
+          return query(...parts);
+        };
+        const bind = (withVenueFilter) => {
+          const q = buildQuery(withVenueFilter);
+          staffAnalyticsUnsub = subscribeSnapshot(`staffAnalytics:${venueKey}`, q, null, (snap) => {
+            const raw = snap.docs.map(parseCeoRedemptionDoc).filter(Boolean);
+            staffAnalyticsEntries = withVenueFilter ? raw : raw.filter((entry) => getEntryVenueId(entry) === venueKey);
+            renderStaffAnalytics();
+          }, (err) => {
+            const code = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
+            const msg = String(err?.message || "").toLowerCase();
+            const indexIssue = code === "failed-precondition" || msg.includes("requires an index");
+            if (withVenueFilter && indexIssue) {
+              console.warn("Staff analytics venue index not ready; falling back to client-side venue filter");
+              stopStaffAnalyticsWatch();
+              bind(false);
+              return;
+            }
+            console.warn("Staff analytics watcher failed", err);
+          });
+        };
+        bind(true);
+      } catch (err) {
+        console.warn("Could not start staff analytics watcher", err);
+      }
+    }
 
     async function performBetaReset(options = {}) {
       if (!functionsClient) throw new Error("Functions unavailable");
@@ -33842,6 +34151,7 @@ let onboardingIndex = 0;
 
     async function sendCloseOutEmail(report) {
       if (!report) return false;
+      const venueId = String(report.venue || staffSession?.venue || "").toLowerCase();
       const totals = report.totals || {};
       const perkLines = (report.perks || []).map((perk) => (
         `- ${perk.perkTitle}: verified ${perk.verifiedCount}, pending ${perk.pendingCount}`
@@ -33858,6 +34168,60 @@ let onboardingIndex = 0;
       const ledgerLines = (report.ledger || []).slice(0, 80).map((item) => (
         `- ${item.redemptionId || "—"} · ${item.userName || "Member"} · ${item.perkTitle || "Perk"} · ${formatMST(item.verifiedAt || Date.now(), { hour: "2-digit", minute: "2-digit" })} · ${item.verifiedByStaffName || "Staff"}`
       ));
+      const sparkChars = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+      const toMs = (value) => {
+        const ms = new Date(value || 0).getTime();
+        return Number.isFinite(ms) ? ms : 0;
+      };
+      const buildShiftSparkline = () => {
+        const shiftStartMs = toMs(report.shiftStartedAt || report.generatedAt || Date.now());
+        const shiftEndMs = toMs(report.generatedAt || Date.now()) || Date.now();
+        const safeEndMs = shiftEndMs > shiftStartMs ? shiftEndMs : (shiftStartMs + (60 * 60 * 1000));
+        const bucketMs = 15 * 60 * 1000;
+        const bucketCount = Math.max(1, Math.ceil((safeEndMs - shiftStartMs) / bucketMs));
+        const buckets = new Array(bucketCount).fill(0);
+        (report.ledger || []).forEach((item) => {
+          const ts = toMs(item.verifiedAt || item.timestamp || item.createdAt);
+          if (!ts || ts < shiftStartMs || ts > safeEndMs) return;
+          const idx = Math.max(0, Math.min(bucketCount - 1, Math.floor((ts - shiftStartMs) / bucketMs)));
+          buckets[idx] += 1;
+        });
+        const max = Math.max(1, ...buckets);
+        return buckets.map((value) => {
+          const rank = Math.max(0, Math.min(sparkChars.length - 1, Math.round((value / max) * (sparkChars.length - 1))));
+          return sparkChars[rank];
+        }).join("");
+      };
+      const weekStats = (() => {
+        const now = Date.now();
+        const weekMs = 7 * 24 * 60 * 60 * 1000;
+        const thisWeekStart = now - weekMs;
+        const lastWeekStart = now - (2 * weekMs);
+        let thisWeek = 0;
+        let lastWeek = 0;
+        const perkCounts = {};
+        (Array.isArray(redemptionLog) ? redemptionLog : []).forEach((entry) => {
+          const status = String(entry?.status || "").toLowerCase();
+          if (status !== "verified") return;
+          const entryVenue = String(entry?.venue || entry?.venueId || entry?.requestedVenue || "").toLowerCase();
+          if (venueId && entryVenue !== venueId) return;
+          const ts = toMs(entry?.verifiedAt || entry?.timestamp || entry?.createdAt);
+          if (!ts) return;
+          if (ts >= thisWeekStart) {
+            thisWeek += 1;
+            const perkName = String(entry?.perk || entry?.perkLabel || entry?.perkKey || "Perk").trim() || "Perk";
+            perkCounts[perkName] = (perkCounts[perkName] || 0) + 1;
+          } else if (ts >= lastWeekStart && ts < thisWeekStart) {
+            lastWeek += 1;
+          }
+        });
+        const topPerkWeek = Object.entries(perkCounts).sort((a, b) => b[1] - a[1])[0] || null;
+        return { thisWeek, lastWeek, topPerkWeek };
+      })();
+      const topPerkShift = (report.perks || [])
+        .map((perk) => ({ name: perk.perkTitle || "Perk", verified: Number(perk.verifiedCount || 0) }))
+        .sort((a, b) => b.verified - a.verified)[0] || null;
+      const dashboardLink = `${window.location.origin}${window.location.pathname}?staffAnalytics=1&venue=${encodeURIComponent(venueId || "all")}`;
       const summary = [
         `Venue: ${report.venueName}`,
         `Generated: ${formatMST(report.generatedAt)}`,
@@ -33871,7 +34235,7 @@ let onboardingIndex = 0;
         `Standard verified: ${totals.standardVerifiedCount || 0}`,
         report.shiftNotes ? `Shift notes: ${report.shiftNotes}` : "Shift notes: none"
       ].join("\n");
-      const message = `[Close Out Report]\n${summary}\n\nBy Perk:\n${perkLines.length ? perkLines.join("\n") : "- None"}\n\nPending:\n${pendingLines.length ? pendingLines.join("\n") : "- None"}\n\nTonight Ledger:\n${ledgerLines.length ? ledgerLines.join("\n") : "- None"}\n\nAlerts:\n- Expired attempts: ${report.alerts?.expiredAttempts || 0}\n- Rapid redemptions: ${report.alerts?.rapidRedemptions || 0}\n${(report.alerts?.suspiciousActivityFlags || []).map((flag) => `- ${flag}`).join("\n") || "- No suspicious flags"}`;
+      const message = `[Close Out Report]\n${summary}\n\nShift Trend (15m buckets):\n${buildShiftSparkline() || "▁"}\n\nWeek vs Last Week (${report.venueName}):\n- This week verified: ${weekStats.thisWeek}\n- Last week verified: ${weekStats.lastWeek}\n\nTop perks:\n- Shift top perk: ${topPerkShift ? `${topPerkShift.name} (${topPerkShift.verified})` : "None"}\n- 1W top perk: ${weekStats.topPerkWeek ? `${weekStats.topPerkWeek[0]} (${weekStats.topPerkWeek[1]})` : "None"}\n\nBy Perk:\n${perkLines.length ? perkLines.join("\n") : "- None"}\n\nPending:\n${pendingLines.length ? pendingLines.join("\n") : "- None"}\n\nTonight Ledger:\n${ledgerLines.length ? ledgerLines.join("\n") : "- None"}\n\nAlerts:\n- Expired attempts: ${report.alerts?.expiredAttempts || 0}\n- Rapid redemptions: ${report.alerts?.rapidRedemptions || 0}\n${(report.alerts?.suspiciousActivityFlags || []).map((flag) => `- ${flag}`).join("\n") || "- No suspicious flags"}\n\nView live dashboard:\n${dashboardLink}`;
       try {
         const requestBody = JSON.stringify({
           name: `${report.venueName} close-out`,
@@ -34282,6 +34646,7 @@ let onboardingIndex = 0;
       if (!venueId) return;
       startStaffPerksListener(venueId);
       startStaffRedemptionListener(venueId);
+      startStaffAnalyticsWatch(venueId, staffAnalyticsRangeKey || "1d");
       startStaffMessagesListener(venueId);
       startStaffMembersListener(venueId);
       startStaffActivityListener(venueId);
@@ -34625,6 +34990,7 @@ let onboardingIndex = 0;
       stopStaffMessagesListener();
       stopStaffMembersListener();
       stopStaffActivityListener();
+      stopStaffAnalyticsWatch();
       stopStaffActiveShiftListener();
       stopStaffShiftLockListener();
       if (previousVenue) {
@@ -34658,6 +35024,17 @@ let onboardingIndex = 0;
     if (staffLogoutTop) {
       staffLogoutTop.addEventListener("click", handleStaffLogout);
     }
+      if (staffAnalyticsRange) {
+        staffAnalyticsRange.addEventListener("click", (event) => {
+          const btn = event.target?.closest?.("[data-staff-analytics-range]");
+          if (!btn || !staffSession?.venue) return;
+          const nextRange = String(btn.dataset.staffAnalyticsRange || "1d").toLowerCase();
+          if (nextRange === staffAnalyticsRangeKey) return;
+          staffAnalyticsRangeKey = nextRange;
+          startStaffAnalyticsWatch(staffSession.venue, nextRange);
+          renderStaffAnalytics();
+        });
+      }
       if (staffAccentSelect) {
         staffAccentSelect.addEventListener("change", () => {
           if (!staffSession) return;
@@ -39642,6 +40019,13 @@ let onboardingIndex = 0;
         creditInfo.textContent = "Select a venue before redeeming.";
         return;
       }
+      const venueAcceptingNow = await isVenueAcceptingRedemptionsNow(requestedVenue);
+      if (!venueAcceptingNow) {
+        const safeMessage = MEMBER_SHIFT_INACTIVE_MESSAGE;
+        creditInfo.textContent = safeMessage;
+        showToast(safeMessage, 3200);
+        return;
+      }
       const voucherBalance = getVoucherBalanceForTier(getVoucherTier());
       if (!voucherBalance.unlimited && voucherBalance.remaining <= 0) {
         creditInfo.textContent = voucherBalance.paymentRequired
@@ -39665,19 +40049,7 @@ let onboardingIndex = 0;
       }
       setRedeemRequestBusy(true);
       const perkLabel = selectedPerkLabel;
-      let pendingReserved = false;
       let movedToDispatchView = false;
-      const rollbackPendingReservation = () => {
-        if (!pendingReserved || unlimited) return;
-        decrementPendingForPass(activePassId, selectedPerkId);
-        pendingReserved = false;
-        renderRedemptionOptions();
-      };
-      if (!unlimited) {
-        incrementPendingForCurrent(selectedPerkId);
-        pendingReserved = true;
-      }
-      renderRedemptionOptions();
       closeRedeemModal();
       showRedemptionQr(perkLabel, "", requestedVenue, { provisioning: true });
       movedToDispatchView = true;
@@ -39687,7 +40059,6 @@ let onboardingIndex = 0;
           authUser = await waitForAuthReady();
         } catch (err) {
           console.warn("[createRedemption] auth not ready", err);
-          rollbackPendingReservation();
           creditInfo.textContent = "Sign in required to redeem.";
           showToast("Sign in required to redeem.", 2400);
           if (movedToDispatchView) {
@@ -39705,7 +40076,6 @@ let onboardingIndex = 0;
         console.warn("[createRedemption] token refresh failed", err);
       }
       if (!functionsClient) {
-        rollbackPendingReservation();
         creditInfo.textContent = "Redemption unavailable. Try again.";
         if (movedToDispatchView) {
           redeemSuccess.classList.remove("active");
@@ -39717,7 +40087,6 @@ let onboardingIndex = 0;
       }
       const perkId = selectedVenuePerkId || selectedPerkId;
       if (!perkId) {
-        rollbackPendingReservation();
         creditInfo.textContent = "Select a perk to redeem.";
         if (movedToDispatchView) {
           redeemSuccess.classList.remove("active");
@@ -39759,7 +40128,6 @@ let onboardingIndex = 0;
         payload = resp?.data?.redemption || null;
       } catch (err) {
         console.warn("[createRedemption] failed", err);
-        rollbackPendingReservation();
         if (movedToDispatchView) {
           redeemSuccess.classList.remove("active");
           stopConfettiLoop();
@@ -39780,7 +40148,6 @@ let onboardingIndex = 0;
       }
       const code = (payload?.redemptionId || payload?.code || "").toUpperCase();
       if (!code) {
-        rollbackPendingReservation();
         creditInfo.textContent = "Could not start redemption.";
         if (movedToDispatchView) {
           redeemSuccess.classList.remove("active");
@@ -39866,7 +40233,7 @@ let onboardingIndex = 0;
       if (!text) return fallback;
       const lowered = text.toLowerCase();
       if (lowered.includes("shift") || lowered.includes("staff") || lowered.includes("start a new shift")) {
-        return "This venue isn\u2019t accepting redemptions right now. Please try again in a moment.";
+        return MEMBER_SHIFT_INACTIVE_MESSAGE;
       }
       return text;
     }
@@ -39876,10 +40243,11 @@ let onboardingIndex = 0;
       const detailsReason = String(err?.details?.reason || "").toUpperCase();
       const message = String(err?.message || "").toLowerCase();
       const isShiftClosed = detailsReason === "SHIFT_CLOSED"
+        || detailsReason === "SHIFT_INACTIVE"
         || code === "failed-precondition"
         || message.includes("shift");
       if (isShiftClosed) {
-        return "This venue isn\u2019t accepting redemptions right now. Please try again in a moment.";
+        return MEMBER_SHIFT_INACTIVE_MESSAGE;
       }
       if (code === "permission-denied" || code === "unauthenticated") {
         return enforceMemberMessageGuard(context === "redeem" ? "Could not redeem right now. Please try again." : "Could not complete this action right now.");

@@ -1127,24 +1127,36 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
               activeShiftKey = String(shiftState.shiftKey || "").trim();
             }
           }
-          if (activeShiftKey) {
-            const shiftSnap = await tx.get(db.collection("venues").doc(venueId).collection("shiftCloseouts").doc(activeShiftKey));
-            const shiftData = shiftSnap.exists ? (shiftSnap.data() || {}) : {};
-            if (shiftData.shiftClosed === true) {
-              const memberMessage = "This venue isn\u2019t accepting redemptions right now. Please try again in a moment.";
-              const staffMessage = "Shift is already closed. Ask venue staff to start a new shift.";
-              throw new HttpsError(
-                "failed-precondition",
-                callerIsStaffLike ? staffMessage : memberMessage,
-                {
-                  reason: "SHIFT_CLOSED",
-                  venueId,
-                  shiftKey: activeShiftKey,
-                  memberMessage,
-                  staffMessage
-                }
-              );
-            }
+          const memberShiftInactiveMessage = "Sorry, you\u2019re using a voucher outside of this venue\u2019s shift schedule \u2014 try again tomorrow!";
+          const staffShiftInactiveMessage = "Shift is inactive or closed. Start a new shift before accepting redemptions.";
+          if (!activeShiftKey) {
+            throw new HttpsError(
+              "failed-precondition",
+              callerIsStaffLike ? staffShiftInactiveMessage : memberShiftInactiveMessage,
+              {
+                success: false,
+                reason: "SHIFT_INACTIVE",
+                venueId,
+                memberMessage: memberShiftInactiveMessage,
+                staffMessage: staffShiftInactiveMessage
+              }
+            );
+          }
+          const shiftSnap = await tx.get(db.collection("venues").doc(venueId).collection("shiftCloseouts").doc(activeShiftKey));
+          const shiftData = shiftSnap.exists ? (shiftSnap.data() || {}) : {};
+          if (shiftData.shiftClosed === true) {
+            throw new HttpsError(
+              "failed-precondition",
+              callerIsStaffLike ? staffShiftInactiveMessage : memberShiftInactiveMessage,
+              {
+                success: false,
+                reason: "SHIFT_INACTIVE",
+                venueId,
+                shiftKey: activeShiftKey,
+                memberMessage: memberShiftInactiveMessage,
+                staffMessage: staffShiftInactiveMessage
+              }
+            );
           }
           const resolved = await resolveMemberByPassCode(passCode, tx, context.auth?.uid || null);
           if (!resolved?.uid || !resolved.memberRef) {
