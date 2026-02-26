@@ -157,6 +157,8 @@ self.addEventListener("fetch", (event) => {
   }
   // Never cache Firebase internals or dynamic API-ish paths.
   if (url.pathname.startsWith("/__/")) return;
+  if (url.pathname.includes("/firebase/")) return;
+  if (url.pathname.includes("/auth") || url.pathname.includes("/session") || url.pathname.includes("/token")) return;
   if (url.searchParams.has("v") || url.searchParams.has("ts") || url.searchParams.has("_")) return;
 
   // Always read deploy version fresh so forced-update logic can trigger reliably.

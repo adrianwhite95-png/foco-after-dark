@@ -320,7 +320,7 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
-    // Tonight’s alerts (staff posts, everyone reads)
+    // Tonight's alerts (staff posts, everyone reads)
     match /alerts/{id} {
       allow read: if true;
       // Staff writes flow through callable functions only.

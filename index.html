@@ -18089,8 +18089,10 @@
     }
 
     const limiterEventLog = [];
+    let lastCallableFailureReason = "";
     let limiterDebugPanelEl = null;
     let limiterDebugListEl = null;
+    let limiterDebugCopyBtnEl = null;
     function limiterDebugEnabled() {
       const flag = localStorage.getItem("foco_debug_limiter") === "1"
         || new URLSearchParams(location.search).get("debugLimits") === "1";
@@ -18106,9 +18108,46 @@
         limiterDebugPanelEl = document.createElement("div");
         limiterDebugPanelEl.id = "limiterDebugPanel";
         limiterDebugPanelEl.style.cssText = "position:fixed;right:10px;bottom:88px;z-index:9999;background:rgba(2,6,23,.92);border:1px solid rgba(56,189,248,.5);border-radius:10px;padding:10px;max-width:340px;max-height:220px;overflow:auto;color:#cfe8ff;font-size:12px;box-shadow:0 10px 24px rgba(0,0,0,.45);";
-        limiterDebugPanelEl.innerHTML = '<div style=\"font-weight:700;margin-bottom:6px;\">Limiter Debug</div><div id=\"limiterDebugList\"></div>';
+        limiterDebugPanelEl.innerHTML = '<div style=\"display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;\"><div style=\"font-weight:700;\">Limiter Debug</div><button id=\"limiterDebugCopyBtn\" type=\"button\" class=\"btn btn-secondary\" style=\"padding:6px 10px;font-size:11px;\">Copy Support Snapshot</button></div><div id=\"limiterDebugList\"></div>';
         document.body.appendChild(limiterDebugPanelEl);
         limiterDebugListEl = limiterDebugPanelEl.querySelector("#limiterDebugList");
+        limiterDebugCopyBtnEl = limiterDebugPanelEl.querySelector("#limiterDebugCopyBtn");
+        if (limiterDebugCopyBtnEl) {
+          limiterDebugCopyBtnEl.addEventListener("click", async () => {
+            const versionStamp = String(localStorage.getItem("force_update_last_seen_server_version") || localStorage.getItem("force_update_applied_version") || window.APP_VERSION || "unknown");
+            const activeCount = Number(activeRealtimeUnsubs?.size || 0);
+            const limiterHits = limiterEventLog.slice(0, 10).map((evt) => ({
+              at: evt.at,
+              source: evt.source,
+              context: evt.context,
+              code: evt.code || "n/a"
+            }));
+            const snapshot = {
+              version: versionStamp,
+              screen: currentScreenName || "unknown",
+              activeListeners: activeCount,
+              limiterHits,
+              lastCallableFailureReason: lastCallableFailureReason || "none"
+            };
+            const text = JSON.stringify(snapshot, null, 2);
+            try {
+              await navigator.clipboard.writeText(text);
+              showToast("Support snapshot copied.", 1800);
+            } catch (_) {
+              try {
+                const ta = document.createElement("textarea");
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand("copy");
+                document.body.removeChild(ta);
+                showToast("Support snapshot copied.", 1800);
+              } catch (_) {
+                showToast("Could not copy snapshot.", 1800);
+              }
+            }
+          });
+        }
       }
       limiterDebugPanelEl.style.display = "";
       if (limiterDebugListEl) {
@@ -18214,6 +18253,7 @@
             await new Promise((resolve) => setTimeout(resolve, waitMs));
           }
         }
+        lastCallableFailureReason = `${name}: ${String(lastErr?.code || "unknown")} ${String(lastErr?.message || "").slice(0, 220)}`.trim();
         throw lastErr || new Error(`Callable ${name} failed`);
       })();
       callableInFlight.set(lockKey, exec);
