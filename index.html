@@ -15838,6 +15838,9 @@
     let staffActiveShiftMap = {};
     let staffShiftLockUnsub = null;
     let staffShiftLockMap = {};
+    let staffShiftLockMapReady = {};
+    let staffPendingActiveShiftSnapshot = {};
+    let staffShiftCleanupToastAt = 0;
     let selectedStaffActor = null;
     let suppressStaffShiftPrompt = false;
     let staffReplyContextId = "";
@@ -16044,6 +16047,10 @@
     let ceoAnalyticsVenueFilter = "all";
     let ceoAnalyticsLiveUnsub = null;
     let ceoAnalyticsLiveEntries = [];
+    let ceoAnalyticsLiveLastUpdateAt = 0;
+    let ceoAnalyticsLiveDocCount = 0;
+    let ceoAnalyticsLiveWindow = null;
+    let ceoLiveAnalyticsEnabled = true;
     let ceoAnalyticsTrendChart = null;
     let ceoAnalyticsCompareChart = null;
     let ceoAnalyticsLargeRangeNotice = "";
@@ -16234,6 +16241,9 @@
         membershipReturnScreen = previousScreenName;
       }
       currentScreenName = name;
+      if (previousScreenName === "ceoPortal" && name !== "ceoPortal") {
+        stopCeoLiveAnalyticsWatch();
+      }
       saveLastScreenForUser(name);
       Object.values(screens).forEach(s => s.classList.remove("active", "screen-in"));
       screens[name].classList.add("active");
@@ -30217,22 +30227,70 @@ let onboardingIndex = 0;
       const venueId = String(staffSession.venue || "").toLowerCase();
       return staffShiftLockMap[venueId] || {};
     }
+    function getLocalActiveShiftForVenue(venueId = staffSession?.venue) {
+      const venueKey = String(venueId || "").toLowerCase();
+      if (!venueKey) return null;
+      const current = staffActiveShiftMap[venueKey];
+      if (current && current.active === true && current.shiftKey) return current;
+      return null;
+    }
     function getCurrentShiftKeyForVenue(venueId = staffSession?.venue) {
-      const activeShift = getActiveShiftForVenue(venueId);
+      const activeShift = getLocalActiveShiftForVenue(venueId);
       return String(activeShift?.shiftKey || "").trim();
     }
-    function clearLocalActiveShiftForVenue(venueId) {
+    function clearLocalActiveShiftForVenue(venueId, options = {}) {
       const venueKey = String(venueId || "").toLowerCase();
       if (!venueKey) return;
       delete staffActiveShiftMap[venueKey];
+      delete staffPendingActiveShiftSnapshot[venueKey];
       saveStaffActiveShiftLocal(venueKey, null);
+      if (staffSession?.venue && String(staffSession.venue).toLowerCase() === venueKey) {
+        pendingCloseOutReport = null;
+        renderStaffShiftStatus();
+        maybePromptStartShift();
+      }
+      const notify = options && options.notify === true;
+      if (notify && currentScreenName === "staffPortal") {
+        const now = Date.now();
+        if (now - staffShiftCleanupToastAt > 1500) {
+          staffShiftCleanupToastAt = now;
+          showToast("Shift was closed on another device. Please start a new shift.", 2800);
+        }
+      }
+    }
+    function getEffectiveShiftState(venueId = staffSession?.venue) {
+      const venueKey = String(venueId || "").toLowerCase();
+      const activeShift = getLocalActiveShiftForVenue(venueKey);
+      const shiftKey = String(activeShift?.shiftKey || "").trim();
+      const lockState = staffShiftLockMap[venueKey] || {};
+      let lockShiftKey = shiftKey;
+      if (!lockShiftKey) {
+        const closed = Object.entries(lockState)
+          .filter(([, rec]) => rec?.shiftClosed === true)
+          .sort((a, b) => new Date(b[1]?.closedAt || 0).getTime() - new Date(a[1]?.closedAt || 0).getTime())[0];
+        lockShiftKey = String(closed?.[0] || "").trim();
+      }
+      const isClosedByLock = !!(lockShiftKey && lockState[lockShiftKey]?.shiftClosed === true);
+      const hasActiveShift = !!(activeShift && activeShift.active === true && shiftKey);
+      return {
+        hasActiveShift,
+        shiftKey,
+        isClosedByLock,
+        lockShiftKey,
+        reason: isClosedByLock ? "lock_closed" : (hasActiveShift ? "active" : "none")
+      };
     }
     function isShiftClosedForVenue(venueId = staffSession?.venue, shiftKey = getCurrentShiftKeyForVenue(venueId)) {
-      const state = getStaffShiftLockState();
-      if (!shiftKey) return false;
-      const rec = state[shiftKey];
+      const venueKey = String(venueId || "").toLowerCase();
+      const state = venueKey ? (staffShiftLockMap[venueKey] || {}) : {};
+      const effective = getEffectiveShiftState(venueId);
+      const targetShiftKey = String(shiftKey || effective.shiftKey || "").trim();
+      if (!targetShiftKey) return effective.isClosedByLock;
+      const rec = state[targetShiftKey];
       if (rec && rec.shiftClosed === true) {
-        clearLocalActiveShiftForVenue(venueId);
+        if (effective.shiftKey === targetShiftKey) {
+          clearLocalActiveShiftForVenue(venueKey, { notify: true });
+        }
         return true;
       }
       return false;
@@ -30337,9 +30395,12 @@ let onboardingIndex = 0;
     function getActiveShiftForVenue(venueId = staffSession?.venue) {
       const venueKey = String(venueId || "").toLowerCase();
       if (!venueKey) return null;
-      const current = staffActiveShiftMap[venueKey];
-      if (current && current.active === true && current.shiftKey) return current;
-      return null;
+      const effective = getEffectiveShiftState(venueKey);
+      if (effective.isClosedByLock && effective.shiftKey) {
+        clearLocalActiveShiftForVenue(venueKey);
+        return null;
+      }
+      return getLocalActiveShiftForVenue(venueKey);
     }
     function getActiveShiftStartMs(shift) {
       const startedAt = shift?.startedAt ? new Date(shift.startedAt).getTime() : NaN;
@@ -30869,7 +30930,11 @@ let onboardingIndex = 0;
       }
       const venueKey = String(venueId || "").toLowerCase();
       staffShiftLockMap[venueKey] = loadStaffShiftLockLocal(venueKey);
-      if (!db || !authClaimsReady || !hasStaffClaim()) return;
+      staffShiftLockMapReady[venueKey] = false;
+      if (!db || !authClaimsReady || !hasStaffClaim()) {
+        staffShiftLockMapReady[venueKey] = true;
+        return;
+      }
       const q = query(collection(db, "venues", venueKey, "shiftCloseouts"), orderBy("closedAt", "desc"), limit(120));
       staffShiftLockUnsub = subscribeSnapshot("staffShiftLock", q, null, (snap) => {
         const next = {};
@@ -30885,9 +30950,48 @@ let onboardingIndex = 0;
         });
         staffShiftLockMap[venueKey] = next;
         saveStaffShiftLockLocal(venueKey, next);
+        const wasReady = staffShiftLockMapReady[venueKey] === true;
+        staffShiftLockMapReady[venueKey] = true;
+        if (!wasReady && staffPendingActiveShiftSnapshot[venueKey] !== undefined) {
+          const pending = staffPendingActiveShiftSnapshot[venueKey];
+          delete staffPendingActiveShiftSnapshot[venueKey];
+          applyStaffActiveShiftSnapshot(venueKey, pending);
+        } else {
+          const activeShift = getActiveShiftForVenue(venueKey);
+          if (!activeShift && currentScreenName === "staffPortal" && staffSession?.venue && String(staffSession.venue).toLowerCase() === venueKey) {
+            maybePromptStartShift();
+          }
+        }
       }, (err) => {
         console.warn("staff shift lock listener failed", err);
+        staffShiftLockMapReady[venueKey] = true;
       });
+    }
+    function applyStaffActiveShiftSnapshot(venueKey, snapshotPayload) {
+      const exists = !!snapshotPayload?.exists;
+      const data = snapshotPayload?.data || {};
+      if (!exists) {
+        clearLocalActiveShiftForVenue(venueKey);
+        renderStaffShiftStatus();
+        maybePromptStartShift();
+        return;
+      }
+      const normalized = normalizeStaffShiftRecord(data, data.shiftKey || "current");
+      const shiftKey = String(normalized?.shiftKey || "").trim();
+      const lockState = staffShiftLockMap[venueKey] || {};
+      const lockClosed = !!(shiftKey && lockState[shiftKey]?.shiftClosed === true);
+      if (normalized && normalized.active === true) {
+        if (lockClosed) {
+          clearLocalActiveShiftForVenue(venueKey, { notify: true });
+        } else {
+          staffActiveShiftMap[venueKey] = normalized;
+          saveStaffActiveShiftLocal(venueKey, normalized);
+        }
+      } else {
+        clearLocalActiveShiftForVenue(venueKey);
+      }
+      renderStaffShiftStatus();
+      maybePromptStartShift();
     }
     async function startStaffActiveShiftListener(venueId) {
       if (!venueId) return;
@@ -30906,31 +31010,15 @@ let onboardingIndex = 0;
       }
       const ref = doc(db, "venues", venueKey, "shiftState", "current");
       staffActiveShiftUnsub = subscribeSnapshot("staffActiveShift", ref, null, (snap) => {
-        if (!snap.exists()) {
-          delete staffActiveShiftMap[venueKey];
-          saveStaffActiveShiftLocal(venueKey, null);
-          renderStaffShiftStatus();
-          maybePromptStartShift();
+        const payload = {
+          exists: snap.exists(),
+          data: snap.exists() ? (snap.data() || {}) : null
+        };
+        if (staffShiftLockMapReady[venueKey] !== true) {
+          staffPendingActiveShiftSnapshot[venueKey] = payload;
           return;
         }
-        const data = snap.data() || {};
-        const normalized = normalizeStaffShiftRecord(data, data.shiftKey || "current");
-        const shiftKey = String(normalized?.shiftKey || "").trim();
-        const lockState = staffShiftLockMap[venueKey] || {};
-        const lockClosed = !!(shiftKey && lockState[shiftKey]?.shiftClosed === true);
-        if (normalized && normalized.active === true) {
-          if (lockClosed) {
-            clearLocalActiveShiftForVenue(venueKey);
-          } else {
-            staffActiveShiftMap[venueKey] = normalized;
-            saveStaffActiveShiftLocal(venueKey, normalized);
-          }
-        } else {
-          delete staffActiveShiftMap[venueKey];
-          saveStaffActiveShiftLocal(venueKey, null);
-        }
-        renderStaffShiftStatus();
-        maybePromptStartShift();
+        applyStaffActiveShiftSnapshot(venueKey, payload);
       }, (err) => {
         console.warn("staff active shift listener failed", err);
       });
@@ -30939,6 +31027,11 @@ let onboardingIndex = 0;
       if (staffShiftLockUnsub) {
         try { staffShiftLockUnsub(); } catch (_) {}
         staffShiftLockUnsub = null;
+      }
+      if (staffSession?.venue) {
+        const venueKey = String(staffSession.venue || "").toLowerCase();
+        delete staffShiftLockMapReady[venueKey];
+        delete staffPendingActiveShiftSnapshot[venueKey];
       }
     }
     function stopStaffActiveShiftListener() {
@@ -31763,8 +31856,21 @@ let onboardingIndex = 0;
     }
     function startCeoLiveAnalyticsWatch({ venueIdOrNull = null, rangeKey = "1w" } = {}) {
       if (!db || !isCeoAccount || !authClaimsReady || !hasCeoClaim()) return;
+      if (ceoLiveAnalyticsEnabled === false) {
+        stopCeoLiveAnalyticsWatch();
+        ceoAnalyticsLargeRangeNotice = "Live analytics disabled by feature flag.";
+        ceoAnalyticsLiveWindow = null;
+        ceoAnalyticsLiveLastUpdateAt = 0;
+        ceoAnalyticsLiveDocCount = 0;
+        ceoAnalyticsLiveEntries = [];
+        return;
+      }
       stopCeoLiveAnalyticsWatch();
       ceoAnalyticsLargeRangeNotice = "";
+      ceoAnalyticsLiveWindow = null;
+      ceoAnalyticsLiveLastUpdateAt = 0;
+      ceoAnalyticsLiveDocCount = 0;
+      ceoAnalyticsLiveEntries = [];
       const selectedVenue = String(venueIdOrNull || "").toLowerCase();
       const requestedWindow = getAnalyticsWindow(rangeKey, new Date());
       const now = Date.now();
@@ -31778,25 +31884,46 @@ let onboardingIndex = 0;
       }
       try {
         const streamStart = Timestamp.fromMillis(streamWindow.startMs);
-        const q = query(
-          collectionGroup(db, "redemptions"),
-          where("queueScope", "==", "venue"),
-          where("createdAt", ">=", streamStart),
-          orderBy("createdAt", "desc"),
-          limit(1200)
-        );
-        ceoAnalyticsLiveUnsub = subscribeSnapshot("ceoLiveAnalytics", q, null, (snap) => {
-          const raw = snap.docs.map(parseCeoRedemptionDoc).filter(Boolean);
-          const filtered = selectedVenue
-            ? raw.filter((entry) => getEntryVenueId(entry) === selectedVenue)
-            : raw;
-          ceoAnalyticsLiveEntries = filtered;
-          if (ceoAnalyticsModal?.classList.contains("active")) {
-            renderCeoAnalytics();
+        ceoAnalyticsLiveWindow = streamWindow;
+        const buildQuery = (withVenueFilter) => {
+          const qParts = [
+            collectionGroup(db, "redemptions"),
+            where("queueScope", "==", "venue"),
+            where("createdAt", ">=", streamStart)
+          ];
+          if (withVenueFilter && selectedVenue) {
+            qParts.push(where("venueId", "==", selectedVenue));
           }
-        }, (err) => {
-          console.warn("CEO live analytics watch failed", err);
-        });
+          qParts.push(orderBy("createdAt", "desc"), limit(1200));
+          return query(...qParts);
+        };
+        const bindQuery = (withVenueFilter) => {
+          const q = buildQuery(withVenueFilter);
+          ceoAnalyticsLiveUnsub = subscribeSnapshot("ceoLiveAnalytics", q, null, (snap) => {
+            const raw = snap.docs.map(parseCeoRedemptionDoc).filter(Boolean);
+            ceoAnalyticsLiveEntries = withVenueFilter || !selectedVenue
+              ? raw
+              : raw.filter((entry) => getEntryVenueId(entry) === selectedVenue);
+            ceoAnalyticsLiveDocCount = ceoAnalyticsLiveEntries.length;
+            ceoAnalyticsLiveLastUpdateAt = Date.now();
+            if (ceoAnalyticsModal?.classList.contains("active")) {
+              renderCeoAnalytics();
+            }
+          }, (err) => {
+            const code = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
+            const msg = String(err?.message || "").toLowerCase();
+            const indexIssue = code === "failed-precondition" || msg.includes("requires an index");
+            if (withVenueFilter && selectedVenue && indexIssue) {
+              console.warn("CEO live analytics venue index not ready; falling back to client-side venue filter");
+              ceoAnalyticsLargeRangeNotice = "Venue index still building; using client-side venue filter temporarily.";
+              stopCeoLiveAnalyticsWatch();
+              bindQuery(false);
+              return;
+            }
+            console.warn("CEO live analytics watch failed", err);
+          });
+        };
+        bindQuery(!!selectedVenue);
       } catch (err) {
         console.warn("Could not start CEO live analytics watcher", err);
       }
@@ -32362,7 +32489,6 @@ let onboardingIndex = 0;
       return String(entry?.venue || entry?.venueId || entry?.requestedVenue || "").toLowerCase();
     }
     function getAnalyticsEntriesSource() {
-      if (Array.isArray(ceoAnalyticsLiveEntries) && ceoAnalyticsLiveEntries.length) return ceoAnalyticsLiveEntries;
       return getCeoRedemptions();
     }
     function filterAnalyticsEntries(entries = [], window = getAnalyticsWindow("1w"), venueIdOrNull = null) {
@@ -32448,8 +32574,12 @@ let onboardingIndex = 0;
     function computeAnalyticsSnapshot(windowOverride = null, venueIdOrNull = null) {
       const window = windowOverride || getAnalyticsWindow(ceoAnalyticsRangeKey, new Date());
       const members = Array.isArray(ceoMembersCache) ? ceoMembersCache : [];
-      const entriesSource = getAnalyticsEntriesSource();
-      const entries = filterAnalyticsEntries(entriesSource, window, venueIdOrNull);
+      const allEntriesSource = getAnalyticsEntriesSource();
+      const liveEntriesSource = Array.isArray(ceoAnalyticsLiveEntries) ? ceoAnalyticsLiveEntries : [];
+      const useOverlay = ["3m", "1y", "all"].includes(window.key);
+      const entries = useOverlay
+        ? filterAnalyticsEntries(allEntriesSource, window, venueIdOrNull)
+        : filterAnalyticsEntries((liveEntriesSource.length ? liveEntriesSource : allEntriesSource), window, venueIdOrNull);
       const verified = entries.filter((entry) => isVerifiedRedemptionEntry(entry));
       const pending = entries.filter((entry) => String(entry?.status || "").toLowerCase() === "pending");
       const denied = entries.filter((entry) => ["denied", "canceled", "cancelled"].includes(String(entry?.status || "").toLowerCase()));
@@ -32468,7 +32598,7 @@ let onboardingIndex = 0;
       const returningMembers = Object.values(memberRedemptionCounts).filter((count) => count > 1).length;
       const memberReturnRate = redeemerCount ? Math.round((returningMembers / redeemerCount) * 100) : 0;
       const topVenueWeek = Object.entries(
-        filterAnalyticsEntries(entriesSource, { ...getAnalyticsWeekWindow(new Date()), key: "week" }, venueIdOrNull)
+        filterAnalyticsEntries(allEntriesSource, { ...getAnalyticsWeekWindow(new Date()), key: "week" }, venueIdOrNull)
           .filter((entry) => isVerifiedRedemptionEntry(entry))
           .reduce((acc, entry) => {
             const v = getEntryVenueId(entry) || "unknown";
@@ -32479,7 +32609,18 @@ let onboardingIndex = 0;
       const topPerkSelected = Object.entries(perkCounts).sort((a, b) => b[1] - a[1])[0];
       const sales = computeSalesSummary(window, venueIdOrNull);
       const comparison = computeWeekComparison(venueIdOrNull);
-      const trend = buildAnalyticsTrend(entries, window);
+      const trendWindow = useOverlay && ceoAnalyticsLiveWindow
+        ? ceoAnalyticsLiveWindow
+        : window;
+      const trendEntries = useOverlay
+        ? filterAnalyticsEntries((liveEntriesSource.length ? liveEntriesSource : allEntriesSource), trendWindow, venueIdOrNull)
+        : entries;
+      const trend = buildAnalyticsTrend(trendEntries, trendWindow);
+      const trendSum = (trend.values || []).reduce((sum, val) => sum + (Number(val) || 0), 0);
+      const streamedVerifiedCount = trendEntries.filter((entry) => isVerifiedRedemptionEntry(entry)).length;
+      if (DEBUG_MODE && trendSum !== streamedVerifiedCount) {
+        console.warn("[ceoAnalytics] trend/verified mismatch", { trendSum, streamedVerifiedCount, window: trendWindow.key });
+      }
       const tokenReceipts = sanitizePurchaseReceipts(purchaseReceipts || []);
       const tokenRevenue = tokenReceipts.reduce((sum, entry) => sum + parseCurrency(entry.total || entry.detail || ""), 0);
       const tokenCount = tokenReceipts.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
@@ -32499,6 +32640,7 @@ let onboardingIndex = 0;
         sales,
         comparison,
         trend,
+        overlayMode: useOverlay,
         tokenSummary: {
           count: tokenReceipts.length,
           tokens: tokenCount,
@@ -32615,6 +32757,8 @@ let onboardingIndex = 0;
       const net = Number(snapshot.sales?.net || 0);
       const salesCount = Number(snapshot.sales?.count || 0);
       const avgSale = Number(snapshot.sales?.avg || 0);
+      const watcherStatus = ceoAnalyticsLiveUnsub ? "active" : "inactive";
+      const watcherUpdated = ceoAnalyticsLiveLastUpdateAt ? formatMST(ceoAnalyticsLiveLastUpdateAt) : "never";
       ceoAnalyticsContent.innerHTML = `
         <div class="analytics-section" style="margin-bottom:10px;">
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
@@ -32623,7 +32767,10 @@ let onboardingIndex = 0;
             </div>
             <select id="ceoAnalyticsVenueSelect" style="min-width:190px;">${venueOptions}</select>
           </div>
-          <div class="small" style="margin-top:8px;color:#a9bbd9;">Window: ${snapshot.window.label} · Updated ${formatMST(snapshot.capturedAt)}${ceoAnalyticsLargeRangeNotice ? ` · ${ceoAnalyticsLargeRangeNotice}` : ""}</div>
+          <div class="small" style="margin-top:8px;color:#a9bbd9;">Window: ${snapshot.window.label} · Updated ${formatMST(snapshot.capturedAt)}</div>
+          ${ceoLiveAnalyticsEnabled === false ? '<div class="small" style="margin-top:6px;color:#fbbf24;">Live watcher disabled by feature flag.</div>' : ""}
+          ${snapshot.overlayMode ? '<div class="pill" style="display:inline-flex;margin-top:6px;background:rgba(34,211,238,0.16);border-color:rgba(34,211,238,0.45);">Live overlay: last 7 days</div>' : ""}
+          ${ceoAnalyticsLargeRangeNotice && !snapshot.overlayMode ? `<div class="small" style="margin-top:6px;color:#93c5fd;">${ceoAnalyticsLargeRangeNotice}</div>` : ""}
         </div>
         <div class="analytics-grid">
           <div class="analytics-section">
@@ -32663,6 +32810,15 @@ let onboardingIndex = 0;
             <div style="position:relative;height:220px;"><canvas id="ceoAnalyticsCompareChart"></canvas></div>
           </div>
         </div>
+        <details class="analytics-section" style="margin-top:10px;">
+          <summary style="cursor:pointer;font-weight:600;">QA tools</summary>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            <button type="button" class="btn btn-secondary" id="qaShiftClosedBtn">Simulate SHIFT_CLOSED error</button>
+            <button type="button" class="btn btn-secondary" id="qaForceClearShiftBtn">Force clear local shift</button>
+            <button type="button" class="btn btn-secondary" id="qaStartWatcherBtn">Open analytics + start watcher</button>
+          </div>
+          <div class="small" style="margin-top:8px;color:#a9bbd9;" id="qaWatcherStatus">Watcher: ${watcherStatus} · Last update: ${watcherUpdated} · Docs: ${ceoAnalyticsLiveDocCount}</div>
+        </details>
       `;
       const rangeButtons = ceoAnalyticsContent.querySelectorAll(".ceo-analytics-range");
       rangeButtons.forEach((btn) => {
@@ -32678,6 +32834,32 @@ let onboardingIndex = 0;
       if (venueSelect) {
         venueSelect.addEventListener("change", () => {
           ceoAnalyticsVenueFilter = String(venueSelect.value || "all").toLowerCase();
+          const selected = ceoAnalyticsVenueFilter === "all" ? null : ceoAnalyticsVenueFilter;
+          startCeoLiveAnalyticsWatch({ venueIdOrNull: selected, rangeKey: ceoAnalyticsRangeKey });
+          renderCeoAnalytics();
+        });
+      }
+      const qaShiftClosedBtn = ceoAnalyticsContent.querySelector("#qaShiftClosedBtn");
+      if (qaShiftClosedBtn) {
+        qaShiftClosedBtn.addEventListener("click", () => {
+          const safe = mapMemberFacingError({ code: "failed-precondition", details: { reason: "SHIFT_CLOSED" } }, "redeem");
+          showToast(`QA member copy: ${safe}`, 3200);
+        });
+      }
+      const qaForceClearShiftBtn = ceoAnalyticsContent.querySelector("#qaForceClearShiftBtn");
+      if (qaForceClearShiftBtn) {
+        qaForceClearShiftBtn.addEventListener("click", () => {
+          const venueId = String(staffSession?.venue || "").toLowerCase();
+          if (!venueId) {
+            showToast("QA: no active staff venue.");
+            return;
+          }
+          clearLocalActiveShiftForVenue(venueId, { notify: true });
+        });
+      }
+      const qaStartWatcherBtn = ceoAnalyticsContent.querySelector("#qaStartWatcherBtn");
+      if (qaStartWatcherBtn) {
+        qaStartWatcherBtn.addEventListener("click", () => {
           const selected = ceoAnalyticsVenueFilter === "all" ? null : ceoAnalyticsVenueFilter;
           startCeoLiveAnalyticsWatch({ venueIdOrNull: selected, rangeKey: ceoAnalyticsRangeKey });
           renderCeoAnalytics();
@@ -34017,15 +34199,15 @@ let onboardingIndex = 0;
       suppressStaffShiftPrompt = false;
       return { success: true, venueId: resolved };
     }
-    function hydrateStaffVenueData(venueId) {
+    async function hydrateStaffVenueData(venueId) {
       if (!venueId) return;
       startStaffPerksListener(venueId);
       startStaffRedemptionListener(venueId);
       startStaffMessagesListener(venueId);
       startStaffMembersListener(venueId);
       startStaffActivityListener(venueId);
-      startStaffActiveShiftListener(venueId);
-      startStaffShiftLockListener(venueId);
+      await startStaffShiftLockListener(venueId);
+      await startStaffActiveShiftListener(venueId);
       renderStaffVipDeal();
       renderStaffAlertPreview();
       renderStaffDealCodes();
@@ -36181,6 +36363,7 @@ let onboardingIndex = 0;
       isLaunched = !!data?.launched;
       appLocked = !!data?.appLocked;
       appLockedAt = data?.appLockedAt || null;
+      ceoLiveAnalyticsEnabled = data?.featureFlags?.ceoLiveAnalytics !== false;
       applyLaunchModeUI();
       applyAppLockState();
       if (data?.maintenanceMode === true) {
@@ -36230,6 +36413,10 @@ let onboardingIndex = 0;
         isLaunched = !!data.launched;
         appLocked = !!data.appLocked;
         appLockedAt = data.appLockedAt || null;
+        ceoLiveAnalyticsEnabled = data?.featureFlags?.ceoLiveAnalytics !== false;
+        if (ceoLiveAnalyticsEnabled === false) {
+          stopCeoLiveAnalyticsWatch();
+        }
         if (!nextMaintenance) {
           if (data.statusBannerEnabled && data.statusBannerMessage) {
             setStatusBanner(data.statusBannerMessage);
@@ -39500,14 +39687,9 @@ let onboardingIndex = 0;
           setRedeemRequestBusy(false);
           return;
         }
-        if ((err?.code || "").includes("permission-denied")) {
-          showToast("Not allowed.", 2600);
-        } else if ((err?.code || "").includes("failed-precondition")) {
-          showToast(err?.message || "Unavailable right now.", 2800);
-        } else if ((err?.code || "").includes("internal")) {
-          showToast("Internal error (see console details).", 3000);
-        }
-        creditInfo.textContent = err?.message || "Could not start redemption.";
+        const safeMessage = mapMemberFacingError(err, "redeem");
+        showToast(safeMessage, 3200);
+        creditInfo.textContent = safeMessage;
         setRedeemRequestBusy(false);
         return;
       }
@@ -39593,6 +39775,26 @@ let onboardingIndex = 0;
     }
 
     const membershipPlanButtons = Array.from(document.querySelectorAll(".select-membership"));
+
+    function mapMemberFacingError(err, context = "generic") {
+      const codeRaw = String(err?.code || "").toLowerCase();
+      const code = codeRaw.replace(/^functions\//, "");
+      const detailsReason = String(err?.details?.reason || "").toUpperCase();
+      const message = String(err?.message || "").toLowerCase();
+      const isShiftClosed = detailsReason === "SHIFT_CLOSED"
+        || code === "failed-precondition"
+        || message.includes("shift");
+      if (isShiftClosed) {
+        return "This venue isn't accepting redemptions right now. Please ask staff to refresh the kiosk or try again in a moment.";
+      }
+      if (code === "permission-denied" || code === "unauthenticated") {
+        return context === "redeem" ? "Could not redeem right now. Please try again." : "Could not complete this action right now.";
+      }
+      if (code === "invalid-argument" || code === "not-found") {
+        return context === "redeem" ? "Could not redeem right now. Please try again." : "Please review your info and try again.";
+      }
+      return "Could not redeem right now. Please try again.";
+    }
 
     function refreshMembershipChoices() {
       if (!membershipPlanButtons.length) return;

@@ -1131,12 +1131,18 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
             const shiftSnap = await tx.get(db.collection("venues").doc(venueId).collection("shiftCloseouts").doc(activeShiftKey));
             const shiftData = shiftSnap.exists ? (shiftSnap.data() || {}) : {};
             if (shiftData.shiftClosed === true) {
+              const memberMessage = "This venue isn't accepting redemptions right now. Please try again shortly.";
+              const staffMessage = "Shift is already closed. Ask venue staff to start a new shift.";
               throw new HttpsError(
                 "failed-precondition",
-                callerIsStaffLike
-                  ? "Shift is already closed. Ask venue staff to start a new shift."
-                  : "This venue isn't accepting redemptions right now. Please try again shortly.",
-                { reason: "SHIFT_CLOSED", venueId, shiftKey: activeShiftKey }
+                callerIsStaffLike ? staffMessage : memberMessage,
+                {
+                  reason: "SHIFT_CLOSED",
+                  venueId,
+                  shiftKey: activeShiftKey,
+                  memberMessage,
+                  staffMessage
+                }
               );
             }
           }
