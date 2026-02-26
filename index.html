@@ -16295,6 +16295,7 @@
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
       }
       updateRefreshButtonsVisibility();
+      ensureLimiterDebugPanel();
       if (name === "pass") {
         setPassBrandTagline();
         applyProfileTierMode(currentMembershipTier || memberProfile?.tier || "standard");
@@ -18074,6 +18075,9 @@
       const code = String(value?.code || "");
       const raw = String(value?.message || value || "").trim();
       const merged = `${code} ${raw}`.toLowerCase();
+      if (merged.includes("client-throttle") || merged.includes("hold on—finishing the last request")) {
+        return "Hold on—finishing the last request…";
+      }
       if (merged.includes("resource-exhausted") || merged.includes("rate limit exceeded") || merged.includes("too-many-requests") || merged.includes("429")) {
         return "Too many requests right now. Please wait a moment and try again.";
       }
@@ -18084,10 +18088,40 @@
       return raw;
     }
 
+    const limiterEventLog = [];
+    let limiterDebugPanelEl = null;
+    let limiterDebugListEl = null;
+    function limiterDebugEnabled() {
+      const flag = localStorage.getItem("foco_debug_limiter") === "1"
+        || new URLSearchParams(location.search).get("debugLimits") === "1";
+      const privileged = !!(staffSession?.venue || isCeoAccount || isCeoActive());
+      return flag && privileged;
+    }
+    function ensureLimiterDebugPanel() {
+      if (!limiterDebugEnabled()) {
+        if (limiterDebugPanelEl) limiterDebugPanelEl.style.display = "none";
+        return;
+      }
+      if (!limiterDebugPanelEl) {
+        limiterDebugPanelEl = document.createElement("div");
+        limiterDebugPanelEl.id = "limiterDebugPanel";
+        limiterDebugPanelEl.style.cssText = "position:fixed;right:10px;bottom:88px;z-index:9999;background:rgba(2,6,23,.92);border:1px solid rgba(56,189,248,.5);border-radius:10px;padding:10px;max-width:340px;max-height:220px;overflow:auto;color:#cfe8ff;font-size:12px;box-shadow:0 10px 24px rgba(0,0,0,.45);";
+        limiterDebugPanelEl.innerHTML = '<div style=\"font-weight:700;margin-bottom:6px;\">Limiter Debug</div><div id=\"limiterDebugList\"></div>';
+        document.body.appendChild(limiterDebugPanelEl);
+        limiterDebugListEl = limiterDebugPanelEl.querySelector("#limiterDebugList");
+      }
+      limiterDebugPanelEl.style.display = "";
+      if (limiterDebugListEl) {
+        limiterDebugListEl.innerHTML = limiterEventLog.map((evt) => (
+          `<div style="margin:0 0 4px 0;line-height:1.35;"><strong>${evt.source}</strong> · ${evt.context}<br><span style="opacity:.8;">${evt.code || "n/a"} · ${evt.at}</span></div>`
+        )).join("") || '<div style="opacity:.8;">No limiter events.</div>';
+      }
+    }
     function classifyLimiterSource(err) {
       const code = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
       const msg = String(err?.message || "").toLowerCase();
       const details = err?.details || {};
+      if (code === "client-throttle" || String(details?.limiter || "").toLowerCase() === "client_throttle") return "client_throttle";
       if (String(details?.limiter || "").toLowerCase() === "app_throttle") return "app_throttle";
       if (code === "resource-exhausted" || code === "too-many-requests" || msg.includes("rate limit")) return "app_throttle";
       if (msg.includes("quota exceeded") || msg.includes("firestore quota") || msg.includes("exceeded quota")) return "firestore_quota";
@@ -18098,13 +18132,22 @@
     function logLimiterTrigger(err, context = "") {
       const source = classifyLimiterSource(err);
       if (source === "unknown") return;
-      console.warn("[limiter]", {
+      const payload = {
         context: String(context || ""),
         source,
         code: String(err?.code || ""),
         message: String(err?.message || ""),
         details: err?.details || null
+      };
+      console.warn("[limiter]", payload);
+      limiterEventLog.unshift({
+        source,
+        context: payload.context || "n/a",
+        code: payload.code,
+        at: new Date().toLocaleTimeString()
       });
+      while (limiterEventLog.length > 20) limiterEventLog.pop();
+      ensureLimiterDebugPanel();
     }
 
     function isRetryableCallableError(err) {
@@ -18122,10 +18165,37 @@
     }
 
     const callableInFlight = new Map();
+    const clientActionWindows = new Map();
+    function acquireClientActionSlot(actionKey = "", options = {}) {
+      const key = String(actionKey || "generic");
+      const now = Date.now();
+      const windowMs = Math.max(300, Number(options.windowMs ?? 1800));
+      const burst = Math.max(1, Number(options.maxBurst ?? 3));
+      const state = clientActionWindows.get(key) || { events: [] };
+      state.events = (state.events || []).filter((ts) => (now - ts) < windowMs);
+      if (state.events.length >= burst) {
+        return { ok: false, retryAfterMs: Math.max(200, windowMs - (now - state.events[0])) };
+      }
+      state.events.push(now);
+      clientActionWindows.set(key, state);
+      return { ok: true, retryAfterMs: 0 };
+    }
     async function invokeCallableWithRetry(name, payload = {}, options = {}) {
       if (!functionsClient) throw new Error("Cloud functions unavailable");
       const lockKey = String(options.lockKey || `${name}:${JSON.stringify(payload)}`);
       if (callableInFlight.has(lockKey)) return callableInFlight.get(lockKey);
+      const actionKey = String(options.actionKey || name || "callable");
+      const slot = acquireClientActionSlot(actionKey, {
+        windowMs: options.windowMs ?? 1800,
+        maxBurst: options.maxBurst ?? 3
+      });
+      if (!slot.ok) {
+        const err = new Error("Hold on—finishing the last request…");
+        err.code = "client-throttle";
+        err.details = { limiter: "client_throttle", actionKey, retryAfterMs: slot.retryAfterMs };
+        logLimiterTrigger(err, `callable:${name}`);
+        throw err;
+      }
       const retries = Math.max(0, Number(options.retries ?? 3));
       const baseDelayMs = Math.max(120, Number(options.baseDelayMs ?? 260));
       const timeoutMs = Math.max(1000, Number(options.timeoutMs ?? 12000));
@@ -30179,7 +30249,7 @@ let onboardingIndex = 0;
         );
         staffAnalyticsUnsub = subscribeSnapshot(`staffAnalytics:${venueKey}`, q, null, (snap) => {
           staffAnalyticsEntries = snap.docs.map(parseCeoRedemptionDoc).filter(Boolean);
-          renderStaffAnalytics();
+          scheduleThrottledRender("staffAnalytics", () => renderStaffAnalytics(), 140);
         }, (err) => {
           console.warn("Staff analytics watcher failed", err);
         });
@@ -32355,7 +32425,7 @@ let onboardingIndex = 0;
             ceoAnalyticsLiveDocCount = ceoAnalyticsLiveEntries.length;
             ceoAnalyticsLiveLastUpdateAt = Date.now();
             if (ceoAnalyticsModal?.classList.contains("active")) {
-              renderCeoAnalytics();
+              scheduleThrottledRender("ceoLiveAnalytics", () => renderCeoAnalytics(), 140);
             }
           }, (err) => {
             const code = String(err?.code || "").replace(/^functions\//, "").toLowerCase();

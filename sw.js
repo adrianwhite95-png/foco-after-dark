@@ -129,7 +129,7 @@ self.addEventListener("message", (event) => {
   }
 });
 
-const CACHE_VERSION = "foco-cache-v14";
+const CACHE_VERSION = "foco-cache-v15";
 const CORE_ASSETS = ["/", "/index.html", "/manifest.json", "/foco-logo.png"];
 
 self.addEventListener("install", (event) => {
@@ -155,6 +155,9 @@ self.addEventListener("fetch", (event) => {
     // Don't intercept cross-origin requests (prevents opaque SW responses)
     return;
   }
+  // Never cache Firebase internals or dynamic API-ish paths.
+  if (url.pathname.startsWith("/__/")) return;
+  if (url.searchParams.has("v") || url.searchParams.has("ts") || url.searchParams.has("_")) return;
 
   // Always read deploy version fresh so forced-update logic can trigger reliably.
   if (url.pathname === "/version.json") {
@@ -167,6 +170,7 @@ self.addEventListener("fetch", (event) => {
   // Network-first for HTML to pick up fresh deploys
   const accept = event.request.headers.get("accept") || "";
   const isHtml = accept.includes("text/html");
+  const isJson = accept.includes("application/json") || url.pathname.endsWith(".json");
 
   if (isHtml) {
     event.respondWith(
@@ -179,6 +183,13 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  if (isJson) {
+    event.respondWith(
+      fetch(event.request, { cache: "no-store" }).catch(() => caches.match(event.request))
     );
     return;
   }

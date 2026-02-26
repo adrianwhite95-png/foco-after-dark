@@ -1,7 +1,9 @@
 {
   "name": "Foco After Dark",
   "short_name": "Foco After Dark",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#010818",
   "theme_color": "#0ea5e9",

@@ -37,6 +37,24 @@
     ,
     "headers": [
       {
+        "source": "/version.json",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
+        ]
+      },
+      {
+        "source": "/sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, must-revalidate, max-age=0" }
+        ]
+      },
+      {
+        "source": "/manifest.json",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=3600" }
+        ]
+      },
+      {
         "source": "/**",
         "headers": [
           { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
