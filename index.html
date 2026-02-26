@@ -16070,6 +16070,7 @@
     const STAFF_REMEMBER_LOGIN_KEY = "staffRememberedLogin";
     const MEMBER_REAUTH_ON_RESUME_KEY = "memberReauthOnResume_v1";
     const MEMBER_REAUTH_ON_RESUME_MS = 20 * 1000;
+    const MEMBER_AUTH_BOOTSTRAP_WINDOW_MS = 2 * 60 * 1000;
     const BUILD_VERSION = "2025.12.15.1";
     try {
       const url = new URL(window.location.href);
@@ -16091,12 +16092,34 @@
     let ceoMembersUnsub = null;
     let ceoMembersCache = [];
     let ceoAuthUidAllowlist = null;
+    let memberAuthBootstrapAllowUntil = 0;
+    let memberAuthBootstrapUid = "";
 
     function shouldRequireMemberReauthOnResume(user = firebaseAuth?.currentUser) {
       if (!user || user.isAnonymous) return false;
       if (isStaffAccount(user)) return false;
       const email = String(user.email || "").toLowerCase();
       if (email === "ceo@gmail.com") return false;
+      return true;
+    }
+
+    function allowMemberAuthBootstrap(uid = "", ttlMs = MEMBER_AUTH_BOOTSTRAP_WINDOW_MS) {
+      memberAuthBootstrapAllowUntil = Date.now() + Math.max(15000, Number(ttlMs) || MEMBER_AUTH_BOOTSTRAP_WINDOW_MS);
+      memberAuthBootstrapUid = String(uid || "").trim();
+    }
+
+    function consumeMemberAuthBootstrap(uid = "") {
+      if (Date.now() > memberAuthBootstrapAllowUntil) {
+        memberAuthBootstrapAllowUntil = 0;
+        memberAuthBootstrapUid = "";
+        return false;
+      }
+      const safeUid = String(uid || "").trim();
+      if (memberAuthBootstrapUid && safeUid && memberAuthBootstrapUid !== safeUid) {
+        return false;
+      }
+      memberAuthBootstrapAllowUntil = 0;
+      memberAuthBootstrapUid = "";
       return true;
     }
 
@@ -17894,6 +17917,7 @@
       const attemptId = logAuthAttempt(email, authMode);
       try {
         await ensureAuthPersistence(remember);
+        allowMemberAuthBootstrap();
         console.info("[auth] pre-signin", {
           mode: authMode,
           email,
@@ -17975,6 +17999,7 @@
       try {
         const remember = !!(rememberMe && rememberMe.checked);
         await ensureAuthPersistence(remember);
+        allowMemberAuthBootstrap();
         updateRememberedEmail(remember ? email : null, remember ? password : "");
         suppressLandingRedirectOnce = true;
         const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
@@ -37132,6 +37157,12 @@ let onboardingIndex = 0;
           applyBackgroundTheme("default");
           resetRewardsProgressState();
           showScreen("landing");
+          initialAuthResolved = true;
+          return;
+        }
+        if (shouldRequireMemberReauthOnResume(user) && !consumeMemberAuthBootstrap(user.uid)) {
+          console.info("[auth] member persisted session requires fresh login");
+          await signOutToLanding();
           initialAuthResolved = true;
           return;
         }
