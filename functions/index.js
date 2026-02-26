@@ -1130,6 +1130,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
           const memberShiftInactiveMessage = "Sorry, you\u2019re using a voucher outside of this venue\u2019s shift schedule \u2014 try again tomorrow!";
           const staffShiftInactiveMessage = "Shift is inactive or closed. Start a new shift before accepting redemptions.";
           if (!activeShiftKey) {
+            console.info("[createRedemption] blocked", { reason: "SHIFT_INACTIVE", venueId });
             throw new HttpsError(
               "failed-precondition",
               callerIsStaffLike ? staffShiftInactiveMessage : memberShiftInactiveMessage,
@@ -1145,6 +1146,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
           const shiftSnap = await tx.get(db.collection("venues").doc(venueId).collection("shiftCloseouts").doc(activeShiftKey));
           const shiftData = shiftSnap.exists ? (shiftSnap.data() || {}) : {};
           if (shiftData.shiftClosed === true) {
+            console.info("[createRedemption] blocked", { reason: "SHIFT_INACTIVE", venueId });
             throw new HttpsError(
               "failed-precondition",
               callerIsStaffLike ? staffShiftInactiveMessage : memberShiftInactiveMessage,

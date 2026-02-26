@@ -15890,7 +15890,7 @@
     const alertsMap = new Map();
     const venuePerksMap = new Map();
     const venueOpenNowMap = new Map();
-    const venueRedeemGateCache = new Map();
+    const venueEligibilityCache = new Map();
     const MEMBER_SHIFT_INACTIVE_MESSAGE = "Sorry, you\u2019re using a voucher outside of this venue\u2019s shift schedule \u2014 try again tomorrow!";
     let memberRedemptionsMap = new Map();
     let staffRedemptionsMap = new Map();
@@ -16349,6 +16349,11 @@
           try {
             const params = new URLSearchParams(window.location.search || "");
             if (params.get("staffAnalytics") === "1" && staffMore) {
+              const requestedVenue = String(params.get("venue") || "").toLowerCase();
+              const authorizedVenue = String(staffSession?.venue || "").toLowerCase();
+              if (requestedVenue && authorizedVenue && requestedVenue !== authorizedVenue) {
+                console.warn("Ignored staff analytics deep-link venue mismatch", { requestedVenue, authorizedVenue });
+              }
               staffMore.open = true;
               requestAnimationFrame(() => {
                 try { scrollToSectionTarget(staffMore); } catch (_) {}
@@ -20123,42 +20128,43 @@
     async function isVenueAcceptingRedemptionsNow(venueId) {
       const key = String(venueId || "").toLowerCase();
       if (!key) return false;
-      const cached = venueRedeemGateCache.get(key);
-      if (cached && (Date.now() - Number(cached.checkedAt || 0)) < 20000) {
-        return cached.accepting === true;
+      const cached = venueEligibilityCache.get(key);
+      if (cached && (Date.now() - Number(cached.checkedAtMs || 0)) < 30000) {
+        return cached.ok === true;
       }
-      const commit = (accepting, shiftKey = "") => {
-        venueRedeemGateCache.set(key, {
-          accepting: !!accepting,
+      const commit = (ok, reason = "", shiftKey = "") => {
+        venueEligibilityCache.set(key, {
+          ok: !!ok,
+          reason: String(reason || ""),
           shiftKey: String(shiftKey || "").trim(),
-          checkedAt: Date.now()
+          checkedAtMs: Date.now()
         });
-        return !!accepting;
+        return !!ok;
       };
       try {
         const realtime = venueOpenNowMap.get(key);
         if (realtime && realtime.openNow === false) {
-          return commit(false, realtime.shiftKey || "");
+          return commit(false, "OPEN_NOW_FALSE", realtime.shiftKey || "");
         }
         if (db) {
           const shiftRef = doc(db, "venues", key, "shiftState", "current");
           const shiftSnap = await getDoc(shiftRef);
-          if (!shiftSnap.exists()) return commit(false);
+          if (!shiftSnap.exists()) return commit(false, "NO_SHIFT_STATE");
           const shiftData = shiftSnap.data() || {};
           const active = shiftData.active === true;
           const shiftKey = String(shiftData.shiftKey || "").trim();
           if (!active || !shiftKey) {
-            return commit(false, shiftKey);
+            return commit(false, "SHIFT_NOT_ACTIVE", shiftKey);
           }
           const lockRef = doc(db, "venues", key, "shiftCloseouts", shiftKey);
           const lockSnap = await getDoc(lockRef);
           const locked = lockSnap.exists() && lockSnap.data()?.shiftClosed === true;
-          return commit(!locked, shiftKey);
+          return commit(!locked, locked ? "SHIFT_LOCKED_CLOSED" : "OK", shiftKey);
         }
       } catch (err) {
         console.warn("Redeem preflight shift check failed", err);
       }
-      return commit(isVenueOpenNow(key));
+      return commit(isVenueOpenNow(key), "OPEN_NOW_FALLBACK");
     }
     function getVenuePerksStatus(venueId) {
       const activeCount = getActiveVenuePerks(venueId).length;
@@ -24733,7 +24739,7 @@ let onboardingIndex = 0;
           redirect: "if_required"
         });
         if (error) {
-          paymentError.textContent = error.message || "Payment failed. Please try again.";
+          paymentError.textContent = formatPaymentError({ code: "payment-error", message: error.message }, "Payment failed. Please try again.");
           paymentSubmitBtn.disabled = false;
           paymentSubmitBtn.textContent = originalText;
           return;
@@ -25259,7 +25265,7 @@ let onboardingIndex = 0;
           redirect: "if_required"
         });
         if (error) {
-          if (voucherPaymentError) voucherPaymentError.textContent = error.message || "Payment failed. Try again.";
+          if (voucherPaymentError) voucherPaymentError.textContent = formatPaymentError({ code: "payment-error", message: error.message }, "Payment failed. Try again.");
           return;
         }
         if (paymentIntent?.status === "succeeded") {
@@ -34186,6 +34192,8 @@ let onboardingIndex = 0;
           const idx = Math.max(0, Math.min(bucketCount - 1, Math.floor((ts - shiftStartMs) / bucketMs)));
           buckets[idx] += 1;
         });
+        const total = buckets.reduce((sum, value) => sum + value, 0);
+        if (total <= 0) return "(no activity)";
         const max = Math.max(1, ...buckets);
         return buckets.map((value) => {
           const rank = Math.max(0, Math.min(sparkChars.length - 1, Math.round((value / max) * (sparkChars.length - 1))));
@@ -34235,7 +34243,7 @@ let onboardingIndex = 0;
         `Standard verified: ${totals.standardVerifiedCount || 0}`,
         report.shiftNotes ? `Shift notes: ${report.shiftNotes}` : "Shift notes: none"
       ].join("\n");
-      const message = `[Close Out Report]\n${summary}\n\nShift Trend (15m buckets):\n${buildShiftSparkline() || "▁"}\n\nWeek vs Last Week (${report.venueName}):\n- This week verified: ${weekStats.thisWeek}\n- Last week verified: ${weekStats.lastWeek}\n\nTop perks:\n- Shift top perk: ${topPerkShift ? `${topPerkShift.name} (${topPerkShift.verified})` : "None"}\n- 1W top perk: ${weekStats.topPerkWeek ? `${weekStats.topPerkWeek[0]} (${weekStats.topPerkWeek[1]})` : "None"}\n\nBy Perk:\n${perkLines.length ? perkLines.join("\n") : "- None"}\n\nPending:\n${pendingLines.length ? pendingLines.join("\n") : "- None"}\n\nTonight Ledger:\n${ledgerLines.length ? ledgerLines.join("\n") : "- None"}\n\nAlerts:\n- Expired attempts: ${report.alerts?.expiredAttempts || 0}\n- Rapid redemptions: ${report.alerts?.rapidRedemptions || 0}\n${(report.alerts?.suspiciousActivityFlags || []).map((flag) => `- ${flag}`).join("\n") || "- No suspicious flags"}\n\nView live dashboard:\n${dashboardLink}`;
+      const message = `[Close Out Report]\n${summary}\n\nShift Trend (15m buckets):\n${buildShiftSparkline()}\n\nWeek vs Last Week (${report.venueName}):\n- This week verified: ${weekStats.thisWeek}\n- Last week verified: ${weekStats.lastWeek}\n\nTop perks:\n- Shift top perk: ${topPerkShift ? `${topPerkShift.name} (${topPerkShift.verified})` : "None"}\n- 1W top perk: ${weekStats.topPerkWeek ? `${weekStats.topPerkWeek[0]} (${weekStats.topPerkWeek[1]})` : "None"}\n\nBy Perk:\n${perkLines.length ? perkLines.join("\n") : "- None"}\n\nPending:\n${pendingLines.length ? pendingLines.join("\n") : "- None"}\n\nTonight Ledger:\n${ledgerLines.length ? ledgerLines.join("\n") : "- None"}\n\nAlerts:\n- Expired attempts: ${report.alerts?.expiredAttempts || 0}\n- Rapid redemptions: ${report.alerts?.rapidRedemptions || 0}\n${(report.alerts?.suspiciousActivityFlags || []).map((flag) => `- ${flag}`).join("\n") || "- No suspicious flags"}\n\nSummary footer:\n- Gross: $${Number(report?.sales?.gross || 0).toFixed(2)}\n- Sales count: ${Number(report?.sales?.count || 0)}\n- Net: $${Number(report?.sales?.net || 0).toFixed(2)}\n- Verified/Pending/Voided: ${Number(totals.verifiedCount || 0)}/${Number(totals.pendingCount || 0)}/${Number(totals.voidedCount || 0)}\n- Top perk: ${topPerkShift ? `${topPerkShift.name} (${topPerkShift.verified})` : "None"}\n\nView live dashboard:\n${dashboardLink}`;
       try {
         const requestBody = JSON.stringify({
           name: `${report.venueName} close-out`,
@@ -39417,6 +39425,7 @@ let onboardingIndex = 0;
     let pendingRedeemPerk = null;
     let pendingRedeemVenue = null;
     let redeemRequestInFlight = false;
+    let redeemEligibilityInFlight = false;
     function isBetaVenueId(venueId) {
       return String(venueId || "").trim().toLowerCase() === "beta";
     }
@@ -39965,13 +39974,20 @@ let onboardingIndex = 0;
 
     redeemClose.addEventListener("click", closeRedeemModal);
     redeemConfirm.addEventListener("click", async () => {
-      if (redeemRequestInFlight) return;
+      if (redeemRequestInFlight || redeemEligibilityInFlight) return;
       const setRedeemRequestBusy = (busy) => {
         redeemRequestInFlight = !!busy;
         if (!redeemConfirm) return;
         redeemConfirm.disabled = !!busy;
         redeemConfirm.setAttribute("aria-disabled", busy ? "true" : "false");
         redeemConfirm.textContent = busy ? "Creating..." : "Confirm";
+      };
+      const setRedeemEligibilityBusy = (busy) => {
+        redeemEligibilityInFlight = !!busy;
+        if (!redeemConfirm || redeemRequestInFlight) return;
+        redeemConfirm.disabled = !!busy;
+        redeemConfirm.setAttribute("aria-disabled", busy ? "true" : "false");
+        redeemConfirm.textContent = busy ? "Checking..." : "Confirm";
       };
       if (!guardWriteAction("createRedemption")) {
         creditInfo.textContent = "App is locked (read-only).";
@@ -40019,7 +40035,16 @@ let onboardingIndex = 0;
         creditInfo.textContent = "Select a venue before redeeming.";
         return;
       }
-      const venueAcceptingNow = await isVenueAcceptingRedemptionsNow(requestedVenue);
+      setRedeemEligibilityBusy(true);
+      let venueAcceptingNow = false;
+      try {
+        venueAcceptingNow = await Promise.race([
+          isVenueAcceptingRedemptionsNow(requestedVenue),
+          new Promise((resolve) => setTimeout(() => resolve(false), 3500))
+        ]);
+      } finally {
+        setRedeemEligibilityBusy(false);
+      }
       if (!venueAcceptingNow) {
         const safeMessage = MEMBER_SHIFT_INACTIVE_MESSAGE;
         creditInfo.textContent = safeMessage;
@@ -40186,6 +40211,14 @@ let onboardingIndex = 0;
       addRedemptionLogEntry(entry, { skipSync: true });
       closeRedeemModal();
       showRedemptionQr(perkLabel, code, requestedVenue);
+      try {
+        if (authUser) {
+          await loadMemberProfileForUser(authUser);
+          updateMembershipData(authUser);
+        }
+      } catch (syncErr) {
+        console.warn("Post-redeem member sync failed", syncErr);
+      }
       setRedeemRequestBusy(false);
     });
     redeemModal.addEventListener("click", (e) => {
@@ -40228,6 +40261,13 @@ let onboardingIndex = 0;
 
     const membershipPlanButtons = Array.from(document.querySelectorAll(".select-membership"));
 
+    /*
+      FINAL SMOKE
+      1) Shift closed -> member redeem shows exact SHIFT_INACTIVE copy, voucher unchanged.
+      2) Shift open -> redeem succeeds, voucher/state updates only after callable success.
+      3) Staff "More" analytics updates live and watcher remains singleton.
+      4) Close-out email includes sparkline + deep link and staff venue scoping is enforced.
+    */
     function enforceMemberMessageGuard(raw = "", fallback = "Could not complete this action right now.") {
       const text = String(raw || "").trim();
       if (!text) return fallback;
@@ -40241,6 +40281,7 @@ let onboardingIndex = 0;
       const codeRaw = String(err?.code || "").toLowerCase();
       const code = codeRaw.replace(/^functions\//, "");
       const detailsReason = String(err?.details?.reason || "").toUpperCase();
+      const detailsMemberMessage = String(err?.details?.memberMessage || "").trim();
       const message = String(err?.message || "").toLowerCase();
       const isShiftClosed = detailsReason === "SHIFT_CLOSED"
         || detailsReason === "SHIFT_INACTIVE"
@@ -40248,6 +40289,9 @@ let onboardingIndex = 0;
         || message.includes("shift");
       if (isShiftClosed) {
         return MEMBER_SHIFT_INACTIVE_MESSAGE;
+      }
+      if (detailsMemberMessage) {
+        return enforceMemberMessageGuard(detailsMemberMessage, context === "redeem" ? "Could not redeem right now. Please try again." : "Could not complete this action right now.");
       }
       if (code === "permission-denied" || code === "unauthenticated") {
         return enforceMemberMessageGuard(context === "redeem" ? "Could not redeem right now. Please try again." : "Could not complete this action right now.");
