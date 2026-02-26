@@ -31157,6 +31157,20 @@ let onboardingIndex = 0;
       });
     }
     async function requireStaffActor(options = {}) {
+      if (!staffSession?.venue) return null;
+      const activeMembers = getActiveStaffMembers(staffSession.venue);
+      if (!activeMembers.length) {
+        const actionType = String(options?.actionType || "").toLowerCase();
+        const msg = "Add at least one active staff member in Staff before continuing.";
+        if (actionType === "close_out_shift" && staffCloseOutStatus) {
+          staffCloseOutStatus.textContent = msg;
+        } else if (verifyError) {
+          verifyError.textContent = msg;
+        }
+        if (staffMemberError) staffMemberError.textContent = "Add at least one active staff member first.";
+        showToast("Add a staff member first.");
+        return null;
+      }
       const selection = await openStaffActorModal(options);
       return selection;
     }
