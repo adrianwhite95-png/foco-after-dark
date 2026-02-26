@@ -33456,7 +33456,7 @@ let onboardingIndex = 0;
         qaRunSmokeBtn.addEventListener("click", () => {
           const lines = [];
           const safeMsg = mapMemberFacingError({ code: "failed-precondition", details: { reason: "SHIFT_CLOSED" } }, "redeem");
-          lines.push(safeMsg === "This venue isn\u2019t accepting redemptions right now. Please try again in a moment."
+          lines.push(safeMsg === MEMBER_SHIFT_INACTIVE_MESSAGE
             ? "PASS: member error mapper"
             : "FAIL: member error mapper");
           lines.push((!ceoAnalyticsModal?.classList.contains("active") && !ceoAnalyticsLiveUnsub) || ceoAnalyticsModal?.classList.contains("active")
