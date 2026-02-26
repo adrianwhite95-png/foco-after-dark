@@ -259,8 +259,11 @@ function getStaffVenueLoginCode(venueId) {
 
 // Helper: enforce simple per-issuer rate limits to reduce abuse
 async function checkRateLimit(uid, opts = {}) {
-  const maxPerMin = opts.maxPerMin || 5;
-  const maxPerDay = opts.maxPerDay || 200;
+  const maxPerMin = opts.maxPerMin || 20;
+  const maxPerDay = opts.maxPerDay || 2000;
+  const burstAllowance = Number.isFinite(Number(opts.burstAllowance))
+    ? Math.max(0, Number(opts.burstAllowance))
+    : Math.max(3, Math.ceil(maxPerMin * 0.2));
   const now = admin.firestore.Timestamp.now();
   const nowMs = now.toMillis();
   const toMs = (value) => {
@@ -294,11 +297,30 @@ async function checkRateLimit(uid, opts = {}) {
       perDay = 0;
       nextDayStart = now;
     }
-    if (perMin + 1 > maxPerMin) {
-      throw new HttpsError('resource-exhausted', 'Rate limit exceeded (per minute)');
+    if (perMin + 1 > (maxPerMin + burstAllowance)) {
+      throw new HttpsError(
+        'resource-exhausted',
+        'Rate limit exceeded (per minute)',
+        {
+          limiter: "app_throttle",
+          scope: "per_minute",
+          maxPerMin,
+          burstAllowance,
+          perMin
+        }
+      );
     }
     if (perDay + 1 > maxPerDay) {
-      throw new HttpsError('resource-exhausted', 'Rate limit exceeded (per day)');
+      throw new HttpsError(
+        'resource-exhausted',
+        'Rate limit exceeded (per day)',
+        {
+          limiter: "app_throttle",
+          scope: "per_day",
+          maxPerDay,
+          perDay
+        }
+      );
     }
     // increment counters
     tx.set(ref, {
@@ -409,7 +431,25 @@ async function enforceCallableSecurity(context, opts = {}) {
 
   if (opts.rateLimit) {
     if (context?.auth?.uid) {
-      await checkRateLimit(context.auth.uid, opts.rateLimit);
+      const rateOpts = (opts.rateLimit === true ? {} : (opts.rateLimit || {}));
+      if (Number.isFinite(Number(opts.maxPerMin)) && !Number.isFinite(Number(rateOpts.maxPerMin))) {
+        rateOpts.maxPerMin = Number(opts.maxPerMin);
+      }
+      if (Number.isFinite(Number(opts.maxPerDay)) && !Number.isFinite(Number(rateOpts.maxPerDay))) {
+        rateOpts.maxPerDay = Number(opts.maxPerDay);
+      }
+      if (Number.isFinite(Number(opts.burstAllowance)) && !Number.isFinite(Number(rateOpts.burstAllowance))) {
+        rateOpts.burstAllowance = Number(opts.burstAllowance);
+      }
+      try {
+        await checkRateLimit(context.auth.uid, rateOpts);
+      } catch (err) {
+        if (err instanceof HttpsError && err.code === "resource-exhausted") {
+          const details = { ...(err.details || {}), limiter: "app_throttle" };
+          throw new HttpsError(err.code, err.message, details);
+        }
+        throw err;
+      }
     } else if (opts.publicRateLimit) {
       await enforcePublicCallableRateLimit(context, opts.publicScope || "public", opts.publicRateLimit);
     }
@@ -5652,7 +5692,14 @@ exports.staffUpsertVenuePerks = functions.https.onCall(async (data, context) => 
 
 exports.staffManageVenueMember = functions.https.onCall(async (data, context) => {
   try {
-    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 600, maxPerDay: 10000 });
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      appLockEnforced: true,
+      rateLimit: true,
+      maxPerMin: 700,
+      maxPerDay: 15000,
+      burstAllowance: 220
+    });
     const venueId = assertVenueMutationAccess(context, data?.venueId);
     const action = String(data?.action || "").toLowerCase();
     if (action !== "add" && action !== "remove") throw new HttpsError("invalid-argument", "Invalid action");
@@ -5690,7 +5737,14 @@ exports.staffManageVenueMember = functions.https.onCall(async (data, context) =>
 
 exports.staffShiftAction = functions.https.onCall(async (data, context) => {
   try {
-    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 180, maxPerDay: 2000 });
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      appLockEnforced: true,
+      rateLimit: true,
+      maxPerMin: 420,
+      maxPerDay: 12000,
+      burstAllowance: 140
+    });
     const venueId = assertVenueMutationAccess(context, data?.venueId);
     const action = String(data?.action || "").toLowerCase();
     const shiftKey = String(data?.shiftKey || "").trim();
@@ -5812,7 +5866,14 @@ exports.staffShiftAction = functions.https.onCall(async (data, context) => {
 
 exports.staffAppendActivityLog = functions.https.onCall(async (data, context) => {
   try {
-    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 600, maxPerDay: 10000 });
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      appLockEnforced: true,
+      rateLimit: true,
+      maxPerMin: 700,
+      maxPerDay: 15000,
+      burstAllowance: 220
+    });
     const venueId = assertVenueMutationAccess(context, data?.venueId);
     const actionType = normalizeStaffActionType(data?.actionType);
     const payload = {
@@ -5859,7 +5920,14 @@ function coerceDateInput(value, fieldName = "date") {
 
 exports.staffUpsertVenueOffer = functions.https.onCall(async (data, context) => {
   try {
-    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 180, maxPerDay: 2000 });
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      appLockEnforced: true,
+      rateLimit: true,
+      maxPerMin: 420,
+      maxPerDay: 12000,
+      burstAllowance: 140
+    });
     const venueId = assertVenueMutationAccess(context, data?.venueId);
     const action = String(data?.action || "upsert").trim().toLowerCase();
     const offerTypeRaw = String(data?.offerType || "alert").trim().toLowerCase();

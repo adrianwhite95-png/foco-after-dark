@@ -18084,6 +18084,76 @@
       return raw;
     }
 
+    function classifyLimiterSource(err) {
+      const code = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
+      const msg = String(err?.message || "").toLowerCase();
+      const details = err?.details || {};
+      if (String(details?.limiter || "").toLowerCase() === "app_throttle") return "app_throttle";
+      if (code === "resource-exhausted" || code === "too-many-requests" || msg.includes("rate limit")) return "app_throttle";
+      if (msg.includes("quota exceeded") || msg.includes("firestore quota") || msg.includes("exceeded quota")) return "firestore_quota";
+      if (msg.includes("concurrency") || msg.includes("concurrent") || msg.includes("max instances")) return "function_concurrency";
+      return "unknown";
+    }
+
+    function logLimiterTrigger(err, context = "") {
+      const source = classifyLimiterSource(err);
+      if (source === "unknown") return;
+      console.warn("[limiter]", {
+        context: String(context || ""),
+        source,
+        code: String(err?.code || ""),
+        message: String(err?.message || ""),
+        details: err?.details || null
+      });
+    }
+
+    function isRetryableCallableError(err) {
+      const code = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
+      const message = String(err?.message || "").toLowerCase();
+      return code === "resource-exhausted"
+        || code === "unavailable"
+        || code === "deadline-exceeded"
+        || code === "aborted"
+        || code === "internal"
+        || code === "unknown"
+        || message.includes("429")
+        || message.includes("resource exhausted")
+        || message.includes("too many requests");
+    }
+
+    const callableInFlight = new Map();
+    async function invokeCallableWithRetry(name, payload = {}, options = {}) {
+      if (!functionsClient) throw new Error("Cloud functions unavailable");
+      const lockKey = String(options.lockKey || `${name}:${JSON.stringify(payload)}`);
+      if (callableInFlight.has(lockKey)) return callableInFlight.get(lockKey);
+      const retries = Math.max(0, Number(options.retries ?? 3));
+      const baseDelayMs = Math.max(120, Number(options.baseDelayMs ?? 260));
+      const timeoutMs = Math.max(1000, Number(options.timeoutMs ?? 12000));
+      const exec = (async () => {
+        const fn = httpsCallable(functionsClient, name, { timeout: timeoutMs });
+        let lastErr = null;
+        for (let attempt = 0; attempt <= retries; attempt += 1) {
+          try {
+            return await fn(payload);
+          } catch (err) {
+            lastErr = err;
+            logLimiterTrigger(err, `callable:${name}`);
+            if (!isRetryableCallableError(err) || attempt >= retries) break;
+            const jitter = Math.floor(Math.random() * 140);
+            const waitMs = (baseDelayMs * (2 ** attempt)) + jitter;
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
+          }
+        }
+        throw lastErr || new Error(`Callable ${name} failed`);
+      })();
+      callableInFlight.set(lockKey, exec);
+      try {
+        return await exec;
+      } finally {
+        callableInFlight.delete(lockKey);
+      }
+    }
+
     function formatAuthError(err) {
       const code = err?.code || "";
       switch (code) {
@@ -21959,6 +22029,7 @@
           onNext(snap);
         },
         (err) => {
+          logLimiterTrigger(err, `snapshot:${label}`);
           const unavailable = (err?.code || "").includes("unavailable");
           if (!unavailable) {
             console.error(`[${label}] snapshot failed`, err);
@@ -22013,6 +22084,20 @@
   window.addEventListener("online", () => renderRealtimeStatus());
   window.addEventListener("offline", () => renderRealtimeStatus());
   renderRealtimeStatus();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      try { stopCeoLiveAnalyticsWatch(); } catch (_) {}
+      try { stopStaffAnalyticsWatch(); } catch (_) {}
+      return;
+    }
+    if (currentScreenName === "staffPortal" && staffSession?.venue) {
+      try { startStaffAnalyticsWatch(staffSession.venue, staffAnalyticsRangeKey || "1d"); } catch (_) {}
+    }
+    if (ceoAnalyticsModal?.classList.contains("active")) {
+      const selectedVenue = ceoAnalyticsVenueFilter?.value || "";
+      try { startCeoLiveAnalyticsWatch({ venueIdOrNull: selectedVenue, rangeKey: ceoAnalyticsRangeKey || "1w" }); } catch (_) {}
+    }
+  });
   function applyVipDealsSnapshot(snapshot) {
     if (!snapshot) return;
     const now = Date.now() - ALERT_EXPIRY_SKEW_MS;
@@ -30076,6 +30161,11 @@ let onboardingIndex = 0;
       const streamWindow = useOverlay
         ? { ...requestedWindow, startMs: Date.now() - (7 * 24 * 60 * 60 * 1000), label: "Live overlay: last 7 days" }
         : requestedWindow;
+      const nowMs = Date.now();
+      const maxLiveWindowMs = 30 * 24 * 60 * 60 * 1000;
+      if ((nowMs - streamWindow.startMs) > maxLiveWindowMs) {
+        streamWindow.startMs = nowMs - maxLiveWindowMs;
+      }
       if (useOverlay) {
         staffAnalyticsOverlayNotice = "Large range uses summary + live last 7 days.";
       }
@@ -30831,14 +30921,13 @@ let onboardingIndex = 0;
       renderStaffShiftStatus();
       if (!functionsClient) throw new Error("Cloud functions unavailable");
       await ensureFirebaseUser();
-      const startFn = httpsCallable(functionsClient, "staffShiftAction");
-      await startFn({
+      await invokeCallableWithRetry("staffShiftAction", {
         action: "start",
         venueId,
         shiftKey,
         staffId: shift.startedByStaffId || null,
         staffName: shift.startedByStaffName || null
-      });
+      }, { lockKey: `staffShift:start:${venueId}:${shiftKey}`, retries: 3 });
       await logVenueStaffAction({
         actionType: "start_shift",
         staffId: shift.startedByStaffId,
@@ -30862,8 +30951,7 @@ let onboardingIndex = 0;
       await ensureFirebaseUser();
       let closedOnServer = false;
       try {
-        const closeFn = httpsCallable(functionsClient, "staffShiftAction");
-        await closeFn({
+        await invokeCallableWithRetry("staffShiftAction", {
           action: "close",
           venueId,
           shiftKey,
@@ -30871,15 +30959,14 @@ let onboardingIndex = 0;
           closeoutAttemptId: closeoutAttemptId || null,
           staffId: actor?.staffId || null,
           staffName: actor?.staffName || null
-        });
+        }, { lockKey: `staffShift:close:${venueId}:${shiftKey}`, retries: 3 });
         closedOnServer = true;
       } catch (err) {
         const errCode = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
         if (!["not-found", "unimplemented", "internal", "unavailable"].includes(errCode)) {
           throw err;
         }
-        const fallbackFn = httpsCallable(functionsClient, "staffUpsertShiftCloseoutLock");
-        await fallbackFn({
+        await invokeCallableWithRetry("staffUpsertShiftCloseoutLock", {
           venueId,
           shiftKey,
           closeoutAttemptId: closeoutAttemptId || null,
@@ -30890,7 +30977,7 @@ let onboardingIndex = 0;
             staffName: actor?.staffName || null
           },
           report
-        });
+        }, { lockKey: `staffShift:fallback:${venueId}:${shiftKey}:${closeoutAttemptId || "na"}`, retries: 2 });
         try {
           await logVenueStaffAction({
             actionType: "closeout_fallback_used",
@@ -30999,8 +31086,13 @@ let onboardingIndex = 0;
       renderStaffTeamList();
       if (!functionsClient) throw new Error("Cloud functions unavailable");
       await ensureFirebaseUser();
-      const addFn = httpsCallable(functionsClient, "staffManageVenueMember");
-      await addFn({ venueId, action: "add", staffId, firstName, lastName });
+      await invokeCallableWithRetry("staffManageVenueMember", {
+        venueId,
+        action: "add",
+        staffId,
+        firstName,
+        lastName
+      }, { lockKey: `staffManage:add:${venueId}:${staffId}` });
       await logVenueStaffAction({
         actionType: "staff_member_added",
         staffId: payload.staffId,
@@ -31029,7 +31121,6 @@ let onboardingIndex = 0;
       }
       if (!functionsClient) throw new Error("Cloud functions unavailable");
       await ensureFirebaseUser();
-      const removeFn = httpsCallable(functionsClient, "staffManageVenueMember");
       const isRateLimitedError = (err) => {
         const code = String(err?.code || "").toLowerCase();
         const msg = String(err?.message || "").toLowerCase();
@@ -31040,12 +31131,20 @@ let onboardingIndex = 0;
           || msg.includes("429");
       };
       try {
-        await removeFn({ venueId, action: "remove", staffId: key });
+        await invokeCallableWithRetry("staffManageVenueMember", {
+          venueId,
+          action: "remove",
+          staffId: key
+        }, { lockKey: `staffManage:remove:${venueId}:${key}` });
       } catch (err) {
         if (!isRateLimitedError(err)) throw err;
         console.warn("staffManageVenueMember rate-limited; retrying once", err);
         await new Promise((resolve) => setTimeout(resolve, 600));
-        await removeFn({ venueId, action: "remove", staffId: key });
+        await invokeCallableWithRetry("staffManageVenueMember", {
+          venueId,
+          action: "remove",
+          staffId: key
+        }, { lockKey: `staffManage:remove:${venueId}:${key}:retry` });
       }
       await logVenueStaffAction({
         actionType: "staff_member_removed",
@@ -31118,8 +31217,7 @@ let onboardingIndex = 0;
       if (!functionsClient) return payload;
       try {
         await ensureFirebaseUser();
-        const fn = httpsCallable(functionsClient, "staffAppendActivityLog");
-        const result = await fn({
+        const result = await invokeCallableWithRetry("staffAppendActivityLog", {
           actionType: payload.actionType,
           staffId: payload.staffId,
           staffName: payload.staffName,
@@ -31132,6 +31230,9 @@ let onboardingIndex = 0;
           reasonCode: payload.reasonCode,
           reasonNote: payload.reasonNote,
           source: payload.source
+        }, {
+          lockKey: `staffActivity:${payload.actionType}:${payload.redemptionId || payload.userId || Date.now()}`,
+          retries: 2
         });
         return { ...payload, id: result?.data?.id || null };
       } catch (err) {
@@ -32222,6 +32323,10 @@ let onboardingIndex = 0;
       const streamWindow = useSummarizedLargeRange
         ? { ...requestedWindow, startMs: now - sevenDaysMs, label: "Live overlay: last 7 days" }
         : requestedWindow;
+      const maxLiveWindowMs = 30 * 24 * 60 * 60 * 1000;
+      if ((now - streamWindow.startMs) > maxLiveWindowMs) {
+        streamWindow.startMs = now - maxLiveWindowMs;
+      }
       if (useSummarizedLargeRange) {
         ceoAnalyticsLargeRangeNotice = "Large range shows summarized history + live last 7 days.";
       }
@@ -35126,7 +35231,13 @@ let onboardingIndex = 0;
           }
         } catch (err) {
           console.warn("Add staff member failed", err);
-          if (staffMemberError) staffMemberError.textContent = err?.message || "Could not add staff member.";
+          const code = String(err?.code || "").toLowerCase();
+          const msg = String(err?.message || "").toLowerCase();
+          if (code.includes("resource-exhausted") || msg.includes("429") || msg.includes("too many requests")) {
+            if (staffMemberError) staffMemberError.textContent = "Too many updates right now. Please wait a moment and try again.";
+          } else {
+            if (staffMemberError) staffMemberError.textContent = err?.message || "Could not add staff member.";
+          }
         }
       });
     }
@@ -35149,7 +35260,13 @@ let onboardingIndex = 0;
           }
         } catch (err) {
           console.warn("Remove staff failed", err);
-          if (staffMemberError) staffMemberError.textContent = "Could not remove staff member.";
+          const code = String(err?.code || "").toLowerCase();
+          const msg = String(err?.message || "").toLowerCase();
+          if (code.includes("resource-exhausted") || msg.includes("429") || msg.includes("too many requests")) {
+            if (staffMemberError) staffMemberError.textContent = "Too many updates right now. Please wait a moment and try again.";
+          } else {
+            if (staffMemberError) staffMemberError.textContent = "Could not remove staff member.";
+          }
         } finally {
           btn.dataset.busy = "";
           btn.disabled = false;
@@ -40151,8 +40268,7 @@ let onboardingIndex = 0;
       }
       let payload = null;
       try {
-        const fn = httpsCallable(functionsClient, "createRedemption");
-        const resp = await fn({
+        const resp = await invokeCallableWithRetry("createRedemption", {
           passCode: activePassId,
           venueId: requestedVenue,
           perkId,
@@ -40161,6 +40277,10 @@ let onboardingIndex = 0;
           memberUsername: preferredUsername(),
           vibeLabel,
           vibeKey
+        }, {
+          lockKey: `createRedemption:${activePassId}:${requestedVenue}:${perkId}`,
+          retries: 3,
+          baseDelayMs: 280
         });
         payload = resp?.data?.redemption || null;
       } catch (err) {
