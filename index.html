@@ -15310,12 +15310,14 @@
       console.info("[auth] Safari detected: Firestore long-polling mode enabled");
     }
     window.addEventListener("pagehide", () => {
+      try { setMemberReauthOnResumeMarker(); } catch (_) {}
       try { sessionStorage.setItem(REALTIME_RELOAD_GUARD_KEY, String(Date.now())); } catch (_) {}
       try {
         disableNetwork(db).catch(() => {});
       } catch (_) {}
     });
     window.addEventListener("beforeunload", () => {
+      try { setMemberReauthOnResumeMarker(); } catch (_) {}
       try { sessionStorage.setItem(REALTIME_RELOAD_GUARD_KEY, String(Date.now())); } catch (_) {}
       try {
         disableNetwork(db).catch(() => {});
@@ -15877,7 +15879,26 @@
     let authSubmitInFlight = false;
     let authTransition = false;
     function isAuthBusy() {
-      return authSubmitInFlight || authTransition || forceShowLogin || window.location.hash === "#login" || screens.auth?.classList.contains("active");
+      return authSubmitInFlight || authTransition || !!screens.auth?.classList.contains("active");
+    }
+
+    function closeStaleBlockingOverlays(options = {}) {
+      const keepForceUpdate = options.keepForceUpdate !== false;
+      const keepIds = new Set(["appLockOverlay"]);
+      if (keepForceUpdate && requiredUpdateVersion) keepIds.add("forceUpdateModal");
+      const selectors = [
+        ".modal-backdrop.active",
+        ".staff-gate-overlay.active",
+        ".venue-detail-overlay.active",
+        ".receipt-overlay.active",
+        ".onboarding-overlay.active"
+      ];
+      try {
+        document.querySelectorAll(selectors.join(",")).forEach((el) => {
+          if (keepIds.has(el.id)) return;
+          el.classList.remove("active");
+        });
+      } catch (_) {}
     }
     let authAttemptCounter = 0;
     let authClaims = null;
@@ -16047,6 +16068,8 @@
     const REMEMBER_EMAIL_KEY = "rememberedEmail";
     const REMEMBER_LOGIN_KEY = "rememberedAuthLogin_v2";
     const STAFF_REMEMBER_LOGIN_KEY = "staffRememberedLogin";
+    const MEMBER_REAUTH_ON_RESUME_KEY = "memberReauthOnResume_v1";
+    const MEMBER_REAUTH_ON_RESUME_MS = 20 * 1000;
     const BUILD_VERSION = "2025.12.15.1";
     try {
       const url = new URL(window.location.href);
@@ -16068,6 +16091,72 @@
     let ceoMembersUnsub = null;
     let ceoMembersCache = [];
     let ceoAuthUidAllowlist = null;
+
+    function shouldRequireMemberReauthOnResume(user = firebaseAuth?.currentUser) {
+      if (!user || user.isAnonymous) return false;
+      if (isStaffAccount(user)) return false;
+      const email = String(user.email || "").toLowerCase();
+      if (email === "ceo@gmail.com") return false;
+      return true;
+    }
+
+    function setMemberReauthOnResumeMarker(user = firebaseAuth?.currentUser) {
+      if (!shouldRequireMemberReauthOnResume(user)) return;
+      try {
+        localStorage.setItem(MEMBER_REAUTH_ON_RESUME_KEY, JSON.stringify({
+          uid: String(user.uid || ""),
+          hiddenAt: Date.now()
+        }));
+      } catch (_) {}
+    }
+
+    function clearMemberReauthOnResumeMarker(uid = null) {
+      try {
+        if (!uid) {
+          localStorage.removeItem(MEMBER_REAUTH_ON_RESUME_KEY);
+          return;
+        }
+        const raw = localStorage.getItem(MEMBER_REAUTH_ON_RESUME_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.uid || String(parsed.uid) === String(uid)) {
+          localStorage.removeItem(MEMBER_REAUTH_ON_RESUME_KEY);
+        }
+      } catch (_) {
+        try { localStorage.removeItem(MEMBER_REAUTH_ON_RESUME_KEY); } catch (_) {}
+      }
+    }
+
+    async function maybeForceMemberReauthOnResume(reason = "resume") {
+      const user = firebaseAuth?.currentUser;
+      if (!shouldRequireMemberReauthOnResume(user)) {
+        clearMemberReauthOnResumeMarker();
+        return false;
+      }
+      let marker = null;
+      try {
+        marker = JSON.parse(localStorage.getItem(MEMBER_REAUTH_ON_RESUME_KEY) || "null");
+      } catch (_) {
+        marker = null;
+      }
+      if (!marker?.uid || String(marker.uid) !== String(user.uid)) {
+        return false;
+      }
+      const hiddenAt = Number(marker.hiddenAt || 0);
+      if (!Number.isFinite(hiddenAt) || hiddenAt <= 0) {
+        clearMemberReauthOnResumeMarker(user.uid);
+        return false;
+      }
+      const hiddenForMs = Date.now() - hiddenAt;
+      if (hiddenForMs < MEMBER_REAUTH_ON_RESUME_MS) {
+        clearMemberReauthOnResumeMarker(user.uid);
+        return false;
+      }
+      clearMemberReauthOnResumeMarker(user.uid);
+      console.info("[auth] member session ended after app background", { reason, hiddenForMs });
+      await signOutToLanding();
+      return true;
+    }
     let ceoMembersHydrating = false;
     let ceoAuthSummarySyncTimer = null;
     let ceoAnalyticsLatestSnapshot = null;
@@ -16289,6 +16378,7 @@
         updateRandomTestimonial();
       }
       if (name === "landing") {
+        closeStaleBlockingOverlays();
         setLandingTagline();
         if (landingRefreshBtn) landingRefreshBtn.style.display = "inline-flex";
       } else {
@@ -18501,6 +18591,7 @@
         return;
       }
 
+      clearMemberReauthOnResumeMarker(user.uid);
       exitBetaPassMode();
       await loadMemberProfileWithTimeout(user);
       if (!memberProfile) {
@@ -22194,12 +22285,14 @@
   window.addEventListener("online", () => renderRealtimeStatus());
   window.addEventListener("offline", () => renderRealtimeStatus());
   renderRealtimeStatus();
-  document.addEventListener("visibilitychange", () => {
+  document.addEventListener("visibilitychange", async () => {
     if (document.hidden) {
+      setMemberReauthOnResumeMarker();
       try { stopCeoLiveAnalyticsWatch(); } catch (_) {}
       try { stopStaffAnalyticsWatch(); } catch (_) {}
       return;
     }
+    if (await maybeForceMemberReauthOnResume("visibility")) return;
     if (currentScreenName === "staffPortal" && staffSession?.venue) {
       try { startStaffAnalyticsWatch(staffSession.venue, staffAnalyticsRangeKey || "1d"); } catch (_) {}
     }
@@ -23717,6 +23810,7 @@ let onboardingIndex = 0;
       ["betaSkipActive", "staffSession", "ceoSession", "pendingScanVerify", "lastUid", "lastRole", "lastRoute", "activeProfile", "betaLogin", "anonLogin"].forEach(key => localStorage.removeItem(key));
       if (currentUid) {
         clearLoginSessionFlag(currentUid);
+        clearMemberReauthOnResumeMarker(currentUid);
         localStorage.removeItem(`passcode_${currentUid}`);
         localStorage.removeItem(`membership_${currentUid}`);
         localStorage.removeItem(`memberSince_${currentUid}`);
@@ -23724,6 +23818,7 @@ let onboardingIndex = 0;
         localStorage.removeItem(`memberMeta_${currentUid}`);
         localStorage.removeItem(getBillingKey(currentUid));
       }
+      clearMemberReauthOnResumeMarker();
       exitBetaPassMode();
       onboardingMembershipFlow = false;
       forceMembershipScreen = false;
@@ -37037,6 +37132,10 @@ let onboardingIndex = 0;
           applyBackgroundTheme("default");
           resetRewardsProgressState();
           showScreen("landing");
+          initialAuthResolved = true;
+          return;
+        }
+        if (await maybeForceMemberReauthOnResume("auth-state")) {
           initialAuthResolved = true;
           return;
         }
