@@ -13861,6 +13861,11 @@
       <span class="pill" id="staffShiftStatusPill">No shift</span>
       <span class="meta-note" id="staffCloseoutStamp" style="font-size:12px;color:#94a3b8;"></span>
     </div>
+    <div id="staffNoShiftBanner" class="notice-card" style="display:none;margin-top:10px;">
+      <strong>No active shift</strong>
+      <div class="small" style="margin-top:6px;">Start a new shift to verify and process redemptions.</div>
+      <button type="button" class="btn btn-primary" id="staffNoShiftStartBtn" style="margin-top:10px;">Start new shift</button>
+    </div>
     <div class="staff-sticky-bar">
       <div class="venue-chip" id="staffVenueChip">Venue</div>
       <div class="sticky-actions">
@@ -19032,6 +19037,8 @@
     const staffShiftPrompt = document.getElementById("staffShiftPrompt");
     const staffShiftError = document.getElementById("staffShiftError");
     const staffShiftStartBtn = document.getElementById("staffShiftStartBtn");
+    const staffNoShiftBanner = document.getElementById("staffNoShiftBanner");
+    const staffNoShiftStartBtn = document.getElementById("staffNoShiftStartBtn");
     const staffShiftLogout = document.getElementById("staffShiftLogout");
     const staffShiftClose = document.getElementById("staffShiftClose");
     const staffMemberForm = document.getElementById("staffMemberForm");
@@ -24837,7 +24844,7 @@ let onboardingIndex = 0;
           closePointsRedeemModal();
         } catch (err) {
           if (pointsRedeemError) {
-            pointsRedeemError.textContent = err?.message || "Could not redeem points.";
+            pointsRedeemError.textContent = mapMemberFacingError(err, "points");
           }
         } finally {
           pointsRedeemConfirm.disabled = false;
@@ -24931,8 +24938,8 @@ let onboardingIndex = 0;
           ? "Billing is disabled for this account."
           : studentPromoDenied
             ? "CSU50 is for .edu emails only."
-            : (rawMessage || "Could not start payment. Please try again.");
-        paymentError.textContent = msg;
+            : mapMemberFacingError(err, "payment");
+        paymentError.textContent = enforceMemberMessageGuard(msg, "Could not start payment. Please try again.");
         if (paymentSubmitBtn) {
           paymentSubmitBtn.disabled = false;
           paymentSubmitBtn.textContent = "Start Membership";
@@ -24957,9 +24964,9 @@ let onboardingIndex = 0;
 
     function formatPaymentError(err, fallback) {
       const code = (err?.code || "").toString().toLowerCase();
-      if (code === "internal") return fallback;
-      if (code === "failed-precondition") return err?.message || fallback;
-      return err?.message || fallback;
+      if (code === "internal") return enforceMemberMessageGuard(fallback, fallback);
+      if (code === "failed-precondition") return mapMemberFacingError(err, "payment");
+      return enforceMemberMessageGuard(mapMemberFacingError(err, "payment"), fallback);
     }
 
     async function prepareVoucherPayment(pack) {
@@ -30254,7 +30261,7 @@ let onboardingIndex = 0;
         const now = Date.now();
         if (now - staffShiftCleanupToastAt > 1500) {
           staffShiftCleanupToastAt = now;
-          showToast("Shift was closed on another device. Please start a new shift.", 2800);
+          showToast("Shift was closed on another device.", 2200);
         }
       }
     }
@@ -30409,6 +30416,8 @@ let onboardingIndex = 0;
     function renderStaffShiftStatus() {
       if (!staffShiftStatusPill) return;
       const activeShift = getActiveShiftForVenue(staffSession?.venue);
+      const showNoShift = !!(staffSession?.venue && !activeShift);
+      if (staffNoShiftBanner) staffNoShiftBanner.style.display = showNoShift ? "" : "none";
       if (!staffSession?.venue || !activeShift) {
         staffShiftStatusPill.textContent = "No shift";
         staffShiftStatusPill.classList.remove("verified");
@@ -30424,6 +30433,13 @@ let onboardingIndex = 0;
       staffShiftStatusPill.classList.add("verified");
       if (staffCloseoutStamp) {
         staffCloseoutStamp.textContent = `Shift ${activeShift.shiftKey} started ${formatMST(activeShift.startedAt)}`;
+      }
+      if (DEBUG_MODE && staffSession?.venue) {
+        const effective = getEffectiveShiftState(staffSession.venue);
+        if (effective.hasActiveShift && effective.isClosedByLock && effective.shiftKey === effective.lockShiftKey) {
+          console.warn("[staffShift] conflicting active+closed state detected; forcing cleanup", effective);
+          clearLocalActiveShiftForVenue(staffSession.venue, { notify: true });
+        }
       }
     }
     function closeStaffShiftModal(options = {}) {
@@ -32673,62 +32689,82 @@ let onboardingIndex = 0;
         ceoAnalyticsCompareChart.destroy();
         ceoAnalyticsCompareChart = null;
       }
-      ceoAnalyticsTrendChart = new Chart(trendCanvas.getContext("2d"), {
-        type: "line",
-        data: {
-          labels: snapshot?.trend?.labels || [],
-          datasets: [{
-            label: "Verified redemptions",
-            data: snapshot?.trend?.values || [],
-            borderColor: "rgba(34,211,238,1)",
-            backgroundColor: "rgba(34,211,238,0.22)",
-            tension: 0.28,
-            fill: true
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { labels: { color: "#dbeafe" } } },
-          scales: {
-            x: { ticks: { color: "#9fb4d9", maxTicksLimit: 8 }, grid: { color: "rgba(255,255,255,0.06)" } },
-            y: { ticks: { color: "#9fb4d9", precision: 0 }, grid: { color: "rgba(255,255,255,0.06)" } }
-          }
-        }
-      });
-      const thisWeek = snapshot?.comparison?.thisWeek || { gross: 0, net: 0 };
-      const lastWeek = snapshot?.comparison?.lastWeek || { gross: 0, net: 0 };
-      ceoAnalyticsCompareChart = new Chart(compareCanvas.getContext("2d"), {
-        type: "bar",
-        data: {
-          labels: ["Gross", "Net"],
-          datasets: [
-            {
-              label: "This week",
-              data: [thisWeek.gross || 0, thisWeek.net || 0],
-              backgroundColor: "rgba(34,197,94,0.55)",
-              borderColor: "rgba(34,197,94,1)",
-              borderWidth: 1
-            },
-            {
-              label: "Last week",
-              data: [lastWeek.gross || 0, lastWeek.net || 0],
-              backgroundColor: "rgba(244,114,182,0.55)",
-              borderColor: "rgba(244,114,182,1)",
-              borderWidth: 1
+      try {
+        ceoAnalyticsTrendChart = new Chart(trendCanvas.getContext("2d"), {
+          type: "line",
+          data: {
+            labels: snapshot?.trend?.labels || [],
+            datasets: [{
+              label: "Verified redemptions",
+              data: snapshot?.trend?.values || [],
+              borderColor: "rgba(34,211,238,1)",
+              backgroundColor: "rgba(34,211,238,0.22)",
+              tension: 0.28,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: "#dbeafe" } } },
+            scales: {
+              x: { ticks: { color: "#9fb4d9", maxTicksLimit: 8 }, grid: { color: "rgba(255,255,255,0.06)" } },
+              y: { ticks: { color: "#9fb4d9", precision: 0 }, grid: { color: "rgba(255,255,255,0.06)" } }
             }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { labels: { color: "#dbeafe" } } },
-          scales: {
-            x: { ticks: { color: "#9fb4d9" }, grid: { color: "rgba(255,255,255,0.06)" } },
-            y: { ticks: { color: "#9fb4d9" }, grid: { color: "rgba(255,255,255,0.06)" } }
           }
+        });
+        const thisWeek = snapshot?.comparison?.thisWeek || { gross: 0, net: 0 };
+        const lastWeek = snapshot?.comparison?.lastWeek || { gross: 0, net: 0 };
+        ceoAnalyticsCompareChart = new Chart(compareCanvas.getContext("2d"), {
+          type: "bar",
+          data: {
+            labels: ["Gross", "Net"],
+            datasets: [
+              {
+                label: "This week",
+                data: [thisWeek.gross || 0, thisWeek.net || 0],
+                backgroundColor: "rgba(34,197,94,0.55)",
+                borderColor: "rgba(34,197,94,1)",
+                borderWidth: 1
+              },
+              {
+                label: "Last week",
+                data: [lastWeek.gross || 0, lastWeek.net || 0],
+                backgroundColor: "rgba(244,114,182,0.55)",
+                borderColor: "rgba(244,114,182,1)",
+                borderWidth: 1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: "#dbeafe" } } },
+            scales: {
+              x: { ticks: { color: "#9fb4d9" }, grid: { color: "rgba(255,255,255,0.06)" } },
+              y: { ticks: { color: "#9fb4d9" }, grid: { color: "rgba(255,255,255,0.06)" } }
+            }
+          }
+        });
+      } catch (err) {
+        console.warn("CEO chart render failed, falling back to table", err);
+        const trendHost = trendCanvas.parentElement;
+        const compareHost = compareCanvas.parentElement;
+        if (trendHost) {
+          const rows = (snapshot?.trend?.labels || []).map((label, idx) => (
+            `<tr><td>${label}</td><td>${Number(snapshot?.trend?.values?.[idx] || 0)}</td></tr>`
+          )).join("");
+          trendHost.innerHTML = `<table class="member-table"><thead><tr><th>Bucket</th><th>Verified</th></tr></thead><tbody>${rows || '<tr><td colspan="2">No data</td></tr>'}</tbody></table>`;
         }
-      });
+        if (compareHost) {
+          const thisWeek = snapshot?.comparison?.thisWeek || { gross: 0, net: 0 };
+          const lastWeek = snapshot?.comparison?.lastWeek || { gross: 0, net: 0 };
+          compareHost.innerHTML = `<table class="member-table"><thead><tr><th>Metric</th><th>This week</th><th>Last week</th></tr></thead><tbody>
+            <tr><td>Gross</td><td>$${Number(thisWeek.gross || 0).toFixed(2)}</td><td>$${Number(lastWeek.gross || 0).toFixed(2)}</td></tr>
+            <tr><td>Net</td><td>$${Number(thisWeek.net || 0).toFixed(2)}</td><td>$${Number(lastWeek.net || 0).toFixed(2)}</td></tr>
+          </tbody></table>`;
+        }
+      }
     }
     function renderCeoAnalytics() {
       if (!ceoAnalyticsContent) return;
@@ -32750,6 +32786,10 @@ let onboardingIndex = 0;
       const topVenueText = snapshot.topVenueThisWeek
         ? `${snapshot.topVenueThisWeek.name} · ${snapshot.topVenueThisWeek.count} verified`
         : "No venue data this week.";
+      const topVenueHeader = selectedVenue ? "Selected venue (this week)" : "Top venue this week";
+      const topVenueDisplay = selectedVenue
+        ? `${getVenueDisplayName(selectedVenue)} · ${snapshot.topVenueThisWeek?.count || 0} verified`
+        : topVenueText;
       const topPerkText = snapshot.topPerkInRange
         ? `${snapshot.topPerkInRange.name} · ${snapshot.topPerkInRange.count} redemptions`
         : "No perk data in selected range.";
@@ -32759,6 +32799,7 @@ let onboardingIndex = 0;
       const avgSale = Number(snapshot.sales?.avg || 0);
       const watcherStatus = ceoAnalyticsLiveUnsub ? "active" : "inactive";
       const watcherUpdated = ceoAnalyticsLiveLastUpdateAt ? formatMST(ceoAnalyticsLiveLastUpdateAt) : "never";
+      const watcherWindow = ceoAnalyticsLiveWindow?.label || "n/a";
       ceoAnalyticsContent.innerHTML = `
         <div class="analytics-section" style="margin-bottom:10px;">
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
@@ -32792,8 +32833,8 @@ let onboardingIndex = 0;
             </ul>
           </div>
           <div class="analytics-section">
-            <h5>Top venue this week</h5>
-            <ul><li>${topVenueText}</li></ul>
+            <h5>${topVenueHeader}</h5>
+            <ul><li>${topVenueDisplay}</li></ul>
           </div>
           <div class="analytics-section">
             <h5>Top item in range</h5>
@@ -32816,8 +32857,10 @@ let onboardingIndex = 0;
             <button type="button" class="btn btn-secondary" id="qaShiftClosedBtn">Simulate SHIFT_CLOSED error</button>
             <button type="button" class="btn btn-secondary" id="qaForceClearShiftBtn">Force clear local shift</button>
             <button type="button" class="btn btn-secondary" id="qaStartWatcherBtn">Open analytics + start watcher</button>
+            <button type="button" class="btn btn-secondary" id="qaRunSmokeBtn">Run smoke tests</button>
           </div>
-          <div class="small" style="margin-top:8px;color:#a9bbd9;" id="qaWatcherStatus">Watcher: ${watcherStatus} · Last update: ${watcherUpdated} · Docs: ${ceoAnalyticsLiveDocCount}</div>
+          <div class="small" style="margin-top:8px;color:#a9bbd9;" id="qaWatcherStatus">Watcher: ${watcherStatus} · Last update: ${watcherUpdated} · Docs: ${ceoAnalyticsLiveDocCount} · Window: ${watcherWindow}</div>
+          <div class="small" style="margin-top:6px;color:#93c5fd;" id="qaSmokeResults"></div>
         </details>
       `;
       const rangeButtons = ceoAnalyticsContent.querySelectorAll(".ceo-analytics-range");
@@ -32863,6 +32906,25 @@ let onboardingIndex = 0;
           const selected = ceoAnalyticsVenueFilter === "all" ? null : ceoAnalyticsVenueFilter;
           startCeoLiveAnalyticsWatch({ venueIdOrNull: selected, rangeKey: ceoAnalyticsRangeKey });
           renderCeoAnalytics();
+        });
+      }
+      const qaRunSmokeBtn = ceoAnalyticsContent.querySelector("#qaRunSmokeBtn");
+      const qaSmokeResults = ceoAnalyticsContent.querySelector("#qaSmokeResults");
+      if (qaRunSmokeBtn) {
+        qaRunSmokeBtn.addEventListener("click", () => {
+          const lines = [];
+          const safeMsg = mapMemberFacingError({ code: "failed-precondition", details: { reason: "SHIFT_CLOSED" } }, "redeem");
+          lines.push(safeMsg === "This venue isn\u2019t accepting redemptions right now. Please try again in a moment."
+            ? "PASS: member error mapper"
+            : "FAIL: member error mapper");
+          lines.push((!ceoAnalyticsModal?.classList.contains("active") && !ceoAnalyticsLiveUnsub) || ceoAnalyticsModal?.classList.contains("active")
+            ? "PASS: watcher modal lifecycle"
+            : "FAIL: watcher modal lifecycle");
+          const venueKey = String(staffSession?.venue || "").toLowerCase();
+          const eff = getEffectiveShiftState(venueKey);
+          const shiftConflict = !!(eff.hasActiveShift && eff.isClosedByLock && eff.shiftKey && eff.shiftKey === eff.lockShiftKey);
+          lines.push(!shiftConflict ? "PASS: shift state consistency" : "FAIL: shift state consistency");
+          if (qaSmokeResults) qaSmokeResults.textContent = lines.join(" · ");
         });
       }
       renderCeoAnalyticsCharts(snapshot);
@@ -33811,21 +33873,38 @@ let onboardingIndex = 0;
       ].join("\n");
       const message = `[Close Out Report]\n${summary}\n\nBy Perk:\n${perkLines.length ? perkLines.join("\n") : "- None"}\n\nPending:\n${pendingLines.length ? pendingLines.join("\n") : "- None"}\n\nTonight Ledger:\n${ledgerLines.length ? ledgerLines.join("\n") : "- None"}\n\nAlerts:\n- Expired attempts: ${report.alerts?.expiredAttempts || 0}\n- Rapid redemptions: ${report.alerts?.rapidRedemptions || 0}\n${(report.alerts?.suspiciousActivityFlags || []).map((flag) => `- ${flag}`).join("\n") || "- No suspicious flags"}`;
       try {
-        // Send via FormSubmit (same endpoint that already works for support)
-        const resp = await fetch("https://formsubmit.co/ajax/focoafterdark@gmail.com", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({
-            name: `${report.venueName} close-out`,
-            email: "reports@focoafterdark.com",
-            message,
-            formsubmit_account: "focoafterdark@gmail.com",
-            _subject: `FoCo Nightlife · Close-out ${report.venueName}`,
-            _template: "table"
-          })
+        const requestBody = JSON.stringify({
+          name: `${report.venueName} close-out`,
+          email: "reports@focoafterdark.com",
+          message,
+          formsubmit_account: "focoafterdark@gmail.com",
+          _subject: `FoCo Nightlife · Close-out ${report.venueName}`,
+          _template: "table"
         });
-        const data = await resp.json().catch(() => ({}));
-        const sent = resp.ok && data.success === "true";
+        let sent = false;
+        let lastErr = null;
+        for (let attempt = 0; attempt < 2 && !sent; attempt += 1) {
+          try {
+            const resp = await fetch("https://formsubmit.co/ajax/focoafterdark@gmail.com", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Accept: "application/json" },
+              body: requestBody
+            });
+            const data = await resp.json().catch(() => ({}));
+            sent = resp.ok && data.success === "true";
+            if (!sent) {
+              lastErr = new Error(`formsubmit response not ok (attempt ${attempt + 1})`);
+            }
+          } catch (err) {
+            lastErr = err;
+          }
+          if (!sent && attempt < 1) {
+            await new Promise((resolve) => setTimeout(resolve, 350 * (2 ** attempt)));
+          }
+        }
+        if (!sent && lastErr) {
+          throw lastErr;
+        }
         if (sent && db && staffSession?.venue) {
           try {
             await setDoc(doc(db, "settings", "health"), {
@@ -34784,6 +34863,12 @@ let onboardingIndex = 0;
         e.preventDefault();
         handleStaffShiftStartTap();
       }, { passive: false });
+    }
+    if (staffNoShiftStartBtn) {
+      staffNoShiftStartBtn.addEventListener("click", () => {
+        if (!staffSession?.venue) return;
+        openStaffShiftModal();
+      });
     }
     if (staffShiftLogout) {
       staffShiftLogout.addEventListener("click", () => {
@@ -39776,6 +39861,15 @@ let onboardingIndex = 0;
 
     const membershipPlanButtons = Array.from(document.querySelectorAll(".select-membership"));
 
+    function enforceMemberMessageGuard(raw = "", fallback = "Could not complete this action right now.") {
+      const text = String(raw || "").trim();
+      if (!text) return fallback;
+      const lowered = text.toLowerCase();
+      if (lowered.includes("shift") || lowered.includes("staff") || lowered.includes("start a new shift")) {
+        return "This venue isn\u2019t accepting redemptions right now. Please try again in a moment.";
+      }
+      return text;
+    }
     function mapMemberFacingError(err, context = "generic") {
       const codeRaw = String(err?.code || "").toLowerCase();
       const code = codeRaw.replace(/^functions\//, "");
@@ -39785,15 +39879,15 @@ let onboardingIndex = 0;
         || code === "failed-precondition"
         || message.includes("shift");
       if (isShiftClosed) {
-        return "This venue isn't accepting redemptions right now. Please ask staff to refresh the kiosk or try again in a moment.";
+        return "This venue isn\u2019t accepting redemptions right now. Please try again in a moment.";
       }
       if (code === "permission-denied" || code === "unauthenticated") {
-        return context === "redeem" ? "Could not redeem right now. Please try again." : "Could not complete this action right now.";
+        return enforceMemberMessageGuard(context === "redeem" ? "Could not redeem right now. Please try again." : "Could not complete this action right now.");
       }
       if (code === "invalid-argument" || code === "not-found") {
-        return context === "redeem" ? "Could not redeem right now. Please try again." : "Please review your info and try again.";
+        return enforceMemberMessageGuard(context === "redeem" ? "Could not redeem right now. Please try again." : "Please review your info and try again.");
       }
-      return "Could not redeem right now. Please try again.";
+      return enforceMemberMessageGuard("Could not redeem right now. Please try again.");
     }
 
     function refreshMembershipChoices() {
