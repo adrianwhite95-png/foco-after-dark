@@ -2164,18 +2164,8 @@ ${venueLines.length ? venueLines.join('\n') : 'No redemptions yet.'}
     console.warn('nightlyCloseOut: failed to write per-venue reports', err);
   }
 
-  // Update health doc
-  try {
-    await db.collection('settings').doc('health').set({
-      lastCloseoutAttempt: admin.firestore.FieldValue.serverTimestamp(),
-      lastCloseoutEmail: admin.firestore.FieldValue.serverTimestamp(),
-      lastCloseoutSummary: summary,
-      lastCloseoutEmailStatus: emailSent ? 'sent' : 'queued',
-      lastCloseoutError: emailSent ? null : (emailError || "Email not sent")
-    }, { merge: true });
-  } catch (err) {
-    console.warn('nightlyCloseOut: failed to update health doc', err);
-  }
+  // NOTE: settings/health.lastCloseoutEmail is now reserved for successful staff close-out emails only.
+  // Do not update that field from nightly/manual batch jobs.
 
   return null;
 }
@@ -2183,7 +2173,10 @@ ${venueLines.length ? venueLines.join('\n') : 'No redemptions yet.'}
 exports.nightlyCloseOut = functions.runWith(reportEmailSecrets)
   .pubsub.schedule('0 3 * * *')
   .timeZone('America/Denver')
-  .onRun(async () => runNightlyCloseOutCore('nightlyCloseOut'));
+  .onRun(async () => {
+    console.log("nightlyCloseOut disabled by config: auto emails are off.");
+    return null;
+  });
 
 exports.runCloseOutNow = functions.runWith(reportEmailSecrets).https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError('unauthenticated', 'Auth required');
@@ -2196,8 +2189,7 @@ exports.runCloseOutNow = functions.runWith(reportEmailSecrets).https.onCall(asyn
   if (!isCeoContext(context)) {
     throw new HttpsError('permission-denied', 'CEO only');
   }
-  await runNightlyCloseOutCore('manualCloseOut');
-  return { ok: true };
+  return { ok: true, disabled: true, message: "Manual nightly close-out email run is disabled. Staff close-out sends reports." };
 });
 
 
