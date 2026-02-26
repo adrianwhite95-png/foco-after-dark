@@ -31030,7 +31030,23 @@ let onboardingIndex = 0;
       if (!functionsClient) throw new Error("Cloud functions unavailable");
       await ensureFirebaseUser();
       const removeFn = httpsCallable(functionsClient, "staffManageVenueMember");
-      await removeFn({ venueId, action: "remove", staffId: key });
+      const isRateLimitedError = (err) => {
+        const code = String(err?.code || "").toLowerCase();
+        const msg = String(err?.message || "").toLowerCase();
+        return code.includes("resource-exhausted")
+          || code.includes("429")
+          || msg.includes("resource exhausted")
+          || msg.includes("too many requests")
+          || msg.includes("429");
+      };
+      try {
+        await removeFn({ venueId, action: "remove", staffId: key });
+      } catch (err) {
+        if (!isRateLimitedError(err)) throw err;
+        console.warn("staffManageVenueMember rate-limited; retrying once", err);
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        await removeFn({ venueId, action: "remove", staffId: key });
+      }
       await logVenueStaffAction({
         actionType: "staff_member_removed",
         staffId: existing.staffId,

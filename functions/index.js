@@ -5652,7 +5652,7 @@ exports.staffUpsertVenuePerks = functions.https.onCall(async (data, context) => 
 
 exports.staffManageVenueMember = functions.https.onCall(async (data, context) => {
   try {
-    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 180, maxPerDay: 2000 });
+    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 600, maxPerDay: 10000 });
     const venueId = assertVenueMutationAccess(context, data?.venueId);
     const action = String(data?.action || "").toLowerCase();
     if (action !== "add" && action !== "remove") throw new HttpsError("invalid-argument", "Invalid action");
@@ -5812,7 +5812,7 @@ exports.staffShiftAction = functions.https.onCall(async (data, context) => {
 
 exports.staffAppendActivityLog = functions.https.onCall(async (data, context) => {
   try {
-    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 180, maxPerDay: 2000 });
+    await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 600, maxPerDay: 10000 });
     const venueId = assertVenueMutationAccess(context, data?.venueId);
     const actionType = normalizeStaffActionType(data?.actionType);
     const payload = {
