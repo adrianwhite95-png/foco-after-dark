@@ -30081,36 +30081,18 @@ let onboardingIndex = 0;
       }
       try {
         const startTs = Timestamp.fromMillis(streamWindow.startMs);
-        const buildQuery = (withVenueFilter) => {
-          const parts = [
-            collectionGroup(db, "redemptions"),
-            where("queueScope", "==", "venue"),
-            where("createdAt", ">=", startTs)
-          ];
-          if (withVenueFilter) parts.push(where("venueId", "==", venueKey));
-          parts.push(orderBy("createdAt", "desc"), limit(1200));
-          return query(...parts);
-        };
-        const bind = (withVenueFilter) => {
-          const q = buildQuery(withVenueFilter);
-          staffAnalyticsUnsub = subscribeSnapshot(`staffAnalytics:${venueKey}`, q, null, (snap) => {
-            const raw = snap.docs.map(parseCeoRedemptionDoc).filter(Boolean);
-            staffAnalyticsEntries = withVenueFilter ? raw : raw.filter((entry) => getEntryVenueId(entry) === venueKey);
-            renderStaffAnalytics();
-          }, (err) => {
-            const code = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
-            const msg = String(err?.message || "").toLowerCase();
-            const indexIssue = code === "failed-precondition" || msg.includes("requires an index");
-            if (withVenueFilter && indexIssue) {
-              console.warn("Staff analytics venue index not ready; falling back to client-side venue filter");
-              stopStaffAnalyticsWatch();
-              bind(false);
-              return;
-            }
-            console.warn("Staff analytics watcher failed", err);
-          });
-        };
-        bind(true);
+        const q = query(
+          collection(db, "venues", venueKey, "redemptions"),
+          where("createdAt", ">=", startTs),
+          orderBy("createdAt", "desc"),
+          limit(1200)
+        );
+        staffAnalyticsUnsub = subscribeSnapshot(`staffAnalytics:${venueKey}`, q, null, (snap) => {
+          staffAnalyticsEntries = snap.docs.map(parseCeoRedemptionDoc).filter(Boolean);
+          renderStaffAnalytics();
+        }, (err) => {
+          console.warn("Staff analytics watcher failed", err);
+        });
       } catch (err) {
         console.warn("Could not start staff analytics watcher", err);
       }
