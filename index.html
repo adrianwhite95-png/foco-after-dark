@@ -13001,58 +13001,6 @@
         0 0 34px rgba(244, 114, 182, 0.18),
         0 20px 70px rgba(0, 0, 0, 0.35);
     }
-    .unlockWord {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 0.35em;
-    }
-    .unlockIcon {
-      display: inline-grid;
-      place-items: center;
-      width: 0.95em;
-      height: 0.95em;
-      transform: translateY(0.06em);
-    }
-    .lockSvg {
-      width: 100%;
-      height: 100%;
-      color: rgba(34, 211, 238, 0.95);
-      filter:
-        drop-shadow(0 0 10px rgba(34, 211, 238, 0.35))
-        drop-shadow(0 0 14px rgba(143, 91, 255, 0.22));
-      animation: unlockGlow 2.8s ease-in-out infinite;
-    }
-    .shackle {
-      transform-origin: 36px 20px;
-      animation: unlockShackle 2.8s ease-in-out infinite;
-    }
-    @keyframes unlockShackle {
-      0%, 60%, 100% {
-        transform: translate(0, 0) rotate(0deg);
-        opacity: 1;
-      }
-      72% {
-        transform: translate(4px, -3px) rotate(-12deg);
-        opacity: 1;
-      }
-      86% {
-        transform: translate(0, 0) rotate(0deg);
-        opacity: 1;
-      }
-    }
-    @keyframes unlockGlow {
-      0%, 60%, 100% {
-        filter:
-          drop-shadow(0 0 10px rgba(34, 211, 238, 0.3))
-          drop-shadow(0 0 14px rgba(143, 91, 255, 0.18));
-      }
-      72% {
-        filter:
-          drop-shadow(0 0 18px rgba(34, 211, 238, 0.55))
-          drop-shadow(0 0 26px rgba(143, 91, 255, 0.35))
-          drop-shadow(0 0 10px rgba(255, 47, 184, 0.18));
-      }
-    }
     .neonLabel {
       text-shadow: 0 0 10px rgba(34, 211, 238, 0.22);
     }
@@ -13401,25 +13349,25 @@
       50% { transform: translateY(-1px) scale(1.06); filter: brightness(1.12); }
     }
     #landingScreen .proof-text {
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      color: rgba(246, 251, 255, 0.98);
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.045em;
+      color: #f8fcff;
       text-shadow:
-        0 0 14px rgba(34, 211, 238, 0.26),
-        0 0 22px rgba(143, 91, 255, 0.2),
-        0 2px 14px rgba(2, 6, 23, 0.72);
-      line-height: 1.35;
+        0 0 16px rgba(34, 211, 238, 0.34),
+        0 0 26px rgba(143, 91, 255, 0.26),
+        0 3px 16px rgba(2, 6, 23, 0.86);
+      line-height: 1.38;
       animation: proofTextPulse 3.2s ease-in-out infinite;
     }
     #landingScreen .proof-number {
       font-weight: 1000;
-      letter-spacing: 0.07em;
+      letter-spacing: 0.08em;
       color: #ffffff;
       text-shadow:
-        0 0 12px rgba(34, 211, 238, 0.62),
-        0 0 24px rgba(143, 91, 255, 0.34),
-        0 2px 16px rgba(2, 6, 23, 0.8);
+        0 0 14px rgba(34, 211, 238, 0.72),
+        0 0 28px rgba(143, 91, 255, 0.42),
+        0 2px 18px rgba(2, 6, 23, 0.88);
     }
     #landingScreen .launch-entry-row.launch-entry-links {
       max-width: 860px;
@@ -13590,10 +13538,6 @@
       .grain {
         animation: none !important;
       }
-      .shackle,
-      .lockSvg {
-        animation: none !important;
-      }
     }
 
     /* ===== AFTER DARK MODE OVERRIDES (landing mood pass) ===== */
@@ -13737,6 +13681,19 @@
       border-color: rgba(34, 211, 238, 0.3) !important;
       color: #f2f8ff !important;
     }
+    #landingScreen #landingLoginLink {
+      font-size: 21px;
+      font-weight: 1000;
+      letter-spacing: 0.08em;
+      text-shadow:
+        0 0 14px rgba(34, 211, 238, 0.36),
+        0 0 24px rgba(143, 91, 255, 0.3),
+        0 2px 14px rgba(2, 6, 23, 0.85);
+      box-shadow:
+        0 0 24px rgba(34, 211, 238, 0.24),
+        0 0 36px rgba(143, 91, 255, 0.2),
+        0 18px 48px rgba(0, 0, 0, 0.5) !important;
+    }
     #landingGetPassBtn::before,
     #landingScreen #landingGetPassBtn::before {
       background: linear-gradient(120deg, rgba(34, 211, 238, 0.38), rgba(143, 91, 255, 0.36), rgba(255, 47, 184, 0.3)) !important;
@@ -13835,19 +13792,7 @@
             <div class="launch-hero-grid">
               <section class="launch-billboard glassBox photo-glass" aria-label="FoCo premium nightlife billboard">
                 <div class="billboard-pill-row">LIVE VENUE FEED • LOCAL-ONLY PERKS • MEMBER-ONLY ACCESS</div>
-                <h2 class="launch-hero-title neonHero">
-                  <span class="unlockWord">
-                    Unlock
-                    <span class="unlockIcon" aria-hidden="true">
-                      <svg viewBox="0 0 64 64" class="lockSvg" role="img">
-                        <path class="shackle" d="M22 28v-8c0-8 6-14 14-14s14 6 14 14v8" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>
-                        <rect x="16" y="28" width="32" height="28" rx="8" fill="rgba(0,0,0,.25)" stroke="currentColor" stroke-width="4"></rect>
-                        <path d="M32 38c-2.2 0-4 1.8-4 4 0 1.6.9 2.9 2.2 3.6V50h3.6v-4.4c1.3-.7 2.2-2 2.2-3.6 0-2.2-1.8-4-4-4z" fill="currentColor" opacity=".85"></path>
-                      </svg>
-                    </span>
-                  </span>
-                  Tonight's VIP Perks &amp; Flash Deals.
-                </h2>
+                <h2 class="launch-hero-title neonHero">Unlock Tonight's VIP Perks &amp; Flash Deals.</h2>
                 <p class="launch-hero-copy">Live posts from Fort Collins venues — members see everything.</p>
               </section>
               <section class="landing-live-feed landing-live-feed-premium glassBox photo-glass" aria-label="Live Right Now venue feed">
