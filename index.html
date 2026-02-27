@@ -14070,7 +14070,8 @@
         0 20px 74px rgba(0, 0, 0, 0.70);
       overflow: hidden;
       transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
-      animation: ctaBreath 2.4s ease-in-out infinite;
+      animation: ctaBreath 2.1s ease-in-out infinite, ctaPop 4.8s cubic-bezier(0.2, 0.9, 0.25, 1) infinite;
+      will-change: transform, filter, box-shadow;
     }
     .foco-premium .btnPremiumPrimary::before {
       content: "";
@@ -14097,6 +14098,7 @@
     }
     @keyframes ctaBreath {
       0%, 100% {
+        transform: translateY(0) scale(1);
         filter: brightness(1);
         box-shadow:
           0 0 0 1px rgba(255, 255, 255, 0.05) inset,
@@ -14105,13 +14107,20 @@
           0 20px 74px rgba(0, 0, 0, 0.70);
       }
       50% {
-        filter: brightness(1.08);
+        transform: translateY(-1px) scale(1.02);
+        filter: brightness(1.12);
         box-shadow:
           0 0 0 1px rgba(255, 255, 255, 0.06) inset,
-          0 0 38px rgba(34, 211, 238, 0.24),
-          0 0 42px rgba(143, 91, 255, 0.2),
-          0 24px 82px rgba(0, 0, 0, 0.74);
+          0 0 46px rgba(34, 211, 238, 0.30),
+          0 0 54px rgba(143, 91, 255, 0.26),
+          0 28px 96px rgba(0, 0, 0, 0.78);
       }
+    }
+    @keyframes ctaPop {
+      0%, 70%, 100% { transform: translateY(0) scale(1); }
+      76% { transform: translateY(-1px) scale(1.035); }
+      82% { transform: translateY(0) scale(1.01); }
+      88% { transform: translateY(-1px) scale(1.028); }
     }
     .foco-premium .btnPremiumPrimary:hover {
       transform: translateY(-1px);
