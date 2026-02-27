@@ -17824,14 +17824,22 @@
       return ((h >>> 0) % 10000) / 10000;
     }
     function applyLandingLivePillsByTime(now = new Date()) {
-      const rowTops = Array.from(document.querySelectorAll(".landing-live-row .landing-live-top"));
-      if (!rowTops.length) return;
-      rowTops.forEach((top) => {
-        top.querySelectorAll(".landing-live-pill.dynamic-live-pill").forEach((pill) => pill.remove());
+      const rows = Array.from(document.querySelectorAll(".landing-live-row"));
+      if (!rows.length) return;
+      rows.forEach((row) => {
+        row.querySelectorAll(".landing-live-pill.dynamic-live-pill").forEach((pill) => pill.remove());
       });
       const minutes = (now.getHours() * 60) + now.getMinutes();
       const inLiveWindow = minutes >= 660 || minutes <= 120; // 11:00 AM -> 2:00 AM
-      if (!inLiveWindow) return;
+      const rowPostedNodes = rows.map((row) => row.querySelector(".landing-live-posted"));
+      if (!inLiveWindow) {
+        rowPostedNodes.forEach((postedNode) => {
+          if (!postedNode) return;
+          postedNode.textContent = "";
+          postedNode.style.display = "none";
+        });
+        return;
+      }
       const effectiveMinutes = minutes >= 660 ? minutes : (minutes + 1440);
       const block = Math.floor((effectiveMinutes - 660) / 180); // rotates every 3 hours
       const nightDate = new Date(now);
@@ -17841,20 +17849,49 @@
       const nightKey = `${nightDate.getFullYear()}-${nightDate.getMonth() + 1}-${nightDate.getDate()}`;
       const seedBase = `${nightKey}:${block}`;
       const desiredCount = 1 + Math.floor(hashSeedToUnit(`${seedBase}:count`) * 2); // 1-2 LIVE pills
-      const indexed = rowTops.map((el, idx) => ({ el, idx, rank: hashSeedToUnit(`${seedBase}:${idx}`) }));
+      const indexed = rows.map((row, idx) => ({ row, idx, rank: hashSeedToUnit(`${seedBase}:${idx}`) }));
       indexed.sort((a, b) => b.rank - a.rank);
-      indexed.slice(0, Math.min(desiredCount, indexed.length)).forEach(({ el }) => {
+      const liveIndexes = new Set(indexed.slice(0, Math.min(desiredCount, indexed.length)).map((item) => item.idx));
+      indexed.forEach(({ row, idx }) => {
+        const postedNode = row.querySelector(".landing-live-posted");
+        if (!postedNode) return;
+        if (liveIndexes.has(idx)) {
+          postedNode.style.display = "";
+        } else {
+          postedNode.textContent = "";
+          postedNode.style.display = "none";
+        }
+      });
+      indexed.filter(({ idx }) => liveIndexes.has(idx)).forEach(({ row }) => {
+        const el = row.querySelector(".landing-live-top");
+        if (!el) return;
         const pill = document.createElement("span");
         pill.className = "landing-live-pill livePill dynamic-live-pill";
         pill.textContent = "LIVE";
         el.appendChild(pill);
       });
     }
+    function getIsoWeekParts(date = new Date()) {
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      return { year: d.getUTCFullYear(), week };
+    }
+    function applyLandingWeeklySavings(now = new Date()) {
+      const target = document.querySelector(".launch-social-proof .money-pop");
+      if (!target) return;
+      const { year, week } = getIsoWeekParts(now);
+      const seed = hashSeedToUnit(`weekly-savings:${year}:${week}`);
+      const value = 16 + Math.floor(seed * 10); // 16-25
+      target.textContent = `$${value}`;
+    }
     function randomizeLandingSocialProof() {
       const countNode = document.querySelector(".launch-social-proof .proof-row:first-child .proof-number");
       if (!countNode) return;
       const count = 14 + Math.floor(Math.random() * 24);
       countNode.textContent = String(count);
+      applyLandingWeeklySavings();
     }
     if (screens.landing?.classList.contains("active")) {
       randomizeLandingPostedTimes();
@@ -38500,25 +38537,33 @@ let onboardingIndex = 0;
       if (forceUpdateInFlight) return;
       forceUpdateInFlight = true;
       if (forceUpdateBtn) forceUpdateBtn.disabled = true;
+      const watchdog = setTimeout(() => {
+        if (!forceUpdateInFlight) return;
+        setForcedUpdateProgress(10, "Update taking longer than expected. Tap to retry.");
+        forceUpdateInFlight = false;
+        if (forceUpdateBtn) forceUpdateBtn.disabled = false;
+      }, 18000);
       try {
         setForcedUpdateProgress(12, "Checking the tap...");
         let reg = null;
         if ("serviceWorker" in navigator) {
-          reg = await navigator.serviceWorker.getRegistration();
+          reg = await withTimeout(navigator.serviceWorker.getRegistration(), 7000).catch(() => null);
           if (!reg) {
-            reg = await navigator.serviceWorker.register("/sw.js");
+            reg = await withTimeout(navigator.serviceWorker.register("/sw.js"), 7000).catch(() => null);
           }
-          await reg.update().catch(() => {});
-          setForcedUpdateProgress(44, "Pulling latest pour...");
-          if (reg.waiting) {
-            reg.waiting.postMessage({ type: "SKIP_WAITING" });
+          if (reg) {
+            await withTimeout(reg.update().catch(() => {}), 5000).catch(() => {});
+            setForcedUpdateProgress(44, "Pulling latest pour...");
+            if (reg.waiting) {
+              reg.waiting.postMessage({ type: "SKIP_WAITING" });
+            }
+            const changed = await waitForControllerChange(5000);
+            setForcedUpdateProgress(changed ? 72 : 64, changed ? "Pouring update..." : "Chilling refresh...");
           }
-          const changed = await waitForControllerChange(5000);
-          setForcedUpdateProgress(changed ? 72 : 64, changed ? "Pouring update..." : "Chilling refresh...");
         }
         if ("caches" in window) {
-          const keys = await caches.keys();
-          await Promise.all(keys.map((key) => caches.delete(key)));
+          const keys = await withTimeout(caches.keys(), 4000).catch(() => []);
+          await Promise.all((keys || []).map((key) => caches.delete(key)));
         }
         setForcedUpdateProgress(90, "Reopening the bar...");
         if (requiredUpdateVersion) {
@@ -38527,6 +38572,8 @@ let onboardingIndex = 0;
         saveForcedUpdateVersion("");
         requiredUpdateVersion = "";
         requiredUpdateMessage = "";
+        forceUpdateInFlight = false;
+        if (forceUpdateBtn) forceUpdateBtn.disabled = false;
         setTimeout(() => {
           const url = new URL(window.location.href);
           url.searchParams.set("r", String(Date.now()));
@@ -38540,6 +38587,8 @@ let onboardingIndex = 0;
         }
         forceUpdateInFlight = false;
         if (forceUpdateBtn) forceUpdateBtn.disabled = false;
+      } finally {
+        clearTimeout(watchdog);
       }
     }
     function maybeApplyPendingRefresh() {
