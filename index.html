@@ -20785,11 +20785,17 @@
         if (enableNotificationsBtn.disabled) return;
         const originalLabel = enableNotificationsBtn.textContent;
         enableNotificationsBtn.disabled = true;
-        enableNotificationsBtn.textContent = "Enabling...";
-        const ok = await enablePushNotifications({ forcePrompt: true });
+        enableNotificationsBtn.textContent = "Reconnecting...";
+        let ok = false;
+        try {
+          ok = await withTimeout(enablePushNotifications({ forcePrompt: true }), 12000);
+        } catch (_) {
+          ok = false;
+        }
         if (!ok) {
           enableNotificationsBtn.disabled = false;
           enableNotificationsBtn.textContent = originalLabel || "Enable notifications";
+          updateNotificationsStatus("Could not enable notifications. Tap to retry.");
         }
         refreshNotificationButtonsState();
       });
@@ -20838,11 +20844,17 @@
         if (enableNotificationsPromptBtn.disabled) return;
         const originalLabel = enableNotificationsPromptBtn.textContent;
         enableNotificationsPromptBtn.disabled = true;
-        enableNotificationsPromptBtn.textContent = "Enabling...";
-        const ok = await enablePushNotifications({ forcePrompt: true });
+        enableNotificationsPromptBtn.textContent = "Reconnecting...";
+        let ok = false;
+        try {
+          ok = await withTimeout(enablePushNotifications({ forcePrompt: true }), 12000);
+        } catch (_) {
+          ok = false;
+        }
         if (!ok) {
           enableNotificationsPromptBtn.disabled = false;
           enableNotificationsPromptBtn.textContent = originalLabel || "Enable notifications";
+          updateNotificationsStatus("Could not enable notifications. Tap to retry.");
         }
         refreshNotificationButtonsState();
       });
@@ -20852,8 +20864,13 @@
         if (authEnableNotificationsBtn.disabled) return;
         const originalLabel = authEnableNotificationsBtn.textContent;
         authEnableNotificationsBtn.disabled = true;
-        authEnableNotificationsBtn.textContent = "Enabling...";
-        const ok = await enablePushNotifications({ forcePrompt: true });
+        authEnableNotificationsBtn.textContent = "Reconnecting...";
+        let ok = false;
+        try {
+          ok = await withTimeout(enablePushNotifications({ forcePrompt: true }), 12000);
+        } catch (_) {
+          ok = false;
+        }
         if (ok) {
           updateNotificationsStatus("Notifications enabled for this device.");
           maybeSchedulePushAutoSync("auth-notification-optin", true);
