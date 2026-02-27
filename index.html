@@ -16916,10 +16916,14 @@
       });
       // Keep status copy in sync with button state so "enabled" never shows with an "off" status line.
       const canonicalMessage = getNotificationStatusMessage();
-      if (enableNotificationsStatus) enableNotificationsStatus.textContent = canonicalMessage;
-      if (notificationsPromptStatus) notificationsPromptStatus.textContent = canonicalMessage;
-      if (authNotificationsStatus) authNotificationsStatus.textContent = canonicalMessage;
-      if (ceoNotificationsStatus) ceoNotificationsStatus.textContent = canonicalMessage;
+      const enableStatusNode = document.getElementById("enableNotificationsStatus");
+      const promptStatusNode = document.getElementById("notificationsPromptStatus");
+      const authStatusNode = document.getElementById("authNotificationsStatus");
+      const ceoStatusNode = document.getElementById("ceoNotificationsStatus");
+      if (enableStatusNode) enableStatusNode.textContent = canonicalMessage;
+      if (promptStatusNode) promptStatusNode.textContent = canonicalMessage;
+      if (authStatusNode) authStatusNode.textContent = canonicalMessage;
+      if (ceoStatusNode) ceoStatusNode.textContent = canonicalMessage;
     }
     async function ensureMessagingClient() {
       if (pushSupportChecked) return pushSupported;
@@ -17479,6 +17483,9 @@
         // Analytics isn't available (e.g. served from file:// or unsupported browser). Ignore silently.
       });
     // Avoid auto-creating anonymous accounts; sign in only when needed.
+    // Keep these above event/listener wiring so handlers never hit TDZ.
+    let idleTimer = null;
+    let idleActive = false;
 
     function stopIdleTimer() {
       if (idleTimer) clearTimeout(idleTimer);
@@ -18219,6 +18226,8 @@
       void passCard.offsetWidth;
       passCard.classList.add("intro");
     }
+
+    let forceShowLogin = false;
 
     function clearLoginHash() {
       if (location.hash === "#login") {
@@ -21673,8 +21682,6 @@
     const IDLE_TIMEOUT_MS = (2 * 60 * 1000) + (30 * 1000);
     const STATS_CACHE_PREFIX = "statsCache_";
     const STATS_RUNTIME_CACHE = new Map();
-    let idleTimer = null;
-    let idleActive = false;
 
     const testimonials = [
       { quote: "\"Best damn nightlife pass in town.\"", source: "– Ava S., VIP member" },
@@ -23762,7 +23769,6 @@
     if (reason) logRealtime("attachContext", reason);
   }
   let authReady = false;
-  let forceShowLogin = false;
   let lastAuthUid = null;
   let heartbeatServerLogged = false;
   let pillUpdateTimer = null;
