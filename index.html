@@ -16755,17 +16755,23 @@
       } catch (_) {}
     }
     function updateNotificationsStatus(message) {
+      const permission = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
+      const remembered = wasPushEnabledOnDevice();
+      let nextMessage = String(message || "");
+      if (nextMessage === "Notifications are off." && remembered && permission !== "denied") {
+        nextMessage = "Notifications were enabled before. Tap to reconnect this device.";
+      }
       if (enableNotificationsStatus) {
-        enableNotificationsStatus.textContent = message;
+        enableNotificationsStatus.textContent = nextMessage;
       }
       if (notificationsPromptStatus) {
-        notificationsPromptStatus.textContent = message;
+        notificationsPromptStatus.textContent = nextMessage;
       }
       if (authNotificationsStatus) {
-        authNotificationsStatus.textContent = message;
+        authNotificationsStatus.textContent = nextMessage;
       }
       if (ceoNotificationsStatus) {
-        ceoNotificationsStatus.textContent = message;
+        ceoNotificationsStatus.textContent = nextMessage;
       }
       refreshNotificationButtonsState();
     }
@@ -16780,8 +16786,8 @@
           btn.dataset.baseLabel = btn.textContent || labels.defaultLabel;
         }
         if (enabled) {
-          btn.disabled = true;
-          btn.textContent = labels.enabledLabel;
+          btn.disabled = false;
+          btn.textContent = labels.grantedLabel || labels.enabledLabel;
           return;
         }
         if (remembered && !denied) {
@@ -16798,18 +16804,21 @@
       applyButtonState(enableBtn, {
         defaultLabel: "Enable notifications",
         enabledLabel: "Notifications enabled",
+        grantedLabel: "Reconnect notifications",
         deniedLabel: "Enable in settings",
         reconnectLabel: "Reconnect notifications"
       });
       applyButtonState(promptEnableBtn, {
         defaultLabel: "Enable notifications",
         enabledLabel: "Notifications enabled",
+        grantedLabel: "Reconnect notifications",
         deniedLabel: "Enable in settings",
         reconnectLabel: "Reconnect notifications"
       });
       applyButtonState(authEnableBtn, {
         defaultLabel: "Turn on notifications",
         enabledLabel: "Notifications enabled",
+        grantedLabel: "Reconnect notifications",
         deniedLabel: "Enable in settings",
         reconnectLabel: "Reconnect notifications"
       });
