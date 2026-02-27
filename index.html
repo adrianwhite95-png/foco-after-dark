@@ -12825,7 +12825,7 @@
     .appFrame {
       position: relative;
       overflow: hidden;
-      background: rgba(8, 12, 24, 0.03) !important;
+      background: rgba(8, 12, 24, 0.01) !important;
       border: 1px solid rgba(34, 211, 238, 0.14) !important;
       backdrop-filter: blur(22px) saturate(1.35) !important;
       -webkit-backdrop-filter: blur(22px) saturate(1.35) !important;
@@ -13289,7 +13289,7 @@
         rgba(34, 211, 238, 0),
         rgba(34, 211, 238, 0.22),
         rgba(244, 114, 182, 0.18),
-        rgba(34, 197, 94, 0.1),
+        rgba(143, 91, 255, 0.14),
         rgba(34, 211, 238, 0)
       );
       filter: blur(18px);
@@ -13634,9 +13634,9 @@
     }
     #landingScreen .landing-wrapper,
     #landingScreen .landing-wrapper.appFrame {
-      background: rgba(6, 12, 18, 0.01) !important;
-      backdrop-filter: blur(14px) saturate(1.2) !important;
-      -webkit-backdrop-filter: blur(14px) saturate(1.2) !important;
+      background: rgba(6, 12, 18, 0) !important;
+      backdrop-filter: blur(10px) saturate(1.12) !important;
+      -webkit-backdrop-filter: blur(10px) saturate(1.12) !important;
     }
     #landingScreen .landing-bg::before {
       opacity: 0.16 !important;
@@ -13656,6 +13656,28 @@
     }
     #landingScreen .photo-glass::after {
       background: linear-gradient(180deg, rgba(2, 6, 23, 0.12), rgba(2, 6, 23, 0.38)) !important;
+    }
+    #landingScreen .landing-wrapper .landing-strobe {
+      background: conic-gradient(
+        from 0deg,
+        rgba(34, 211, 238, 0.44),
+        transparent 22%,
+        rgba(255, 47, 184, 0.36),
+        transparent 48%,
+        rgba(34, 211, 238, 0.28),
+        transparent 72%,
+        rgba(255, 47, 184, 0.34),
+        transparent 100%
+      ) !important;
+      mix-blend-mode: screen !important;
+      filter: blur(18px) saturate(1.2) !important;
+      opacity: 0.62 !important;
+    }
+    #landingScreen .landing-wrapper .landing-strobe::before {
+      background:
+        radial-gradient(circle at 24% 26%, rgba(34, 211, 238, 0.46), transparent 44%),
+        radial-gradient(circle at 78% 70%, rgba(255, 47, 184, 0.42), transparent 48%) !important;
+      mix-blend-mode: screen !important;
     }
   </style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
