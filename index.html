@@ -12883,6 +12883,10 @@
       backdrop-filter: blur(18px) saturate(1.35) !important;
       -webkit-backdrop-filter: blur(18px) saturate(1.35) !important;
     }
+    .photo-glass::before {
+      opacity: 0.34 !important;
+      filter: saturate(1.25) brightness(0.92) blur(10px) !important;
+    }
     .glassBox::before {
       content: "";
       position: absolute;
@@ -12918,7 +12922,7 @@
       background: url("assets/nightlife-bg.png") center/cover no-repeat;
       filter: blur(6px) saturate(1.35) contrast(1.15) brightness(0.85);
       transform: scale(1.08);
-      opacity: 0.75;
+      opacity: 0.86;
       z-index: 0;
       pointer-events: none;
     }
@@ -12926,7 +12930,7 @@
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(2, 6, 23, 0.35), rgba(2, 6, 23, 0.78));
+      background: linear-gradient(180deg, rgba(2, 6, 23, 0.2), rgba(2, 6, 23, 0.58));
       z-index: 1;
       pointer-events: none;
     }
@@ -13324,11 +13328,12 @@
       place-items: center;
       border-radius: 10px;
       font-weight: 900;
-      color: #06121a;
-      background: linear-gradient(135deg, rgba(34, 211, 238, 0.95), rgba(244, 114, 182, 0.85));
+      color: #dff8ff;
+      background: rgba(6, 12, 20, 0.72);
+      border: 1px solid rgba(34, 211, 238, 0.44);
       box-shadow:
-        0 0 18px rgba(34, 211, 238, 0.55),
-        0 0 22px rgba(244, 114, 182, 0.35);
+        0 0 18px rgba(34, 211, 238, 0.36),
+        0 0 20px rgba(143, 91, 255, 0.22);
       animation: checkPop 2.8s ease-in-out infinite;
     }
     @keyframes checkPop {
@@ -13336,21 +13341,22 @@
       50% { transform: translateY(-1px) scale(1.06); filter: brightness(1.12); }
     }
     #landingScreen .proof-text {
-      font-size: 12.5px;
-      letter-spacing: 0.03em;
-      color: rgba(248, 250, 252, 0.92);
+      font-size: 13px;
+      letter-spacing: 0.035em;
+      color: rgba(240, 247, 255, 0.95);
       text-shadow:
-        0 0 10px rgba(34, 211, 238, 0.14),
-        0 0 14px rgba(244, 114, 182, 0.1);
+        0 0 12px rgba(34, 211, 238, 0.2),
+        0 0 18px rgba(143, 91, 255, 0.14);
       line-height: 1.35;
+      animation: proofTextPulse 3.2s ease-in-out infinite;
     }
     #landingScreen .proof-number {
       font-weight: 900;
       letter-spacing: 0.06em;
-      color: #eaffff;
+      color: #f2fbff;
       text-shadow:
-        0 0 10px rgba(34, 211, 238, 0.45),
-        0 0 18px rgba(244, 114, 182, 0.25);
+        0 0 10px rgba(34, 211, 238, 0.5),
+        0 0 20px rgba(143, 91, 255, 0.28);
     }
     #landingScreen .launch-entry-row.launch-entry-links {
       max-width: 860px;
@@ -13461,19 +13467,20 @@
       50% { transform: translateY(-2px); }
     }
     #landingScreen .money-pop {
-      color: var(--accent-green);
-      text-shadow: 0 0 10px rgba(34, 197, 94, 0.55), 0 0 22px rgba(34, 211, 238, 0.25);
+      color: #e7f9ff;
+      text-shadow: 0 0 12px rgba(34, 211, 238, 0.52), 0 0 24px rgba(143, 91, 255, 0.28);
       font-weight: 1000;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
       padding: 2px 8px;
       margin: 0 2px;
       border-radius: 999px;
       letter-spacing: 0.08em;
-      color: #071018;
-      background: linear-gradient(90deg, #00f0ff, #ff2fb8);
+      background: rgba(5, 12, 22, 0.76);
+      border: 1px solid rgba(34, 211, 238, 0.42);
       box-shadow:
-        0 0 16px rgba(0, 240, 255, 0.55),
-        0 0 22px rgba(255, 47, 184, 0.35),
+        0 0 18px rgba(34, 211, 238, 0.38),
+        0 0 20px rgba(143, 91, 255, 0.26),
         0 10px 26px rgba(2, 6, 23, 0.55);
       animation: moneyPulse 1.6s ease-in-out infinite;
       transform-origin: center;
@@ -13481,6 +13488,10 @@
     @keyframes moneyPulse {
       0%, 100% { transform: translateY(0) scale(1); filter: brightness(1); }
       50% { transform: translateY(-1px) scale(1.09); filter: brightness(1.15); }
+    }
+    @keyframes proofTextPulse {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.1); }
     }
     #landingScreen .launch-social-proof:hover .proof-row {
       border-color: rgba(34, 211, 238, 0.28);
@@ -13517,6 +13528,103 @@
         animation: none !important;
       }
     }
+
+    /* ===== AFTER DARK MODE OVERRIDES (landing mood pass) ===== */
+    .pageBg {
+      opacity: 0.88 !important;
+      filter: blur(10px) saturate(1.25) contrast(1.25) brightness(0.58) !important;
+      transform: scale(1.12) !important;
+    }
+    .pageWash {
+      opacity: 1 !important;
+      animation: none !important;
+      background:
+        radial-gradient(900px 650px at 20% 18%, rgba(34, 211, 238, 0.14), transparent 62%),
+        radial-gradient(900px 650px at 82% 22%, rgba(143, 91, 255, 0.14), transparent 62%),
+        radial-gradient(900px 650px at 50% 85%, rgba(255, 47, 184, 0.1), transparent 68%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.68), rgba(0, 0, 0, 0.88)) !important;
+      box-shadow: inset 0 0 260px rgba(0, 0, 0, 0.92) !important;
+    }
+    .afterDarkVignette {
+      position: fixed;
+      inset: 0;
+      z-index: -17;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 35%, rgba(0, 0, 0, 0.78) 78%, rgba(0, 0, 0, 0.92) 100%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.78));
+    }
+    .grain {
+      opacity: 0.08 !important;
+      mix-blend-mode: overlay !important;
+      filter: contrast(1.2) brightness(0.7) !important;
+    }
+    .glassBox {
+      background:
+        radial-gradient(circle at 18% 18%, rgba(34, 211, 238, 0.1), transparent 60%),
+        radial-gradient(circle at 85% 20%, rgba(143, 91, 255, 0.1), transparent 62%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.74)) !important;
+      border: 1px solid rgba(34, 211, 238, 0.18) !important;
+      backdrop-filter: blur(16px) saturate(1.15) !important;
+      -webkit-backdrop-filter: blur(16px) saturate(1.15) !important;
+      box-shadow:
+        0 22px 70px rgba(0, 0, 0, 0.62),
+        0 0 26px rgba(34, 211, 238, 0.12),
+        0 0 22px rgba(143, 91, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+    }
+    .neonTitle,
+    .neonHero,
+    .neonLabel {
+      filter: contrast(1.2);
+    }
+    .neonTitle {
+      text-shadow:
+        0 0 14px rgba(34, 211, 238, 0.22),
+        0 0 26px rgba(143, 91, 255, 0.18) !important;
+    }
+    .neonHero {
+      text-shadow:
+        0 0 18px rgba(34, 211, 238, 0.28),
+        0 0 40px rgba(255, 47, 184, 0.18),
+        0 0 70px rgba(143, 91, 255, 0.14) !important;
+    }
+    .btn-neon::before {
+      background: linear-gradient(
+        90deg,
+        rgba(34, 211, 238, 0.7),
+        rgba(143, 91, 255, 0.65),
+        rgba(255, 47, 184, 0.45),
+        rgba(34, 211, 238, 0.7)
+      ) !important;
+    }
+    .btn-neon {
+      background: rgba(0, 0, 0, 0.34) !important;
+      border: 1px solid rgba(34, 211, 238, 0.26) !important;
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+        0 0 34px rgba(34, 211, 238, 0.18),
+        0 0 40px rgba(143, 91, 255, 0.16),
+        0 0 28px rgba(255, 47, 184, 0.1),
+        0 22px 70px rgba(0, 0, 0, 0.62) !important;
+    }
+    .landing-live-pill,
+    .livePill {
+      border-color: rgba(34, 211, 238, 0.62) !important;
+      background: linear-gradient(90deg, rgba(34, 211, 238, 0.22), rgba(143, 91, 255, 0.22)) !important;
+      color: #d9f7ff !important;
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.28), 0 0 18px rgba(143, 91, 255, 0.22) !important;
+    }
+    .feedRow::after {
+      opacity: 0.22 !important;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(34, 211, 238, 0.14),
+        rgba(143, 91, 255, 0.12),
+        transparent
+      ) !important;
+    }
   </style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/components.css?v=2026.02.21.2" />
@@ -13526,6 +13634,7 @@
       <div class="pageBg" aria-hidden="true"></div>
       <div class="pageWash" aria-hidden="true"></div>
       <div class="grain" aria-hidden="true"></div>
+      <div class="afterDarkVignette" aria-hidden="true"></div>
       <div class="club-atmosphere" aria-hidden="true">
         <div class="club-rig">
           <span class="club-fixture"></span>
@@ -13603,7 +13712,7 @@
                       <span class="dealTeaseText">██████████ ██████ ███████</span>
                       <span class="dealTeaseOverlay"></span>
                     </div>
-                    <div class="landing-live-meta"><span>Posted 5 min ago</span></div>
+                    <div class="landing-live-meta"><span class="landing-live-posted">Posted 5 min ago</span></div>
                   </div>
                   <span class="landing-live-lock" aria-hidden="true">🔒</span>
                 </article>
@@ -13616,7 +13725,7 @@
                       <span class="dealTeaseText">███████████ █████ ███████</span>
                       <span class="dealTeaseOverlay"></span>
                     </div>
-                    <div class="landing-live-meta"><span>Posted 2 min ago</span></div>
+                    <div class="landing-live-meta"><span class="landing-live-posted">Posted 2 min ago</span></div>
                   </div>
                   <span class="landing-live-lock" aria-hidden="true">🔒</span>
                 </article>
@@ -13630,7 +13739,7 @@
                       <span class="dealTeaseText">████████ ███████ ████████</span>
                       <span class="dealTeaseOverlay"></span>
                     </div>
-                    <div class="landing-live-meta"><span>Posted 8 min ago</span></div>
+                    <div class="landing-live-meta"><span class="landing-live-posted">Posted 8 min ago</span></div>
                   </div>
                   <span class="landing-live-lock" aria-hidden="true">🔒</span>
                 </article>
@@ -13643,7 +13752,7 @@
                       <span class="dealTeaseText">██████████ ███████ █████</span>
                       <span class="dealTeaseOverlay"></span>
                     </div>
-                    <div class="landing-live-meta"><span>Posted 11 min ago</span></div>
+                    <div class="landing-live-meta"><span class="landing-live-posted">Posted 11 min ago</span></div>
                   </div>
                   <span class="landing-live-lock" aria-hidden="true">🔒</span>
                 </article>
@@ -17159,6 +17268,19 @@
         updateGlassBGPositions();
       });
     }
+    function randomizeLandingPostedTimes() {
+      const postedNodes = document.querySelectorAll(".landing-live-posted");
+      if (!postedNodes.length) return;
+      const used = new Set();
+      postedNodes.forEach((node) => {
+        let minutes = 2 + Math.floor(Math.random() * 16);
+        while (used.has(minutes)) {
+          minutes = 2 + Math.floor(Math.random() * 16);
+        }
+        used.add(minutes);
+        node.textContent = `Posted ${minutes} min ago`;
+      });
+    }
     window.addEventListener("resize", requestGlassBGUpdate, { passive: true });
     window.addEventListener("scroll", requestGlassBGUpdate, { passive: true });
     window.addEventListener("load", requestGlassBGUpdate);
@@ -17216,6 +17338,7 @@
       if (name === "landing") {
         closeStaleBlockingOverlays();
         setLandingTagline();
+        randomizeLandingPostedTimes();
         if (landingRefreshBtn) landingRefreshBtn.style.display = "inline-flex";
       } else {
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
