@@ -12769,12 +12769,188 @@
       #menuScreen .menu-action-grid { grid-template-columns: 1fr; }
       #menuScreen .menu-accent-grid { grid-template-columns: 1fr; }
     }
+
+    :root {
+      --hero-bg: url("/assets/nightlife.webp"), url("/assets/landing.jpg");
+    }
+    .pageBg {
+      position: fixed;
+      inset: 0;
+      z-index: -6;
+      background-image: var(--hero-bg);
+      background-size: cover;
+      background-position: center center;
+      transform: scale(1.06);
+      filter: blur(3px) saturate(1.2) brightness(0.62);
+      pointer-events: none;
+    }
+    .pageBgOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: -5;
+      pointer-events: none;
+      background:
+        radial-gradient(1200px 700px at 12% 14%, rgba(34, 211, 238, 0.23), transparent 62%),
+        radial-gradient(1100px 720px at 88% 82%, rgba(236, 72, 153, 0.2), transparent 64%),
+        linear-gradient(180deg, rgba(2, 6, 23, 0.66), rgba(2, 6, 23, 0.84));
+    }
+    .glassBox {
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      background: linear-gradient(160deg, rgba(8, 15, 35, 0.34), rgba(3, 9, 24, 0.56));
+      border: 1px solid rgba(82, 200, 255, 0.34);
+      box-shadow:
+        inset 0 1px 0 rgba(184, 234, 255, 0.26),
+        0 0 0 1px rgba(26, 94, 161, 0.22),
+        0 18px 38px rgba(1, 6, 20, 0.42);
+      backdrop-filter: blur(15px) saturate(1.08);
+      -webkit-backdrop-filter: blur(15px) saturate(1.08);
+    }
+    .glassBox::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image: var(--hero-bg);
+      background-size: cover;
+      background-position: var(--bg-x, center) var(--bg-y, center);
+      opacity: 0.42;
+      filter: saturate(1.16) brightness(0.72) blur(0.8px);
+      transform: scale(1.02);
+    }
+    .glassBox > * {
+      position: relative;
+      z-index: 1;
+    }
+    .landing-live-feed {
+      padding: 14px;
+      border-radius: 20px;
+      display: grid;
+      gap: 10px;
+    }
+    .landing-live-feed-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .landing-live-row {
+      border-radius: 14px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 72px;
+    }
+    .landing-live-copy {
+      flex: 1;
+      min-width: 0;
+    }
+    .landing-live-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .landing-live-venue {
+      font-size: clamp(14px, 1.45vw, 18px);
+      letter-spacing: 0.02em;
+      color: #ecf6ff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .landing-live-pill {
+      border: 1px solid rgba(64, 249, 204, 0.58);
+      background: rgba(35, 224, 184, 0.2);
+      color: #b5fff0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      border-radius: 999px;
+      padding: 3px 8px;
+      box-shadow: 0 0 14px rgba(35, 224, 184, 0.35);
+      white-space: nowrap;
+    }
+    .landing-live-meta {
+      margin-top: 5px;
+      font-size: 12px;
+      color: rgba(194, 220, 246, 0.9);
+      letter-spacing: 0.02em;
+    }
+    .landing-live-lock {
+      font-size: 24px;
+      line-height: 1;
+      filter: drop-shadow(0 0 10px rgba(112, 220, 255, 0.5));
+      flex: 0 0 auto;
+    }
+    .dealTease {
+      position: relative;
+      display: block;
+      max-width: 100%;
+      border-radius: 9px;
+      overflow: hidden;
+      min-height: 18px;
+      padding: 1px 0;
+    }
+    .dealTeaseText {
+      display: inline-block;
+      max-width: 100%;
+      font-size: 13px;
+      font-weight: 560;
+      letter-spacing: 0.14em;
+      color: rgba(238, 245, 255, 0.82);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: clip;
+      filter: blur(2.55px);
+      user-select: none;
+      -webkit-user-select: none;
+      mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.85) 16%, rgba(0, 0, 0, 0.85) 84%, transparent 100%);
+      -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.85) 16%, rgba(0, 0, 0, 0.85) 84%, transparent 100%);
+    }
+    .dealTeaseOverlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(112deg, rgba(255, 255, 255, 0) 18%, rgba(255, 255, 255, 0.24) 49%, rgba(255, 255, 255, 0) 72%),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 5px);
+      mix-blend-mode: screen;
+      animation: dealTeaseShimmer 2.7s linear infinite;
+    }
+    @keyframes dealTeaseShimmer {
+      0% { transform: translateX(-68%); opacity: 0.45; }
+      50% { opacity: 0.8; }
+      100% { transform: translateX(68%); opacity: 0.45; }
+    }
+    @media (max-width: 768px) {
+      .landing-live-row {
+        min-height: 66px;
+        padding: 10px;
+      }
+      .landing-live-venue {
+        font-size: 15px;
+      }
+      .landing-live-lock {
+        font-size: 21px;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .dealTeaseOverlay {
+        animation: none !important;
+      }
+    }
   </style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/components.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/screens.css?v=2026.02.21.2" />
 </head>
   <body>
+      <div class="pageBg" aria-hidden="true"></div>
+      <div class="pageBgOverlay" aria-hidden="true"></div>
       <div class="club-atmosphere" aria-hidden="true">
         <div class="club-rig">
           <span class="club-fixture"></span>
@@ -12834,7 +13010,7 @@
               Fort Collins nightlife, redesigned: instant perks, live venue alerts, and a pass built to move with your night.
             </div>
             <div class="launch-hero-grid">
-              <div class="launch-hero-main">
+              <div class="launch-hero-main glassBox">
                 <div class="micro-label">Tonight starts here</div>
                 <h2 class="launch-hero-title">Spend less. Go harder. Get rewarded while you booze.</h2>
                 <p class="launch-hero-copy">
@@ -12843,27 +13019,78 @@
                   If you go out twice a month, this pass pays for itself.
                 </p>
                 <div class="launch-kpi-strip">
-                  <div class="launch-kpi-chip"><span>Real-time</span><strong>Venue alerts</strong></div>
-                  <div class="launch-kpi-chip"><span>Fast flow</span><strong>Instant redeem</strong></div>
-                  <div class="launch-kpi-chip"><span>Member value</span><strong>Track savings</strong></div>
+                  <div class="launch-kpi-chip glassBox"><span>Real-time</span><strong>Venue alerts</strong></div>
+                  <div class="launch-kpi-chip glassBox"><span>Fast flow</span><strong>Instant redeem</strong></div>
+                  <div class="launch-kpi-chip glassBox"><span>Member value</span><strong>Track savings</strong></div>
                 </div>
               </div>
               <div class="launch-live-grid">
-                <article class="launch-live-card" style="--live-card-index:0;">
-                  <span class="launch-live-tag">Live alerts</span>
-                  <strong>Venue posts hit instantly</strong>
-                  <p>When a venue posts tonight's alert, members see it immediately and can act fast.</p>
-                </article>
-                <article class="launch-live-card" style="--live-card-index:1;">
-                  <span class="launch-live-tag">Pass ready</span>
-                  <strong>Verification built for speed</strong>
-                  <p>Show your pass, get confirmed by staff, and keep your night moving without delays.</p>
-                </article>
-                <article class="launch-live-card" style="--live-card-index:2;">
-                  <span class="launch-live-tag">Membership tiers</span>
-                  <strong>Standard, VIP, or Explorer</strong>
-                  <p>Choose your level and unlock the perks that match how you go out.</p>
-                </article>
+                <section class="landing-live-feed glassBox" aria-label="Live Right Now venue feed">
+                  <header class="landing-live-feed-header">
+                    <span class="launch-live-tag">Live Right Now</span>
+                  </header>
+                  <article class="landing-live-row glassBox" style="--live-row-index:0;">
+                    <div class="landing-live-copy">
+                      <div class="landing-live-top">
+                        <strong class="landing-live-venue">The Rec Room</strong>
+                      </div>
+                      <div class="dealTease" aria-hidden="true">
+                        <span class="dealTeaseText">███████ ███████ █████ ██████</span>
+                        <span class="dealTeaseOverlay"></span>
+                      </div>
+                      <div class="landing-live-meta">
+                        <span>Posted 5 min ago</span>
+                      </div>
+                    </div>
+                    <span class="landing-live-lock" aria-hidden="true">🔒</span>
+                  </article>
+                  <article class="landing-live-row glassBox" style="--live-row-index:1;">
+                    <div class="landing-live-copy">
+                      <div class="landing-live-top">
+                        <strong class="landing-live-venue">Bondi</strong>
+                        <span class="landing-live-pill">LIVE</span>
+                      </div>
+                      <div class="dealTease" aria-hidden="true">
+                        <span class="dealTeaseText">████████ █████ ███████ ████</span>
+                        <span class="dealTeaseOverlay"></span>
+                      </div>
+                      <div class="landing-live-meta">
+                        <span>Posted 2 min ago</span>
+                      </div>
+                    </div>
+                    <span class="landing-live-lock" aria-hidden="true">🔒</span>
+                  </article>
+                  <article class="landing-live-row glassBox" style="--live-row-index:2;">
+                    <div class="landing-live-copy">
+                      <div class="landing-live-top">
+                        <strong class="landing-live-venue">Bar District</strong>
+                      </div>
+                      <div class="dealTease" aria-hidden="true">
+                        <span class="dealTeaseText">██████ ████████ █████ █████</span>
+                        <span class="dealTeaseOverlay"></span>
+                      </div>
+                      <div class="landing-live-meta">
+                        <span>Posted 8 min ago</span>
+                      </div>
+                    </div>
+                    <span class="landing-live-lock" aria-hidden="true">🔒</span>
+                  </article>
+                  <article class="landing-live-row glassBox" style="--live-row-index:3;">
+                    <div class="landing-live-copy">
+                      <div class="landing-live-top">
+                        <strong class="landing-live-venue">Lucky Joe’s</strong>
+                      </div>
+                      <div class="dealTease" aria-hidden="true">
+                        <span class="dealTeaseText">█████████ ████ ███████ ███</span>
+                        <span class="dealTeaseOverlay"></span>
+                      </div>
+                      <div class="landing-live-meta">
+                        <span>Posted 11 min ago</span>
+                      </div>
+                    </div>
+                    <span class="landing-live-lock" aria-hidden="true">🔒</span>
+                  </article>
+                </section>
               </div>
             </div>
             <div class="launch-actions">
@@ -12875,11 +13102,11 @@
               </button>
             </div>
             <div class="launch-entry-row">
-              <button id="landingLoginLink" class="launch-entry-card" type="button">
+              <button id="landingLoginLink" class="launch-entry-card glassBox" type="button">
                 <span class="launch-entry-title">Member Login</span>
                 <span class="launch-entry-sub">Already have a pass? Jump straight into your profile.</span>
               </button>
-              <button id="landingStaffLogin" class="launch-entry-card launch-entry-card-staff" type="button">
+              <button id="landingStaffLogin" class="launch-entry-card launch-entry-card-staff glassBox" type="button">
                 <span class="launch-entry-title">Venue Staff Portal</span>
                 <span class="launch-entry-sub">Verify vouchers, post alerts, and run your venue in real time.</span>
               </button>
@@ -16350,6 +16577,26 @@
       }
     }
 
+    let glassBgRaf = 0;
+    function updateGlassBGPositions() {
+      const boxes = document.querySelectorAll(".glassBox");
+      boxes.forEach((box) => {
+        const r = box.getBoundingClientRect();
+        box.style.setProperty("--bg-x", `${-Math.round(r.left)}px`);
+        box.style.setProperty("--bg-y", `${-Math.round(r.top)}px`);
+      });
+    }
+    function requestGlassBGUpdate() {
+      if (glassBgRaf) return;
+      glassBgRaf = requestAnimationFrame(() => {
+        glassBgRaf = 0;
+        updateGlassBGPositions();
+      });
+    }
+    window.addEventListener("resize", requestGlassBGUpdate, { passive: true });
+    window.addEventListener("scroll", requestGlassBGUpdate, { passive: true });
+    window.addEventListener("load", requestGlassBGUpdate);
+
     function showScreen(name) {
       const previousScreenName = currentScreenName;
       if (maintenanceModeActive && name !== "maintenance" && !canBypassMaintenance()) {
@@ -16512,6 +16759,7 @@
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
       } catch (_) {}
+      requestGlassBGUpdate();
     }
 
     // Stagger reveal for containers marked with `.smooth-enter`
