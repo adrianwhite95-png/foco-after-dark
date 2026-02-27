@@ -16756,6 +16756,43 @@
       if (ceoNotificationsStatus) {
         ceoNotificationsStatus.textContent = message;
       }
+      refreshNotificationButtonsState();
+    }
+    function refreshNotificationButtonsState() {
+      const permission = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
+      const enabled = permission === "granted";
+      const denied = permission === "denied";
+      const applyButtonState = (btn, labels) => {
+        if (!btn) return;
+        if (!btn.dataset.baseLabel) {
+          btn.dataset.baseLabel = btn.textContent || labels.defaultLabel;
+        }
+        if (enabled) {
+          btn.disabled = true;
+          btn.textContent = labels.enabledLabel;
+          return;
+        }
+        btn.disabled = false;
+        btn.textContent = denied ? labels.deniedLabel : (btn.dataset.baseLabel || labels.defaultLabel);
+      };
+      const enableBtn = document.getElementById("enableNotificationsBtn");
+      const promptEnableBtn = document.getElementById("enableNotificationsPromptBtn");
+      const authEnableBtn = document.getElementById("authEnableNotificationsBtn");
+      applyButtonState(enableBtn, {
+        defaultLabel: "Enable notifications",
+        enabledLabel: "Notifications enabled",
+        deniedLabel: "Blocked in settings"
+      });
+      applyButtonState(promptEnableBtn, {
+        defaultLabel: "Enable notifications",
+        enabledLabel: "Notifications enabled",
+        deniedLabel: "Blocked in settings"
+      });
+      applyButtonState(authEnableBtn, {
+        defaultLabel: "Turn on notifications",
+        enabledLabel: "Notifications enabled",
+        deniedLabel: "Blocked in settings"
+      });
     }
     async function ensureMessagingClient() {
       if (pushSupportChecked) return pushSupported;
@@ -18230,6 +18267,7 @@
       } else {
         authNotificationsStatus.textContent = "Recommended: enable notifications for live alerts and perk updates.";
       }
+      refreshNotificationButtonsState();
     }
     function normalizeMembershipTierSelection(rawTier) {
       const value = String(rawTier || "").toLowerCase();
@@ -20627,8 +20665,17 @@
       });
     }
     if (enableNotificationsBtn) {
-      enableNotificationsBtn.addEventListener("click", () => {
-        enablePushNotifications({ forcePrompt: true });
+      enableNotificationsBtn.addEventListener("click", async () => {
+        if (enableNotificationsBtn.disabled) return;
+        const originalLabel = enableNotificationsBtn.textContent;
+        enableNotificationsBtn.disabled = true;
+        enableNotificationsBtn.textContent = "Enabling...";
+        const ok = await enablePushNotifications({ forcePrompt: true });
+        if (!ok) {
+          enableNotificationsBtn.disabled = false;
+          enableNotificationsBtn.textContent = originalLabel || "Enable notifications";
+        }
+        refreshNotificationButtonsState();
       });
     }
     if (sendTestNotificationBtn) {
@@ -20671,12 +20718,25 @@
       });
     }
     if (enableNotificationsPromptBtn) {
-      enableNotificationsPromptBtn.addEventListener("click", () => {
-        enablePushNotifications({ forcePrompt: true });
+      enableNotificationsPromptBtn.addEventListener("click", async () => {
+        if (enableNotificationsPromptBtn.disabled) return;
+        const originalLabel = enableNotificationsPromptBtn.textContent;
+        enableNotificationsPromptBtn.disabled = true;
+        enableNotificationsPromptBtn.textContent = "Enabling...";
+        const ok = await enablePushNotifications({ forcePrompt: true });
+        if (!ok) {
+          enableNotificationsPromptBtn.disabled = false;
+          enableNotificationsPromptBtn.textContent = originalLabel || "Enable notifications";
+        }
+        refreshNotificationButtonsState();
       });
     }
     if (authEnableNotificationsBtn) {
       authEnableNotificationsBtn.addEventListener("click", async () => {
+        if (authEnableNotificationsBtn.disabled) return;
+        const originalLabel = authEnableNotificationsBtn.textContent;
+        authEnableNotificationsBtn.disabled = true;
+        authEnableNotificationsBtn.textContent = "Enabling...";
         const ok = await enablePushNotifications({ forcePrompt: true });
         if (ok) {
           updateNotificationsStatus("Notifications enabled for this device.");
@@ -20685,7 +20745,10 @@
           updateNotificationsStatus("Notifications enabled. Device sync pending.");
         } else {
           updateNotificationsStatus("Notifications are off.");
+          authEnableNotificationsBtn.disabled = false;
+          authEnableNotificationsBtn.textContent = originalLabel || "Turn on notifications";
         }
+        refreshNotificationButtonsState();
       });
     }
     if (registerThisDevicePushBtn) {
@@ -20714,6 +20777,7 @@
         }
       });
     }
+    refreshNotificationButtonsState();
     const achievementsNewPill = document.getElementById("achievementsNewPill");
     const navMenu = document.getElementById("navMenu");
     const navItems = navMenu ? navMenu.querySelectorAll("[data-nav]") : [];
