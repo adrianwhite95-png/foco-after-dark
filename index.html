@@ -13915,6 +13915,26 @@
         transform: translateY(-1px);
       }
     }
+
+    /* ===== HARD FIX: keep nightlife photo visible inside all landing windows ===== */
+    #landingScreen .premiumGlass.photo-glass {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 30%),
+        linear-gradient(180deg, rgba(8, 12, 22, 0.22), rgba(6, 10, 20, 0.30)) !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    }
+    #landingScreen .premiumGlass.photo-glass::before,
+    #landingScreen .photo-glass::before {
+      background: url("assets/nightlife-bg.png?v=2") center/cover no-repeat !important;
+      opacity: 0.78 !important;
+      filter: saturate(1.22) brightness(0.80) contrast(1.12) blur(8px) !important;
+      transform: scale(1.08) !important;
+    }
+    #landingScreen .premiumGlass.photo-glass::after,
+    #landingScreen .photo-glass::after {
+      background: linear-gradient(180deg, rgba(2, 6, 23, 0.12), rgba(2, 6, 23, 0.42)) !important;
+      opacity: 1 !important;
+    }
   </style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/components.css?v=2026.02.21.2" />
