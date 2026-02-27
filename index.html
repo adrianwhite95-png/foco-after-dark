@@ -16786,8 +16786,8 @@
           btn.dataset.baseLabel = btn.textContent || labels.defaultLabel;
         }
         if (enabled) {
-          btn.disabled = false;
-          btn.textContent = labels.grantedLabel || labels.enabledLabel;
+          btn.disabled = true;
+          btn.textContent = labels.enabledLabel;
           return;
         }
         if (remembered && !denied) {
@@ -16804,21 +16804,18 @@
       applyButtonState(enableBtn, {
         defaultLabel: "Enable notifications",
         enabledLabel: "Notifications enabled",
-        grantedLabel: "Reconnect notifications",
         deniedLabel: "Enable in settings",
         reconnectLabel: "Reconnect notifications"
       });
       applyButtonState(promptEnableBtn, {
         defaultLabel: "Enable notifications",
         enabledLabel: "Notifications enabled",
-        grantedLabel: "Reconnect notifications",
         deniedLabel: "Enable in settings",
         reconnectLabel: "Reconnect notifications"
       });
       applyButtonState(authEnableBtn, {
         defaultLabel: "Turn on notifications",
         enabledLabel: "Notifications enabled",
-        grantedLabel: "Reconnect notifications",
         deniedLabel: "Enable in settings",
         reconnectLabel: "Reconnect notifications"
       });
