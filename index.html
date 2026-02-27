@@ -13625,6 +13625,38 @@
         transparent
       ) !important;
     }
+
+    /* ===== Landing transparency + window photo restore (hard override) ===== */
+    #landingScreen {
+      background: transparent !important;
+      border-color: transparent !important;
+      box-shadow: none !important;
+    }
+    #landingScreen .landing-wrapper,
+    #landingScreen .landing-wrapper.appFrame {
+      background: rgba(6, 12, 18, 0.01) !important;
+      backdrop-filter: blur(14px) saturate(1.2) !important;
+      -webkit-backdrop-filter: blur(14px) saturate(1.2) !important;
+    }
+    #landingScreen .landing-bg::before {
+      opacity: 0.16 !important;
+      mix-blend-mode: screen !important;
+    }
+    #landingScreen .landing-bg::after {
+      background: linear-gradient(180deg, rgba(2, 8, 20, 0.36), rgba(2, 8, 20, 0.56)) !important;
+    }
+    #landingScreen .landing-bg img {
+      filter: brightness(0.82) contrast(1.18) saturate(1.2) !important;
+      opacity: 0.96 !important;
+    }
+    #landingScreen .photo-glass::before {
+      background: url("assets/nightlife-bg.png") center/cover no-repeat !important;
+      opacity: 0.88 !important;
+      filter: saturate(1.35) brightness(0.94) contrast(1.1) blur(7px) !important;
+    }
+    #landingScreen .photo-glass::after {
+      background: linear-gradient(180deg, rgba(2, 6, 23, 0.12), rgba(2, 6, 23, 0.38)) !important;
+    }
   </style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/components.css?v=2026.02.21.2" />
