@@ -17795,6 +17795,16 @@
         node.textContent = `Posted ${minutes} min ago`;
       });
     }
+    function randomizeLandingSocialProof() {
+      const countNode = document.querySelector(".launch-social-proof .proof-row:first-child .proof-number");
+      if (!countNode) return;
+      const count = 14 + Math.floor(Math.random() * 24);
+      countNode.textContent = String(count);
+    }
+    if (screens.landing?.classList.contains("active")) {
+      randomizeLandingPostedTimes();
+      randomizeLandingSocialProof();
+    }
     window.addEventListener("resize", requestGlassBGUpdate, { passive: true });
     window.addEventListener("scroll", requestGlassBGUpdate, { passive: true });
     window.addEventListener("load", requestGlassBGUpdate);
@@ -17853,6 +17863,7 @@
         closeStaleBlockingOverlays();
         setLandingTagline();
         randomizeLandingPostedTimes();
+        randomizeLandingSocialProof();
         if (landingRefreshBtn) landingRefreshBtn.style.display = "inline-flex";
       } else {
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
@@ -25399,7 +25410,22 @@ let onboardingIndex = 0;
     }
     function softRefresh() {
       if (navMenu) navMenu.classList.remove("open");
-      window.location.reload();
+      const user = firebaseAuth?.currentUser;
+      const authed = !!(user && !user.isAnonymous);
+      if (!authed) {
+        window.location.reload();
+        return;
+      }
+      const targetScreen = screens[currentScreenName] ? currentScreenName : "pass";
+      if (typeof showToast === "function") {
+        showToast("Refreshing…", 900);
+      }
+      try {
+        showScreen(targetScreen);
+        maybeSchedulePushAutoSync("manual-refresh", false);
+      } catch (_) {
+        window.location.reload();
+      }
     }
     if (refreshBtn) {
       refreshBtn.addEventListener("click", () => {
