@@ -3780,10 +3780,12 @@
       inset: 0;
       z-index: -2;
       overflow: hidden;
+      pointer-events: none;
     }
     .landing-bg > * {
       position: relative;
       z-index: 2;
+      pointer-events: none;
     }
     .landing-bg::after {
       content: "";
@@ -12967,6 +12969,23 @@
         0 0 52px rgba(34, 211, 238, 0.14),
         0 0 78px rgba(244, 114, 182, 0.12),
         0 24px 110px rgba(0, 0, 0, 0.52) !important;
+    }
+    /* Landing interaction failsafe: keep decorative layers click-through. */
+    #landingScreen .landing-bg,
+    #landingScreen .landing-bg *,
+    #landingScreen .landing-wrapper::before,
+    #landingScreen .landing-wrapper::after,
+    #landingScreen .landing-wrapper .landing-strobe,
+    #landingScreen .landing-wrapper .landing-strobe::before,
+    #landingScreen .premiumGlass::before,
+    #landingScreen .premiumGlass::after,
+    #landingScreen .photo-glass::before,
+    #landingScreen .photo-glass::after {
+      pointer-events: none !important;
+    }
+    #landingScreen .landing-wrapper,
+    #landingScreen .landing-wrapper *:not(.landing-strobe) {
+      pointer-events: auto;
     }
     #landingScreen .launch-billboard {
       border-radius: 22px;
