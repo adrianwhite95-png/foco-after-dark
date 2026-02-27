@@ -14183,7 +14183,6 @@
                   <div class="landing-live-copy">
                     <div class="landing-live-top">
                       <strong class="landing-live-venue">The Rec Room</strong>
-                      <span class="landing-live-pill livePill">LIVE</span>
                     </div>
                     <div class="dealTease" aria-hidden="true">
                       <span class="dealTeaseText">██████████ ██████ ███████</span>
@@ -14210,7 +14209,6 @@
                   <div class="landing-live-copy">
                     <div class="landing-live-top">
                       <strong class="landing-live-venue">Bar District</strong>
-                      <span class="landing-live-pill livePill">LIVE</span>
                     </div>
                     <div class="dealTease" aria-hidden="true">
                       <span class="dealTeaseText">████████ ███████ ████████</span>
@@ -17816,6 +17814,42 @@
         node.textContent = `Posted ${minutes} min ago`;
       });
     }
+    function hashSeedToUnit(seed = "") {
+      let h = 2166136261;
+      const text = String(seed || "");
+      for (let i = 0; i < text.length; i += 1) {
+        h ^= text.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return ((h >>> 0) % 10000) / 10000;
+    }
+    function applyLandingLivePillsByTime(now = new Date()) {
+      const rowTops = Array.from(document.querySelectorAll(".landing-live-row .landing-live-top"));
+      if (!rowTops.length) return;
+      rowTops.forEach((top) => {
+        top.querySelectorAll(".landing-live-pill.dynamic-live-pill").forEach((pill) => pill.remove());
+      });
+      const minutes = (now.getHours() * 60) + now.getMinutes();
+      const inLiveWindow = minutes >= 660 || minutes <= 120; // 11:00 AM -> 2:00 AM
+      if (!inLiveWindow) return;
+      const effectiveMinutes = minutes >= 660 ? minutes : (minutes + 1440);
+      const block = Math.floor((effectiveMinutes - 660) / 180); // rotates every 3 hours
+      const nightDate = new Date(now);
+      if (now.getHours() <= 2) {
+        nightDate.setDate(nightDate.getDate() - 1);
+      }
+      const nightKey = `${nightDate.getFullYear()}-${nightDate.getMonth() + 1}-${nightDate.getDate()}`;
+      const seedBase = `${nightKey}:${block}`;
+      const desiredCount = 1 + Math.floor(hashSeedToUnit(`${seedBase}:count`) * 2); // 1-2 LIVE pills
+      const indexed = rowTops.map((el, idx) => ({ el, idx, rank: hashSeedToUnit(`${seedBase}:${idx}`) }));
+      indexed.sort((a, b) => b.rank - a.rank);
+      indexed.slice(0, Math.min(desiredCount, indexed.length)).forEach(({ el }) => {
+        const pill = document.createElement("span");
+        pill.className = "landing-live-pill livePill dynamic-live-pill";
+        pill.textContent = "LIVE";
+        el.appendChild(pill);
+      });
+    }
     function randomizeLandingSocialProof() {
       const countNode = document.querySelector(".launch-social-proof .proof-row:first-child .proof-number");
       if (!countNode) return;
@@ -17825,6 +17859,7 @@
     if (screens.landing?.classList.contains("active")) {
       randomizeLandingPostedTimes();
       randomizeLandingSocialProof();
+      applyLandingLivePillsByTime();
     }
     window.addEventListener("resize", requestGlassBGUpdate, { passive: true });
     window.addEventListener("scroll", requestGlassBGUpdate, { passive: true });
@@ -17885,6 +17920,7 @@
         setLandingTagline();
         randomizeLandingPostedTimes();
         randomizeLandingSocialProof();
+        applyLandingLivePillsByTime();
         if (landingRefreshBtn) landingRefreshBtn.style.display = "inline-flex";
       } else {
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
