@@ -1126,6 +1126,15 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+    .sticky-actions .chip-danger {
+      border-color: rgba(248, 113, 113, 0.55);
+      color: #fecaca;
+      box-shadow: 0 0 14px rgba(248, 113, 113, 0.2);
+    }
+    .sticky-actions .chip-danger:hover {
+      border-color: rgba(248, 113, 113, 0.72);
+      box-shadow: 0 0 18px rgba(248, 113, 113, 0.3);
+    }
     .staff-accent-row {
       display: flex;
       flex-wrap: wrap;
@@ -14042,6 +14051,7 @@
         0 20px 74px rgba(0, 0, 0, 0.70);
       overflow: hidden;
       transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+      animation: ctaBreath 2.4s ease-in-out infinite;
     }
     .foco-premium .btnPremiumPrimary::before {
       content: "";
@@ -14065,6 +14075,24 @@
       20% { opacity: 0.55; }
       60% { opacity: 0.25; }
       100% { transform: translateX(120%); opacity: 0; }
+    }
+    @keyframes ctaBreath {
+      0%, 100% {
+        filter: brightness(1);
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+          0 0 28px rgba(34, 211, 238, 0.16),
+          0 0 30px rgba(143, 91, 255, 0.14),
+          0 20px 74px rgba(0, 0, 0, 0.70);
+      }
+      50% {
+        filter: brightness(1.08);
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+          0 0 38px rgba(34, 211, 238, 0.24),
+          0 0 42px rgba(143, 91, 255, 0.2),
+          0 24px 82px rgba(0, 0, 0, 0.74);
+      }
     }
     .foco-premium .btnPremiumPrimary:hover {
       transform: translateY(-1px);
@@ -14099,6 +14127,39 @@
     @media (prefers-reduced-motion: reduce) {
       .foco-premium .btnPremiumPrimary::after {
         animation: none !important;
+      }
+    }
+    @media (min-width: 1024px) and (max-width: 1366px) and (orientation: landscape) {
+      #staffPortalScreen .staff-board {
+        grid-template-columns: 1fr !important;
+        grid-template-areas:
+          "verify"
+          "radar"
+          "perks"
+          "alert"
+          "codes"
+          "message"
+          "more" !important;
+      }
+      #staffPortalScreen #verifyCard {
+        position: static !important;
+        top: auto !important;
+      }
+      #staffPortalScreen .staff-sticky-bar {
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      #staffPortalScreen .sticky-actions {
+        width: 100%;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 8px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+      }
+      #staffPortalScreen .sticky-actions .chip {
+        flex: 0 0 auto;
       }
     }
   </style>
@@ -15226,7 +15287,7 @@
 
   <div id="staffPortalScreen" class="screen">
     <div class="staff-portal-top">
-      <button type="button" class="staff-logout-top" id="staffLogoutTop">Log out</button>
+      <button type="button" class="staff-logout-top" id="staffLogoutTop" style="display:none;">Log out</button>
     </div>
     <div class="app-title" id="staffPortalTitle"><span>Venue</span> Dashboard</div>
     <div class="tagline" id="staffPortalTagline">
@@ -15250,6 +15311,7 @@
         <button type="button" class="chip ghost" data-scroll="alertCard">Post alert</button>
         <button type="button" class="chip ghost" data-scroll="codesCard">Codes</button>
         <button type="button" class="chip ghost" data-scroll="staffMore">More</button>
+        <button type="button" class="chip ghost chip-danger" id="staffLogoutQuick">Log out</button>
       </div>
     </div>
     <div class="staff-accent-row">
@@ -16775,6 +16837,20 @@
       }
       refreshNotificationButtonsState();
     }
+    function getNotificationStatusMessage() {
+      const permission = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
+      if (permission === "granted") return "Notifications enabled for this device.";
+      if (permission === "denied") return "Notifications blocked in browser settings.";
+      if (wasPushEnabledOnDevice()) return "Notifications were enabled before. Tap to reconnect this device.";
+      return "Notifications are off.";
+    }
+    function syncNotificationStatusLines() {
+      const message = getNotificationStatusMessage();
+      if (enableNotificationsStatus) enableNotificationsStatus.textContent = message;
+      if (notificationsPromptStatus) notificationsPromptStatus.textContent = message;
+      if (authNotificationsStatus) authNotificationsStatus.textContent = message;
+      if (ceoNotificationsStatus) ceoNotificationsStatus.textContent = message;
+    }
     function refreshNotificationButtonsState() {
       const permission = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
       const enabled = permission === "granted";
@@ -17843,6 +17919,8 @@
           if (!postedNode) return;
           postedNode.textContent = "";
           postedNode.style.display = "none";
+          const meta = postedNode.closest(".landing-live-meta");
+          if (meta) meta.style.display = "none";
         });
         return;
       }
@@ -17854,19 +17932,17 @@
       }
       const nightKey = `${nightDate.getFullYear()}-${nightDate.getMonth() + 1}-${nightDate.getDate()}`;
       const seedBase = `${nightKey}:${block}`;
-      const desiredCount = 1 + Math.floor(hashSeedToUnit(`${seedBase}:count`) * 2); // 1-2 LIVE pills
+      const desiredCount = 2 + Math.floor(hashSeedToUnit(`${seedBase}:count`) * 2); // 2-3 LIVE pills
       const indexed = rows.map((row, idx) => ({ row, idx, rank: hashSeedToUnit(`${seedBase}:${idx}`) }));
       indexed.sort((a, b) => b.rank - a.rank);
       const liveIndexes = new Set(indexed.slice(0, Math.min(desiredCount, indexed.length)).map((item) => item.idx));
       indexed.forEach(({ row, idx }) => {
         const postedNode = row.querySelector(".landing-live-posted");
         if (!postedNode) return;
-        if (liveIndexes.has(idx)) {
-          postedNode.style.display = "";
-        } else {
-          postedNode.textContent = "";
-          postedNode.style.display = "none";
-        }
+        postedNode.textContent = "";
+        postedNode.style.display = "none";
+        const meta = postedNode.closest(".landing-live-meta");
+        if (meta) meta.style.display = "none";
       });
       indexed.filter(({ idx }) => liveIndexes.has(idx)).forEach(({ row }) => {
         const el = row.querySelector(".landing-live-top");
@@ -20774,6 +20850,8 @@
           }
         }
         if (addToHomeOverlay) addToHomeOverlay.classList.add("active");
+        syncNotificationStatusLines();
+        refreshNotificationButtonsState();
         enablePushNotifications({ forcePrompt: false });
       });
     }
@@ -20907,6 +20985,7 @@
         }
       });
     }
+    syncNotificationStatusLines();
     refreshNotificationButtonsState();
     const achievementsNewPill = document.getElementById("achievementsNewPill");
     const navMenu = document.getElementById("navMenu");
@@ -21033,6 +21112,7 @@
     const staffClearMessagesBtn = document.getElementById("staffClearMessagesBtn");
     const staffMsgBadge = document.getElementById("staffMsgBadge");
     const staffLogoutLink = document.getElementById("staffLogoutLink");
+    const staffLogoutQuick = document.getElementById("staffLogoutQuick");
     const staffLoginBack = document.getElementById("staffLoginBack");
     applyStaffRememberedLogin();
     const ceoPortalBack = document.getElementById("ceoPortalBack");
@@ -36997,6 +37077,9 @@ let onboardingIndex = 0;
     const staffLogoutTop = document.getElementById("staffLogoutTop");
     if (staffLogoutTop) {
       staffLogoutTop.addEventListener("click", handleStaffLogout);
+    }
+    if (staffLogoutQuick) {
+      staffLogoutQuick.addEventListener("click", handleStaffLogout);
     }
       if (staffAnalyticsRange) {
         staffAnalyticsRange.addEventListener("click", (event) => {
