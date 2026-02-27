@@ -12822,6 +12822,27 @@
         0 30px 120px rgba(0, 0, 0, 0.55);
       animation: framePulse 3.6s ease-in-out infinite;
     }
+    .appFrame {
+      position: relative;
+      background: rgba(6, 12, 18, 0.25);
+      backdrop-filter: blur(18px) saturate(1.2);
+      -webkit-backdrop-filter: blur(18px) saturate(1.2);
+      border: 1px solid rgba(34, 211, 238, 0.16);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 0 60px rgba(34, 211, 238, 0.14),
+        0 0 90px rgba(244, 114, 182, 0.1),
+        0 30px 130px rgba(0, 0, 0, 0.6);
+    }
+    .appFrame::before {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border-radius: inherit;
+      pointer-events: none;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
     .glassBox {
       position: relative;
       overflow: hidden;
@@ -12899,11 +12920,21 @@
       display: grid;
       gap: 14px;
     }
+    #landingScreen .landing-wrapper.appFrame {
+      background: rgba(6, 12, 18, 0.22) !important;
+      border-color: rgba(34, 211, 238, 0.18) !important;
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 0 52px rgba(34, 211, 238, 0.14),
+        0 0 78px rgba(244, 114, 182, 0.12),
+        0 24px 110px rgba(0, 0, 0, 0.52) !important;
+    }
     #landingScreen .launch-billboard {
       border-radius: 22px;
       padding: 16px 18px 14px;
       text-align: center;
       background: linear-gradient(160deg, rgba(6, 12, 18, 0.72), rgba(5, 10, 16, 0.66));
+      animation: floaty 6s ease-in-out infinite;
     }
     #landingScreen .billboard-pill-row {
       display: inline-flex;
@@ -12928,6 +12959,20 @@
       letter-spacing: 0.01em;
       color: #eef8ff;
       text-shadow: 0 10px 30px rgba(2, 12, 30, 0.72), 0 0 24px rgba(124, 232, 255, 0.22);
+    }
+    .neonTitle {
+      text-shadow:
+        0 0 10px rgba(34, 211, 238, 0.2),
+        0 0 22px rgba(244, 114, 182, 0.14);
+    }
+    .neonHero {
+      text-shadow:
+        0 0 14px rgba(34, 211, 238, 0.28),
+        0 0 34px rgba(244, 114, 182, 0.18),
+        0 20px 70px rgba(0, 0, 0, 0.35);
+    }
+    .neonLabel {
+      text-shadow: 0 0 10px rgba(34, 211, 238, 0.22);
     }
     #landingScreen .launch-billboard .launch-hero-copy {
       margin: 0 auto;
@@ -13085,6 +13130,98 @@
       animation: ctaShimmer 2.4s ease-in-out infinite;
       pointer-events: none;
     }
+    .btn-neon {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 14px 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(34, 211, 238, 0.28);
+      color: rgba(255, 255, 255, 0.92) !important;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+      background: rgba(6, 12, 18, 0.35);
+      backdrop-filter: blur(14px) saturate(1.35);
+      -webkit-backdrop-filter: blur(14px) saturate(1.35);
+      box-shadow:
+        0 0 0 1px rgba(34, 211, 238, 0.18),
+        0 0 28px rgba(34, 211, 238, 0.16),
+        0 0 46px rgba(244, 114, 182, 0.12),
+        0 18px 60px rgba(0, 0, 0, 0.45);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+      overflow: hidden;
+      isolation: isolate;
+    }
+    .btn-neon::before {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(34, 211, 238, 0.55), rgba(244, 114, 182, 0.4), rgba(34, 197, 94, 0.4));
+      opacity: 0.55;
+      filter: blur(10px);
+      z-index: 0;
+      pointer-events: none;
+    }
+    .btn-neon::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 45%),
+        linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+      transform: translateX(-120%);
+      animation: neonShimmer 2.8s ease-in-out infinite;
+      opacity: 0.65;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .btn-neon > * {
+      position: relative;
+      z-index: 1;
+    }
+    .btn-neon:hover {
+      transform: translateY(-1px);
+      border-color: rgba(34, 211, 238, 0.42);
+      box-shadow:
+        0 0 0 1px rgba(34, 211, 238, 0.26),
+        0 0 44px rgba(34, 211, 238, 0.22),
+        0 0 72px rgba(244, 114, 182, 0.18),
+        0 26px 80px rgba(0, 0, 0, 0.55);
+      filter: brightness(1.08);
+    }
+    .btn-neon--ghost {
+      background: rgba(6, 12, 18, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.1),
+        0 0 18px rgba(34, 211, 238, 0.1),
+        0 14px 40px rgba(0, 0, 0, 0.35);
+    }
+    .btn-neon--ghost::before { opacity: 0.28; }
+    .btn-neon--ghost::after { opacity: 0.35; }
+    .btn-neon--glass {
+      padding: 12px 16px;
+      letter-spacing: 0.1em;
+      background: rgba(6, 12, 18, 0.28);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      box-shadow:
+        0 0 0 1px rgba(34, 211, 238, 0.14),
+        0 0 22px rgba(34, 211, 238, 0.1),
+        0 16px 45px rgba(0, 0, 0, 0.4);
+    }
+    .btn-neon--glass::before { opacity: 0.35; }
+    .btn-neon--glass::after { opacity: 0.35; }
+    .btn-neon--glass:hover {
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      text-decoration-color: rgba(34, 211, 238, 0.9);
+    }
     #landingScreen .launch-social-proof {
       max-width: 860px;
       margin: 10px auto 0;
@@ -13101,25 +13238,17 @@
       max-width: 860px;
       margin: 10px auto 0;
       grid-template-columns: 1fr;
-      gap: 4px;
+      gap: 10px;
       text-align: center;
     }
     #landingScreen .launch-inline-link {
-      border: 0;
-      background: transparent;
-      color: rgba(222, 234, 247, 0.92);
-      font-size: 17px;
-      letter-spacing: 0.01em;
-      padding: 4px 0;
-      cursor: pointer;
+      width: 100%;
+      min-height: 48px;
     }
     #landingScreen .launch-inline-link span {
-      color: #7fe7ff;
+      color: inherit;
       text-decoration: underline;
       text-underline-offset: 3px;
-    }
-    #landingScreen .launch-inline-link.launch-inline-link-staff span {
-      color: #f9a8d4;
     }
     #landingScreen .launch-secondary-actions {
       max-width: 860px;
@@ -13130,9 +13259,7 @@
     #landingScreen .launch-secondary-actions #addToHomeBtn {
       min-height: 44px !important;
       max-width: 320px;
-      background: rgba(6, 12, 18, 0.72) !important;
-      color: #d8efff !important;
-      border: 1px solid rgba(100, 208, 255, 0.45) !important;
+      width: 100%;
     }
     @keyframes washDrift {
       0% {
@@ -13205,6 +13332,16 @@
         opacity: 0;
       }
     }
+    @keyframes neonShimmer {
+      0% { transform: translateX(-120%); opacity: 0; }
+      20% { opacity: 0.55; }
+      60% { opacity: 0.25; }
+      100% { transform: translateX(120%); opacity: 0; }
+    }
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
+    }
     .money-pop {
       color: var(--accent-green);
       text-shadow: 0 0 10px rgba(34, 197, 94, 0.55), 0 0 22px rgba(34, 211, 238, 0.25);
@@ -13241,6 +13378,7 @@
       .feedRow::after,
       .ctaNeon,
       .ctaNeon::after,
+      .btn-neon::after,
       .dealTeaseOverlay,
       .grain {
         animation: none !important;
@@ -13303,25 +13441,25 @@
               <span></span>
             </div>
           </div>
-          <div class="landing-wrapper neonFrame">
+          <div class="landing-wrapper neonFrame appFrame">
             <div class="landing-strobe" aria-hidden="true"></div>
             <button id="landingRefreshBtn" class="refresh-btn" title="Reload">Reload</button>
             <div class="brand-logo brand-logo-landing">
               <img src="foco-logo.png" alt="FoCo After Dark neon logo" class="brand-logo-img" />
             </div>
-            <div class="app-title"><span>FoCo</span> After Dark 21+</div>
+            <div class="app-title neonTitle"><span>FoCo</span> After Dark 21+</div>
             <div class="tagline" id="landingTagline">
               Fort Collins nightlife, redesigned: instant perks, live venue alerts, and a pass built to move with your night.
             </div>
             <div class="launch-hero-grid">
               <section class="launch-billboard glassBox photo-glass" aria-label="FoCo premium nightlife billboard">
                 <div class="billboard-pill-row">LIVE VENUE FEED • LOCAL-ONLY PERKS • MEMBER-ONLY ACCESS</div>
-                <h2 class="launch-hero-title">Unlock Tonight's VIP Perks &amp; Flash Deals.</h2>
+                <h2 class="launch-hero-title neonHero">Unlock Tonight's VIP Perks &amp; Flash Deals.</h2>
                 <p class="launch-hero-copy">Live posts from Fort Collins venues — members see everything.</p>
               </section>
               <section class="landing-live-feed landing-live-feed-premium glassBox photo-glass" aria-label="Live Right Now venue feed">
                 <header class="landing-live-feed-header">
-                  <span class="launch-live-tag">Live Right Now</span>
+                  <span class="launch-live-tag neonLabel">Live Right Now</span>
                 </header>
                 <article class="landing-live-row glassBox feedRow photo-glass" style="--live-row-index:0;">
                   <div class="landing-live-copy">
@@ -13379,7 +13517,7 @@
               </section>
             </div>
             <div class="launch-actions">
-              <button id="landingGetPassBtn" class="btn btn-primary btn-hd primary ctaNeon cta-shimmer" type="button">
+              <button id="landingGetPassBtn" class="btn btn-primary btn-neon ctaNeon" type="button">
                 UNLOCK TONIGHT'S PERKS — 21+
               </button>
             </div>
@@ -13388,15 +13526,15 @@
               <div>✓ Members saved an average of <span class="money-pop">$18</span> each night last week</div>
             </div>
             <div class="launch-entry-row launch-entry-links">
-              <button id="landingLoginLink" class="launch-inline-link" type="button">
-                Already a member? <span>Log in</span>
+              <button id="landingLoginLink" class="launch-inline-link btn-neon btn-neon--glass" type="button">
+                ALREADY A MEMBER? LOG IN
               </button>
-              <button id="landingStaffLogin" class="launch-inline-link launch-inline-link-staff" type="button">
-                Venue Staff Portal <span>Log in</span>
+              <button id="landingStaffLogin" class="launch-inline-link btn-neon btn-neon--glass" type="button">
+                VENUE STAFF PORTAL LOG IN
               </button>
             </div>
             <div class="launch-secondary-actions">
-              <button id="addToHomeBtn" class="btn btn-secondary btn-hd ghost cta-shimmer" type="button">Add to Home Screen</button>
+              <button id="addToHomeBtn" class="btn btn-secondary btn-neon btn-neon--ghost" type="button">ADD TO HOME SCREEN</button>
             </div>
             <div class="landing-responsible-note">Please drink responsibly. Never drink and drive — call a rideshare.</div>
             <div class="insta-cta-wrap">
