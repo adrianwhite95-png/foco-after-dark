@@ -16724,6 +16724,7 @@
     const PUSH_PROMPT_KEY = "pushPromptShown";
     const PUSH_CLIENT_KEY_STORAGE = "pushClientKey";
     const PUSH_LOGIN_ACTIVATION_KEY = "pushLoginActivationDone";
+    const PUSH_ENABLED_DEVICE_KEY = "pushEnabledDevice";
     let pushForegroundDedupKey = "";
     let pushForegroundDedupAt = 0;
     let pushAutoSyncInFlight = false;
@@ -16742,6 +16743,18 @@
     }
     function isStandaloneMode() {
       return window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    }
+    function wasPushEnabledOnDevice() {
+      try {
+        return localStorage.getItem(PUSH_ENABLED_DEVICE_KEY) === "1";
+      } catch (_) {
+        return false;
+      }
+    }
+    function markPushEnabledOnDevice(enabled = true) {
+      try {
+        if (enabled) localStorage.setItem(PUSH_ENABLED_DEVICE_KEY, "1");
+      } catch (_) {}
     }
     function updateNotificationsStatus(message) {
       if (enableNotificationsStatus) {
@@ -16762,6 +16775,7 @@
       const permission = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
       const enabled = permission === "granted";
       const denied = permission === "denied";
+      const remembered = wasPushEnabledOnDevice();
       const applyButtonState = (btn, labels) => {
         if (!btn) return;
         if (!btn.dataset.baseLabel) {
@@ -16770,6 +16784,11 @@
         if (enabled) {
           btn.disabled = true;
           btn.textContent = labels.enabledLabel;
+          return;
+        }
+        if (remembered && !denied) {
+          btn.disabled = false;
+          btn.textContent = labels.reconnectLabel || labels.defaultLabel;
           return;
         }
         btn.disabled = false;
@@ -16781,17 +16800,20 @@
       applyButtonState(enableBtn, {
         defaultLabel: "Enable notifications",
         enabledLabel: "Notifications enabled",
-        deniedLabel: "Blocked in settings"
+        deniedLabel: "Enable in settings",
+        reconnectLabel: "Reconnect notifications"
       });
       applyButtonState(promptEnableBtn, {
         defaultLabel: "Enable notifications",
         enabledLabel: "Notifications enabled",
-        deniedLabel: "Blocked in settings"
+        deniedLabel: "Enable in settings",
+        reconnectLabel: "Reconnect notifications"
       });
       applyButtonState(authEnableBtn, {
         defaultLabel: "Turn on notifications",
         enabledLabel: "Notifications enabled",
-        deniedLabel: "Blocked in settings"
+        deniedLabel: "Enable in settings",
+        reconnectLabel: "Reconnect notifications"
       });
     }
     async function ensureMessagingClient() {
@@ -16882,13 +16904,11 @@
       const hasVapid = VAPID_PUBLIC_KEY && !VAPID_PUBLIC_KEY.includes("REPLACE");
       if (!hasVapid) {
         updateNotificationsStatus("Notifications not configured yet.");
-        if (enableNotificationsBtn) enableNotificationsBtn.disabled = true;
         return false;
       }
       const supported = await ensureMessagingClient();
       if (!supported) {
         updateNotificationsStatus("Notifications not supported on this device.");
-        if (enableNotificationsBtn) enableNotificationsBtn.disabled = true;
         return false;
       }
       if (isIOS && !isStandaloneMode()) {
@@ -16898,7 +16918,7 @@
       const permission = Notification.permission;
       if (permission !== "granted") {
         if (!forcePrompt) {
-          updateNotificationsStatus("Notifications are off.");
+          updateNotificationsStatus(wasPushEnabledOnDevice() ? "Notifications paused. Tap to reconnect." : "Notifications are off.");
           return false;
         }
         const result = await Notification.requestPermission();
@@ -16914,6 +16934,7 @@
           vapidKey: VAPID_PUBLIC_KEY,
           serviceWorkerRegistration: registration
         });
+        markPushEnabledOnDevice(true);
         const ok = await registerPushToken(token, { force: true });
         updateNotificationsStatus(ok ? "Notifications enabled." : "Notifications on, token pending.");
         return ok;
@@ -18275,6 +18296,8 @@
         authNotificationsStatus.textContent = "Notifications enabled for this device.";
       } else if (permission === "denied") {
         authNotificationsStatus.textContent = "Notifications blocked in browser settings.";
+      } else if (wasPushEnabledOnDevice()) {
+        authNotificationsStatus.textContent = "Notifications were enabled before. Tap to reconnect this device.";
       } else {
         authNotificationsStatus.textContent = "Recommended: enable notifications for live alerts and perk updates.";
       }
