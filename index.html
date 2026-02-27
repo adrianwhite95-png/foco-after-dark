@@ -13319,23 +13319,27 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 12px;
+      padding: 12px 14px;
       border-radius: 16px;
-      border: 1px solid rgba(107, 126, 151, 0.24);
+      border: 1px solid rgba(107, 126, 151, 0.3);
       background: linear-gradient(180deg, rgba(4, 9, 20, 0.58), rgba(2, 6, 18, 0.52));
-      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      box-shadow:
+        0 12px 28px rgba(0, 0, 0, 0.32),
+        0 0 22px rgba(34, 211, 238, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
       transition: border-color 180ms ease, box-shadow 180ms ease;
     }
     #landingScreen .proof-row + .proof-row {
       margin-top: 10px;
     }
     #landingScreen .proof-check {
-      width: 28px;
-      height: 28px;
+      width: 30px;
+      height: 30px;
       display: grid;
       place-items: center;
       border-radius: 10px;
-      font-weight: 900;
+      font-size: 18px;
+      font-weight: 1000;
       color: #dff8ff;
       background: rgba(6, 12, 20, 0.72);
       border: 1px solid rgba(34, 211, 238, 0.44);
@@ -13349,15 +13353,16 @@
       50% { transform: translateY(-1px) scale(1.06); filter: brightness(1.12); }
     }
     #landingScreen .proof-text {
-      font-size: 15px;
+      font-size: 17px;
       font-weight: 900;
-      letter-spacing: 0.045em;
-      color: #f8fcff;
+      letter-spacing: 0.055em;
+      color: rgba(246, 251, 255, 0.98);
       text-shadow:
-        0 0 16px rgba(34, 211, 238, 0.34),
-        0 0 26px rgba(143, 91, 255, 0.26),
-        0 3px 16px rgba(2, 6, 23, 0.86);
-      line-height: 1.38;
+        0 0 18px rgba(34, 211, 238, 0.34),
+        0 0 28px rgba(143, 91, 255, 0.26),
+        0 0 36px rgba(255, 47, 184, 0.18),
+        0 3px 16px rgba(2, 6, 23, 0.78);
+      line-height: 1.28;
       animation: proofTextPulse 3.2s ease-in-out infinite;
     }
     #landingScreen .proof-number {
@@ -13365,9 +13370,29 @@
       letter-spacing: 0.08em;
       color: #ffffff;
       text-shadow:
-        0 0 14px rgba(34, 211, 238, 0.72),
-        0 0 28px rgba(143, 91, 255, 0.42),
-        0 2px 18px rgba(2, 6, 23, 0.88);
+        0 0 15px rgba(34, 211, 238, 0.72),
+        0 0 30px rgba(143, 91, 255, 0.42),
+        0 0 38px rgba(255, 47, 184, 0.24),
+        0 2px 16px rgba(2, 6, 23, 0.8);
+    }
+    #landingScreen #landingLoginLink {
+      font-size: 20px;
+      font-weight: 1000;
+      letter-spacing: 0.1em;
+      text-shadow:
+        0 0 16px rgba(34, 211, 238, 0.28),
+        0 0 30px rgba(143, 91, 255, 0.24),
+        0 3px 14px rgba(2, 6, 23, 0.75);
+    }
+    @media (max-width: 720px) {
+      #landingScreen .proof-text {
+        font-size: 15px;
+        letter-spacing: 0.045em;
+      }
+      #landingScreen #landingLoginLink {
+        font-size: 17px;
+        letter-spacing: 0.085em;
+      }
     }
     #landingScreen .launch-entry-row.launch-entry-links {
       max-width: 860px;
@@ -13680,19 +13705,6 @@
       background: linear-gradient(120deg, rgba(34, 211, 238, 0.32), rgba(143, 91, 255, 0.34), rgba(255, 47, 184, 0.26)) !important;
       border-color: rgba(34, 211, 238, 0.3) !important;
       color: #f2f8ff !important;
-    }
-    #landingScreen #landingLoginLink {
-      font-size: 21px;
-      font-weight: 1000;
-      letter-spacing: 0.08em;
-      text-shadow:
-        0 0 14px rgba(34, 211, 238, 0.36),
-        0 0 24px rgba(143, 91, 255, 0.3),
-        0 2px 14px rgba(2, 6, 23, 0.85);
-      box-shadow:
-        0 0 24px rgba(34, 211, 238, 0.24),
-        0 0 36px rgba(143, 91, 255, 0.2),
-        0 18px 48px rgba(0, 0, 0, 0.5) !important;
     }
     #landingGetPassBtn::before,
     #landingScreen #landingGetPassBtn::before {
