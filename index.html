@@ -14070,8 +14070,12 @@
         0 20px 74px rgba(0, 0, 0, 0.70);
       overflow: hidden;
       transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
-      animation: ctaBreath 2.1s ease-in-out infinite, ctaPop 4.8s cubic-bezier(0.2, 0.9, 0.25, 1) infinite;
+      animation: ctaBreath 1.35s ease-in-out infinite, ctaPop 2.4s cubic-bezier(0.18, 0.95, 0.22, 1) infinite;
       will-change: transform, filter, box-shadow;
+    }
+    #landingScreen #landingGetPassBtn.btnPremiumPrimary {
+      animation: ctaBreath 1.2s ease-in-out infinite, ctaPop 2.1s cubic-bezier(0.18, 0.95, 0.22, 1) infinite !important;
+      transform-origin: center;
     }
     .foco-premium .btnPremiumPrimary::before {
       content: "";
@@ -14107,20 +14111,21 @@
           0 20px 74px rgba(0, 0, 0, 0.70);
       }
       50% {
-        transform: translateY(-1px) scale(1.02);
-        filter: brightness(1.12);
+        transform: translateY(-2px) scale(1.05);
+        filter: brightness(1.18);
         box-shadow:
           0 0 0 1px rgba(255, 255, 255, 0.06) inset,
-          0 0 46px rgba(34, 211, 238, 0.30),
-          0 0 54px rgba(143, 91, 255, 0.26),
-          0 28px 96px rgba(0, 0, 0, 0.78);
+          0 0 62px rgba(34, 211, 238, 0.42),
+          0 0 74px rgba(143, 91, 255, 0.34),
+          0 36px 118px rgba(0, 0, 0, 0.82);
       }
     }
     @keyframes ctaPop {
       0%, 70%, 100% { transform: translateY(0) scale(1); }
-      76% { transform: translateY(-1px) scale(1.035); }
-      82% { transform: translateY(0) scale(1.01); }
-      88% { transform: translateY(-1px) scale(1.028); }
+      74% { transform: translateY(-3px) scale(1.09); }
+      80% { transform: translateY(0) scale(1.02); }
+      86% { transform: translateY(-2px) scale(1.07); }
+      92% { transform: translateY(0) scale(1.01); }
     }
     .foco-premium .btnPremiumPrimary:hover {
       transform: translateY(-1px);
