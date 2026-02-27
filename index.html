@@ -280,7 +280,7 @@
       content: "";
       position: fixed;
       inset: 0;
-      background: url("assets/landing.jpg") center/cover no-repeat;
+      background: url("assets/nightlife.webp") center/cover no-repeat;
       /* Slight blur for depth, boost brightness/contrast/saturation for vibrancy */
       filter: blur(0.6px) brightness(0.95) contrast(1.25) saturate(1.35);
       opacity: 0.82;
@@ -12771,7 +12771,7 @@
     }
 
     :root {
-      --hero-bg: url("/assets/nightlife.webp"), url("/assets/landing.jpg");
+      --hero-bg: url("/assets/nightlife.webp");
     }
     .pageBg {
       position: fixed;
@@ -12798,14 +12798,14 @@
       position: relative;
       overflow: hidden;
       isolation: isolate;
-      background: linear-gradient(160deg, rgba(8, 15, 35, 0.34), rgba(3, 9, 24, 0.56));
+      background: linear-gradient(160deg, rgba(6, 12, 18, 0.7), rgba(4, 10, 16, 0.66));
       border: 1px solid rgba(82, 200, 255, 0.34);
       box-shadow:
         inset 0 1px 0 rgba(184, 234, 255, 0.26),
         0 0 0 1px rgba(26, 94, 161, 0.22),
         0 18px 38px rgba(1, 6, 20, 0.42);
-      backdrop-filter: blur(15px) saturate(1.08);
-      -webkit-backdrop-filter: blur(15px) saturate(1.08);
+      backdrop-filter: blur(16px) saturate(1.04);
+      -webkit-backdrop-filter: blur(16px) saturate(1.04);
     }
     .glassBox::before {
       content: "";
@@ -12816,8 +12816,8 @@
       background-image: var(--hero-bg);
       background-size: cover;
       background-position: var(--bg-x, center) var(--bg-y, center);
-      opacity: 0.42;
-      filter: saturate(1.16) brightness(0.72) blur(0.8px);
+      opacity: 0.14;
+      filter: saturate(1.08) brightness(0.5) blur(18px);
       transform: scale(1.02);
     }
     .glassBox > * {
@@ -12830,6 +12830,55 @@
       display: grid;
       gap: 10px;
     }
+    #landingScreen .launch-hero-grid {
+      max-width: 860px;
+      margin: 10px auto 0;
+      display: grid;
+      gap: 14px;
+    }
+    #landingScreen .launch-billboard {
+      border-radius: 22px;
+      padding: 16px 18px 14px;
+      text-align: center;
+      background: linear-gradient(160deg, rgba(6, 12, 18, 0.72), rgba(5, 10, 16, 0.66));
+    }
+    #landingScreen .billboard-pill-row {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(92, 216, 255, 0.46);
+      background: rgba(3, 11, 23, 0.6);
+      color: #aee7ff;
+      font-size: 11px;
+      letter-spacing: 0.11em;
+      font-weight: 700;
+      padding: 6px 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.24);
+    }
+    #landingScreen .launch-billboard .launch-hero-title {
+      margin: 2px 0 6px;
+      font-size: clamp(30px, 5.2vw, 56px);
+      line-height: 1.08;
+      letter-spacing: 0.01em;
+      color: #eef8ff;
+      text-shadow: 0 10px 30px rgba(2, 12, 30, 0.72), 0 0 24px rgba(124, 232, 255, 0.22);
+    }
+    #landingScreen .launch-billboard .launch-hero-copy {
+      margin: 0 auto;
+      max-width: 720px;
+      font-size: clamp(14px, 2vw, 18px);
+      color: rgba(221, 236, 250, 0.9);
+      letter-spacing: 0.01em;
+    }
+    #landingScreen .landing-live-feed-premium {
+      border-radius: 24px;
+      padding: 14px;
+      background: linear-gradient(162deg, rgba(6, 12, 18, 0.72), rgba(5, 10, 16, 0.68));
+      min-height: 380px;
+    }
     .landing-live-feed-header {
       display: flex;
       align-items: center;
@@ -12837,12 +12886,13 @@
     }
     .landing-live-row {
       border-radius: 14px;
-      padding: 10px 12px;
+      padding: 11px 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      min-height: 72px;
+      min-height: 74px;
+      background: linear-gradient(164deg, rgba(6, 12, 18, 0.7), rgba(4, 9, 15, 0.66));
     }
     .landing-live-copy {
       flex: 1;
@@ -12877,7 +12927,7 @@
     .landing-live-meta {
       margin-top: 5px;
       font-size: 12px;
-      color: rgba(194, 220, 246, 0.9);
+      color: rgba(202, 225, 246, 0.94);
       letter-spacing: 0.02em;
     }
     .landing-live-lock {
@@ -12921,12 +12971,81 @@
       mix-blend-mode: screen;
       animation: dealTeaseShimmer 2.7s linear infinite;
     }
+    #landingScreen .launch-actions {
+      max-width: 860px;
+      margin: 12px auto 0;
+      display: block;
+    }
+    #landingScreen #landingGetPassBtn {
+      width: 100% !important;
+      min-height: 56px !important;
+      border-radius: 18px !important;
+      font-size: clamp(17px, 2.3vw, 24px) !important;
+      letter-spacing: 0.07em !important;
+      font-weight: 900 !important;
+      box-shadow: 0 0 28px rgba(34, 211, 238, 0.28), 0 14px 30px rgba(2, 6, 18, 0.62) !important;
+    }
+    #landingScreen .launch-social-proof {
+      max-width: 860px;
+      margin: 10px auto 0;
+      border-radius: 16px;
+      padding: 10px 14px;
+      display: grid;
+      gap: 4px;
+      color: #d9ecff;
+      font-size: 14px;
+      letter-spacing: 0.01em;
+      background: rgba(6, 12, 18, 0.7);
+    }
+    #landingScreen .launch-entry-row.launch-entry-links {
+      max-width: 860px;
+      margin: 10px auto 0;
+      grid-template-columns: 1fr;
+      gap: 4px;
+      text-align: center;
+    }
+    #landingScreen .launch-inline-link {
+      border: 0;
+      background: transparent;
+      color: rgba(222, 234, 247, 0.92);
+      font-size: 17px;
+      letter-spacing: 0.01em;
+      padding: 4px 0;
+      cursor: pointer;
+    }
+    #landingScreen .launch-inline-link span {
+      color: #7fe7ff;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    #landingScreen .launch-inline-link.launch-inline-link-staff span {
+      color: #f9a8d4;
+    }
+    #landingScreen .launch-secondary-actions {
+      max-width: 860px;
+      margin: 8px auto 0;
+      display: flex;
+      justify-content: center;
+    }
+    #landingScreen .launch-secondary-actions #addToHomeBtn {
+      min-height: 44px !important;
+      max-width: 320px;
+      background: rgba(6, 12, 18, 0.72) !important;
+      color: #d8efff !important;
+      border: 1px solid rgba(100, 208, 255, 0.45) !important;
+    }
     @keyframes dealTeaseShimmer {
       0% { transform: translateX(-68%); opacity: 0.45; }
       50% { opacity: 0.8; }
       100% { transform: translateX(68%); opacity: 0.45; }
     }
     @media (max-width: 768px) {
+      #landingScreen .launch-billboard .launch-hero-title {
+        font-size: clamp(28px, 10vw, 44px);
+      }
+      #landingScreen .launch-billboard {
+        padding: 14px 14px 12px;
+      }
       .landing-live-row {
         min-height: 66px;
         padding: 10px;
@@ -12986,7 +13105,7 @@
         <!-- LANDING SCREEN -->
         <div id="landingScreen" class="screen active">
           <div class="landing-bg">
-            <img id="landingSlide" src="assets/landing.jpg" alt="FoCo nightlife" loading="eager" />
+            <img id="landingSlide" src="assets/nightlife.webp" alt="FoCo nightlife" loading="eager" />
             <div class="landing-stars" aria-hidden="true">
               <span class="landing-asterism a1"></span>
               <span class="landing-asterism a2"></span>
@@ -13010,106 +13129,89 @@
               Fort Collins nightlife, redesigned: instant perks, live venue alerts, and a pass built to move with your night.
             </div>
             <div class="launch-hero-grid">
-              <div class="launch-hero-main glassBox">
-                <div class="micro-label">Tonight starts here</div>
-                <h2 class="launch-hero-title">Spend less. Go harder. Get rewarded while you booze.</h2>
-                <p class="launch-hero-copy">
-                  Unlock perks that hit harder than last call.<br />
-                  FoCo After Dark — the shit FoCo's been missing 🍻<br />
-                  If you go out twice a month, this pass pays for itself.
-                </p>
-                <div class="launch-kpi-strip">
-                  <div class="launch-kpi-chip glassBox"><span>Real-time</span><strong>Venue alerts</strong></div>
-                  <div class="launch-kpi-chip glassBox"><span>Fast flow</span><strong>Instant redeem</strong></div>
-                  <div class="launch-kpi-chip glassBox"><span>Member value</span><strong>Track savings</strong></div>
-                </div>
-              </div>
-              <div class="launch-live-grid">
-                <section class="landing-live-feed glassBox" aria-label="Live Right Now venue feed">
-                  <header class="landing-live-feed-header">
-                    <span class="launch-live-tag">Live Right Now</span>
-                  </header>
-                  <article class="landing-live-row glassBox" style="--live-row-index:0;">
-                    <div class="landing-live-copy">
-                      <div class="landing-live-top">
-                        <strong class="landing-live-venue">The Rec Room</strong>
-                      </div>
-                      <div class="dealTease" aria-hidden="true">
-                        <span class="dealTeaseText">███████ ███████ █████ ██████</span>
-                        <span class="dealTeaseOverlay"></span>
-                      </div>
-                      <div class="landing-live-meta">
-                        <span>Posted 5 min ago</span>
-                      </div>
+              <section class="launch-billboard glassBox" aria-label="FoCo premium nightlife billboard">
+                <div class="billboard-pill-row">LIVE VENUE FEED • LOCAL-ONLY PERKS • MEMBER-ONLY ACCESS</div>
+                <h2 class="launch-hero-title">Unlock Tonight's VIP Perks &amp; Flash Deals.</h2>
+                <p class="launch-hero-copy">Live posts from Fort Collins venues — members see everything.</p>
+              </section>
+              <section class="landing-live-feed landing-live-feed-premium glassBox" aria-label="Live Right Now venue feed">
+                <header class="landing-live-feed-header">
+                  <span class="launch-live-tag">Live Right Now</span>
+                </header>
+                <article class="landing-live-row glassBox" style="--live-row-index:0;">
+                  <div class="landing-live-copy">
+                    <div class="landing-live-top">
+                      <strong class="landing-live-venue">The Rec Room</strong>
                     </div>
-                    <span class="landing-live-lock" aria-hidden="true">🔒</span>
-                  </article>
-                  <article class="landing-live-row glassBox" style="--live-row-index:1;">
-                    <div class="landing-live-copy">
-                      <div class="landing-live-top">
-                        <strong class="landing-live-venue">Bondi</strong>
-                        <span class="landing-live-pill">LIVE</span>
-                      </div>
-                      <div class="dealTease" aria-hidden="true">
-                        <span class="dealTeaseText">████████ █████ ███████ ████</span>
-                        <span class="dealTeaseOverlay"></span>
-                      </div>
-                      <div class="landing-live-meta">
-                        <span>Posted 2 min ago</span>
-                      </div>
+                    <div class="dealTease" aria-hidden="true">
+                      <span class="dealTeaseText">██████████ ██████ ███████</span>
+                      <span class="dealTeaseOverlay"></span>
                     </div>
-                    <span class="landing-live-lock" aria-hidden="true">🔒</span>
-                  </article>
-                  <article class="landing-live-row glassBox" style="--live-row-index:2;">
-                    <div class="landing-live-copy">
-                      <div class="landing-live-top">
-                        <strong class="landing-live-venue">Bar District</strong>
-                      </div>
-                      <div class="dealTease" aria-hidden="true">
-                        <span class="dealTeaseText">██████ ████████ █████ █████</span>
-                        <span class="dealTeaseOverlay"></span>
-                      </div>
-                      <div class="landing-live-meta">
-                        <span>Posted 8 min ago</span>
-                      </div>
+                    <div class="landing-live-meta"><span>Posted 5 min ago</span></div>
+                  </div>
+                  <span class="landing-live-lock" aria-hidden="true">🔒</span>
+                </article>
+                <article class="landing-live-row glassBox" style="--live-row-index:1;">
+                  <div class="landing-live-copy">
+                    <div class="landing-live-top">
+                      <strong class="landing-live-venue">Bondi</strong>
+                      <span class="landing-live-pill">LIVE</span>
                     </div>
-                    <span class="landing-live-lock" aria-hidden="true">🔒</span>
-                  </article>
-                  <article class="landing-live-row glassBox" style="--live-row-index:3;">
-                    <div class="landing-live-copy">
-                      <div class="landing-live-top">
-                        <strong class="landing-live-venue">Lucky Joe’s</strong>
-                      </div>
-                      <div class="dealTease" aria-hidden="true">
-                        <span class="dealTeaseText">█████████ ████ ███████ ███</span>
-                        <span class="dealTeaseOverlay"></span>
-                      </div>
-                      <div class="landing-live-meta">
-                        <span>Posted 11 min ago</span>
-                      </div>
+                    <div class="dealTease" aria-hidden="true">
+                      <span class="dealTeaseText">███████████ █████ ███████</span>
+                      <span class="dealTeaseOverlay"></span>
                     </div>
-                    <span class="landing-live-lock" aria-hidden="true">🔒</span>
-                  </article>
-                </section>
-              </div>
+                    <div class="landing-live-meta"><span>Posted 2 min ago</span></div>
+                  </div>
+                  <span class="landing-live-lock" aria-hidden="true">🔒</span>
+                </article>
+                <article class="landing-live-row glassBox" style="--live-row-index:2;">
+                  <div class="landing-live-copy">
+                    <div class="landing-live-top">
+                      <strong class="landing-live-venue">Bar District</strong>
+                    </div>
+                    <div class="dealTease" aria-hidden="true">
+                      <span class="dealTeaseText">████████ ███████ ████████</span>
+                      <span class="dealTeaseOverlay"></span>
+                    </div>
+                    <div class="landing-live-meta"><span>Posted 8 min ago</span></div>
+                  </div>
+                  <span class="landing-live-lock" aria-hidden="true">🔒</span>
+                </article>
+                <article class="landing-live-row glassBox" style="--live-row-index:3;">
+                  <div class="landing-live-copy">
+                    <div class="landing-live-top">
+                      <strong class="landing-live-venue">Lucky Joe's</strong>
+                    </div>
+                    <div class="dealTease" aria-hidden="true">
+                      <span class="dealTeaseText">██████████ ███████ █████</span>
+                      <span class="dealTeaseOverlay"></span>
+                    </div>
+                    <div class="landing-live-meta"><span>Posted 11 min ago</span></div>
+                  </div>
+                  <span class="landing-live-lock" aria-hidden="true">🔒</span>
+                </article>
+              </section>
             </div>
             <div class="launch-actions">
-              <button id="landingGetPassBtn" class="btn btn-primary">
-                Get the Nightlife Pass · 21+
-              </button>
-              <button id="addToHomeBtn" class="btn btn-primary cta-shimmer">
-                Add to Home Screen
+              <button id="landingGetPassBtn" class="btn btn-primary" type="button">
+                UNLOCK TONIGHT'S PERKS — 21+
               </button>
             </div>
-            <div class="launch-entry-row">
-              <button id="landingLoginLink" class="launch-entry-card glassBox" type="button">
-                <span class="launch-entry-title">Member Login</span>
-                <span class="launch-entry-sub">Already have a pass? Jump straight into your profile.</span>
+            <div class="launch-social-proof glassBox" aria-label="Social proof">
+              <div>✓ 23 members redeemed perks in the last hour</div>
+              <div>✓ Members saved an average of $18 each night last week</div>
+            </div>
+            <div class="launch-entry-row launch-entry-links">
+              <button id="landingLoginLink" class="launch-inline-link" type="button">
+                Already a member? <span>Log in</span>
               </button>
-              <button id="landingStaffLogin" class="launch-entry-card launch-entry-card-staff glassBox" type="button">
-                <span class="launch-entry-title">Venue Staff Portal</span>
-                <span class="launch-entry-sub">Verify vouchers, post alerts, and run your venue in real time.</span>
+              <button id="landingStaffLogin" class="launch-inline-link launch-inline-link-staff" type="button">
+                Venue Staff Portal <span>Log in</span>
               </button>
+            </div>
+            <div class="launch-secondary-actions">
+              <button id="addToHomeBtn" class="btn btn-secondary cta-shimmer" type="button">Add to Home Screen</button>
             </div>
             <div class="landing-responsible-note">Please drink responsibly. Never drink and drive — call a rideshare.</div>
             <div class="insta-cta-wrap">
@@ -19227,11 +19329,7 @@
       130
     );
     const LANDING_SLIDES = [
-      "assets/landing.jpg",
-      "https://images.unsplash.com/photo-1605901309584-66bf3f02f5e3?auto=format&fit=crop&w=2000&q=80",
-      "https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=2000&q=80",
-      "https://images.unsplash.com/photo-1464375117522-1311d6a5b81f?auto=format&fit=crop&w=2000&q=80",
-      "https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?auto=format&fit=crop&w=2000&q=80"
+      "assets/nightlife.webp"
     ];
     const venuesTrigger = document.getElementById("venuesTrigger");
     const venuesBackBtn = document.getElementById("venuesBackBtn");
