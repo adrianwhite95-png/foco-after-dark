@@ -16895,6 +16895,12 @@
         deniedLabel: "Enable in settings",
         reconnectLabel: "Reconnect notifications"
       });
+      // Keep status copy in sync with button state so "enabled" never shows with an "off" status line.
+      const canonicalMessage = getNotificationStatusMessage();
+      if (enableNotificationsStatus) enableNotificationsStatus.textContent = canonicalMessage;
+      if (notificationsPromptStatus) notificationsPromptStatus.textContent = canonicalMessage;
+      if (authNotificationsStatus) authNotificationsStatus.textContent = canonicalMessage;
+      if (ceoNotificationsStatus) ceoNotificationsStatus.textContent = canonicalMessage;
     }
     async function ensureMessagingClient() {
       if (pushSupportChecked) return pushSupported;
@@ -17007,6 +17013,8 @@
           return false;
         }
       }
+      // Persist "enabled on this device" as soon as browser permission is granted.
+      markPushEnabledOnDevice(true);
       try {
         const registration = await navigator.serviceWorker.ready;
         try { await registration.update(); } catch (_) {}
@@ -17014,13 +17022,17 @@
           vapidKey: VAPID_PUBLIC_KEY,
           serviceWorkerRegistration: registration
         });
-        markPushEnabledOnDevice(true);
         const ok = await registerPushToken(token, { force: true });
         updateNotificationsStatus(ok ? "Notifications enabled." : "Notifications on, token pending.");
         return ok;
       } catch (err) {
         console.warn("Push enable failed", err);
-        updateNotificationsStatus("Could not enable notifications.");
+        const currentPermission = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
+        if (currentPermission === "granted") {
+          updateNotificationsStatus("Notifications permission is on. Tap to reconnect this device.");
+        } else {
+          updateNotificationsStatus("Could not enable notifications.");
+        }
         return false;
       }
     }
@@ -20987,6 +20999,16 @@
     }
     syncNotificationStatusLines();
     refreshNotificationButtonsState();
+    window.addEventListener("focus", () => {
+      syncNotificationStatusLines();
+      refreshNotificationButtonsState();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        syncNotificationStatusLines();
+        refreshNotificationButtonsState();
+      }
+    });
     const achievementsNewPill = document.getElementById("achievementsNewPill");
     const navMenu = document.getElementById("navMenu");
     const navItems = navMenu ? navMenu.querySelectorAll("[data-nav]") : [];
