@@ -280,33 +280,34 @@
       content: "";
       position: fixed;
       inset: 0;
-      background: url("assets/nightlife.webp") center/cover no-repeat;
+      background: url("assets/nightlife-bg.png") center/cover no-repeat;
       /* Slight blur for depth, boost brightness/contrast/saturation for vibrancy */
-      filter: blur(0.6px) brightness(0.95) contrast(1.25) saturate(1.35);
-      opacity: 0.82;
+      filter: blur(0.3px) contrast(1.25) saturate(1.45) brightness(0.9);
+      opacity: 0.92;
       pointer-events: none;
       z-index: -1;
     }
 
-    /* Subtle watermark/logo above the background but beneath the app content */
+    /* Cinematic neon wash over photo */
     body::after {
       content: "";
       position: fixed;
       inset: 0;
-      background: url("foco-logo.png") center/500px no-repeat;
-      opacity: 0.04;
-      filter: blur(0.5px);
+      background:
+        radial-gradient(circle at 25% -10%, rgba(34, 211, 238, 0.22), transparent 55%),
+        radial-gradient(circle at 80% 0%, rgba(244, 114, 182, 0.22), transparent 60%),
+        radial-gradient(ellipse at 50% 70%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.85));
       pointer-events: none;
-      z-index: 0;
+      z-index: -2;
     }
     .club-atmosphere {
       position: fixed;
       inset: 0;
       overflow: hidden;
       pointer-events: none;
-      z-index: 0;
+      z-index: -1;
       mix-blend-mode: screen;
-      opacity: 0.84;
+      opacity: 0.55;
       filter: saturate(1.12);
     }
     .club-rig {
@@ -461,7 +462,7 @@
       }
       .club-haze { opacity: 0.44; }
     }
-    body.ios .club-atmosphere { opacity: 0.9; }
+    body.ios .club-atmosphere { opacity: 0.55; }
     body.ios.mobile-performance .club-beam { opacity: 0.44; }
     #app {
       width: 100vw;
@@ -9518,10 +9519,7 @@
       --border-soft: rgba(148, 163, 184, 0.18);
     }
     body {
-      background:
-        radial-gradient(circle at 20% -10%, rgba(34, 211, 238, 0.16), transparent 58%),
-        radial-gradient(circle at 85% 0%, rgba(244, 114, 182, 0.18), transparent 62%),
-        linear-gradient(180deg, #01040f, #010818 55%, #000000);
+      background: transparent;
     }
     body::after {
       opacity: 0.02;
@@ -11760,28 +11758,27 @@
       50% { transform: translateY(-2px); }
     }
     body::before {
-      inset: -12%;
-      background:
-        radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--accent-primary-live) 20%, transparent), transparent 48%),
-        radial-gradient(circle at 85% 12%, color-mix(in srgb, var(--accent-secondary-live) 18%, transparent), transparent 52%),
-        radial-gradient(circle at 50% 88%, rgba(59, 130, 246, 0.16), transparent 58%);
-      animation: futAmbientShift 16s ease-in-out infinite;
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: url("assets/nightlife-bg.png") center/cover no-repeat;
+      filter: blur(0.3px) contrast(1.25) saturate(1.45) brightness(0.9);
+      opacity: 0.92;
       pointer-events: none;
       z-index: -3;
+      animation: futAmbientShift 16s ease-in-out infinite;
     }
     body::after {
       content: "";
       position: fixed;
-      inset: -35% -15%;
+      inset: 0;
       background:
-        linear-gradient(122deg, transparent 30%, color-mix(in srgb, var(--accent-primary-live) 14%, transparent) 48%, transparent 66%),
-        linear-gradient(62deg, transparent 34%, color-mix(in srgb, var(--accent-secondary-live) 12%, transparent) 52%, transparent 70%);
-      mix-blend-mode: screen;
-      filter: blur(44px);
-      opacity: 0.28;
-      animation: futBeamSweep 20s ease-in-out infinite alternate;
+        radial-gradient(circle at 25% -10%, rgba(34, 211, 238, 0.22), transparent 55%),
+        radial-gradient(circle at 80% 0%, rgba(244, 114, 182, 0.22), transparent 60%),
+        radial-gradient(ellipse at 50% 70%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.85));
       pointer-events: none;
       z-index: -2;
+      animation: futBeamSweep 20s ease-in-out infinite alternate;
     }
     :is(
       .pass-card,
@@ -12066,8 +12063,7 @@
     }
     @supports (-webkit-touch-callout: none) {
       body::after {
-        filter: blur(34px);
-        opacity: 0.2;
+        opacity: 0.24;
       }
       :is(.pass-card, .member-hero, .staff-form, .staff-radar, .ceo-hq-panel, .ceo-panel, .ceo-status-card, .ceo-kpi-card, .ceo-reset-card) {
         backdrop-filter: blur(9px) saturate(1.1);
@@ -12771,41 +12767,74 @@
     }
 
     :root {
-      --hero-bg: url("/assets/nightlife.webp");
+      --hero-bg: url("assets/nightlife-bg.png?v=2");
+      --bg: url("assets/nightlife-bg.png?v=2");
+      --cyan: rgba(0, 255, 255, 0.9);
+      --pink: rgba(255, 0, 200, 0.75);
     }
     .pageBg {
       position: fixed;
       inset: 0;
-      z-index: -6;
-      background-image: var(--hero-bg);
-      background-size: cover;
-      background-position: center center;
-      transform: scale(1.06);
-      filter: blur(3px) saturate(1.2) brightness(0.62);
+      z-index: -20;
       pointer-events: none;
+      background: var(--bg) center/cover no-repeat;
+      filter: blur(18px) saturate(1.35) contrast(1.08);
+      transform: translate3d(calc(var(--parallax-x, 0) * 10px), calc(var(--parallax-y, 0) * 7px), 0) scale(1.1);
+      opacity: 0.65;
+      transition: transform 240ms linear;
+      will-change: transform;
     }
-    .pageBgOverlay {
+    .pageWash {
       position: fixed;
       inset: 0;
-      z-index: -5;
+      z-index: -19;
       pointer-events: none;
       background:
-        radial-gradient(1200px 700px at 12% 14%, rgba(34, 211, 238, 0.23), transparent 62%),
-        radial-gradient(1100px 720px at 88% 82%, rgba(236, 72, 153, 0.2), transparent 64%),
-        linear-gradient(180deg, rgba(2, 6, 23, 0.66), rgba(2, 6, 23, 0.84));
+        radial-gradient(900px 700px at 18% 20%, rgba(0, 255, 255, 0.18), transparent 60%),
+        radial-gradient(900px 700px at 82% 25%, rgba(255, 0, 200, 0.16), transparent 60%),
+        radial-gradient(900px 900px at 50% 85%, rgba(0, 140, 255, 0.12), transparent 65%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.82));
+      box-shadow: inset 0 0 240px rgba(0, 0, 0, 0.88);
+      transform: translate3d(calc(var(--parallax-x, 0) * 6px), calc(var(--parallax-y, 0) * 4px), 0);
+      transition: transform 260ms linear;
+      animation: washDrift 10s ease-in-out infinite alternate;
+      will-change: transform, filter, opacity;
+    }
+    .grain {
+      position: fixed;
+      inset: 0;
+      z-index: -18;
+      pointer-events: none;
+      opacity: 0.12;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1), transparent 35%),
+        radial-gradient(circle at 70% 40%, rgba(255, 255, 255, 0.08), transparent 38%),
+        radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.06), transparent 42%);
+      mix-blend-mode: screen;
+      animation: neonGrainDrift 7s ease-in-out infinite alternate;
+      will-change: transform;
+    }
+    .neonFrame {
+      box-shadow:
+        0 0 0 1px rgba(0, 255, 255, 0.18),
+        0 0 30px rgba(0, 255, 255, 0.1),
+        0 0 55px rgba(255, 0, 200, 0.08),
+        0 30px 120px rgba(0, 0, 0, 0.55);
+      animation: framePulse 3.6s ease-in-out infinite;
     }
     .glassBox {
       position: relative;
       overflow: hidden;
       isolation: isolate;
-      background: linear-gradient(160deg, rgba(6, 12, 18, 0.7), rgba(4, 10, 16, 0.66));
-      border: 1px solid rgba(82, 200, 255, 0.34);
+      border-radius: 18px;
+      background: rgba(6, 12, 18, 0.65);
+      border: 1px solid rgba(0, 255, 255, 0.18);
       box-shadow:
-        inset 0 1px 0 rgba(184, 234, 255, 0.26),
-        0 0 0 1px rgba(26, 94, 161, 0.22),
-        0 18px 38px rgba(1, 6, 20, 0.42);
-      backdrop-filter: blur(16px) saturate(1.04);
-      -webkit-backdrop-filter: blur(16px) saturate(1.04);
+        0 18px 60px rgba(0, 0, 0, 0.45),
+        0 0 34px rgba(0, 255, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
     }
     .glassBox::before {
       content: "";
@@ -12813,16 +12842,50 @@
       inset: 0;
       z-index: 0;
       pointer-events: none;
-      background-image: var(--hero-bg);
-      background-size: cover;
-      background-position: var(--bg-x, center) var(--bg-y, center);
-      opacity: 0.14;
-      filter: saturate(1.08) brightness(0.5) blur(18px);
+      background-image: var(--hero-bg),
+        linear-gradient(135deg, rgba(0, 255, 255, 0.16), transparent 35%),
+        linear-gradient(225deg, rgba(255, 0, 200, 0.12), transparent 40%);
+      background-size: cover, auto, auto;
+      background-position: var(--bg-x, center) var(--bg-y, center), center, center;
+      opacity: 0.13;
+      filter: saturate(1.08) brightness(0.52) blur(18px);
       transform: scale(1.02);
     }
     .glassBox > * {
       position: relative;
       z-index: 1;
+    }
+    .photo-glass {
+      position: relative;
+      background: rgba(8, 14, 30, 0.55);
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55), 0 0 45px rgba(34, 211, 238, 0.18), 0 0 28px rgba(244, 114, 182, 0.12);
+      backdrop-filter: blur(10px) saturate(1.25);
+      -webkit-backdrop-filter: blur(10px) saturate(1.25);
+      overflow: hidden;
+    }
+    .photo-glass::before {
+      content: "";
+      position: absolute;
+      inset: -20px;
+      background: url("assets/nightlife-bg.png") center/cover no-repeat;
+      filter: blur(6px) saturate(1.35) contrast(1.15) brightness(0.85);
+      transform: scale(1.08);
+      opacity: 0.75;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .photo-glass::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(2, 6, 23, 0.35), rgba(2, 6, 23, 0.78));
+      z-index: 1;
+      pointer-events: none;
+    }
+    .photo-glass > * {
+      position: relative;
+      z-index: 2;
     }
     .landing-live-feed {
       padding: 14px;
@@ -12894,6 +12957,26 @@
       min-height: 74px;
       background: linear-gradient(164deg, rgba(6, 12, 18, 0.7), rgba(4, 9, 15, 0.66));
     }
+    .feedRow {
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .feedRow::after {
+      content: "";
+      position: absolute;
+      inset: -40% -60%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+      transform: rotate(12deg);
+      animation: scan 3.2s linear infinite;
+      opacity: 0.35;
+      pointer-events: none;
+    }
+    .feedRow:hover {
+      transform: translateY(-2px);
+      border-color: rgba(0, 255, 255, 0.28);
+      box-shadow: 0 0 0 1px rgba(0, 255, 255, 0.18), 0 0 34px rgba(0, 255, 255, 0.12);
+    }
     .landing-live-copy {
       flex: 1;
       min-width: 0;
@@ -12912,7 +12995,8 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .landing-live-pill {
+    .landing-live-pill,
+    .livePill {
       border: 1px solid rgba(64, 249, 204, 0.58);
       background: rgba(35, 224, 184, 0.2);
       color: #b5fff0;
@@ -12923,6 +13007,7 @@
       padding: 3px 8px;
       box-shadow: 0 0 14px rgba(35, 224, 184, 0.35);
       white-space: nowrap;
+      animation: liveBlink 1.4s ease-in-out infinite;
     }
     .landing-live-meta {
       margin-top: 5px;
@@ -12985,6 +13070,21 @@
       font-weight: 900 !important;
       box-shadow: 0 0 28px rgba(34, 211, 238, 0.28), 0 14px 30px rgba(2, 6, 18, 0.62) !important;
     }
+    .ctaNeon {
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 40px rgba(0, 255, 255, 0.18), 0 0 80px rgba(255, 0, 200, 0.1) !important;
+      animation: ctaPulse 2.6s ease-in-out infinite;
+    }
+    .ctaNeon::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transform: translateX(-120%);
+      animation: ctaShimmer 2.4s ease-in-out infinite;
+      pointer-events: none;
+    }
     #landingScreen .launch-social-proof {
       max-width: 860px;
       margin: 10px auto 0;
@@ -13034,10 +13134,87 @@
       color: #d8efff !important;
       border: 1px solid rgba(100, 208, 255, 0.45) !important;
     }
+    @keyframes washDrift {
+      0% {
+        filter: hue-rotate(0deg) saturate(1);
+        opacity: 0.95;
+      }
+      100% {
+        filter: hue-rotate(12deg) saturate(1.1);
+        opacity: 1;
+      }
+    }
+    @keyframes neonGrainDrift {
+      0% { transform: translate3d(0, 0, 0); }
+      100% { transform: translate3d(0, -0.8%, 0); }
+    }
+    @keyframes framePulse {
+      0%, 100% {
+        box-shadow:
+          0 0 0 1px rgba(0, 255, 255, 0.16),
+          0 0 26px rgba(0, 255, 255, 0.1),
+          0 0 50px rgba(255, 0, 200, 0.07),
+          0 30px 120px rgba(0, 0, 0, 0.55);
+      }
+      50% {
+        box-shadow:
+          0 0 0 1px rgba(0, 255, 255, 0.24),
+          0 0 42px rgba(0, 255, 255, 0.18),
+          0 0 70px rgba(255, 0, 200, 0.14),
+          0 30px 120px rgba(0, 0, 0, 0.55);
+      }
+    }
+    @keyframes liveBlink {
+      0%, 100% {
+        transform: translateZ(0) scale(1);
+        filter: brightness(1);
+      }
+      50% {
+        transform: translateZ(0) scale(1.04);
+        filter: brightness(1.25);
+      }
+    }
+    @keyframes scan {
+      0% { transform: translateX(-30%) rotate(12deg); }
+      100% { transform: translateX(30%) rotate(12deg); }
+    }
     @keyframes dealTeaseShimmer {
       0% { transform: translateX(-68%); opacity: 0.45; }
       50% { opacity: 0.8; }
       100% { transform: translateX(68%); opacity: 0.45; }
+    }
+    @keyframes ctaPulse {
+      0%, 100% {
+        filter: brightness(1);
+        transform: translateZ(0);
+      }
+      50% {
+        filter: brightness(1.15);
+        transform: translateZ(0) scale(1.01);
+      }
+    }
+    @keyframes ctaShimmer {
+      0% {
+        transform: translateX(-120%);
+        opacity: 0;
+      }
+      20% { opacity: 0.6; }
+      60% { opacity: 0.35; }
+      100% {
+        transform: translateX(120%);
+        opacity: 0;
+      }
+    }
+    .money-pop {
+      color: var(--accent-green);
+      text-shadow: 0 0 10px rgba(34, 197, 94, 0.55), 0 0 22px rgba(34, 211, 238, 0.25);
+      font-weight: 900;
+      display: inline-block;
+      animation: moneyPulse 1.25s ease-in-out infinite;
+    }
+    @keyframes moneyPulse {
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.08); filter: brightness(1.25); }
     }
     @media (max-width: 768px) {
       #landingScreen .launch-billboard .launch-hero-title {
@@ -13058,7 +13235,14 @@
       }
     }
     @media (prefers-reduced-motion: reduce) {
-      .dealTeaseOverlay {
+      .pageWash,
+      .neonFrame,
+      .livePill,
+      .feedRow::after,
+      .ctaNeon,
+      .ctaNeon::after,
+      .dealTeaseOverlay,
+      .grain {
         animation: none !important;
       }
     }
@@ -13069,7 +13253,8 @@
 </head>
   <body>
       <div class="pageBg" aria-hidden="true"></div>
-      <div class="pageBgOverlay" aria-hidden="true"></div>
+      <div class="pageWash" aria-hidden="true"></div>
+      <div class="grain" aria-hidden="true"></div>
       <div class="club-atmosphere" aria-hidden="true">
         <div class="club-rig">
           <span class="club-fixture"></span>
@@ -13105,7 +13290,7 @@
         <!-- LANDING SCREEN -->
         <div id="landingScreen" class="screen active">
           <div class="landing-bg">
-            <img id="landingSlide" src="assets/nightlife.webp" alt="FoCo nightlife" loading="eager" />
+            <img id="landingSlide" src="/assets/nightlife-bg.png?v=2" alt="FoCo nightlife" loading="eager" />
             <div class="landing-stars" aria-hidden="true">
               <span class="landing-asterism a1"></span>
               <span class="landing-asterism a2"></span>
@@ -13118,7 +13303,7 @@
               <span></span>
             </div>
           </div>
-          <div class="landing-wrapper">
+          <div class="landing-wrapper neonFrame">
             <div class="landing-strobe" aria-hidden="true"></div>
             <button id="landingRefreshBtn" class="refresh-btn" title="Reload">Reload</button>
             <div class="brand-logo brand-logo-landing">
@@ -13129,16 +13314,16 @@
               Fort Collins nightlife, redesigned: instant perks, live venue alerts, and a pass built to move with your night.
             </div>
             <div class="launch-hero-grid">
-              <section class="launch-billboard glassBox" aria-label="FoCo premium nightlife billboard">
+              <section class="launch-billboard glassBox photo-glass" aria-label="FoCo premium nightlife billboard">
                 <div class="billboard-pill-row">LIVE VENUE FEED • LOCAL-ONLY PERKS • MEMBER-ONLY ACCESS</div>
                 <h2 class="launch-hero-title">Unlock Tonight's VIP Perks &amp; Flash Deals.</h2>
                 <p class="launch-hero-copy">Live posts from Fort Collins venues — members see everything.</p>
               </section>
-              <section class="landing-live-feed landing-live-feed-premium glassBox" aria-label="Live Right Now venue feed">
+              <section class="landing-live-feed landing-live-feed-premium glassBox photo-glass" aria-label="Live Right Now venue feed">
                 <header class="landing-live-feed-header">
                   <span class="launch-live-tag">Live Right Now</span>
                 </header>
-                <article class="landing-live-row glassBox" style="--live-row-index:0;">
+                <article class="landing-live-row glassBox feedRow photo-glass" style="--live-row-index:0;">
                   <div class="landing-live-copy">
                     <div class="landing-live-top">
                       <strong class="landing-live-venue">The Rec Room</strong>
@@ -13151,11 +13336,11 @@
                   </div>
                   <span class="landing-live-lock" aria-hidden="true">🔒</span>
                 </article>
-                <article class="landing-live-row glassBox" style="--live-row-index:1;">
+                <article class="landing-live-row glassBox feedRow photo-glass" style="--live-row-index:1;">
                   <div class="landing-live-copy">
                     <div class="landing-live-top">
                       <strong class="landing-live-venue">Bondi</strong>
-                      <span class="landing-live-pill">LIVE</span>
+                      <span class="landing-live-pill livePill">LIVE</span>
                     </div>
                     <div class="dealTease" aria-hidden="true">
                       <span class="dealTeaseText">███████████ █████ ███████</span>
@@ -13165,7 +13350,7 @@
                   </div>
                   <span class="landing-live-lock" aria-hidden="true">🔒</span>
                 </article>
-                <article class="landing-live-row glassBox" style="--live-row-index:2;">
+                <article class="landing-live-row glassBox feedRow photo-glass" style="--live-row-index:2;">
                   <div class="landing-live-copy">
                     <div class="landing-live-top">
                       <strong class="landing-live-venue">Bar District</strong>
@@ -13178,7 +13363,7 @@
                   </div>
                   <span class="landing-live-lock" aria-hidden="true">🔒</span>
                 </article>
-                <article class="landing-live-row glassBox" style="--live-row-index:3;">
+                <article class="landing-live-row glassBox feedRow photo-glass" style="--live-row-index:3;">
                   <div class="landing-live-copy">
                     <div class="landing-live-top">
                       <strong class="landing-live-venue">Lucky Joe's</strong>
@@ -13194,13 +13379,13 @@
               </section>
             </div>
             <div class="launch-actions">
-              <button id="landingGetPassBtn" class="btn btn-primary" type="button">
+              <button id="landingGetPassBtn" class="btn btn-primary btn-hd primary ctaNeon cta-shimmer" type="button">
                 UNLOCK TONIGHT'S PERKS — 21+
               </button>
             </div>
             <div class="launch-social-proof glassBox" aria-label="Social proof">
               <div>✓ 23 members redeemed perks in the last hour</div>
-              <div>✓ Members saved an average of $18 each night last week</div>
+              <div>✓ Members saved an average of <span class="money-pop">$18</span> each night last week</div>
             </div>
             <div class="launch-entry-row launch-entry-links">
               <button id="landingLoginLink" class="launch-inline-link" type="button">
@@ -13211,7 +13396,7 @@
               </button>
             </div>
             <div class="launch-secondary-actions">
-              <button id="addToHomeBtn" class="btn btn-secondary cta-shimmer" type="button">Add to Home Screen</button>
+              <button id="addToHomeBtn" class="btn btn-secondary btn-hd ghost cta-shimmer" type="button">Add to Home Screen</button>
             </div>
             <div class="landing-responsible-note">Please drink responsibly. Never drink and drive — call a rideshare.</div>
             <div class="insta-cta-wrap">
@@ -19329,7 +19514,7 @@
       130
     );
     const LANDING_SLIDES = [
-      "assets/nightlife.webp"
+      "/assets/nightlife-bg.png?v=2"
     ];
     const venuesTrigger = document.getElementById("venuesTrigger");
     const venuesBackBtn = document.getElementById("venuesBackBtn");
@@ -19535,12 +19720,12 @@
       setTimeout(() => el.remove(), 900);
     }
 
-    // Parallax + tilt disabled for a steady, flat UI
-    // Initialize particles only (no tilt/parallax)
+    // Billboard visuals: particles + micro parallax when motion is allowed.
     (function setupVisuals() {
       if (!canAnimate()) return;
       if (LOW_PERF_MODE) return;
       try { initCardParticles(); } catch (e) { console.warn('particles failed', e); }
+      try { enablePointerParallax(); } catch (e) { console.warn('parallax failed', e); }
     })();
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
