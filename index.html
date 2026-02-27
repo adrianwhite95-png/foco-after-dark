@@ -12824,15 +12824,16 @@
     }
     .appFrame {
       position: relative;
-      background: rgba(6, 12, 18, 0.25);
-      backdrop-filter: blur(18px) saturate(1.2);
-      -webkit-backdrop-filter: blur(18px) saturate(1.2);
-      border: 1px solid rgba(34, 211, 238, 0.16);
+      overflow: hidden;
+      background: rgba(8, 12, 24, 0.12) !important;
+      border: 1px solid rgba(34, 211, 238, 0.14) !important;
+      backdrop-filter: blur(22px) saturate(1.35) !important;
+      -webkit-backdrop-filter: blur(22px) saturate(1.35) !important;
       box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.06),
-        0 0 60px rgba(34, 211, 238, 0.14),
-        0 0 90px rgba(244, 114, 182, 0.1),
-        0 30px 130px rgba(0, 0, 0, 0.6);
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+        0 0 65px rgba(34, 211, 238, 0.14),
+        0 0 85px rgba(143, 91, 255, 0.12),
+        0 40px 150px rgba(0, 0, 0, 0.62) !important;
     }
     .appFrame::before {
       content: "";
@@ -12843,19 +12844,44 @@
       border: 1px solid rgba(255, 255, 255, 0.05);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
+    .appFrame::after {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      border-radius: inherit;
+      pointer-events: none;
+      background: linear-gradient(
+        90deg,
+        rgba(34, 211, 238, 0.55),
+        rgba(143, 91, 255, 0.5),
+        rgba(244, 114, 182, 0.35),
+        rgba(34, 211, 238, 0.55)
+      );
+      filter: blur(14px);
+      opacity: 0.55;
+      z-index: 0;
+    }
+    .appFrame > * {
+      position: relative;
+      z-index: 1;
+    }
     .glassBox {
       position: relative;
       overflow: hidden;
       isolation: isolate;
       border-radius: 18px;
-      background: rgba(6, 12, 18, 0.65);
-      border: 1px solid rgba(0, 255, 255, 0.18);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(34, 211, 238, 0.16), transparent 55%),
+        radial-gradient(circle at 88% 22%, rgba(143, 91, 255, 0.16), transparent 58%),
+        linear-gradient(180deg, rgba(10, 16, 30, 0.42), rgba(2, 6, 23, 0.3)) !important;
+      border: 1px solid rgba(34, 211, 238, 0.2) !important;
       box-shadow:
-        0 18px 60px rgba(0, 0, 0, 0.45),
-        0 0 34px rgba(0, 255, 255, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+        0 18px 55px rgba(0, 0, 0, 0.42),
+        0 0 30px rgba(34, 211, 238, 0.12),
+        0 0 34px rgba(143, 91, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+      backdrop-filter: blur(18px) saturate(1.35) !important;
+      -webkit-backdrop-filter: blur(18px) saturate(1.35) !important;
     }
     .glassBox::before {
       content: "";
@@ -12868,8 +12894,8 @@
         linear-gradient(225deg, rgba(255, 0, 200, 0.12), transparent 40%);
       background-size: cover, auto, auto;
       background-position: var(--bg-x, center) var(--bg-y, center), center, center;
-      opacity: 0.13;
-      filter: saturate(1.08) brightness(0.52) blur(18px);
+      opacity: 0.22 !important;
+      filter: saturate(1.2) brightness(0.78) blur(16px) !important;
       transform: scale(1.02);
     }
     .glassBox > * {
@@ -13138,13 +13164,13 @@
       gap: 0.5rem;
       padding: 14px 18px;
       border-radius: 999px;
-      border: 1px solid rgba(34, 211, 238, 0.28);
+      border: 1px solid rgba(34, 211, 238, 0.3) !important;
       color: rgba(255, 255, 255, 0.92) !important;
       font-weight: 900;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       text-decoration: none;
-      background: rgba(6, 12, 18, 0.35);
+      background: rgba(8, 12, 24, 0.28) !important;
       backdrop-filter: blur(14px) saturate(1.35);
       -webkit-backdrop-filter: blur(14px) saturate(1.35);
       box-shadow:
@@ -13161,7 +13187,13 @@
       position: absolute;
       inset: -2px;
       border-radius: 999px;
-      background: linear-gradient(90deg, rgba(34, 211, 238, 0.55), rgba(244, 114, 182, 0.4), rgba(34, 197, 94, 0.4));
+      background: linear-gradient(
+        90deg,
+        rgba(34, 211, 238, 0.65),
+        rgba(143, 91, 255, 0.6),
+        rgba(244, 114, 182, 0.4),
+        rgba(34, 211, 238, 0.65)
+      ) !important;
       opacity: 0.55;
       filter: blur(10px);
       z-index: 0;
@@ -13196,7 +13228,7 @@
       filter: brightness(1.08);
     }
     .btn-neon--ghost {
-      background: rgba(6, 12, 18, 0.18);
+      background: rgba(6, 12, 18, 0.18) !important;
       border: 1px solid rgba(255, 255, 255, 0.16);
       box-shadow:
         0 0 0 1px rgba(255, 255, 255, 0.1),
@@ -13209,10 +13241,10 @@
       padding: 12px 16px;
       letter-spacing: 0.1em;
       background: rgba(6, 12, 18, 0.28);
-      border: 1px solid rgba(34, 211, 238, 0.2);
+      border: 1px solid rgba(143, 91, 255, 0.24) !important;
       box-shadow:
-        0 0 0 1px rgba(34, 211, 238, 0.14),
-        0 0 22px rgba(34, 211, 238, 0.1),
+        0 0 22px rgba(143, 91, 255, 0.14),
+        0 0 18px rgba(34, 211, 238, 0.1),
         0 16px 45px rgba(0, 0, 0, 0.4);
     }
     .btn-neon--glass::before { opacity: 0.35; }
@@ -13222,17 +13254,103 @@
       text-underline-offset: 4px;
       text-decoration-color: rgba(34, 211, 238, 0.9);
     }
+    /* ========== LANDING: SOCIAL PROOF (MAKE IT POP) ========== */
     #landingScreen .launch-social-proof {
       max-width: 860px;
-      margin: 10px auto 0;
-      border-radius: 16px;
-      padding: 10px 14px;
+      margin: 14px auto 0;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(34, 211, 238, 0.42);
+      background:
+        radial-gradient(circle at 10% 20%, rgba(34, 211, 238, 0.22), transparent 55%),
+        radial-gradient(circle at 85% 15%, rgba(244, 114, 182, 0.2), transparent 55%),
+        linear-gradient(135deg, rgba(8, 14, 30, 0.72), rgba(2, 6, 23, 0.72));
+      backdrop-filter: blur(12px) saturate(1.25);
+      -webkit-backdrop-filter: blur(12px) saturate(1.25);
+      box-shadow:
+        0 18px 46px rgba(2, 6, 23, 0.72),
+        0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+        0 0 26px rgba(34, 211, 238, 0.18),
+        0 0 32px rgba(244, 114, 182, 0.12);
+      position: relative;
+      overflow: hidden;
+      opacity: 1 !important;
+    }
+    #landingScreen .launch-social-proof::before {
+      content: "";
+      position: absolute;
+      inset: -60%;
+      background: conic-gradient(
+        from 90deg,
+        rgba(34, 211, 238, 0),
+        rgba(34, 211, 238, 0.22),
+        rgba(244, 114, 182, 0.18),
+        rgba(34, 197, 94, 0.1),
+        rgba(34, 211, 238, 0)
+      );
+      filter: blur(18px);
+      opacity: 0.55;
+      animation: proofSweep 10s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    #landingScreen .launch-social-proof::after {
+      display: none;
+    }
+    @keyframes proofSweep {
+      0% { transform: rotate(0deg) scale(1.05); }
+      100% { transform: rotate(360deg) scale(1.05); }
+    }
+    #landingScreen .proof-row {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(2, 6, 23, 0.4);
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+      transition: border-color 180ms ease, box-shadow 180ms ease;
+    }
+    #landingScreen .proof-row + .proof-row {
+      margin-top: 10px;
+    }
+    #landingScreen .proof-check {
+      width: 28px;
+      height: 28px;
       display: grid;
-      gap: 4px;
-      color: #d9ecff;
-      font-size: 14px;
-      letter-spacing: 0.01em;
-      background: rgba(6, 12, 18, 0.7);
+      place-items: center;
+      border-radius: 10px;
+      font-weight: 900;
+      color: #06121a;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.95), rgba(244, 114, 182, 0.85));
+      box-shadow:
+        0 0 18px rgba(34, 211, 238, 0.55),
+        0 0 22px rgba(244, 114, 182, 0.35);
+      animation: checkPop 2.8s ease-in-out infinite;
+    }
+    @keyframes checkPop {
+      0%, 100% { transform: translateY(0) scale(1); filter: brightness(1); }
+      50% { transform: translateY(-1px) scale(1.06); filter: brightness(1.12); }
+    }
+    #landingScreen .proof-text {
+      font-size: 12.5px;
+      letter-spacing: 0.03em;
+      color: rgba(248, 250, 252, 0.92);
+      text-shadow:
+        0 0 10px rgba(34, 211, 238, 0.14),
+        0 0 14px rgba(244, 114, 182, 0.1);
+      line-height: 1.35;
+    }
+    #landingScreen .proof-number {
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      color: #eaffff;
+      text-shadow:
+        0 0 10px rgba(34, 211, 238, 0.45),
+        0 0 18px rgba(244, 114, 182, 0.25);
     }
     #landingScreen .launch-entry-row.launch-entry-links {
       max-width: 860px;
@@ -13342,16 +13460,31 @@
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-2px); }
     }
-    .money-pop {
+    #landingScreen .money-pop {
       color: var(--accent-green);
       text-shadow: 0 0 10px rgba(34, 197, 94, 0.55), 0 0 22px rgba(34, 211, 238, 0.25);
-      font-weight: 900;
+      font-weight: 1000;
       display: inline-block;
-      animation: moneyPulse 1.25s ease-in-out infinite;
+      padding: 2px 8px;
+      margin: 0 2px;
+      border-radius: 999px;
+      letter-spacing: 0.08em;
+      color: #071018;
+      background: linear-gradient(90deg, #00f0ff, #ff2fb8);
+      box-shadow:
+        0 0 16px rgba(0, 240, 255, 0.55),
+        0 0 22px rgba(255, 47, 184, 0.35),
+        0 10px 26px rgba(2, 6, 23, 0.55);
+      animation: moneyPulse 1.6s ease-in-out infinite;
+      transform-origin: center;
     }
     @keyframes moneyPulse {
-      0%, 100% { transform: scale(1); filter: brightness(1); }
-      50% { transform: scale(1.08); filter: brightness(1.25); }
+      0%, 100% { transform: translateY(0) scale(1); filter: brightness(1); }
+      50% { transform: translateY(-1px) scale(1.09); filter: brightness(1.15); }
+    }
+    #landingScreen .launch-social-proof:hover .proof-row {
+      border-color: rgba(34, 211, 238, 0.28);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34), 0 0 18px rgba(34, 211, 238, 0.14);
     }
     @media (max-width: 768px) {
       #landingScreen .launch-billboard .launch-hero-title {
@@ -13478,7 +13611,6 @@
                   <div class="landing-live-copy">
                     <div class="landing-live-top">
                       <strong class="landing-live-venue">Bondi</strong>
-                      <span class="landing-live-pill livePill">LIVE</span>
                     </div>
                     <div class="dealTease" aria-hidden="true">
                       <span class="dealTeaseText">███████████ █████ ███████</span>
@@ -13492,6 +13624,7 @@
                   <div class="landing-live-copy">
                     <div class="landing-live-top">
                       <strong class="landing-live-venue">Bar District</strong>
+                      <span class="landing-live-pill livePill">LIVE</span>
                     </div>
                     <div class="dealTease" aria-hidden="true">
                       <span class="dealTeaseText">████████ ███████ ████████</span>
@@ -13522,8 +13655,16 @@
               </button>
             </div>
             <div class="launch-social-proof glassBox" aria-label="Social proof">
-              <div>✓ 23 members redeemed perks in the last hour</div>
-              <div>✓ Members saved an average of <span class="money-pop">$18</span> each night last week</div>
+              <div class="proof-row">
+                <span class="proof-check">✓</span>
+                <span class="proof-text"><span class="proof-number">23</span> members redeemed perks in the last <span class="proof-number">hour</span></span>
+              </div>
+              <div class="proof-row">
+                <span class="proof-check">✓</span>
+                <span class="proof-text">
+                  Members saved an average of <span class="money-pop">$18</span> each night last week
+                </span>
+              </div>
             </div>
             <div class="launch-entry-row launch-entry-links">
               <button id="landingLoginLink" class="launch-inline-link btn-neon btn-neon--glass" type="button">
