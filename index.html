@@ -18537,6 +18537,7 @@
     let waitlistModePreviouslyActive = false;
     let waitlistPreGateScreen = "landing";
     let waitlistListenersSuspended = false;
+    let forceLandingAfterWaitlistDisable = false;
     const venueAdminStateMap = new Map();
     const cfg = {
       ready: false,
@@ -19064,11 +19065,10 @@
             attachRealtimeForCurrentContext("waitlist-mode-disabled");
           }
         }
-        if (currentScreenName === "waitlistGate") {
-          const fallback = firebaseAuth?.currentUser
-            ? (LAST_SCREEN_ALLOWLIST.has(waitlistPreGateScreen) ? waitlistPreGateScreen : "tonight")
-            : "landing";
-          showScreen(fallback);
+        waitlistPreGateScreen = "landing";
+        forceLandingAfterWaitlistDisable = true;
+        if (currentScreenName !== "landing") {
+          showScreen("landing");
         }
       }
     }
@@ -19672,6 +19672,9 @@
 
     function showScreen(name) {
       const previousScreenName = currentScreenName;
+      if (forceLandingAfterWaitlistDisable && name !== "landing" && name !== "waitlistGate") {
+        name = "landing";
+      }
       if (isWaitlistModeEnabled() && name !== "waitlistGate") {
         name = "waitlistGate";
       }
@@ -19727,6 +19730,7 @@
         updateRandomTestimonial();
       }
       if (name === "landing") {
+        forceLandingAfterWaitlistDisable = false;
         closeStaleBlockingOverlays();
         setLandingTagline();
         randomizeLandingPostedTimes();
