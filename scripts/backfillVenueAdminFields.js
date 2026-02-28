@@ -4,7 +4,7 @@
  *   node scripts/backfillVenueAdminFields.js [--dry-run]
  *
  * Adds default soft-control fields to venues documents when missing:
- *   status="active", showInHomeFeed=true, priority=50
+ *   status="active", showInHomeFeed=true, showLivePill=true, priority=50
  */
 
 function loadAdminSdk() {
@@ -54,6 +54,7 @@ async function main() {
     const patch = {};
     if (typeof data.status !== "string" || !data.status.trim()) patch.status = "active";
     if (typeof data.showInHomeFeed !== "boolean") patch.showInHomeFeed = true;
+    if (typeof data.showLivePill !== "boolean") patch.showLivePill = true;
     if (!Number.isFinite(Number(data.priority))) patch.priority = 50;
     if (!Object.keys(patch).length) {
       unchanged += 1;

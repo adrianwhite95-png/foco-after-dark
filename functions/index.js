@@ -102,9 +102,10 @@ const VENUE_STATUS_VALUES = new Set(["active", "hidden", "paused", "archived"]);
 const VENUE_SOFT_CONTROL_DEFAULTS = Object.freeze({
   status: "active",
   showInHomeFeed: true,
+  showLivePill: true,
   priority: 50
 });
-const ADMIN_VENUE_MUTABLE_KEYS = new Set(["status", "showInHomeFeed", "priority", "adminNote", "reason"]);
+const ADMIN_VENUE_MUTABLE_KEYS = new Set(["status", "showInHomeFeed", "showLivePill", "priority", "adminNote", "reason"]);
 Object.entries(STAFF_VENUES).forEach(([id, info]) => {
   if (info && info.login) {
     STAFF_VENUE_ALIASES[info.login] = id;
@@ -1193,8 +1194,15 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
           const venueSnap = await tx.get(venueRef);
           const venueData = venueSnap.exists ? (venueSnap.data() || {}) : {};
           const venueStatus = normalizeVenueStatusValue(venueData.status || VENUE_SOFT_CONTROL_DEFAULTS.status);
-          const memberVenueUnavailableMessage = "This venue is temporarily unavailable for redemptions.";
-          const staffVenueUnavailableMessage = `Venue is ${venueStatus}. Redemptions are blocked until status returns to active.`;
+          const configText = configData?.text && typeof configData.text === "object" ? configData.text : {};
+          const pausedMessage = String(configText["venue.paused.message"] || "This venue is temporarily paused for redemptions.");
+          const memberVenueUnavailableMessage = venueStatus === "paused"
+            ? pausedMessage
+            : "This venue is temporarily unavailable for redemptions.";
+          const reason = venueStatus === "paused" ? "VENUE_PAUSED" : "VENUE_UNAVAILABLE";
+          const staffVenueUnavailableMessage = venueStatus === "paused"
+            ? "Venue is paused. Redemptions are blocked until unpaused."
+            : `Venue is ${venueStatus}. Redemptions are blocked until status returns to active.`;
           if (venueStatus !== "active") {
             console.info("[createRedemption] blocked", { reason: "VENUE_UNAVAILABLE", venueId, venueStatus });
             throw new HttpsError(
@@ -1202,7 +1210,7 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
               callerIsStaffLike ? staffVenueUnavailableMessage : memberVenueUnavailableMessage,
               {
                 success: false,
-                reason: "VENUE_UNAVAILABLE",
+                reason,
                 venueId,
                 venueStatus,
                 memberMessage: memberVenueUnavailableMessage,
@@ -3929,7 +3937,7 @@ function requireAdminClaim(context) {
   if (!context?.auth) {
     throw new HttpsError("unauthenticated", "Auth required");
   }
-  if (context.auth.token?.admin !== true) {
+  if (context.auth.token?.admin !== true && context.auth.token?.ceo !== true) {
     throw new HttpsError("permission-denied", "Admin claim required");
   }
 }
@@ -3970,8 +3978,9 @@ function sanitizeConfigSectionValue(section = "", value) {
     return safeJsonClone(value).slice(0, 500);
   }
   if (normalized === "style") {
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
-      throw new HttpsError("invalid-argument", "style values must be objects");
+    const valueType = typeof value;
+    if (valueType === "undefined" || valueType === "function") {
+      throw new HttpsError("invalid-argument", "style values must be JSON-safe");
     }
     return safeJsonClone(value);
   }
@@ -3994,6 +4003,19 @@ function configFlagEnabled(configData, key, defaultVal = true) {
   const flags = configData && typeof configData.flags === "object" ? configData.flags : {};
   const raw = flags?.[key];
   return typeof raw === "boolean" ? raw : defaultVal;
+}
+
+async function assertBillingEnabledOrThrow() {
+  const snap = await db.doc(APP_PUBLIC_CONFIG_DOC_PATH).get();
+  const data = snap.exists ? (snap.data() || {}) : {};
+  const enabled = configFlagEnabled(data, "billing.enabled", true);
+  if (!enabled) {
+    throw new HttpsError("failed-precondition", "Purchases are temporarily unavailable. Please check back shortly.", {
+      reason: "BILLING_DISABLED",
+      memberMessage: "Purchases are temporarily unavailable. Please check back shortly.",
+      staffMessage: "Billing disabled by Control Center.",
+    });
+  }
 }
 
 function isCeoMemberDoc(data = {}, uid = "") {
@@ -4758,6 +4780,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
 exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
   try {
     if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+    await assertBillingEnabledOrThrow();
     const uid = context.auth.uid;
     const email = (context.auth.token.email || '').toLowerCase();
     const { tier, priceId } = membershipStripePriceSelection(data?.tier, "createMembershipPaymentIntent");
@@ -5154,6 +5177,7 @@ exports.createSetupIntent = functions.runWith(stripeSecrets).https.onCall(async 
 
 exports.createBillingPortalSession = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  await assertBillingEnabledOrThrow();
   const uid = context.auth.uid;
   const email = (context.auth.token.email || '').toLowerCase();
   const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
@@ -5177,6 +5201,7 @@ exports.createBillingPortalSession = functions.runWith(stripeSecrets).https.onCa
 
 exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  await assertBillingEnabledOrThrow();
   const uid = context.auth.uid;
   const email = (context.auth.token.email || '').toLowerCase();
   const { tier, priceId: tierPriceId } = membershipStripePriceSelection(data?.tier, "chargeMembershipOnFile");
@@ -6968,6 +6993,10 @@ exports.adminUpdateVenue = functions.https.onCall(async (data, context) => {
         updates.showInHomeFeed = patch.showInHomeFeed !== false;
         return;
       }
+      if (key === "showLivePill") {
+        updates.showLivePill = patch.showLivePill !== false;
+        return;
+      }
       if (key === "priority") {
         const nextPriority = Number(patch.priority);
         if (!Number.isFinite(nextPriority)) {
@@ -7033,6 +7062,7 @@ exports.adminCreateVenue = functions.https.onCall(async (data, context) => {
       hours: hours || null,
       status: VENUE_SOFT_CONTROL_DEFAULTS.status,
       showInHomeFeed: VENUE_SOFT_CONTROL_DEFAULTS.showInHomeFeed,
+      showLivePill: VENUE_SOFT_CONTROL_DEFAULTS.showLivePill,
       priority: VENUE_SOFT_CONTROL_DEFAULTS.priority,
       adminNote: String(venue.adminNote || "").trim().slice(0, 400) || null,
       reason: String(venue.reason || "").trim().slice(0, 180) || null,
@@ -7067,6 +7097,7 @@ exports.adminRestoreVenue = functions.https.onCall(async (data, context) => {
     const updates = {
       status: "active",
       showInHomeFeed: true,
+      showLivePill: true,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedBy: actor.uid,
     };
@@ -7083,6 +7114,38 @@ exports.adminRestoreVenue = functions.https.onCall(async (data, context) => {
     if (err instanceof HttpsError) throw err;
     console.warn("adminRestoreVenue failed", err);
     throw new HttpsError("internal", err?.message || "Could not restore venue");
+  }
+});
+
+exports.adminArchiveVenue = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      rateLimit: { maxPerMin: 60, maxPerDay: 1200, burstAllowance: 12 },
+    });
+    requireAdminClaim(context);
+    const venueId = resolveStaffVenueId(String(data?.venueId || "").trim().toLowerCase());
+    if (!venueId) throw new HttpsError("invalid-argument", "venueId required");
+    const actor = getAdminActorRef(context);
+    const updates = {
+      status: "archived",
+      showInHomeFeed: false,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: actor.uid,
+    };
+    if (actor.email) updates.updatedByEmail = actor.email;
+    if (data?.reason !== undefined) {
+      updates.reason = String(data.reason || "").trim().slice(0, 180) || null;
+    }
+    if (data?.adminNote !== undefined) {
+      updates.adminNote = String(data.adminNote || "").trim().slice(0, 400) || null;
+    }
+    await db.collection("venues").doc(venueId).set(updates, { merge: true });
+    return { ok: true, venueId, status: "archived" };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("adminArchiveVenue failed", err);
+    throw new HttpsError("internal", err?.message || "Could not archive venue");
   }
 });
 

@@ -37,4 +37,5 @@ node scripts/backfillVenueAdminFields.js
 Backfill only fills missing fields on `venues/{venueId}`:
 - `status = "active"`
 - `showInHomeFeed = true`
+- `showLivePill = true`
 - `priority = 50`

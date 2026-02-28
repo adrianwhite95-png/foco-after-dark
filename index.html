@@ -14235,7 +14235,7 @@
     .ceo-control-row,
     .ceo-venue-admin-row {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 10px;
       align-items: center;
       padding: 10px 12px;
@@ -14258,7 +14258,9 @@
     }
     .ceo-control-row .btn,
     .ceo-venue-admin-row .btn {
-      min-width: 120px;
+      min-width: 132px;
+      min-height: 36px;
+      white-space: nowrap;
     }
     .ceo-venue-admin-row .meta {
       display: flex;
@@ -14279,6 +14281,19 @@
       flex-wrap: wrap;
       gap: 6px;
       justify-content: flex-end;
+    }
+    @media (max-width: 920px) {
+      .ceo-control-row,
+      .ceo-venue-admin-row {
+        grid-template-columns: 1fr;
+      }
+      .ceo-venue-admin-actions {
+        justify-content: flex-start;
+      }
+      .ceo-control-row .btn,
+      .ceo-venue-admin-row .btn {
+        width: 100%;
+      }
     }
     .ceo-control-value {
       width: 100%;
@@ -15917,28 +15932,28 @@
           <div class="ceo-hq-grid">
             <section class="ceo-panel">
               <div class="ceo-panel-header">
-                <h4>Switchboard</h4>
-                <p>Flags grouped by app surface.</p>
+                <h4>Emergency</h4>
+                <p>Instant global safety controls.</p>
               </div>
               <div class="field">
-                <label for="ceoControlFlagSearch">Search flags</label>
-                <input id="ceoControlFlagSearch" type="text" placeholder="home., billing., redeem., staff., venues., maintenance." />
+                <label for="ceoControlFlagSearch">Search controls</label>
+                <input id="ceoControlFlagSearch" type="text" placeholder="Try: venue, redeem, live, purchase, maintenance…" />
               </div>
               <div id="ceoControlFlagsList" class="ceo-scroll"></div>
             </section>
 
             <section class="ceo-panel">
               <div class="ceo-panel-header">
-                <h4>Copy editor</h4>
-                <p>Update controlled text keys live.</p>
+                <h4>Text &amp; Messages</h4>
+                <p>Plain-English app copy controls.</p>
               </div>
               <div id="ceoControlTextList" class="ceo-scroll"></div>
             </section>
 
             <section class="ceo-panel">
               <div class="ceo-panel-header">
-                <h4>Numbers &amp; Lists</h4>
-                <p>Tune feed row count and ordering arrays.</p>
+                <h4>Home Screen + Membership</h4>
+                <p>Top venues, feed behavior, and default pricing options.</p>
               </div>
               <div id="ceoControlNumbersList" class="ceo-scroll"></div>
               <div id="ceoControlListsList" class="ceo-scroll" style="margin-top:8px;"></div>
@@ -15946,14 +15961,14 @@
 
             <section class="ceo-panel">
               <div class="ceo-panel-header">
-                <h4>Emergency controls</h4>
-                <p>Immediate kill-switches for core flows.</p>
+                <h4>Quick emergency actions</h4>
+                <p>One-click toggles for maintenance and critical systems.</p>
               </div>
               <div class="ceo-reset-actions" id="ceoEmergencyActions" style="margin-top:0;">
-                <button type="button" class="btn btn-secondary" data-emergency-key="maintenance.enabled">Toggle maintenance</button>
-                <button type="button" class="btn btn-secondary" data-emergency-key="billing.enabled">Toggle billing</button>
-                <button type="button" class="btn btn-secondary" data-emergency-key="redeem.enabled">Toggle redeem</button>
-                <button type="button" class="btn btn-secondary" data-emergency-key="staff.enabled">Toggle staff</button>
+                <button type="button" class="btn btn-secondary" data-emergency-key="maintenance.enabled">Maintenance Mode</button>
+                <button type="button" class="btn btn-secondary" data-emergency-key="billing.enabled">Turn off purchases</button>
+                <button type="button" class="btn btn-secondary" data-emergency-key="redeem.enabled">Turn off redemptions</button>
+                <button type="button" class="btn btn-secondary" data-emergency-key="staff.enabled">Turn off Staff Portal</button>
               </div>
               <div class="field">
                 <label for="ceoEmergencyMessage">Maintenance message</label>
@@ -15968,7 +15983,7 @@
           <section class="ceo-panel" style="margin-top:12px;">
             <div class="ceo-panel-header">
               <h4>Venues manager</h4>
-              <p>Hide, pause, archive, and prioritize venues without deleting data.</p>
+              <p>Hide everywhere, pause redemption, control home visibility, LIVE badges, and priority.</p>
             </div>
             <div class="ceo-panel-tools">
               <input id="ceoVenueAdminSearch" type="text" placeholder="Search venue…" />
@@ -17854,11 +17869,16 @@
     const DEFAULT_CONFIG_FLAGS = Object.freeze({
       "home.hero.enabled": true,
       "home.dealFeed.enabled": true,
+      "home.topVenues.enabled": true,
       "home.livePills.enabled": true,
       "home.socialProof.enabled": true,
       "home.addToHomeScreen.enabled": true,
       "home.memberLogin.enabled": true,
       "home.staffLogin.enabled": true,
+      "billing.promos.enabled": true,
+      "membership.allowFreeBrowsing": true,
+      "redeem.requireMembership": true,
+      "staff.liveUpdates.enabled": true,
       "billing.enabled": true,
       "redeem.enabled": true,
       "staff.enabled": true,
@@ -17867,14 +17887,31 @@
     });
     const DEFAULT_CONFIG_NUMBERS = Object.freeze({
       "home.feed.maxRows": 4,
+      "home.topVenues.max": 6,
     });
     const DEFAULT_CONFIG_TEXT = Object.freeze({
       "maintenance.message": "🍺 The keg is tapped and bar-backs are on it. Quick tune-up in progress.",
+      "home.hero.headline": "Unlock Tonight's VIP Perks & Flash Deals.",
+      "home.hero.subhead": "Live posts from Fort Collins venues — members see everything.",
+      "home.primaryCtaText": "UNLOCK TONIGHT'S PERKS — 21+",
+      "home.secondaryCtaText": "ALREADY A MEMBER? LOG IN",
+      "billing.disabled.message": "Purchases are temporarily unavailable. Please check back shortly.",
+      "redeem.disabled.message": "Redemptions are temporarily unavailable. Please try again shortly.",
+      "venue.paused.message": "This venue is temporarily paused for redemptions.",
+    });
+    const DEFAULT_CONFIG_STYLE = Object.freeze({
+      "home.feedMode": "priority",
+      "membership.defaultTier": "choose",
+    });
+    const DEFAULT_CONFIG_LISTS = Object.freeze({
+      "home.feed.venueOrder": HOME_FEED_DEFAULT_ORDER,
+      "home.topVenues.manualIds": [],
     });
     const HOME_FEED_DEFAULT_ORDER = ["rec_room", "bondi_beach", "bar_district", "lucky_joes"];
     const DEFAULT_VENUE_CONTROL = Object.freeze({
       status: "active",
       showInHomeFeed: true,
+      showLivePill: true,
       priority: 50,
       reason: "",
       adminNote: "",
@@ -17902,6 +17939,11 @@
         const raw = this.data?.lists?.[key];
         if (Array.isArray(raw)) return raw;
         return Array.isArray(defaultVal) ? defaultVal : [];
+      },
+      style(key, defaultVal = null) {
+        const raw = this.data?.style?.[key];
+        if (raw === undefined || raw === null || raw === "") return defaultVal;
+        return raw;
       }
     };
 
@@ -18005,10 +18047,16 @@
       return {
         status,
         showInHomeFeed: raw?.showInHomeFeed !== false,
+        showLivePill: raw?.showLivePill !== false,
         priority: Number.isFinite(priorityValue) ? priorityValue : DEFAULT_VENUE_CONTROL.priority,
         reason: String(raw?.reason || ""),
         adminNote: String(raw?.adminNote || ""),
       };
+    }
+
+    function isVenueVisibleToMembers(venueId = "") {
+      const status = getVenueAdminState(venueId).status;
+      return status === "active" || status === "paused";
     }
 
     function isVenueActiveForMembers(venueId = "") {
@@ -18017,7 +18065,7 @@
 
     function isVenueVisibleInHomeFeed(venueId = "") {
       const state = getVenueAdminState(venueId);
-      return state.status === "active" && state.showInHomeFeed !== false;
+      return isVenueVisibleToMembers(venueId) && state.showInHomeFeed !== false;
     }
 
     function sanitizeConfigSectionObject(raw, fallback = {}) {
@@ -18052,8 +18100,8 @@
         flags: sanitizeConfigSectionObject(next.flags, DEFAULT_CONFIG_FLAGS),
         text: sanitizeConfigSectionObject(next.text, DEFAULT_CONFIG_TEXT),
         numbers: sanitizeConfigSectionObject(next.numbers, DEFAULT_CONFIG_NUMBERS),
-        lists: sanitizeConfigSectionObject(next.lists, {}),
-        style: sanitizeConfigSectionObject(next.style, {}),
+        lists: sanitizeConfigSectionObject(next.lists, DEFAULT_CONFIG_LISTS),
+        style: sanitizeConfigSectionObject(next.style, DEFAULT_CONFIG_STYLE),
         updatedAt: next.updatedAt || null,
         updatedBy: String(next.updatedBy || ""),
       };
@@ -18065,25 +18113,24 @@
 
     function getConfiguredHomeFeedVenueIds() {
       const allVenueIds = Object.keys(venuesInfo || {});
-      const orderRaw = cfg.list("home.feed.venueOrder", []);
-      const order = [];
-      if (Array.isArray(orderRaw)) {
-        orderRaw.forEach((value) => {
+      const modeRaw = String(cfg.style("home.feedMode", "priority") || "priority").toLowerCase();
+      const feedMode = modeRaw === "manual" ? "manual" : "priority";
+      const priorityOrder = getSortedVenueIds({ includeInactive: false, homeFeedOnly: true });
+      if (feedMode === "manual") {
+        const rawManual = cfg.list("home.topVenues.manualIds", []);
+        const manual = [];
+        rawManual.forEach((value) => {
           const resolved = resolveVenueId(String(value || ""));
-          if (!resolved || order.includes(resolved) || !allVenueIds.includes(resolved)) return;
-          order.push(resolved);
+          if (!resolved || manual.includes(resolved)) return;
+          if (!allVenueIds.includes(resolved)) return;
+          if (!isVenueVisibleInHomeFeed(resolved)) return;
+          manual.push(resolved);
         });
+        if (manual.length) {
+          return manual;
+        }
       }
-      if (!order.length) {
-        HOME_FEED_DEFAULT_ORDER.forEach((venueId) => {
-          if (allVenueIds.includes(venueId) && !order.includes(venueId)) order.push(venueId);
-        });
-      }
-      allVenueIds.forEach((venueId) => {
-        if (!order.includes(venueId)) order.push(venueId);
-      });
-      const visible = order.filter((venueId) => isVenueVisibleInHomeFeed(venueId));
-      return visible;
+      return priorityOrder;
     }
 
     function applyLandingFeedVenueConfig() {
@@ -18091,7 +18138,8 @@
       if (!feed) return;
       const rows = Array.from(feed.querySelectorAll(".landing-live-row"));
       if (!rows.length) return;
-      const maxRows = Math.max(1, Math.min(rows.length, Math.round(cfg.num("home.feed.maxRows", rows.length) || rows.length)));
+      const configuredMax = Math.round(cfg.num("home.topVenues.max", cfg.num("home.feed.maxRows", rows.length)) || rows.length);
+      const maxRows = Math.max(1, Math.min(rows.length, configuredMax));
       const orderedVenueIds = getConfiguredHomeFeedVenueIds();
       rows.forEach((row, index) => {
         if (index >= maxRows) {
@@ -18122,7 +18170,8 @@
       const heroSubhead = landingScreen.querySelector("#landingHeroSubhead");
       const addToHomeWrap = landingScreen.querySelector(".launch-secondary-actions");
       if (hero) hero.style.display = cfg.on("home.hero.enabled", true) ? "" : "none";
-      if (feed) feed.style.display = cfg.on("home.dealFeed.enabled", true) ? "" : "none";
+      const topVenuesEnabled = cfg.on("home.topVenues.enabled", true);
+      if (feed) feed.style.display = (cfg.on("home.dealFeed.enabled", true) && topVenuesEnabled) ? "" : "none";
       if (social) social.style.display = cfg.on("home.socialProof.enabled", true) ? "" : "none";
       if (addToHomeWrap) addToHomeWrap.style.display = cfg.on("home.addToHomeScreen.enabled", true) ? "" : "none";
       if (landingLoginLink) {
@@ -18136,14 +18185,20 @@
         const billingOn = cfg.on("billing.enabled", true);
         landingGetPassBtn.disabled = !billingOn;
         landingGetPassBtn.title = billingOn ? "Get the Nightlife Pass" : "Billing temporarily unavailable";
+        const primaryText = cfg.text("home.primaryCtaText", DEFAULT_CONFIG_TEXT["home.primaryCtaText"]);
+        landingGetPassBtn.textContent = primaryText || DEFAULT_CONFIG_TEXT["home.primaryCtaText"];
+      }
+      if (landingLoginLink) {
+        const secondaryText = cfg.text("home.secondaryCtaText", DEFAULT_CONFIG_TEXT["home.secondaryCtaText"]);
+        landingLoginLink.textContent = secondaryText || DEFAULT_CONFIG_TEXT["home.secondaryCtaText"];
       }
       if (heroHeadline) {
-        const headline = cfg.text("home.hero.headline", "Unlock Tonight's VIP Perks & Flash Deals.");
-        heroHeadline.textContent = headline || "Unlock Tonight's VIP Perks & Flash Deals.";
+        const headline = cfg.text("home.hero.headline", DEFAULT_CONFIG_TEXT["home.hero.headline"]);
+        heroHeadline.textContent = headline || DEFAULT_CONFIG_TEXT["home.hero.headline"];
       }
       if (heroSubhead) {
-        const subhead = cfg.text("home.hero.subhead", "Live posts from Fort Collins venues — members see everything.");
-        heroSubhead.textContent = subhead || "Live posts from Fort Collins venues — members see everything.";
+        const subhead = cfg.text("home.hero.subhead", DEFAULT_CONFIG_TEXT["home.hero.subhead"]);
+        heroSubhead.textContent = subhead || DEFAULT_CONFIG_TEXT["home.hero.subhead"];
       }
       document.body.classList.toggle("landing-unblurred-deals", !cfg.on("blurDealsForNonMembers", true));
       applyLandingFeedVenueConfig();
@@ -18156,7 +18211,7 @@
       if (redeemTrigger) {
         redeemTrigger.disabled = !redeemEnabled;
         redeemTrigger.setAttribute("aria-disabled", redeemEnabled ? "false" : "true");
-        redeemTrigger.title = redeemEnabled ? "Redeem a perk" : "Redemptions are temporarily unavailable";
+        redeemTrigger.title = redeemEnabled ? "Redeem a perk" : cfg.text("redeem.disabled.message", DEFAULT_CONFIG_TEXT["redeem.disabled.message"]);
       }
       if (tonightRedeemBtn) {
         tonightRedeemBtn.classList.toggle("disabled", !redeemEnabled);
@@ -18234,6 +18289,7 @@
           next.set(docSnap.id, {
             status: normalizeVenueSoftStatus(data.status || DEFAULT_VENUE_CONTROL.status),
             showInHomeFeed: data.showInHomeFeed !== false,
+            showLivePill: data.showLivePill !== false,
             priority: Number.isFinite(Number(data.priority)) ? Number(data.priority) : DEFAULT_VENUE_CONTROL.priority,
             reason: String(data.reason || ""),
             adminNote: String(data.adminNote || "")
@@ -18248,7 +18304,7 @@
         renderVenueButtons();
         if (venueDetailModal?.classList.contains("active")) {
           const activeVenueId = String(venueDetailModal.dataset.venueId || "");
-          if (activeVenueId && !isVenueActiveForMembers(activeVenueId)) {
+          if (activeVenueId && !isVenueVisibleToMembers(activeVenueId)) {
             closeVenueDetail();
           }
         }
@@ -18271,7 +18327,7 @@
       const requestedTier = normalizeMembershipTierSelection(tier || getRequestedTier(memberProfile));
       const fallbackScreen = String(options.fallbackScreen || "").trim();
       if (!isBillingEnabledForUi()) {
-        showToast("Billing is temporarily unavailable. Please check back shortly.", 2400);
+        showToast(cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]), 2400);
         if (fallbackScreen) showScreen(fallbackScreen);
         return false;
       }
@@ -18301,30 +18357,41 @@
     let ceoMembersFilterKey = "all";
     let ceoMembersSearchTerm = "";
     let ceoControlVenueSearchTerm = "";
-    const CEO_CONTROL_FLAG_KEYS = [
-      "home.hero.enabled",
-      "home.dealFeed.enabled",
-      "home.livePills.enabled",
-      "home.socialProof.enabled",
-      "home.addToHomeScreen.enabled",
-      "home.memberLogin.enabled",
-      "home.staffLogin.enabled",
-      "billing.enabled",
-      "redeem.enabled",
-      "staff.enabled",
-      "maintenance.enabled",
-      "blurDealsForNonMembers",
+    const CEO_CONTROL_SWITCHES = [
+      { section: "Emergency", key: "maintenance.enabled", label: "Maintenance Mode (App temporarily closed)", help: "Shows full-screen maintenance and disables actions." },
+      { section: "Emergency", key: "billing.enabled", label: "Turn off all purchases", help: "Blocks all membership purchase flows." },
+      { section: "Emergency", key: "redeem.enabled", label: "Turn off all redemptions", help: "Disables redeem actions across the app." },
+      { section: "Emergency", key: "staff.enabled", label: "Turn off Staff Portal", help: "Hides and disables staff portal tools." },
+      { section: "Home Screen", key: "home.topVenues.enabled", label: "Show Top Venues section", help: "Shows or hides the Top Venues module." },
+      { section: "Home Screen", key: "home.livePills.enabled", label: "Show LIVE badges", help: "Controls LIVE badges in home feed." },
+      { section: "Home Screen", key: "home.socialProof.enabled", label: "Show the stats box", help: "Shows the redeemed/saved social proof box." },
+      { section: "Home Screen", key: "blurDealsForNonMembers", label: "Blur deals for non-members (tease mode)", help: "Hides readable deal details until membership is active." },
+      { section: "Home Screen", key: "home.addToHomeScreen.enabled", label: "Show Add to Home Screen button", help: "Displays install prompt button." },
+      { section: "Home Screen", key: "home.memberLogin.enabled", label: "Show Member Login button", help: "Shows member login button on landing." },
+      { section: "Home Screen", key: "home.staffLogin.enabled", label: "Show Venue Staff Login button", help: "Shows staff login button on landing." },
+      { section: "Membership & Pricing", key: "billing.promos.enabled", label: "Enable promo codes", help: "Allows promo code inputs during checkout." },
+      { section: "Membership & Pricing", key: "membership.allowFreeBrowsing", label: "Allow free browsing", help: "Non-members can browse venues but locked deals remain hidden." },
+      { section: "Membership & Pricing", key: "redeem.requireMembership", label: "Require membership to redeem anything", help: "Requires active membership for all redemptions." },
+      { section: "Deals & Feed", key: "home.dealFeed.enabled", label: "Show the deals feed", help: "Shows the home feed card and rows." },
+      { section: "Deals & Feed", key: "staff.liveUpdates.enabled", label: "Allow staff to post Live updates", help: "Controls staff ability to publish live updates." }
     ];
-    const CEO_CONTROL_TEXT_KEYS = [
-      "maintenance.message",
-      "home.hero.headline",
-      "home.hero.subhead",
+    const CEO_CONTROL_NUMBERS = [
+      { section: "Home Screen", key: "home.topVenues.max", label: "How many top venues to show", min: 1, max: 12, step: 1 },
+      { section: "Deals & Feed", key: "home.feed.maxRows", label: "Max number of feed items", min: 1, max: 12, step: 1 },
     ];
-    const CEO_CONTROL_NUMBER_KEYS = [
-      "home.feed.maxRows",
+    const CEO_CONTROL_SELECTS = [
+      { section: "Home Screen", key: "home.feedMode", scope: "style", label: "Top Venues mode", options: [{ value: "priority", label: "Automatic (by priority)" }, { value: "manual", label: "Manual (I pick them)" }] },
+      { section: "Membership & Pricing", key: "membership.defaultTier", scope: "style", label: "Default membership screen", options: [{ value: "standard", label: "Standard" }, { value: "vip", label: "VIP" }, { value: "choose", label: "Let user choose" }] }
     ];
-    const CEO_CONTROL_LIST_KEYS = [
-      "home.feed.venueOrder",
+    const CEO_CONTROL_TEXT_FIELDS = [
+      { key: "home.hero.headline", label: "Home headline" },
+      { key: "home.hero.subhead", label: "Home subheadline" },
+      { key: "home.primaryCtaText", label: "Primary button text" },
+      { key: "home.secondaryCtaText", label: "Secondary button text" },
+      { key: "billing.disabled.message", label: "Message shown when purchases are off" },
+      { key: "redeem.disabled.message", label: "Message shown when redemptions are off" },
+      { key: "venue.paused.message", label: "Message shown when a venue is paused" },
+      { key: "maintenance.message", label: "Maintenance message" },
     ];
     let rewardsProgress = { count: 0, threshold: 5, available: false, rewardType: null, cycleKey: null, claimed: 0 };
     let memberDocRef = null;
@@ -18567,6 +18634,8 @@
         if (meta) meta.style.display = "none";
       });
       indexed.filter(({ idx }) => liveIndexes.has(idx)).forEach(({ row }) => {
+        const venueId = String(row.dataset.venueId || "").trim().toLowerCase();
+        if (venueId && getVenueAdminState(venueId).showLivePill === false) return;
         const el = row.querySelector(".landing-live-top");
         if (!el) return;
         const pill = document.createElement("span");
@@ -18839,7 +18908,7 @@
     if (landingGetPassBtn) {
       landingGetPassBtn.addEventListener("click", () => {
         if (!isBillingEnabledForUi()) {
-          showToast("Billing is temporarily unavailable. Please check back shortly.", 2400);
+          showToast(cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]), 2400);
           return;
         }
         authMode = "signup";
@@ -22725,7 +22794,7 @@
       return { startMin, endMin };
     }
     function isVenueOpenNow(venueId, at = new Date()) {
-      if (!isVenueActiveForMembers(venueId)) {
+      if (!isVenueVisibleToMembers(venueId)) {
         return false;
       }
       const realtime = venueOpenNowMap.get(String(venueId || "").toLowerCase());
@@ -22773,8 +22842,11 @@
       if (!isRedeemEnabledForUi()) {
         return commit(false, "REDEEM_DISABLED");
       }
-      if (!isVenueActiveForMembers(key)) {
+      if (!isVenueVisibleToMembers(key)) {
         return commit(false, "VENUE_STATUS_BLOCKED");
+      }
+      if (!isVenueActiveForMembers(key)) {
+        return commit(false, "VENUE_PAUSED");
       }
       try {
         const realtime = venueOpenNowMap.get(key);
@@ -22830,12 +22902,12 @@
       const ids = Object.keys(venuesInfo || {}).filter((venueId) => {
         if (includeInactive) return true;
         if (homeFeedOnly) return isVenueVisibleInHomeFeed(venueId);
-        return isVenueActiveForMembers(venueId);
+        return isVenueVisibleToMembers(venueId);
       });
       ids.sort((a, b) => {
         const aState = getVenueAdminState(a);
         const bState = getVenueAdminState(b);
-        if (aState.priority !== bState.priority) return aState.priority - bState.priority;
+        if (aState.priority !== bState.priority) return bState.priority - aState.priority;
         const aName = String(venuesInfo?.[a]?.name || a);
         const bName = String(venuesInfo?.[b]?.name || b);
         return aName.localeCompare(bName);
@@ -28697,9 +28769,16 @@ let onboardingIndex = 0;
         renderRedemptionOptions();
         return;
       }
-      if (!isVenueActiveForMembers(venueId)) {
+      if (!isVenueVisibleToMembers(venueId)) {
         if (creditInfo) {
           creditInfo.textContent = "This venue is temporarily unavailable.";
+        }
+        renderRedemptionOptions();
+        return;
+      }
+      if (!isVenueActiveForMembers(venueId)) {
+        if (creditInfo) {
+          creditInfo.textContent = cfg.text("venue.paused.message", DEFAULT_CONFIG_TEXT["venue.paused.message"]);
         }
         renderRedemptionOptions();
         return;
@@ -37240,9 +37319,9 @@ let onboardingIndex = 0;
     function renderVenueButtons() {
       venueButtons.forEach(btn => {
         const vid = btn.dataset.venue;
-        const active = isVenueActiveForMembers(vid);
-        btn.style.display = active ? "" : "none";
-        if (!active) return;
+        const visible = isVenueVisibleToMembers(vid);
+        btn.style.display = visible ? "" : "none";
+        if (!visible) return;
         const avg = getVenueAverage(vid);
         let label = btn.textContent.split("★")[0].trim();
         btn.innerHTML = `<span>${label}</span>` + (avg ? `<span class="venue-rating-pill">★ ${avg.toFixed(1)}</span>` : "");
@@ -38526,7 +38605,7 @@ let onboardingIndex = 0;
       if (e.target === ceoCardModal) ceoCardModal.classList.remove("active");
     });
     function canAccessCeoControlCenter() {
-      return !!(isCeoAccount && authClaimsReady && hasAdminClaim());
+      return !!(isCeoAccount && authClaimsReady && hasCeoClaim());
     }
 
     function getCeoControlTabButton() {
@@ -38587,6 +38666,7 @@ let onboardingIndex = 0;
       const merged = {
         status: normalizeVenueSoftStatus(patch.status || current.status),
         showInHomeFeed: patch.showInHomeFeed === undefined ? current.showInHomeFeed : patch.showInHomeFeed !== false,
+        showLivePill: patch.showLivePill === undefined ? current.showLivePill : patch.showLivePill !== false,
         priority: Number.isFinite(nextPriority) ? Math.max(0, Math.min(999, Math.round(nextPriority))) : current.priority,
         reason: patch.reason === undefined ? current.reason : String(patch.reason || ""),
         adminNote: patch.adminNote === undefined ? current.adminNote : String(patch.adminNote || ""),
@@ -38622,48 +38702,79 @@ let onboardingIndex = 0;
       return Array.from(ids).filter(Boolean).map((id) => resolveVenueId(id));
     }
 
+    function getManualTopVenueIds() {
+      return cfg.list("home.topVenues.manualIds", [])
+        .map((value) => resolveVenueId(String(value || "")))
+        .filter(Boolean);
+    }
+
+    async function saveManualTopVenueIds(nextIds = []) {
+      const cleaned = [];
+      nextIds.forEach((venueId) => {
+        const resolved = resolveVenueId(String(venueId || ""));
+        if (!resolved || cleaned.includes(resolved)) return;
+        if (!isVenueVisibleInHomeFeed(resolved)) return;
+        cleaned.push(resolved);
+      });
+      return updateConfigViaAdmin("lists", "home.topVenues.manualIds", cleaned);
+    }
+
     function renderCeoControlFlags() {
       if (!ceoControlFlagsList) return;
       const search = String(ceoControlFlagSearch?.value || "").trim().toLowerCase();
-      const keys = CEO_CONTROL_FLAG_KEYS.filter((key) => !search || key.toLowerCase().includes(search));
-      if (!keys.length) {
-        ceoControlFlagsList.innerHTML = '<p class="small">No flags match this search.</p>';
-        return;
-      }
-      const groups = new Map();
-      keys.forEach((key) => {
-        const prefix = key.includes(".") ? key.split(".")[0] : "misc";
-        if (!groups.has(prefix)) groups.set(prefix, []);
-        groups.get(prefix).push(key);
-      });
+      const matchesSearch = (...parts) => {
+        if (!search) return true;
+        const text = parts.map((item) => String(item || "").toLowerCase()).join(" ");
+        return text.includes(search);
+      };
+      const sections = ["Emergency", "Home Screen", "Membership & Pricing", "Deals & Feed"];
       let html = "";
-      Array.from(groups.keys()).sort().forEach((prefix) => {
-        html += `<p class="small" style="text-transform:uppercase;letter-spacing:.12em;margin:10px 2px 8px;">${escapeHtmlText(prefix)}</p>`;
-        groups.get(prefix).forEach((key) => {
-          const enabled = cfg.on(key, DEFAULT_CONFIG_FLAGS[key] !== false);
+      let matches = 0;
+      sections.forEach((section) => {
+        const entries = CEO_CONTROL_SWITCHES.filter((item) => item.section === section && matchesSearch(item.section, item.label, item.help));
+        if (!entries.length) return;
+        matches += entries.length;
+        html += `<p class="small" style="text-transform:uppercase;letter-spacing:.12em;margin:10px 2px 8px;">${escapeHtmlText(section)}</p>`;
+        entries.forEach((item) => {
+          const fallback = DEFAULT_CONFIG_FLAGS[item.key] !== false;
+          const enabled = cfg.on(item.key, fallback);
           html += `
-            <div class="ceo-control-row" data-control-key="${escapeHtmlText(key)}">
+            <div class="ceo-control-row" data-control-key="${escapeHtmlText(item.key)}">
               <div>
-                <strong>${escapeHtmlText(key)}</strong>
-                <div class="small">${enabled ? "Enabled" : "Disabled"}</div>
+                <strong>${escapeHtmlText(item.label)}</strong>
+                <div class="small">${escapeHtmlText(item.help || "")}</div>
               </div>
-              <button type="button" class="btn btn-secondary" data-control-flag-toggle="${escapeHtmlText(key)}">${enabled ? "Disable" : "Enable"}</button>
+              <button type="button" class="btn btn-secondary" data-control-flag-toggle="${escapeHtmlText(item.key)}">${enabled ? "On" : "Off"}</button>
             </div>
           `;
         });
       });
+      if (!matches) {
+        ceoControlFlagsList.innerHTML = '<p class="small">No controls match this search.</p>';
+        return;
+      }
       ceoControlFlagsList.innerHTML = html;
     }
 
     function renderCeoControlText() {
       if (!ceoControlTextList) return;
-      ceoControlTextList.innerHTML = CEO_CONTROL_TEXT_KEYS.map((key) => `
-        <div class="ceo-control-row" data-control-text-key="${escapeHtmlText(key)}">
+      const search = String(ceoControlFlagSearch?.value || "").trim().toLowerCase();
+      const fields = CEO_CONTROL_TEXT_FIELDS.filter((item) => {
+        if (!search) return true;
+        const haystack = `${item.label} ${item.key}`.toLowerCase();
+        return haystack.includes(search);
+      });
+      if (!fields.length) {
+        ceoControlTextList.innerHTML = '<p class="small">No controls match this search.</p>';
+        return;
+      }
+      ceoControlTextList.innerHTML = fields.map((item) => `
+        <div class="ceo-control-row" data-control-text-key="${escapeHtmlText(item.key)}">
           <div style="width:100%;">
-            <strong>${escapeHtmlText(key)}</strong>
-            <textarea class="ceo-control-value" rows="2" data-control-text-input="${escapeHtmlText(key)}">${escapeHtmlText(cfg.text(key, DEFAULT_CONFIG_TEXT[key] || ""))}</textarea>
+            <strong>${escapeHtmlText(item.label)}</strong>
+            <textarea class="ceo-control-value" rows="2" data-control-text-input="${escapeHtmlText(item.key)}">${escapeHtmlText(cfg.text(item.key, DEFAULT_CONFIG_TEXT[item.key] || ""))}</textarea>
           </div>
-          <button type="button" class="btn btn-secondary" data-control-text-save="${escapeHtmlText(key)}">Save</button>
+          <button type="button" class="btn btn-secondary" data-control-text-save="${escapeHtmlText(item.key)}">Save</button>
         </div>
       `).join("");
       if (ceoEmergencyMessage) {
@@ -38673,32 +38784,78 @@ let onboardingIndex = 0;
 
     function renderCeoControlNumbers() {
       if (!ceoControlNumbersList) return;
-      ceoControlNumbersList.innerHTML = CEO_CONTROL_NUMBER_KEYS.map((key) => `
-        <div class="ceo-control-row" data-control-number-key="${escapeHtmlText(key)}">
+      const search = String(ceoControlFlagSearch?.value || "").trim().toLowerCase();
+      const numberRows = CEO_CONTROL_NUMBERS.filter((item) => {
+        if (!search) return true;
+        return `${item.label} ${item.section} ${item.key}`.toLowerCase().includes(search);
+      }).map((item) => `
+        <div class="ceo-control-row" data-control-number-key="${escapeHtmlText(item.key)}">
           <div style="width:100%;">
-            <strong>${escapeHtmlText(key)}</strong>
-            <input class="ceo-control-value" type="number" data-control-number-input="${escapeHtmlText(key)}" value="${escapeHtmlText(String(cfg.num(key, DEFAULT_CONFIG_NUMBERS[key] || 0)))}" />
+            <strong>${escapeHtmlText(item.label)}</strong>
+            <div class="small">${escapeHtmlText(item.section)}</div>
+            <input class="ceo-control-value" type="number" min="${item.min}" max="${item.max}" step="${item.step}" data-control-number-input="${escapeHtmlText(item.key)}" value="${escapeHtmlText(String(cfg.num(item.key, DEFAULT_CONFIG_NUMBERS[item.key] || 0)))}" />
           </div>
-          <button type="button" class="btn btn-secondary" data-control-number-save="${escapeHtmlText(key)}">Save</button>
+          <button type="button" class="btn btn-secondary" data-control-number-save="${escapeHtmlText(item.key)}">Save</button>
         </div>
       `).join("");
+      const selectRows = CEO_CONTROL_SELECTS.filter((item) => {
+        if (!search) return true;
+        return `${item.label} ${item.section} ${item.key}`.toLowerCase().includes(search);
+      }).map((item) => {
+        const selected = String((item.scope === "style" ? cfg.style(item.key, DEFAULT_CONFIG_STYLE[item.key] || "") : cfg.text(item.key, "")) || "");
+        const options = item.options.map((opt) => `<option value="${escapeHtmlText(opt.value)}" ${selected === opt.value ? "selected" : ""}>${escapeHtmlText(opt.label)}</option>`).join("");
+        return `
+          <div class="ceo-control-row" data-control-select-key="${escapeHtmlText(item.key)}">
+            <div style="width:100%;">
+              <strong>${escapeHtmlText(item.label)}</strong>
+              <div class="small">${escapeHtmlText(item.section)}</div>
+              <select class="ceo-control-value" data-control-select-input="${escapeHtmlText(item.key)}">${options}</select>
+            </div>
+            <button type="button" class="btn btn-secondary" data-control-select-save="${escapeHtmlText(item.key)}" data-control-select-scope="${escapeHtmlText(item.scope || "style")}">Save</button>
+          </div>
+        `;
+      }).join("");
+      ceoControlNumbersList.innerHTML = `${numberRows}${selectRows}` || '<p class="small">No controls match this search.</p>';
     }
 
     function renderCeoControlLists() {
       if (!ceoControlListsList) return;
-      ceoControlListsList.innerHTML = CEO_CONTROL_LIST_KEYS.map((key) => {
-        const listValue = cfg.list(key, key === "home.feed.venueOrder" ? HOME_FEED_DEFAULT_ORDER : []);
-        const jsonValue = JSON.stringify(listValue, null, 2);
+      const search = String(ceoControlFlagSearch?.value || "").trim().toLowerCase();
+      if (search && !`top venues manual`.includes(search)) {
+        ceoControlListsList.innerHTML = '<p class="small">No controls match this search.</p>';
+        return;
+      }
+      const maxRows = Math.max(1, Math.min(12, Math.round(cfg.num("home.topVenues.max", DEFAULT_CONFIG_NUMBERS["home.topVenues.max"])) || 6));
+      const manualIds = cfg.list("home.topVenues.manualIds", []).map((id) => resolveVenueId(String(id || ""))).filter(Boolean);
+      const mode = String(cfg.style("home.feedMode", DEFAULT_CONFIG_STYLE["home.feedMode"]) || "priority").toLowerCase();
+      const venueOptions = getAllKnownVenueIds()
+        .map((venueId) => `<option value="${escapeHtmlText(getVenueDisplayName(venueId))}"></option>`)
+        .join("");
+      const rows = Array.from({ length: maxRows }).map((_, index) => {
+        const venueId = manualIds[index] || "";
+        const venueLabel = venueId ? getVenueDisplayName(venueId) : "";
         return `
-          <div class="ceo-control-row" data-control-list-key="${escapeHtmlText(key)}">
+          <div class="ceo-control-row" data-top-venue-row="${index}">
             <div style="width:100%;">
-              <strong>${escapeHtmlText(key)}</strong>
-              <textarea class="ceo-control-value" rows="4" data-control-list-input="${escapeHtmlText(key)}">${escapeHtmlText(jsonValue)}</textarea>
+              <strong>Top venue slot ${index + 1}</strong>
+              <div class="small">Type a venue name to replace this slot.</div>
+              <input class="ceo-control-value" list="ceoTopVenueOptions" data-top-venue-input="${index}" value="${escapeHtmlText(venueLabel)}" placeholder="Search venue name…" />
             </div>
-            <button type="button" class="btn btn-secondary" data-control-list-save="${escapeHtmlText(key)}">Save</button>
+            <div class="ceo-venue-admin-actions">
+              <button type="button" class="btn btn-secondary" data-top-venue-save="${index}">Save</button>
+              <button type="button" class="btn btn-secondary" data-top-venue-up="${index}">↑</button>
+              <button type="button" class="btn btn-secondary" data-top-venue-down="${index}">↓</button>
+              <button type="button" class="btn btn-secondary" data-top-venue-clear="${index}">Clear</button>
+            </div>
           </div>
         `;
       }).join("");
+      ceoControlListsList.innerHTML = `
+        <div class="small" style="margin-bottom:8px;">Top Venues mode is <strong>${mode === "manual" ? "Manual (I pick them)" : "Automatic (by priority)"}</strong>.</div>
+        ${mode !== "manual" ? '<div class="small" style="margin-bottom:8px;">Switch Top Venues mode to Manual to control each slot directly.</div>' : ""}
+        <datalist id="ceoTopVenueOptions">${venueOptions}</datalist>
+        ${rows}
+      `;
     }
 
     function renderCeoVenueAdminList() {
@@ -38713,7 +38870,7 @@ let onboardingIndex = 0;
         .sort((a, b) => {
           const aState = getVenueAdminState(a);
           const bState = getVenueAdminState(b);
-          if (aState.priority !== bState.priority) return aState.priority - bState.priority;
+          if (aState.priority !== bState.priority) return bState.priority - aState.priority;
           return getVenueDisplayName(a).localeCompare(getVenueDisplayName(b));
         });
       if (!venueIds.length) {
@@ -38723,38 +38880,62 @@ let onboardingIndex = 0;
       ceoVenueAdminList.innerHTML = venueIds.map((venueId) => {
         const info = venuesInfo[venueId] || {};
         const state = getVenueAdminState(venueId);
+        const archived = state.status === "archived";
+        const isVisible = state.status !== "hidden" && state.status !== "archived";
+        const isPaused = state.status === "paused";
         const actions = [];
-        if (state.status === "active") {
-          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="hide">Hide</button>');
-          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="pause">Pause</button>');
-          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="archive">Archive</button>');
-        } else if (state.status === "hidden") {
-          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="unhide">Unhide</button>');
-          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="pause">Pause</button>');
-          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="archive">Archive</button>');
-        } else if (state.status === "paused") {
-          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="unpause">Unpause</button>');
-          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="hide">Hide</button>');
-          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="archive">Archive</button>');
+        if (state.status !== "archived") {
+          actions.push(`<button type="button" class="btn btn-secondary" data-venue-action="${isVisible ? "hide" : "unhide"}">${isVisible ? "Hide everywhere" : "Show everywhere"}</button>`);
+          actions.push(`<button type="button" class="btn btn-secondary" data-venue-action="${isPaused ? "unpause" : "pause"}">${isPaused ? "Unpause venue" : "Pause venue"}</button>`);
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="archive">Archive venue</button>');
         } else {
-          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="restore">Restore</button>');
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="restore">Restore venue</button>');
         }
-        actions.push(`<button type="button" class="btn btn-secondary" data-venue-action="toggle-feed">${state.showInHomeFeed ? "Hide from Home" : "Show in Home"}</button>`);
-        actions.push('<button type="button" class="btn btn-secondary" data-venue-action="set-reason">Reason</button>');
-        actions.push('<button type="button" class="btn btn-secondary" data-venue-action="set-note">Admin note</button>');
+        actions.push('<button type="button" class="btn btn-secondary" data-venue-action="set-reason">Set internal note</button>');
         return `
           <div class="ceo-venue-admin-row" data-venue-id="${escapeHtmlText(venueId)}">
             <div>
               <strong>${escapeHtmlText(info.name || getVenueDisplayName(venueId))}</strong>
               <div class="small">${escapeHtmlText(venueId)} · ${escapeHtmlText(info.address || "Address pending")}</div>
               <div class="meta">
+                <span>Visible to users: ${isVisible ? "On" : "Off"}</span>
+                <span>Temporarily paused: ${isPaused ? "On" : "Off"}</span>
+                <span>Show on Home Screen: ${state.showInHomeFeed ? "On" : "Off"}</span>
+                <span>Show LIVE badge: ${state.showLivePill ? "On" : "Off"}</span>
                 <span>Status: ${escapeHtmlText(state.status)}</span>
-                <span>Home feed: ${state.showInHomeFeed ? "Yes" : "No"}</span>
-                <span>Priority: ${escapeHtmlText(String(state.priority))}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:8px;">
+                <label class="small">Visible to users (everywhere)
+                  <select class="ceo-control-value" data-venue-visible ${archived ? "disabled" : ""}>
+                    <option value="on" ${isVisible ? "selected" : ""}>On</option>
+                    <option value="off" ${!isVisible ? "selected" : ""}>Off</option>
+                  </select>
+                </label>
+                <label class="small">Temporarily pause this venue
+                  <select class="ceo-control-value" data-venue-paused ${archived ? "disabled" : ""}>
+                    <option value="off" ${!isPaused ? "selected" : ""}>Off</option>
+                    <option value="on" ${isPaused ? "selected" : ""}>On</option>
+                  </select>
+                </label>
+                <label class="small">Show on Home Screen
+                  <select class="ceo-control-value" data-venue-home ${archived ? "disabled" : ""}>
+                    <option value="on" ${state.showInHomeFeed ? "selected" : ""}>On</option>
+                    <option value="off" ${!state.showInHomeFeed ? "selected" : ""}>Off</option>
+                  </select>
+                </label>
+                <label class="small">Show LIVE badge for this venue
+                  <select class="ceo-control-value" data-venue-livepill ${archived ? "disabled" : ""}>
+                    <option value="on" ${state.showLivePill ? "selected" : ""}>On</option>
+                    <option value="off" ${!state.showLivePill ? "selected" : ""}>Off</option>
+                  </select>
+                </label>
               </div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center;">
-                <input class="ceo-control-value" style="max-width:110px;" type="number" min="0" max="999" step="1" data-venue-priority value="${escapeHtmlText(String(state.priority))}" />
-                <button type="button" class="btn btn-secondary" data-venue-action="save-priority">Save priority</button>
+                <label class="small">Priority (higher shows first)
+                  <input class="ceo-control-value" style="max-width:130px;" type="number" min="0" max="999" step="1" data-venue-priority value="${escapeHtmlText(String(state.priority))}" ${archived ? "disabled" : ""} />
+                </label>
+                <button type="button" class="btn btn-secondary" data-venue-action="save-priority" ${archived ? "disabled" : ""}>Save priority</button>
+                <button type="button" class="btn btn-secondary" data-venue-action="apply-toggles" ${archived ? "disabled" : ""}>Save visibility toggles</button>
               </div>
             </div>
             <div class="ceo-venue-admin-actions">${actions.join("")}</div>
@@ -38840,12 +39021,14 @@ let onboardingIndex = 0;
         if (!btn) return;
         const key = String(btn.dataset.controlFlagToggle || "").trim();
         if (!key) return;
+        const def = DEFAULT_CONFIG_FLAGS[key] !== false;
+        const item = CEO_CONTROL_SWITCHES.find((entry) => entry.key === key);
         btn.disabled = true;
         try {
-          const next = !cfg.on(key, DEFAULT_CONFIG_FLAGS[key] !== false);
+          const next = !cfg.on(key, def);
           const ok = await updateConfigViaAdmin("flags", key, next);
           if (ok) {
-            showToast(`${key} ${next ? "enabled" : "disabled"}.`, 1800);
+            showToast(`${item?.label || "Setting"} ${next ? "enabled" : "disabled"}.`, 1800);
             renderCeoControlFlags();
           }
         } catch (err) {
@@ -38876,49 +39059,104 @@ let onboardingIndex = 0;
     if (ceoControlNumbersList) {
       ceoControlNumbersList.addEventListener("click", async (event) => {
         const btn = event.target.closest("[data-control-number-save]");
-        if (!btn) return;
-        const key = String(btn.dataset.controlNumberSave || "").trim();
-        const input = ceoControlNumbersList.querySelector(`[data-control-number-input="${key}"]`);
-        if (!input) return;
-        const nextValue = Number(input.value);
-        if (!Number.isFinite(nextValue)) {
-          showToast("Enter a valid number first.", 2200);
+        if (btn) {
+          const key = String(btn.dataset.controlNumberSave || "").trim();
+          const input = ceoControlNumbersList.querySelector(`[data-control-number-input="${key}"]`);
+          if (!input) return;
+          const nextValue = Number(input.value);
+          if (!Number.isFinite(nextValue)) {
+            showToast("Enter a valid number first.", 2200);
+            return;
+          }
+          btn.disabled = true;
+          try {
+            const ok = await updateConfigViaAdmin("numbers", key, nextValue);
+            if (ok) showToast("Number updated.", 1800);
+          } catch (err) {
+            showToast(mapMemberFacingError(err, "generic"), 2400);
+          } finally {
+            btn.disabled = false;
+          }
           return;
         }
-        btn.disabled = true;
+        const selectBtn = event.target.closest("[data-control-select-save]");
+        if (!selectBtn) return;
+        const key = String(selectBtn.dataset.controlSelectSave || "").trim();
+        const scope = String(selectBtn.dataset.controlSelectScope || "style").trim().toLowerCase();
+        const input = ceoControlNumbersList.querySelector(`[data-control-select-input="${key}"]`);
+        if (!input) return;
+        selectBtn.disabled = true;
         try {
-          const ok = await updateConfigViaAdmin("numbers", key, nextValue);
-          if (ok) showToast("Number updated.", 1800);
+          const payload = String(input.value || "").trim();
+          const section = scope === "style" ? "style" : "text";
+          const ok = await updateConfigViaAdmin(section, key, payload);
+          if (ok) showToast("Setting updated.", 1800);
         } catch (err) {
           showToast(mapMemberFacingError(err, "generic"), 2400);
         } finally {
-          btn.disabled = false;
+          selectBtn.disabled = false;
         }
       });
     }
     if (ceoControlListsList) {
       ceoControlListsList.addEventListener("click", async (event) => {
-        const btn = event.target.closest("[data-control-list-save]");
-        if (!btn) return;
-        const key = String(btn.dataset.controlListSave || "").trim();
-        const input = ceoControlListsList.querySelector(`[data-control-list-input="${key}"]`);
-        if (!input) return;
-        let parsed = [];
+        const saveBtn = event.target.closest("[data-top-venue-save]");
+        const upBtn = event.target.closest("[data-top-venue-up]");
+        const downBtn = event.target.closest("[data-top-venue-down]");
+        const clearBtn = event.target.closest("[data-top-venue-clear]");
+        const indexRaw = saveBtn?.dataset.topVenueSave
+          || upBtn?.dataset.topVenueUp
+          || downBtn?.dataset.topVenueDown
+          || clearBtn?.dataset.topVenueClear;
+        const index = Number(indexRaw);
+        if (!Number.isFinite(index) || index < 0) return;
+        const nextIds = getManualTopVenueIds();
+        const maxRows = Math.max(1, Math.min(12, Math.round(cfg.num("home.topVenues.max", DEFAULT_CONFIG_NUMBERS["home.topVenues.max"])) || 6));
+        while (nextIds.length < maxRows) nextIds.push("");
         try {
-          parsed = JSON.parse(String(input.value || "[]"));
-          if (!Array.isArray(parsed)) throw new Error("list must be array");
-        } catch (_) {
-          showToast("List must be valid JSON array.", 2200);
-          return;
-        }
-        btn.disabled = true;
-        try {
-          const ok = await updateConfigViaAdmin("lists", key, parsed);
-          if (ok) showToast("List updated.", 1800);
+          if (saveBtn) {
+            const input = ceoControlListsList.querySelector(`[data-top-venue-input="${index}"]`);
+            const typed = String(input?.value || "").trim();
+            const venueId = resolveVenueId(typed);
+            if (!typed) {
+              showToast("Type a venue name first.", 2200);
+              return;
+            }
+            if (!venueId || !venuesInfo?.[venueId]) {
+              showToast("Venue not found. Pick a listed venue name.", 2200);
+              return;
+            }
+            nextIds[index] = venueId;
+            const deduped = [];
+            nextIds.forEach((id) => {
+              const resolved = resolveVenueId(String(id || ""));
+              if (!resolved || deduped.includes(resolved)) return;
+              deduped.push(resolved);
+            });
+            await saveManualTopVenueIds(deduped);
+            showToast("Top venue slot updated.", 1800);
+            renderCeoControlCenter();
+            return;
+          }
+          if (upBtn && index > 0) {
+            [nextIds[index - 1], nextIds[index]] = [nextIds[index], nextIds[index - 1]];
+            await saveManualTopVenueIds(nextIds);
+            renderCeoControlCenter();
+            return;
+          }
+          if (downBtn && index < (maxRows - 1)) {
+            [nextIds[index + 1], nextIds[index]] = [nextIds[index], nextIds[index + 1]];
+            await saveManualTopVenueIds(nextIds);
+            renderCeoControlCenter();
+            return;
+          }
+          if (clearBtn) {
+            nextIds[index] = "";
+            await saveManualTopVenueIds(nextIds);
+            renderCeoControlCenter();
+          }
         } catch (err) {
           showToast(mapMemberFacingError(err, "generic"), 2400);
-        } finally {
-          btn.disabled = false;
         }
       });
     }
@@ -38928,12 +39166,14 @@ let onboardingIndex = 0;
         if (!btn) return;
         const key = String(btn.dataset.emergencyKey || "").trim();
         if (!key) return;
+        const def = DEFAULT_CONFIG_FLAGS[key] !== false;
+        const item = CEO_CONTROL_SWITCHES.find((entry) => entry.key === key);
         btn.disabled = true;
         try {
-          const next = !cfg.on(key, DEFAULT_CONFIG_FLAGS[key] !== false);
+          const next = !cfg.on(key, def);
           const ok = await updateConfigViaAdmin("flags", key, next);
           if (ok) {
-            showToast(`${key} ${next ? "enabled" : "disabled"}.`, 2000);
+            showToast(`${item?.label || "Setting"} ${next ? "enabled" : "disabled"}.`, 2000);
             renderCeoControlCenter();
           }
         } catch (err) {
@@ -38980,20 +39220,39 @@ let onboardingIndex = 0;
         const state = getVenueAdminState(venueId);
         actionBtn.disabled = true;
         try {
-          if (action === "hide") await updateVenueViaAdmin(venueId, { status: "hidden" });
-          else if (action === "unhide") await updateVenueViaAdmin(venueId, { status: "active" });
-          else if (action === "pause") await updateVenueViaAdmin(venueId, { status: "paused" });
-          else if (action === "unpause") await updateVenueViaAdmin(venueId, { status: "active" });
-          else if (action === "archive") await updateVenueViaAdmin(venueId, { status: "archived" });
+          if (action === "hide") {
+            if (!window.confirm("Hide this venue everywhere for users?")) return;
+            await updateVenueViaAdmin(venueId, { status: "hidden" });
+          }
+          else if (action === "unhide") {
+            if (!window.confirm("Show this venue everywhere for users?")) return;
+            await updateVenueViaAdmin(venueId, { status: "active" });
+          }
+          else if (action === "pause") {
+            if (!window.confirm("Pause this venue? It remains visible, but redemptions will be blocked.")) return;
+            await updateVenueViaAdmin(venueId, { status: "paused" });
+          }
+          else if (action === "unpause") {
+            if (!window.confirm("Unpause this venue and allow redemptions again?")) return;
+            await updateVenueViaAdmin(venueId, { status: "active" });
+          }
+          else if (action === "archive") {
+            if (!window.confirm("Archive this venue? It will be hidden but history is kept.")) return;
+            await invokeCallableWithRetry("adminArchiveVenue", { venueId }, {
+              lockKey: `adminArchiveVenue:${venueId}`,
+              retries: 2,
+              baseDelayMs: 220
+            });
+            applyLocalVenueAdminPatch(venueId, { status: "archived", showInHomeFeed: false });
+          }
           else if (action === "restore") {
+            if (!window.confirm("Restore this venue to active?")) return;
             await invokeCallableWithRetry("adminRestoreVenue", { venueId }, {
               lockKey: `adminRestoreVenue:${venueId}`,
               retries: 2,
               baseDelayMs: 220
             });
             applyLocalVenueAdminPatch(venueId, { status: "active", showInHomeFeed: true });
-          } else if (action === "toggle-feed") {
-            await updateVenueViaAdmin(venueId, { showInHomeFeed: !state.showInHomeFeed });
           } else if (action === "save-priority") {
             const input = row.querySelector("[data-venue-priority]");
             const priority = Number(input?.value || state.priority);
@@ -39002,8 +39261,18 @@ let onboardingIndex = 0;
             } else {
               await updateVenueViaAdmin(venueId, { priority });
             }
+          } else if (action === "apply-toggles") {
+            const visibleValue = String(row.querySelector("[data-venue-visible]")?.value || "on");
+            const pausedValue = String(row.querySelector("[data-venue-paused]")?.value || "off");
+            const showHome = String(row.querySelector("[data-venue-home]")?.value || "on") === "on";
+            const showLivePill = String(row.querySelector("[data-venue-livepill]")?.value || "on") === "on";
+            let status = state.status;
+            if (visibleValue === "off") status = "hidden";
+            else if (pausedValue === "on") status = "paused";
+            else if (status === "hidden" || status === "paused") status = "active";
+            await updateVenueViaAdmin(venueId, { status, showInHomeFeed: showHome, showLivePill });
           } else if (action === "set-reason") {
-            const nextReason = window.prompt("Reason (optional):", state.reason || "");
+            const nextReason = window.prompt("Internal note / reason (optional):", state.reason || "");
             if (nextReason !== null) {
               await updateVenueViaAdmin(venueId, { reason: String(nextReason || "") });
             }
@@ -41586,7 +41855,7 @@ let onboardingIndex = 0;
 
     function showVenueDetail(venueId) {
       if (!venueId || !venueDetailModal) return;
-      if (!isVenueActiveForMembers(venueId)) {
+      if (!isVenueVisibleToMembers(venueId)) {
         showToast("This venue is temporarily unavailable.", 2200);
         return;
       }
@@ -43189,7 +43458,7 @@ let onboardingIndex = 0;
 
     function openRedeemModal() {
       if (!isRedeemEnabledForUi()) {
-        showToast("Redemptions are temporarily unavailable. Please try again shortly.", 2400);
+        showToast(cfg.text("redeem.disabled.message", DEFAULT_CONFIG_TEXT["redeem.disabled.message"]), 2400);
         return;
       }
       markMemberFeedSeen();
@@ -43220,7 +43489,12 @@ let onboardingIndex = 0;
 
     redeemTrigger.addEventListener("click", () => {
       if (!isRedeemEnabledForUi()) {
-        showToast("Redemptions are temporarily unavailable. Please try again shortly.", 2400);
+        showToast(cfg.text("redeem.disabled.message", DEFAULT_CONFIG_TEXT["redeem.disabled.message"]), 2400);
+        return;
+      }
+      if (cfg.on("redeem.requireMembership", true) && !firebaseAuth.currentUser) {
+        showToast("Log in to redeem perks.", 2200);
+        showScreen("auth");
         return;
       }
       updateExpiryDisplay();
@@ -43331,7 +43605,10 @@ let onboardingIndex = 0;
         setRedeemEligibilityBusy(false);
       }
       if (!venueAcceptingNow) {
-        const safeMessage = MEMBER_SHIFT_INACTIVE_MESSAGE;
+        const blockedReason = venueEligibilityCache.get(String(requestedVenue || "").toLowerCase())?.reason || "";
+        const safeMessage = blockedReason === "VENUE_PAUSED"
+          ? cfg.text("venue.paused.message", DEFAULT_CONFIG_TEXT["venue.paused.message"])
+          : MEMBER_SHIFT_INACTIVE_MESSAGE;
         creditInfo.textContent = safeMessage;
         showToast(safeMessage, 3200);
         return;
@@ -43571,6 +43848,12 @@ let onboardingIndex = 0;
       const detailsReason = String(err?.details?.reason || "").toUpperCase();
       const detailsMemberMessage = String(err?.details?.memberMessage || "").trim();
       const message = String(err?.message || "").toLowerCase();
+      if (detailsReason === "REDEEM_DISABLED") {
+        return cfg.text("redeem.disabled.message", DEFAULT_CONFIG_TEXT["redeem.disabled.message"]);
+      }
+      if (detailsReason === "VENUE_PAUSED") {
+        return cfg.text("venue.paused.message", DEFAULT_CONFIG_TEXT["venue.paused.message"]);
+      }
       const isShiftClosed = detailsReason === "SHIFT_CLOSED"
         || detailsReason === "SHIFT_INACTIVE"
         || code === "failed-precondition"
@@ -43617,7 +43900,7 @@ let onboardingIndex = 0;
 
     function openMembershipChooser(sourceScreen = currentScreenName) {
       if (!isBillingEnabledForUi()) {
-        showToast("Billing is temporarily unavailable. Please check back shortly.", 2400);
+        showToast(cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]), 2400);
         return;
       }
       if (sourceScreen && sourceScreen !== "ageVerify" && sourceScreen !== "membership") {
@@ -43636,7 +43919,7 @@ let onboardingIndex = 0;
     membershipPlanButtons.forEach(btn => {
       btn.addEventListener("click", () => {
         if (!isBillingEnabledForUi()) {
-          showToast("Billing is temporarily unavailable. Please check back shortly.", 2400);
+          showToast(cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]), 2400);
           return;
         }
         const tier = btn.dataset.tier;
