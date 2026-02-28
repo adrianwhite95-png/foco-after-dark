@@ -19315,7 +19315,7 @@
       const staffShow = !!(currentScreenName === "staffPortal" && staffSession?.venue);
       const ceoShow = !!(currentScreenName === "ceoPortal" && (isCeoAccount || isCeoActive()));
       if (memberRefreshBtn) {
-        memberRefreshBtn.style.display = memberShow ? "inline-flex" : "none";
+        memberRefreshBtn.style.display = "none";
       }
       if (globalRefreshBtn) {
         globalRefreshBtn.style.display = (memberShow || staffShow || ceoShow) ? "inline-flex" : "none";
@@ -20327,13 +20327,13 @@
       });
     }
     function attachProfileLogoEasterEgg() {
-      const targets = document.querySelectorAll(
-        "#passUserName, #userUsername, #profileActivityName"
-      );
-      if (!targets.length) return;
       let taps = [];
       const windowMs = 1500;
-      const onTap = () => {
+      const onTap = (event) => {
+        const target = event?.target?.closest?.(
+          "#passScreen #passUserName, #passScreen #userUsername, #passScreen .username-row, #profileActivityScreen #profileActivityName"
+        );
+        if (!target) return;
         const now = Date.now();
         taps = taps.filter((ts) => (now - ts) <= windowMs);
         taps.push(now);
@@ -20347,11 +20347,9 @@
           }
         }
       };
-      targets.forEach((el) => {
-        if (el.dataset.easterAttached === "1") return;
-        el.dataset.easterAttached = "1";
-        el.addEventListener("pointerup", onTap, { passive: true });
-      });
+      if (document.body?.dataset?.easterAttached === "1") return;
+      if (document.body) document.body.dataset.easterAttached = "1";
+      document.addEventListener("pointerup", onTap, { passive: true });
     }
     function shouldForceExplorerTier(profile = memberProfile) {
       if (!profile) return false;
