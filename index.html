@@ -6951,6 +6951,15 @@
       opacity: 0.7;
       text-align: center;
       align-self: stretch;
+      border: 0;
+      background: transparent;
+      padding: 2px 0;
+      margin: 0;
+      cursor: pointer;
+    }
+    .tagline-edit-hint:hover {
+      opacity: 0.95;
+      color: color-mix(in srgb, var(--accent-primary-live) 78%, white);
     }
     .avatar-tools {
       display: flex;
@@ -7004,8 +7013,13 @@
       letter-spacing: 0.04em;
     }
     .username-edit {
-      border-radius: 10px;
-      padding: 6px 8px;
+      border-radius: 12px;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       border: 1px solid var(--border);
       background: rgba(255,255,255,0.04);
       color: var(--text);
@@ -14686,6 +14700,100 @@
         0 0 22px rgba(248, 113, 113, 0.42),
         0 10px 26px rgba(0, 0, 0, 0.44) !important;
     }
+
+    /* Release-candidate QA panel (mounted only when ?qa=1). */
+    .qa-panel {
+      position: fixed;
+      left: max(10px, calc(env(safe-area-inset-left, 0px) + 8px));
+      bottom: max(10px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+      z-index: 16000;
+      width: min(360px, calc(100vw - 24px));
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      background: rgba(2, 6, 23, 0.86);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 16px 42px rgba(2, 6, 23, 0.66);
+      color: #dbeafe;
+      font-size: 12px;
+    }
+    .qa-panel .qa-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .qa-panel button {
+      min-height: 36px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.82);
+      color: #e2e8f0;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+    }
+    .qa-panel pre {
+      margin: 8px 0 0;
+      max-height: 150px;
+      overflow: auto;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.26);
+      background: rgba(15, 23, 42, 0.75);
+      padding: 8px;
+      font-size: 11px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* RC layout polish: safe-area stability + cleaner control center spacing. */
+    #globalRefreshBtn {
+      position: fixed !important;
+      top: max(14px, calc(env(safe-area-inset-top, 0px) + 10px)) !important;
+      right: max(14px, calc(env(safe-area-inset-right, 0px) + 10px)) !important;
+      left: auto !important;
+      bottom: auto !important;
+      transform: translate3d(0, 0, 0) !important;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-hq-grid {
+      align-items: start;
+      gap: 18px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel {
+      padding: 20px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row,
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row {
+      grid-template-columns: minmax(0, 1.35fr) minmax(160px, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      min-height: 64px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-value {
+      min-height: 42px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row .btn,
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row .btn {
+      min-height: 42px;
+      padding: 10px 16px;
+      white-space: nowrap;
+    }
+    @media (max-width: 1024px) {
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row,
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row {
+        grid-template-columns: 1fr;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row .btn,
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row .btn {
+        width: 100%;
+      }
+      .qa-panel {
+        width: calc(100vw - 22px);
+      }
+    }
   </style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/components.css?v=2026.02.21.2" />
@@ -14736,7 +14844,7 @@
               <img src="foco-logo.png" alt="FoCo After Dark logo" class="waitlist-logo" />
             </div>
             <h2 class="waitlist-title">FoCo After Dark is opening soon.</h2>
-            <p class="waitlist-subtitle" id="waitlistGateSubtitle">Join the waitlist to get first access.</p>
+            <p class="waitlist-subtitle" id="waitlistGateSubtitle">FoCo After Dark is your nightlife pass for Fort Collins. Unlock member-only perks at local bars and venues—discounts, specials, and limited drops—right from your phone. Join the waitlist to get early access and first dibs when we launch.</p>
             <p class="waitlist-live-count"><strong id="waitlistTotalCount">0</strong> users have joined.</p>
             <form id="waitlistForm" class="waitlist-form" autocomplete="on">
               <div class="waitlist-grid">
@@ -15357,7 +15465,7 @@
                     </button>
                   </div>
                   <div class="user-tagline" id="userTagline" style="font-size:11px;color:#cbd5f5;cursor:pointer;">Tap to add your vibe.</div>
-                  <div class="tagline-edit-hint">Tap to edit tagline</div>
+                  <button type="button" class="tagline-edit-hint" id="userTaglineEditBtn">Tap to edit tagline</button>
                   <div class="avatar-tools" id="avatarTools">
                     <button type="button" class="avatar-edit-btn" id="avatarEditBtn" title="Edit initials or emoji">Edit badge</button>
                   </div>
@@ -17354,6 +17462,28 @@
     const params = new URLSearchParams(window.location.search);
     const SAFE_MODE = params.get("safe") === "1";
     const DEBUG_MODE = params.get("debug") === "1";
+    const QA_MODE = params.get("qa") === "1";
+    function hasRequiredFirebaseConfig(config = {}) {
+      const required = ["apiKey", "authDomain", "projectId", "appId"];
+      return required.every((key) => typeof config[key] === "string" && config[key].trim().length > 0);
+    }
+    function renderServiceUnavailableScreen() {
+      if (document.getElementById("serviceUnavailableOverlay")) return;
+      const overlay = document.createElement("div");
+      overlay.id = "serviceUnavailableOverlay";
+      overlay.style.position = "fixed";
+      overlay.style.inset = "0";
+      overlay.style.zIndex = "20000";
+      overlay.style.display = "grid";
+      overlay.style.placeItems = "center";
+      overlay.style.padding = "24px";
+      overlay.style.background = "radial-gradient(circle at 20% 10%, rgba(34,211,238,0.16), transparent 55%), radial-gradient(circle at 80% 0%, rgba(255,47,184,0.12), transparent 60%), rgba(2,6,23,0.96)";
+      overlay.innerHTML = `<div style="max-width:560px;width:100%;border:1px solid rgba(148,163,184,0.32);border-radius:18px;padding:20px;background:rgba(2,6,23,0.9);box-shadow:0 20px 50px rgba(2,6,23,0.7);color:#e2e8f0;">
+        <h2 style="margin:0 0 8px;font-size:26px;letter-spacing:.04em;">Service temporarily unavailable</h2>
+        <p style="margin:0;font-size:15px;line-height:1.55;color:#cbd5e1;">FoCo After Dark could not load required app services. Please refresh in a moment.</p>
+      </div>`;
+      document.body.appendChild(overlay);
+    }
     function detectHardReload() {
       try {
         const navEntries = performance.getEntriesByType?.("navigation");
@@ -17396,6 +17526,11 @@
       } catch (_) {}
     })();
 
+    if (!hasRequiredFirebaseConfig(firebaseConfig)) {
+      console.error("Missing Firebase configuration. Startup aborted.");
+      renderServiceUnavailableScreen();
+      throw new Error("Missing Firebase configuration");
+    }
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     let appCheckClient = null;
     if (!SAFE_MODE && APP_CHECK_SITE_KEY) {
@@ -18382,7 +18517,7 @@
     });
     const WAITLIST_GLOBAL_CONFIG_DEFAULT = Object.freeze({
       waitlistMode: false,
-      waitlistMessage: "Join the waitlist to get first access."
+      waitlistMessage: "FoCo After Dark is your nightlife pass for Fort Collins. Unlock member-only perks at local bars and venues-discounts, specials, and limited drops-right from your phone. Join the waitlist to get early access and first dibs when we launch."
     });
     const PERFORMANCE_CONFIG_DEFAULT = Object.freeze({
       degradeMode: false,
@@ -19387,13 +19522,10 @@
     }
     function syncGlobalRefreshViewportPosition() {
       if (!globalRefreshBtn || globalRefreshBtn.style.display === "none") return;
-      const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent || "");
-      if (!isIos) return;
-      const vv = window.visualViewport;
-      const offsetTop = vv ? Math.max(0, vv.offsetTop || 0) : 0;
-      const offsetLeft = vv ? Math.max(0, vv.offsetLeft || 0) : 0;
-      globalRefreshBtn.style.top = `${Math.round(offsetTop + 12)}px`;
-      globalRefreshBtn.style.right = `${Math.round(offsetLeft + 12)}px`;
+      globalRefreshBtn.style.top = "max(14px, calc(env(safe-area-inset-top, 0px) + 10px))";
+      globalRefreshBtn.style.right = "max(14px, calc(env(safe-area-inset-right, 0px) + 10px))";
+      globalRefreshBtn.style.left = "auto";
+      globalRefreshBtn.style.bottom = "auto";
     }
 
     let glassBgRaf = 0;
@@ -19712,6 +19844,155 @@
         document.body.scrollTop = 0;
       } catch (_) {}
       requestGlassBGUpdate();
+      updateQaPanelOutput();
+    }
+
+    function releaseBusyUiControls() {
+      try {
+        document.querySelectorAll('[data-busy="1"]').forEach((el) => {
+          el.dataset.busy = "";
+          if ("disabled" in el) el.disabled = false;
+          if (el.dataset && el.dataset.baseText) {
+            el.textContent = el.dataset.baseText;
+          } else if (el.dataset && el.dataset.labelDefault) {
+            el.textContent = el.dataset.labelDefault;
+          }
+        });
+      } catch (_) {}
+    }
+    window.addEventListener("unhandledrejection", (event) => {
+      const reason = event?.reason;
+      const message = String(reason?.message || reason || "").trim();
+      if (/cannot respond\\. no request with id/i.test(message)) return;
+      console.warn("[ui] unhandled rejection", reason);
+      releaseBusyUiControls();
+      if (message && !/abort/i.test(message)) {
+        showToast("Something went wrong. Please try again.", 2200);
+      }
+    });
+    window.addEventListener("error", (event) => {
+      const message = String(event?.message || "").trim();
+      if (!message) return;
+      if (/cannot respond\\. no request with id/i.test(message)) return;
+      console.warn("[ui] runtime error", message);
+      releaseBusyUiControls();
+      showToast("Something went wrong. Please refresh.", 2200);
+    });
+
+    let qaPanelNode = null;
+    function collectQaStateSnapshot() {
+      return {
+        screen: currentScreenName,
+        uid: firebaseAuth?.currentUser?.uid || null,
+        tier: currentMembershipTier || memberProfile?.tier || null,
+        passCode: memberProfile?.passCode || null,
+        staffVenue: staffSession?.venue || null,
+        ceo: Boolean(isCeoAccount || isCeoActive()),
+        waitlist: Boolean(isWaitlistModeEnabled()),
+        listeners: {
+          realtime: realtimeUnsubs.length,
+          memberNotices: Boolean(memberNoticesUnsub),
+          staffQueue: staffRedemptionUnsubs.length,
+          staffMembers: Boolean(staffMembersUnsub),
+          staffActivity: Boolean(staffActivityUnsub),
+          ceoRedemptions: Boolean(ceoRedemptionsUnsub)
+        }
+      };
+    }
+    function updateQaPanelOutput() {
+      if (!qaPanelNode) return;
+      const out = qaPanelNode.querySelector("pre");
+      if (!out) return;
+      out.textContent = JSON.stringify(collectQaStateSnapshot(), null, 2);
+    }
+    function runQaSelfTest() {
+      const keyIds = [
+        "landingScreen", "authScreen", "passScreen", "venuesScreen", "staffPortalScreen",
+        "ceoPortalScreen", "bottomNav", "globalRefreshBtn", "redeemModal", "verifyForm",
+        "staffLoginForm", "staffShiftModal", "staffCloseOutModal", "ceoControlFlagsList",
+        "ceoVenueAdminRows", "waitlistGateScreen", "membershipScreen", "mapScreen",
+        "profileActivityScreen", "menuScreen"
+      ];
+      const missingIds = keyIds.filter((id) => !document.getElementById(id));
+      const firebaseStatus = {
+        app: Boolean(app),
+        auth: Boolean(firebaseAuth),
+        firestore: Boolean(db),
+        functions: Boolean(functionsClient)
+      };
+      const vv = window.visualViewport;
+      const probe = document.createElement("div");
+      probe.style.cssText = "position:fixed;left:0;top:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);visibility:hidden;pointer-events:none;";
+      document.body.appendChild(probe);
+      const probeStyle = window.getComputedStyle(probe);
+      const safeArea = {
+        top: probeStyle.paddingTop,
+        right: probeStyle.paddingRight,
+        bottom: probeStyle.paddingBottom,
+        left: probeStyle.paddingLeft
+      };
+      probe.remove();
+      const report = {
+        screen: currentScreenName,
+        firebase: firebaseStatus,
+        missingCriticalDomIds: missingIds,
+        viewport: {
+          innerWidth: window.innerWidth,
+          innerHeight: window.innerHeight,
+          visualViewportWidth: vv ? Math.round(vv.width) : null,
+          visualViewportHeight: vv ? Math.round(vv.height) : null,
+          visualViewportOffsetTop: vv ? Math.round(vv.offsetTop || 0) : null,
+          visualViewportOffsetLeft: vv ? Math.round(vv.offsetLeft || 0) : null,
+          safeArea
+        }
+      };
+      if (qaPanelNode) {
+        const out = qaPanelNode.querySelector("pre");
+        if (out) out.textContent = JSON.stringify(report, null, 2);
+      }
+      return report;
+    }
+    function initQaPanel() {
+      if (!QA_MODE || qaPanelNode) return;
+      qaPanelNode = document.createElement("section");
+      qaPanelNode.className = "qa-panel";
+      qaPanelNode.setAttribute("aria-label", "QA panel");
+      qaPanelNode.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <strong style="letter-spacing:.08em;">QA MODE</strong>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button type="button" data-qa-act="state">State</button>
+            <button type="button" data-qa-act="selftest">Self-Test</button>
+          </div>
+        </div>
+        <div class="qa-row">
+          <button type="button" data-qa-nav="landing">Landing</button>
+          <button type="button" data-qa-nav="tonight">Tonight</button>
+          <button type="button" data-qa-nav="pass">Pass</button>
+          <button type="button" data-qa-nav="venues">Venues</button>
+          <button type="button" data-qa-nav="profileActivity">Profile</button>
+          <button type="button" data-qa-nav="menu">Menu</button>
+        </div>
+        <pre>{}</pre>
+      `;
+      qaPanelNode.addEventListener("click", (event) => {
+        const navBtn = event.target.closest("[data-qa-nav]");
+        if (navBtn) {
+          const screen = String(navBtn.dataset.qaNav || "").trim();
+          if (screen) {
+            try { showScreen(screen); } catch (_) {}
+            setTimeout(updateQaPanelOutput, 50);
+          }
+          return;
+        }
+        const actBtn = event.target.closest("[data-qa-act='state']");
+        if (actBtn) updateQaPanelOutput();
+        const selfTestBtn = event.target.closest("[data-qa-act='selftest']");
+        if (selfTestBtn) runQaSelfTest();
+      });
+      document.body.appendChild(qaPanelNode);
+      updateQaPanelOutput();
+      showToast("QA mode enabled", 1400);
     }
 
     // Stagger reveal for containers marked with `.smooth-enter`
@@ -22915,6 +23196,7 @@
     const reconnectBanner = document.getElementById("reconnectBanner");
     const ceoChatCard = document.getElementById("ceoChatCard");
     const userTaglineEl = document.getElementById("userTagline");
+    const userTaglineEditBtn = document.getElementById("userTaglineEditBtn");
     const leaveReviewBtn = document.getElementById("leaveReviewBtn");
     const reviewModal = document.getElementById("reviewModal");
     const reviewClose = document.getElementById("reviewClose");
@@ -27352,9 +27634,11 @@ let onboardingIndex = 0;
       if (showRefreshToast) showToast("Refreshed. Please log in again.", 2000);
     }
 
-    logoutLink.addEventListener("click", async () => {
-      await signOutToLanding();
-    });
+    if (logoutLink) {
+      logoutLink.addEventListener("click", async () => {
+        await signOutToLanding();
+      });
+    }
 
     if (memberCommandDeck) {
       memberCommandDeck.addEventListener("toggle", () => {
@@ -28524,7 +28808,7 @@ let onboardingIndex = 0;
       });
     }
 
-    paymentForm.addEventListener("submit", async (e) => {
+    if (paymentForm) paymentForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       paymentError.textContent = "";
       paymentSuccess.classList.remove("visible");
@@ -28634,10 +28918,10 @@ let onboardingIndex = 0;
         showScreen("support");
       });
     }
-    supportBackBtn.addEventListener("click", () => {
+    if (supportBackBtn) supportBackBtn.addEventListener("click", () => {
       showScreen("pass");
     });
-    supportForm.addEventListener("submit", async (e) => {
+    if (supportForm) supportForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       supportError.textContent = "";
       supportSuccess.classList.remove("visible");
@@ -32546,22 +32830,26 @@ let onboardingIndex = 0;
     if (avatarEditBtn) {
       avatarEditBtn.addEventListener("click", openAvatarEditor);
     }
+    function openTaglineEditor() {
+      const current = (memberProfile?.tagline || "").trim();
+      const input = prompt("Set your tagline (60 chars max):", current || "");
+      if (input === null) return;
+      const trimmed = input.trim().slice(0, 60);
+      if (!trimmed) {
+        if (userTaglineEl) userTaglineEl.textContent = "Tap to add your vibe.";
+        updateMemberProfile({ tagline: "" });
+        setMemberDirectoryEntry(currentPassCode, { tagline: "" });
+        return;
+      }
+      if (userTaglineEl) userTaglineEl.textContent = trimmed;
+      updateMemberProfile({ tagline: trimmed });
+      setMemberDirectoryEntry(currentPassCode, { tagline: trimmed });
+    }
     if (userTaglineEl) {
-      userTaglineEl.addEventListener("click", () => {
-        const current = (memberProfile?.tagline || "").trim();
-        const input = prompt("Set your tagline (60 chars max):", current || "");
-        if (input === null) return;
-        const trimmed = input.trim().slice(0, 60);
-        if (!trimmed) {
-          userTaglineEl.textContent = "Tap to add your vibe.";
-          updateMemberProfile({ tagline: "" });
-          setMemberDirectoryEntry(currentPassCode, { tagline: "" });
-          return;
-        }
-        userTaglineEl.textContent = trimmed;
-        updateMemberProfile({ tagline: trimmed });
-        setMemberDirectoryEntry(currentPassCode, { tagline: trimmed });
-      });
+      userTaglineEl.addEventListener("click", openTaglineEditor);
+    }
+    if (userTaglineEditBtn) {
+      userTaglineEditBtn.addEventListener("click", openTaglineEditor);
     }
 
     renderStaffVipDeal();
@@ -38876,10 +39164,12 @@ let onboardingIndex = 0;
       updateStaffCloseoutStamp();
     }
 
-    staffLoginForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      processStaffLogin();
-    });
+    if (staffLoginForm) {
+      staffLoginForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        processStaffLogin();
+      });
+    }
     if (staffVenue) {
       staffVenue.addEventListener("keydown", (e) => {
         if (e.key !== "Enter") return;
@@ -39039,9 +39329,11 @@ let onboardingIndex = 0;
       });
     }
 
-    staffLoginBack.addEventListener("click", () => {
-      showScreen("landing");
-    });
+    if (staffLoginBack) {
+      staffLoginBack.addEventListener("click", () => {
+        showScreen("landing");
+      });
+    }
     if (staffMemberForm) {
       staffMemberForm.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -39705,18 +39997,22 @@ let onboardingIndex = 0;
     if (buyDrinksBtn) {
       buyDrinksBtn.addEventListener("click", openVoucherModal);
     }
-    voucherCancel.addEventListener("click", () => {
-      pendingVoucherPack = null;
-      resetVoucherPaymentState();
-      voucherModal.classList.remove("active");
-    });
-    voucherModal.addEventListener("click", (e) => {
-      if (e.target === voucherModal) {
+    if (voucherCancel) {
+      voucherCancel.addEventListener("click", () => {
         pendingVoucherPack = null;
         resetVoucherPaymentState();
         voucherModal.classList.remove("active");
-      }
-    });
+      });
+    }
+    if (voucherModal) {
+      voucherModal.addEventListener("click", (e) => {
+        if (e.target === voucherModal) {
+          pendingVoucherPack = null;
+          resetVoucherPaymentState();
+          voucherModal.classList.remove("active");
+        }
+      });
+    }
     if (voucherBackBtn) {
       voucherBackBtn.addEventListener("click", () => {
         pendingVoucherPack = null;
@@ -39748,15 +40044,21 @@ let onboardingIndex = 0;
       loadBackgroundTheme();
     }
 
-    ceoPassButton.addEventListener("click", () => {
-      const code = ensureCeoCardCode();
-      ceoCardCode.textContent = code;
-      ceoCardModal.classList.add("active");
-    });
-    ceoCardClose.addEventListener("click", () => ceoCardModal.classList.remove("active"));
-    ceoCardModal.addEventListener("click", (e) => {
-      if (e.target === ceoCardModal) ceoCardModal.classList.remove("active");
-    });
+    if (ceoPassButton) {
+      ceoPassButton.addEventListener("click", () => {
+        const code = ensureCeoCardCode();
+        ceoCardCode.textContent = code;
+        ceoCardModal.classList.add("active");
+      });
+    }
+    if (ceoCardClose) {
+      ceoCardClose.addEventListener("click", () => ceoCardModal.classList.remove("active"));
+    }
+    if (ceoCardModal) {
+      ceoCardModal.addEventListener("click", (e) => {
+        if (e.target === ceoCardModal) ceoCardModal.classList.remove("active");
+      });
+    }
     function canAccessCeoControlCenter() {
       return !!(isCeoAccount && authClaimsReady && hasCeoClaim());
     }
@@ -40614,9 +40916,11 @@ let onboardingIndex = 0;
         }
       });
     }
-    ceoPortalBack.addEventListener("click", () => {
-      showScreen("pass");
-    });
+    if (ceoPortalBack) {
+      ceoPortalBack.addEventListener("click", () => {
+        showScreen("pass");
+      });
+    }
     if (ceoPortalShortcut) {
       ceoPortalShortcut.addEventListener("click", () => {
         renderCeoIssued();
@@ -43254,10 +43558,12 @@ let onboardingIndex = 0;
         if (e.target === venueDetailModal) closeVenueDetail();
       });
     }
-    tierModalCancel.addEventListener("click", closeTierModal);
-    tierModal.addEventListener("click", (e) => {
-      if (e.target === tierModal) closeTierModal();
-    });
+    if (tierModalCancel) tierModalCancel.addEventListener("click", closeTierModal);
+    if (tierModal) {
+      tierModal.addEventListener("click", (e) => {
+        if (e.target === tierModal) closeTierModal();
+      });
+    }
 
     let redemptionUiRefreshFrame = null;
     let redemptionUiNeedsCeo = false;
@@ -43818,7 +44124,7 @@ let onboardingIndex = 0;
       }
     }
 
-    verifyForm.addEventListener("submit", async (e) => {
+    if (verifyForm) verifyForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const submitBtn = verifyForm.querySelector('button[type="submit"]');
       if (submitBtn?.dataset.busy === "1") return;
@@ -44778,7 +45084,7 @@ let onboardingIndex = 0;
       redeemModal.classList.remove("active");
     }
 
-    redeemTrigger.addEventListener("click", () => {
+    if (redeemTrigger) redeemTrigger.addEventListener("click", () => {
       if (isWaitlistModeEnabled()) {
         showScreen("waitlistGate");
         return;
@@ -44826,8 +45132,8 @@ let onboardingIndex = 0;
       });
     }
 
-    redeemClose.addEventListener("click", closeRedeemModal);
-    redeemConfirm.addEventListener("click", async () => {
+    if (redeemClose) redeemClose.addEventListener("click", closeRedeemModal);
+    if (redeemConfirm) redeemConfirm.addEventListener("click", async () => {
       if (redeemRequestInFlight || redeemEligibilityInFlight) return;
       const setRedeemRequestBusy = (busy) => {
         redeemRequestInFlight = !!busy;
@@ -45081,10 +45387,12 @@ let onboardingIndex = 0;
       }
       setRedeemRequestBusy(false);
     });
-    redeemModal.addEventListener("click", (e) => {
-      if (e.target === redeemModal) closeRedeemModal();
-    });
-    redeemSuccessBack.addEventListener("click", () => {
+    if (redeemModal) {
+      redeemModal.addEventListener("click", (e) => {
+        if (e.target === redeemModal) closeRedeemModal();
+      });
+    }
+    if (redeemSuccessBack) redeemSuccessBack.addEventListener("click", () => {
       redeemSuccess.classList.remove("active");
       stopConfettiLoop();
       pendingRedeemCode = null;
@@ -45269,7 +45577,7 @@ let onboardingIndex = 0;
         openMembershipChooser();
       });
     }
-    tierModalAction.addEventListener("click", async () => {
+    if (tierModalAction) tierModalAction.addEventListener("click", async () => {
       const targetTier = tierModalAction.dataset.targetTier;
       if (!targetTier) {
         closeTierModal();
@@ -45881,6 +46189,7 @@ let onboardingIndex = 0;
   // One-time hooks
   attachCopyHandlers();
   initCheersQuotes();
+  initQaPanel();
 
   window.addEventListener("pageshow", refreshOnLaunch);
 
