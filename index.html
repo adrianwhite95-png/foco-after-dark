@@ -14607,6 +14607,8 @@
       text-shadow: 0 0 12px rgba(34, 211, 238, 0.45);
       font-size: 18px;
       letter-spacing: 0.06em;
+      display: inline-block;
+      animation: waitlistCountBreath 2.6s ease-in-out infinite;
     }
     .waitlist-form {
       margin-top: 14px;
@@ -14652,6 +14654,10 @@
     @keyframes waitlistLogoPulse {
       0%, 100% { transform: scale(1); filter: brightness(1); }
       50% { transform: scale(1.03); filter: brightness(1.14); }
+    }
+    @keyframes waitlistCountBreath {
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.09); filter: brightness(1.22); }
     }
     @media (max-width: 640px) {
       .waitlist-grid {
@@ -18974,11 +18980,20 @@
           waitlistSuccess.textContent = wasExisting
             ? "You're already on the FoCo After Dark waitlist ✅"
             : "Thank you for joining the FoCo After Dark waitlist.";
+          if (!wasExisting) {
+            waitlistTotalCached = Math.max(0, Number(waitlistTotalCached) || 0) + 1;
+            updateWaitlistCounterUi();
+          }
         }
         if (waitlistError) waitlistError.textContent = "";
         if (waitlistForm) {
           waitlistForm.dataset.submitted = "1";
         }
+        if (waitlistFirstName) waitlistFirstName.value = "";
+        if (waitlistLastName) waitlistLastName.value = "";
+        if (waitlistEmail) waitlistEmail.value = "";
+        if (waitlistConsent) waitlistConsent.checked = false;
+        burstConfetti(['#22d3ee', '#f472b6', '#fbbf24', '#60a5fa']);
       } catch (err) {
         console.warn("joinWaitlist failed", err);
         if (waitlistError) {
