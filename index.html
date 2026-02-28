@@ -15133,6 +15133,7 @@
                   <button type="button" class="accent-chip" data-accent="neon_lime">Midori Sour</button>
                   <button type="button" class="accent-chip" data-accent="ruby_night">Cherry Bourbon</button>
                   <button type="button" class="accent-chip" data-accent="paloma">Paloma Pop</button>
+                  <button type="button" class="accent-chip" data-accent="espresso_martini">Espresso Martini</button>
                   <button type="button" class="accent-chip ceo-only" data-accent="ceo">CEO</button>
                 </div>
               </div>
@@ -15628,7 +15629,7 @@
   </div>
   <div id="menuScreen" class="screen">
     <div class="experience-header">
-      <img src="foco-logo.png" alt="FoCo After Dark logo" class="experience-logo" />
+      <img src="foco-logo.png" alt="FoCo After Dark logo" class="experience-logo" id="profileEasterEggLogo" />
       <div class="micro-label">Account Controls</div>
     </div>
     <div class="app-title"><span>Member</span> Menu</div>
@@ -15658,6 +15659,7 @@
           <button type="button" class="accent-chip" data-accent="neon_lime">Midori Sour</button>
           <button type="button" class="accent-chip" data-accent="ruby_night">Cherry Bourbon</button>
           <button type="button" class="accent-chip" data-accent="paloma">Paloma Pop</button>
+          <button type="button" class="accent-chip" data-accent="espresso_martini">Espresso Martini</button>
           <button type="button" class="accent-chip ceo-only" data-accent="ceo">CEO</button>
         </div>
       </div>
@@ -16337,6 +16339,10 @@
                 <div class="ceo-panel-actions">
                   <button type="button" class="btn btn-secondary" id="ceoWaitlistMessageSaveBtn">Save waitlist message</button>
                 </div>
+                <div class="ceo-panel-actions" style="margin-top:8px;">
+                  <button type="button" class="btn btn-secondary" id="ceoPerfDegradeToggleBtn">Enable overload degrade mode</button>
+                </div>
+                <div class="small" id="ceoPerfDegradeStatus" style="margin-top:8px;color:#cbd5f5;">Realtime degrade (remote): OFF · Local stress degrade: OFF · Effective mode: REALTIME</div>
                 <div class="field" style="margin-top:8px;">
                   <label for="ceoWaitlistBlastSubject">Email all waitlist users: subject</label>
                   <input id="ceoWaitlistBlastSubject" type="text" maxlength="160" placeholder="FoCo After Dark is live 🍻" />
@@ -18208,6 +18214,8 @@
     const BG_KEY = "bgTheme";
     const LAST_SCREEN_PREFIX = "lastScreen_";
     const MEMBER_ACCENT_PREFIX = "memberAccent_";
+    const MEMBER_ACCENT_UNLOCKS_PREFIX = "memberAccentUnlocks_";
+    const UNLOCK_ONLY_ACCENTS = new Set(["espresso_martini"]);
     const ACCENT_KEY_LEGACY = "accentTheme";
     const LAST_SCREEN_ALLOWLIST = new Set(["tonight", "pass", "venues", "map", "profileActivity", "menu", "support", "staffPortal", "ceoPortal"]);
     const ACHIEVEMENTS_KEY = "achievementsMap";
@@ -18236,6 +18244,7 @@
     let settingsUnsub = null;
     let appConfigUnsub = null;
     let globalConfigUnsub = null;
+    let performanceConfigUnsub = null;
     let waitlistCounterUnsub = null;
     let waitlistBlastJobUnsub = null;
     let venueAdminUnsub = null;
@@ -18301,7 +18310,19 @@
       waitlistMode: false,
       waitlistMessage: "Join the waitlist to get first access."
     });
+    const PERFORMANCE_CONFIG_DEFAULT = Object.freeze({
+      degradeMode: false,
+      dealsLimit: 25,
+      vipDealsLimit: 25,
+      alertsLimit: 40,
+      pollIntervalMs: 60000
+    });
     let globalConfigState = { ...WAITLIST_GLOBAL_CONFIG_DEFAULT };
+    let performanceConfigState = { ...PERFORMANCE_CONFIG_DEFAULT };
+    let localDegradeMode = false;
+    let localDegradeUntil = 0;
+    let localDegradeTimer = null;
+    let stressEvents = [];
     let waitlistJoinedThisSession = false;
     let waitlistTotalCached = 0;
     let waitlistModePreviouslyActive = false;
@@ -18787,6 +18808,7 @@
         }
       }, (err) => {
         console.warn("waitlist blast watcher failed", err);
+        recordStress("waitlist-blast-watch", err?.code || "");
         if (ceoWaitlistBlastBtn) ceoWaitlistBlastBtn.disabled = false;
       });
     }
@@ -18799,6 +18821,7 @@
         updateWaitlistCounterUi();
       }, (err) => {
         console.warn("waitlist counter listener failed", err);
+        recordStress("waitlist-counter", err?.code || "");
       });
     }
 
@@ -18864,10 +18887,122 @@
         applyGlobalConfigPayload(snap.data() || {});
       }, (err) => {
         console.warn("global config listener failed", err);
+        recordStress("global-config", err?.code || "");
         applyGlobalConfigPayload(WAITLIST_GLOBAL_CONFIG_DEFAULT);
         if (isCeoAccount) {
           showToast("Global config unavailable. Using safe defaults.", 2200);
         }
+      });
+    }
+
+    function sanitizePerformanceConfig(raw = {}) {
+      const source = raw && typeof raw === "object" ? raw : {};
+      const dealsLimit = Number(source.dealsLimit);
+      const vipDealsLimit = Number(source.vipDealsLimit);
+      const alertsLimit = Number(source.alertsLimit);
+      const pollIntervalMs = Number(source.pollIntervalMs);
+      return {
+        degradeMode: source.degradeMode === true,
+        dealsLimit: Number.isFinite(dealsLimit) ? Math.max(5, Math.min(200, Math.round(dealsLimit))) : PERFORMANCE_CONFIG_DEFAULT.dealsLimit,
+        vipDealsLimit: Number.isFinite(vipDealsLimit) ? Math.max(5, Math.min(200, Math.round(vipDealsLimit))) : PERFORMANCE_CONFIG_DEFAULT.vipDealsLimit,
+        alertsLimit: Number.isFinite(alertsLimit) ? Math.max(5, Math.min(300, Math.round(alertsLimit))) : PERFORMANCE_CONFIG_DEFAULT.alertsLimit,
+        pollIntervalMs: Number.isFinite(pollIntervalMs) ? Math.max(15000, Math.min(300000, Math.round(pollIntervalMs))) : PERFORMANCE_CONFIG_DEFAULT.pollIntervalMs
+      };
+    }
+
+    function isPerformanceDegradeEnabled() {
+      return localDegradeMode === true || performanceConfigState?.degradeMode === true;
+    }
+
+    function scheduleLocalDegradeReset() {
+      if (localDegradeTimer) {
+        clearTimeout(localDegradeTimer);
+        localDegradeTimer = null;
+      }
+      const remaining = Math.max(0, localDegradeUntil - Date.now());
+      if (!remaining) {
+        localDegradeMode = false;
+        localDegradeUntil = 0;
+        return;
+      }
+      localDegradeTimer = setTimeout(() => {
+        localDegradeTimer = null;
+        localDegradeMode = false;
+        localDegradeUntil = 0;
+        if (authReady && firebaseAuth?.currentUser && !isWaitlistModeEnabled()) {
+          attachGlobalRealtime();
+        }
+      }, remaining);
+    }
+
+    function setLocalDegradeMode(enabled, durationMs = 0) {
+      const next = enabled === true;
+      if (!next) {
+        localDegradeMode = false;
+        localDegradeUntil = 0;
+        scheduleLocalDegradeReset();
+        if (authReady && firebaseAuth?.currentUser && !isWaitlistModeEnabled()) {
+          attachGlobalRealtime();
+        }
+        return;
+      }
+      localDegradeMode = true;
+      localDegradeUntil = Date.now() + Math.max(1000, Number(durationMs) || (10 * 60 * 1000));
+      scheduleLocalDegradeReset();
+      if (authReady && firebaseAuth?.currentUser && !isWaitlistModeEnabled()) {
+        attachGlobalRealtime();
+      }
+    }
+
+    function normalizeStressCode(code = "") {
+      return String(code || "").replace(/^functions\//, "").trim().toLowerCase();
+    }
+
+    function isStressErrorCode(code = "") {
+      const normalized = normalizeStressCode(code);
+      return normalized === "unavailable"
+        || normalized === "resource-exhausted"
+        || normalized === "deadline-exceeded"
+        || normalized === "internal";
+    }
+
+    function recordStress(source = "", code = "") {
+      const normalizedCode = normalizeStressCode(code);
+      if (!isStressErrorCode(normalizedCode)) return;
+      const now = Date.now();
+      stressEvents.push(now);
+      stressEvents = stressEvents.filter((ts) => (now - ts) <= 60000);
+      if (stressEvents.length >= 8) {
+        console.warn("[performance] entering local degrade mode", { source, code: normalizedCode, events60s: stressEvents.length });
+        setLocalDegradeMode(true, 10 * 60 * 1000);
+      }
+    }
+
+    function applyPerformanceConfigPayload(payload = {}) {
+      performanceConfigState = sanitizePerformanceConfig(payload);
+      if (authReady && firebaseAuth?.currentUser && !isWaitlistModeEnabled()) {
+        attachGlobalRealtime();
+      }
+      if (ceoPerfDegradeToggleBtn) {
+        ceoPerfDegradeToggleBtn.textContent = performanceConfigState.degradeMode ? "Disable overload degrade mode" : "Enable overload degrade mode";
+      }
+      if (ceoPerfDegradeStatus) {
+        const local = localDegradeMode ? "ON" : "OFF";
+        const remote = performanceConfigState.degradeMode ? "ON" : "OFF";
+        const mode = isPerformanceDegradeEnabled() ? "POLLING" : "REALTIME";
+        ceoPerfDegradeStatus.textContent = `Realtime degrade (remote): ${remote} · Local stress degrade: ${local} · Effective mode: ${mode}`;
+      }
+    }
+
+    function startPerformanceConfigListener() {
+      if (!db || performanceConfigUnsub) return;
+      const ref = doc(db, "config", "performance");
+      performanceConfigUnsub = onSnapshot(ref, (snap) => {
+        applyPerformanceConfigPayload(snap.exists() ? (snap.data() || {}) : PERFORMANCE_CONFIG_DEFAULT);
+      }, (err) => {
+        console.warn("performance config listener failed", err);
+        recordStress("performance-config", err?.code || "");
+        applyPerformanceConfigPayload(PERFORMANCE_CONFIG_DEFAULT);
       });
     }
 
@@ -20135,29 +20270,58 @@
     function isPointsLockedForCurrentMember(profile = memberProfile) {
       return isExplorerMember(profile);
     }
-    const EXPLORER_LOCKED_ACCENTS = new Set(["jade", "electric", "ember", "glass", "neon_lime", "ruby_night", "paloma"]);
+    const EXPLORER_LOCKED_ACCENTS = new Set(["jade", "electric", "ember", "glass", "neon_lime", "ruby_night", "paloma", "espresso_martini"]);
     function isExplorerLockedAccent(theme = "") {
       return EXPLORER_LOCKED_ACCENTS.has(String(theme || "").toLowerCase());
     }
     function isAccentLockedForCurrentMember(theme = "") {
-      return isExplorerMember() && isExplorerLockedAccent(theme);
+      const t = String(theme || "").toLowerCase();
+      if (UNLOCK_ONLY_ACCENTS.has(t) && !isAccentUnlockedForCurrentMember(t)) return true;
+      return isExplorerMember() && isExplorerLockedAccent(t) && !isAccentUnlockedForCurrentMember(t);
     }
     function updateAccentChipLocks() {
       const explorer = isExplorerMember();
       document.querySelectorAll(".accent-chip").forEach((chip) => {
         const theme = String(chip.dataset?.accent || "").toLowerCase();
-        const locked = explorer && isExplorerLockedAccent(theme);
+        const unlockOnlyLocked = UNLOCK_ONLY_ACCENTS.has(theme) && !isAccentUnlockedForCurrentMember(theme);
+        const explorerLocked = explorer && isExplorerLockedAccent(theme) && !isAccentUnlockedForCurrentMember(theme);
+        const locked = unlockOnlyLocked || explorerLocked;
         chip.classList.toggle("locked", locked);
         if (locked) {
           chip.setAttribute("aria-disabled", "true");
-          chip.title = "Locked on FREE Explorer";
+          chip.title = unlockOnlyLocked ? "Find the easter egg to unlock." : "Locked on FREE Explorer";
         } else {
           chip.removeAttribute("aria-disabled");
-          if (chip.getAttribute("title") === "Locked on FREE Explorer") {
+          if (chip.getAttribute("title") === "Locked on FREE Explorer" || chip.getAttribute("title") === "Find the easter egg to unlock.") {
             chip.removeAttribute("title");
           }
         }
       });
+    }
+    function attachProfileLogoEasterEgg() {
+      const el = document.getElementById("profileEasterEggLogo");
+      if (!el || el.dataset.easterAttached === "1") return;
+      el.dataset.easterAttached = "1";
+      let taps = [];
+      const windowMs = 1500;
+      const onTap = () => {
+        const now = Date.now();
+        taps = taps.filter((ts) => (now - ts) <= windowMs);
+        taps.push(now);
+        if (taps.length >= 3) {
+          taps = [];
+          const unlocked = unlockAccentForCurrentMember("espresso_martini");
+          if (unlocked) {
+            showToast("🍸 Easter egg found — Espresso Martini accent unlocked.", 7000);
+            applyAccentTheme("espresso_martini");
+            updateAccentChipLocks();
+          } else {
+            showToast("🍸 Espresso Martini accent is already unlocked.", 2800);
+          }
+        }
+      };
+      el.addEventListener("click", onTap, { passive: true });
+      el.addEventListener("touchend", onTap, { passive: true });
     }
     function shouldForceExplorerTier(profile = memberProfile) {
       if (!profile) return false;
@@ -21316,6 +21480,7 @@
         err.code = "client-throttle";
         err.details = { limiter: "client_throttle", actionKey, retryAfterMs: slot.retryAfterMs };
         logLimiterTrigger(err, `callable:${name}`);
+        recordStress(`fn:${name}`, err.code || "");
         throw err;
       }
       const retries = Math.max(0, Number(options.retries ?? 3));
@@ -21330,6 +21495,7 @@
           } catch (err) {
             lastErr = err;
             logLimiterTrigger(err, `callable:${name}`);
+            recordStress(`fn:${name}`, err?.code || "");
             if (!isRetryableCallableError(err) || attempt >= retries) break;
             const jitter = Math.floor(Math.random() * 140);
             const waitMs = (baseDelayMs * (2 ** attempt)) + jitter;
@@ -22603,6 +22769,8 @@
     const ceoWaitlistBlastDryRun = document.getElementById("ceoWaitlistBlastDryRun");
     const ceoWaitlistBlastBtn = document.getElementById("ceoWaitlistBlastBtn");
     const ceoWaitlistBlastStatus = document.getElementById("ceoWaitlistBlastStatus");
+    const ceoPerfDegradeToggleBtn = document.getElementById("ceoPerfDegradeToggleBtn");
+    const ceoPerfDegradeStatus = document.getElementById("ceoPerfDegradeStatus");
     const ceoVenueAdminSearch = document.getElementById("ceoVenueAdminSearch");
     const ceoVenueAdminRefresh = document.getElementById("ceoVenueAdminRefresh");
     const ceoVenueAdminList = document.getElementById("ceoVenueAdminList");
@@ -25011,13 +25179,17 @@
       });
       passRealtimeUnsubs = [];
     }
-  function clearGlobalRealtime() {
-    globalRealtimeUnsubs.forEach(unsub => {
-      try { if (typeof unsub === "function") unsub(); } catch (e) { /* ignore */ }
-    });
-    globalRealtimeUnsubs = [];
-    venueOpenNowMap.clear();
-  }
+    function clearGlobalRealtime() {
+      globalRealtimeUnsubs.forEach(unsub => {
+        try { if (typeof unsub === "function") unsub(); } catch (e) { /* ignore */ }
+      });
+      globalRealtimeUnsubs = [];
+      if (globalRealtimePollTimer) {
+        clearInterval(globalRealtimePollTimer);
+        globalRealtimePollTimer = null;
+      }
+      venueOpenNowMap.clear();
+    }
   function detachRealtime() {
     clearGlobalRealtime();
     clearPassRealtime();
@@ -25338,6 +25510,7 @@
         },
         (err) => {
           logLimiterTrigger(err, `snapshot:${label}`);
+          recordStress(`firestore:${label}`, err?.code || "");
           const unavailable = (err?.code || "").includes("unavailable");
           if (!unavailable) {
             console.error(`[${label}] snapshot failed`, err);
@@ -25544,48 +25717,124 @@
     refreshFeaturedVenuesData();
   }
   const OPEN_NOW_LISTENER_CAP = 40;
-  function attachGlobalRealtime() {
-    if (!db) return;
-    if (globalRealtimeUnsubs.length) return;
+  async function pollGlobalHeavySourcesOnce() {
+    if (!db || !firebaseAuth?.currentUser) return;
+    const now = Date.now() - ALERT_EXPIRY_SKEW_MS;
     try {
-      const dealsQuery = query(collection(db, "deals"), orderBy("createdAt", "desc"), limit(80));
-      const unsub = subscribeSnapshot("globalDeals", dealsQuery, null, (snap) => {
-        applyVipDealsSnapshot(snap);
-      });
-      if (unsub) globalRealtimeUnsubs.push(unsub);
+      vipDealsMap.clear();
+      const dealsLimit = Math.max(5, Number(performanceConfigState?.dealsLimit || PERFORMANCE_CONFIG_DEFAULT.dealsLimit));
+      const dealsQuery = query(collection(db, "deals"), orderBy("createdAt", "desc"), limit(dealsLimit));
+      const dealsSnap = await getDocs(dealsQuery);
+      noteRealtimeSnapshot({ metadata: { fromCache: false, hasPendingWrites: false } }, "globalDealsPoll");
+      applyVipDealsSnapshot(dealsSnap);
     } catch (err) {
-      console.warn("Global vipDeals listener failed", err);
+      console.warn("Global deals polling failed", err);
+      noteRealtimeError("globalDealsPoll", err);
+      logLimiterTrigger(err, "poll:globalDeals");
+      recordStress("firestore:globalDealsPoll", err?.code || "");
     }
     try {
-      const vipDealsQuery = query(collection(db, "vipDeals"), orderBy("createdAt", "desc"), limit(80));
-      const unsub = subscribeSnapshot("globalVipDeals", vipDealsQuery, null, (snap) => {
-        applyVipDealsSnapshot(snap);
-      });
-      if (unsub) globalRealtimeUnsubs.push(unsub);
+      const vipLimit = Math.max(5, Number(performanceConfigState?.vipDealsLimit || PERFORMANCE_CONFIG_DEFAULT.vipDealsLimit));
+      const vipDealsQuery = query(collection(db, "vipDeals"), orderBy("createdAt", "desc"), limit(vipLimit));
+      const vipDealsSnap = await getDocs(vipDealsQuery);
+      noteRealtimeSnapshot({ metadata: { fromCache: false, hasPendingWrites: false } }, "globalVipDealsPoll");
+      applyVipDealsSnapshot(vipDealsSnap);
     } catch (err) {
-      console.warn("Global dedicated vipDeals listener failed", err);
+      console.warn("Global vipDeals polling failed", err);
+      noteRealtimeError("globalVipDealsPoll", err);
+      logLimiterTrigger(err, "poll:globalVipDeals");
+      recordStress("firestore:globalVipDealsPoll", err?.code || "");
     }
     try {
+      alertsMap.clear();
+      const alertsLimit = Math.max(5, Number(performanceConfigState?.alertsLimit || PERFORMANCE_CONFIG_DEFAULT.alertsLimit));
       const alertsQuery = query(
         collection(db, "alerts"),
-        where("expiresAt", ">", new Date(Date.now() - ALERT_EXPIRY_SKEW_MS)),
+        where("expiresAt", ">", new Date(now)),
         orderBy("expiresAt", "asc"),
-        limit(120)
+        limit(alertsLimit)
       );
-      const unsub = subscribeSnapshot("globalAlerts", alertsQuery, null, (snap) => {
-        applyAlertsSnapshot(snap);
-      });
-      if (unsub) globalRealtimeUnsubs.push(unsub);
+      const alertsSnap = await getDocs(alertsQuery);
+      noteRealtimeSnapshot({ metadata: { fromCache: false, hasPendingWrites: false } }, "globalAlertsPoll");
+      applyAlertsSnapshot(alertsSnap);
     } catch (err) {
-      console.warn("Global alerts listener failed (falling back):", err);
+      console.warn("Global alerts polling failed", err);
+      noteRealtimeError("globalAlertsPoll", err);
+      logLimiterTrigger(err, "poll:globalAlerts");
+      recordStress("firestore:globalAlertsPoll", err?.code || "");
       try {
-        const fallbackQuery = query(collection(db, "alerts"), orderBy("createdAt", "desc"), limit(120));
-        const fallbackUnsub = subscribeSnapshot("globalAlertsFallback", fallbackQuery, null, (snap) => {
+        alertsMap.clear();
+        const fallbackLimit = Math.max(5, Number(performanceConfigState?.alertsLimit || PERFORMANCE_CONFIG_DEFAULT.alertsLimit));
+        const fallbackQuery = query(collection(db, "alerts"), orderBy("createdAt", "desc"), limit(fallbackLimit));
+        const fallbackSnap = await getDocs(fallbackQuery);
+        noteRealtimeSnapshot({ metadata: { fromCache: false, hasPendingWrites: false } }, "globalAlertsPollFallback");
+        applyAlertsSnapshot(fallbackSnap);
+      } catch (fallbackErr) {
+        console.warn("Global alerts fallback polling failed", fallbackErr);
+        noteRealtimeError("globalAlertsPollFallback", fallbackErr);
+        recordStress("firestore:globalAlertsPollFallback", fallbackErr?.code || "");
+      }
+    }
+  }
+
+  function startGlobalHeavyPolling() {
+    if (globalRealtimePollTimer) return;
+    const intervalMs = Math.max(15000, Number(performanceConfigState?.pollIntervalMs || PERFORMANCE_CONFIG_DEFAULT.pollIntervalMs));
+    pollGlobalHeavySourcesOnce();
+    globalRealtimePollTimer = setInterval(() => {
+      pollGlobalHeavySourcesOnce();
+    }, intervalMs);
+  }
+
+  function attachGlobalRealtime() {
+    if (!db) return;
+    const nextMode = isPerformanceDegradeEnabled() ? "poll" : "realtime";
+    if ((globalRealtimeUnsubs.length || globalRealtimePollTimer) && globalHeavyTransportMode === nextMode) return;
+    clearGlobalRealtime();
+    globalHeavyTransportMode = nextMode;
+    if (nextMode === "poll") {
+      startGlobalHeavyPolling();
+    } else {
+      try {
+        const dealsQuery = query(collection(db, "deals"), orderBy("createdAt", "desc"), limit(80));
+        const unsub = subscribeSnapshot("globalDeals", dealsQuery, null, (snap) => {
+          applyVipDealsSnapshot(snap);
+        });
+        if (unsub) globalRealtimeUnsubs.push(unsub);
+      } catch (err) {
+        console.warn("Global deals listener failed", err);
+      }
+      try {
+        const vipDealsQuery = query(collection(db, "vipDeals"), orderBy("createdAt", "desc"), limit(80));
+        const unsub = subscribeSnapshot("globalVipDeals", vipDealsQuery, null, (snap) => {
+          applyVipDealsSnapshot(snap);
+        });
+        if (unsub) globalRealtimeUnsubs.push(unsub);
+      } catch (err) {
+        console.warn("Global dedicated vipDeals listener failed", err);
+      }
+      try {
+        const alertsQuery = query(
+          collection(db, "alerts"),
+          where("expiresAt", ">", new Date(Date.now() - ALERT_EXPIRY_SKEW_MS)),
+          orderBy("expiresAt", "asc"),
+          limit(120)
+        );
+        const unsub = subscribeSnapshot("globalAlerts", alertsQuery, null, (snap) => {
           applyAlertsSnapshot(snap);
         });
-        if (fallbackUnsub) globalRealtimeUnsubs.push(fallbackUnsub);
-      } catch (fallbackErr) {
-        console.warn("Global alerts fallback listener failed", fallbackErr);
+        if (unsub) globalRealtimeUnsubs.push(unsub);
+      } catch (err) {
+        console.warn("Global alerts listener failed (falling back):", err);
+        try {
+          const fallbackQuery = query(collection(db, "alerts"), orderBy("createdAt", "desc"), limit(120));
+          const fallbackUnsub = subscribeSnapshot("globalAlertsFallback", fallbackQuery, null, (snap) => {
+            applyAlertsSnapshot(snap);
+          });
+          if (fallbackUnsub) globalRealtimeUnsubs.push(fallbackUnsub);
+        } catch (fallbackErr) {
+          console.warn("Global alerts fallback listener failed", fallbackErr);
+        }
       }
     }
     const venueIdsForRealtime = Object.keys(venuesInfo || {}).slice(0, OPEN_NOW_LISTENER_CAP);
@@ -27129,7 +27378,12 @@ let onboardingIndex = 0;
         chip.addEventListener("click", () => {
           const theme = chip.dataset.accent || "cyan";
           if (isAccentLockedForCurrentMember(theme)) {
-            showToast("Upgrade to unlock this accent.", 2200);
+            const t = String(theme || "").toLowerCase();
+            if (UNLOCK_ONLY_ACCENTS.has(t)) {
+              showToast("Hidden accent — find the easter egg to unlock it.", 2600);
+            } else {
+              showToast("Upgrade to unlock this accent.", 2200);
+            }
             return;
           }
           applyAccentTheme(theme);
@@ -27143,12 +27397,18 @@ let onboardingIndex = 0;
         if (!chip) return;
         const theme = chip.dataset.accent || "cyan";
         if (isAccentLockedForCurrentMember(theme)) {
-          showToast("Upgrade to unlock this accent.", 2200);
+          const t = String(theme || "").toLowerCase();
+          if (UNLOCK_ONLY_ACCENTS.has(t)) {
+            showToast("Hidden accent — find the easter egg to unlock it.", 2600);
+          } else {
+            showToast("Upgrade to unlock this accent.", 2200);
+          }
           return;
         }
         applyAccentTheme(theme);
       });
     }
+    attachProfileLogoEasterEgg();
     document.addEventListener("click", (e) => {
       if (!navMenu || !navMenuToggle) return;
       if (navMenu.contains(e.target) || navMenuToggle.contains(e.target)) return;
@@ -29620,6 +29880,8 @@ let onboardingIndex = 0;
     }
     let passRealtimeUnsubs = [];
     let globalRealtimeUnsubs = [];
+    let globalRealtimePollTimer = null;
+    let globalHeavyTransportMode = "realtime";
     let ceoReviewsUnsub = null;
     let ceoReviewsCache = [];
     function persistMemberState(partial = {}) {
@@ -30136,6 +30398,14 @@ let onboardingIndex = 0;
           surface: "rgba(251, 146, 60, 0.14)",
           shadow: "0 25px 60px rgba(24, 8, 2, 0.78), 0 0 38px rgba(251, 146, 60, 0.34)"
         },
+        espresso_martini: {
+          primary: "#4b2e2a",
+          secondary: "#d6b26a",
+          glow: "rgba(214, 178, 106, 0.48)",
+          border: "rgba(214, 178, 106, 0.42)",
+          surface: "rgba(75, 46, 42, 0.14)",
+          shadow: "0 25px 60px rgba(8, 4, 2, 0.82), 0 0 38px rgba(214, 178, 106, 0.28)"
+        },
         ceo: {
           primary: "#ffd700",
           secondary: "#00f7ff",
@@ -30151,6 +30421,10 @@ let onboardingIndex = 0;
       const safeUid = String(uid || "").trim();
       return safeUid ? `${MEMBER_ACCENT_PREFIX}${safeUid}` : "";
     }
+    function getMemberAccentUnlocksStorageKey(uid = firebaseAuth?.currentUser?.uid) {
+      const safeUid = String(uid || "").trim();
+      return safeUid ? `${MEMBER_ACCENT_UNLOCKS_PREFIX}${safeUid}` : "";
+    }
     function readMemberAccentFromStorage(uid = firebaseAuth?.currentUser?.uid) {
       const key = getMemberAccentStorageKey(uid);
       if (!key) return "";
@@ -30159,6 +30433,36 @@ let onboardingIndex = 0;
       } catch (_) {
         return "";
       }
+    }
+    function readMemberAccentUnlocks(uid = firebaseAuth?.currentUser?.uid) {
+      const key = getMemberAccentUnlocksStorageKey(uid);
+      if (!key) return new Set();
+      try {
+        const raw = localStorage.getItem(key);
+        const arr = JSON.parse(raw || "[]");
+        return new Set((Array.isArray(arr) ? arr : []).map((x) => String(x || "").toLowerCase()).filter(Boolean));
+      } catch (_) {
+        return new Set();
+      }
+    }
+    function isAccentUnlockedForCurrentMember(theme = "", uid = firebaseAuth?.currentUser?.uid) {
+      const t = String(theme || "").toLowerCase();
+      if (!t) return false;
+      const unlocks = readMemberAccentUnlocks(uid);
+      return unlocks.has(t);
+    }
+    function unlockAccentForCurrentMember(theme = "", uid = firebaseAuth?.currentUser?.uid) {
+      const t = String(theme || "").toLowerCase();
+      if (!t) return false;
+      const key = getMemberAccentUnlocksStorageKey(uid);
+      if (!key) return false;
+      const unlocks = readMemberAccentUnlocks(uid);
+      if (unlocks.has(t)) return false;
+      unlocks.add(t);
+      try {
+        localStorage.setItem(key, JSON.stringify(Array.from(unlocks)));
+      } catch (_) {}
+      return true;
     }
     function writeMemberAccentToStorage(theme, uid = firebaseAuth?.currentUser?.uid) {
       const key = getMemberAccentStorageKey(uid);
@@ -30196,7 +30500,7 @@ let onboardingIndex = 0;
       root.style.setProperty("--accent-glow-live", palette.glow);
       root.style.setProperty("--accent-surface-live", palette.surface);
       root.style.setProperty("--accent-shadow-live", palette.shadow);
-      document.body.classList.remove("theme-cyan", "theme-magenta", "theme-gold", "theme-jade", "theme-electric", "theme-ember", "theme-glass", "theme-neon_lime", "theme-ruby_night", "theme-paloma", "theme-ceo");
+      document.body.classList.remove("theme-cyan", "theme-magenta", "theme-gold", "theme-jade", "theme-electric", "theme-ember", "theme-glass", "theme-neon_lime", "theme-ruby_night", "theme-paloma", "theme-espresso_martini", "theme-ceo");
       document.body.classList.add(`theme-${safeTheme}`);
       currentAccentTheme = safeTheme;
       if (currentPassCode) {
@@ -39329,6 +39633,7 @@ let onboardingIndex = 0;
         waitlistMode: applied.waitlistMode === true,
         waitlistMessage: normalizeWaitlistMessage(applied.waitlistMessage || "")
       });
+      applyPerformanceConfigPayload(applied?.performance || performanceConfigState || PERFORMANCE_CONFIG_DEFAULT);
       return true;
     }
 
@@ -39900,6 +40205,21 @@ let onboardingIndex = 0;
           showToast("Could not save waitlist message.", 2200);
         } finally {
           ceoWaitlistMessageSaveBtn.disabled = false;
+        }
+      });
+    }
+    if (ceoPerfDegradeToggleBtn) {
+      ceoPerfDegradeToggleBtn.addEventListener("click", async () => {
+        const nextMode = !(performanceConfigState?.degradeMode === true);
+        ceoPerfDegradeToggleBtn.disabled = true;
+        try {
+          await updateGlobalConfigViaAdmin({ performance: { degradeMode: nextMode } });
+          showToast(nextMode ? "Overload degrade mode enabled." : "Overload degrade mode disabled.", 2000);
+        } catch (err) {
+          console.warn("performance degrade toggle failed", err);
+          showToast("Could not update overload mode.", 2200);
+        } finally {
+          ceoPerfDegradeToggleBtn.disabled = false;
         }
       });
     }
@@ -41125,12 +41445,14 @@ let onboardingIndex = 0;
       maintenanceBootChecked = true;
       if (db) {
         startGlobalConfigListener();
+        startPerformanceConfigListener();
         startWaitlistCounterListener();
         startAppConfigListener();
         startVenueAdminListener();
       } else {
         applyConfigPayload({}, { ready: false });
         applyGlobalConfigPayload(WAITLIST_GLOBAL_CONFIG_DEFAULT);
+        applyPerformanceConfigPayload(PERFORMANCE_CONFIG_DEFAULT);
       }
       const data = await fetchAppSettingsOnce();
       isLaunched = !!data?.launched;

@@ -227,6 +227,11 @@ service cloud.firestore {
     }
 
     // Global gate config (waitlist mode, launch messaging). Public read, server-only write.
+    match /config/performance {
+      allow read: if true;
+      allow write: if isAdmin() || isCeo();
+    }
+
     match /config/{docId} {
       allow read: if true;
       allow write: if false;

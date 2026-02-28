@@ -98,6 +98,7 @@ const STAFF_VENUE_ALIASES = {
 };
 const APP_PUBLIC_CONFIG_DOC_PATH = "appConfig/public";
 const GLOBAL_CONFIG_DOC_PATH = "config/global";
+const PERFORMANCE_CONFIG_DOC_PATH = "config/performance";
 const WAITLIST_COLLECTION = "waitlist";
 const WAITLIST_COUNTER_DOC_PATH = "counters/waitlist";
 const WAITLIST_MAIL_QUEUE_COLLECTION = "mailQueue";
@@ -111,6 +112,13 @@ const VENUE_SOFT_CONTROL_DEFAULTS = Object.freeze({
 });
 const ADMIN_VENUE_MUTABLE_KEYS = new Set(["status", "showInHomeFeed", "showLivePill", "priority", "adminNote", "reason"]);
 const WAITLIST_STATUSES = new Set(["active", "emailed", "unsubscribed"]);
+const PERFORMANCE_CONFIG_DEFAULTS = Object.freeze({
+  degradeMode: false,
+  dealsLimit: 25,
+  vipDealsLimit: 25,
+  alertsLimit: 40,
+  pollIntervalMs: 60000
+});
 Object.entries(STAFF_VENUES).forEach(([id, info]) => {
   if (info && info.login) {
     STAFF_VENUE_ALIASES[info.login] = id;
@@ -158,7 +166,7 @@ async function sendReportEmail(subject, text, opts = {}) {
   if (!transporter) {
     return { sent: false, error: "SMTP not configured" };
   }
-  const from = process.env.REPORTS_SMTP_FROM || process.env.REPORTS_SMTP_USER || "reports@focoafterdark.com";
+  const from = process.env.REPORTS_SMTP_FROM || process.env.REPORTS_SMTP_USER || "focoafterdark@gmail.com";
   const to = opts.to || REPORTS_TO_EMAIL;
   try {
     const payload = {
@@ -3942,7 +3950,7 @@ function requireAdminClaim(context) {
   if (!context?.auth) {
     throw new HttpsError("unauthenticated", "Auth required");
   }
-  if (context.auth.token?.admin !== true && context.auth.token?.ceo !== true) {
+  if (!isCeoContext(context)) {
     throw new HttpsError("permission-denied", "Admin claim required");
   }
 }
@@ -7053,19 +7061,86 @@ exports.adminUpdateGlobalConfig = functions.https.onCall(async (data, context) =
     if (Object.prototype.hasOwnProperty.call(patch, "waitlistMessage")) {
       updates.waitlistMessage = String(patch.waitlistMessage || "").trim().slice(0, 400) || "Join the waitlist to get first access.";
     }
-    const keys = Object.keys(updates);
-    if (!keys.length) {
+    const perfPatch = patch?.performance && typeof patch.performance === "object" && !Array.isArray(patch.performance)
+      ? patch.performance
+      : null;
+    const perfUpdates = {};
+    if (perfPatch && Object.prototype.hasOwnProperty.call(perfPatch, "degradeMode")) {
+      if (typeof perfPatch.degradeMode !== "boolean") {
+        throw new HttpsError("invalid-argument", "performance.degradeMode must be boolean");
+      }
+      perfUpdates.degradeMode = perfPatch.degradeMode;
+    }
+    if (perfPatch && Object.prototype.hasOwnProperty.call(perfPatch, "dealsLimit")) {
+      const value = Number(perfPatch.dealsLimit);
+      if (!Number.isFinite(value)) throw new HttpsError("invalid-argument", "performance.dealsLimit must be a number");
+      perfUpdates.dealsLimit = Math.max(5, Math.min(200, Math.round(value)));
+    }
+    if (perfPatch && Object.prototype.hasOwnProperty.call(perfPatch, "vipDealsLimit")) {
+      const value = Number(perfPatch.vipDealsLimit);
+      if (!Number.isFinite(value)) throw new HttpsError("invalid-argument", "performance.vipDealsLimit must be a number");
+      perfUpdates.vipDealsLimit = Math.max(5, Math.min(200, Math.round(value)));
+    }
+    if (perfPatch && Object.prototype.hasOwnProperty.call(perfPatch, "alertsLimit")) {
+      const value = Number(perfPatch.alertsLimit);
+      if (!Number.isFinite(value)) throw new HttpsError("invalid-argument", "performance.alertsLimit must be a number");
+      perfUpdates.alertsLimit = Math.max(5, Math.min(300, Math.round(value)));
+    }
+    if (perfPatch && Object.prototype.hasOwnProperty.call(perfPatch, "pollIntervalMs")) {
+      const value = Number(perfPatch.pollIntervalMs);
+      if (!Number.isFinite(value)) throw new HttpsError("invalid-argument", "performance.pollIntervalMs must be a number");
+      perfUpdates.pollIntervalMs = Math.max(15000, Math.min(300000, Math.round(value)));
+    }
+    const hasGlobalUpdates = Object.keys(updates).length > 0;
+    const hasPerfUpdates = Object.keys(perfUpdates).length > 0;
+    if (!hasGlobalUpdates && !hasPerfUpdates) {
       throw new HttpsError("invalid-argument", "No valid global config keys in patch");
     }
-    updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
-    updates.updatedByUid = context.auth.uid;
-    await db.doc(GLOBAL_CONFIG_DOC_PATH).set(updates, { merge: true });
+    if (hasGlobalUpdates) {
+      updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      updates.updatedByUid = context.auth.uid;
+      await db.doc(GLOBAL_CONFIG_DOC_PATH).set(updates, { merge: true });
+    }
+    if (hasPerfUpdates) {
+      const perfWrite = {
+        ...perfUpdates,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedByUid: context.auth.uid
+      };
+      await db.doc(PERFORMANCE_CONFIG_DOC_PATH).set(perfWrite, { merge: true });
+    }
+    let waitlistConfig = { waitlistMode: false, waitlistMessage: null };
+    try {
+      const globalSnap = await db.doc(GLOBAL_CONFIG_DOC_PATH).get();
+      if (globalSnap.exists) {
+        const globalData = globalSnap.data() || {};
+        waitlistConfig = {
+          waitlistMode: globalData.waitlistMode === true,
+          waitlistMessage: typeof globalData.waitlistMessage === "string" ? globalData.waitlistMessage : null
+        };
+      }
+    } catch (_) {}
+    let performanceConfig = { ...PERFORMANCE_CONFIG_DEFAULTS };
+    try {
+      const perfSnap = await db.doc(PERFORMANCE_CONFIG_DOC_PATH).get();
+      if (perfSnap.exists) {
+        const perfData = perfSnap.data() || {};
+        performanceConfig = {
+          degradeMode: perfData.degradeMode === true,
+          dealsLimit: Number.isFinite(Number(perfData.dealsLimit)) ? Number(perfData.dealsLimit) : PERFORMANCE_CONFIG_DEFAULTS.dealsLimit,
+          vipDealsLimit: Number.isFinite(Number(perfData.vipDealsLimit)) ? Number(perfData.vipDealsLimit) : PERFORMANCE_CONFIG_DEFAULTS.vipDealsLimit,
+          alertsLimit: Number.isFinite(Number(perfData.alertsLimit)) ? Number(perfData.alertsLimit) : PERFORMANCE_CONFIG_DEFAULTS.alertsLimit,
+          pollIntervalMs: Number.isFinite(Number(perfData.pollIntervalMs)) ? Number(perfData.pollIntervalMs) : PERFORMANCE_CONFIG_DEFAULTS.pollIntervalMs,
+        };
+      }
+    } catch (_) {}
     return {
       ok: true,
       config: {
-        waitlistMode: updates.waitlistMode === true,
-        waitlistMessage: updates.waitlistMessage || null,
-        updatedByUid: context.auth.uid
+        waitlistMode: waitlistConfig.waitlistMode === true,
+        waitlistMessage: waitlistConfig.waitlistMessage || null,
+        updatedByUid: context.auth.uid,
+        performance: performanceConfig
       }
     };
   } catch (err) {
