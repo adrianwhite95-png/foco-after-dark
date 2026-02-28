@@ -219,6 +219,13 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Public runtime config for global feature/control toggles.
+    // Readable by all clients; writable only via Cloud Functions (Admin SDK).
+    match /appConfig/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Voucher redemptions (codes)
     match /redemptions/{code} {
       // Global redemption ledger is staff/CEO/admin only.
@@ -256,7 +263,8 @@ service cloud.firestore {
     // Venues collection with subcollections
     match /venues/{venueId} {
       allow read: if true;
-      allow write: if (isAdmin() || isCeo()) && canWriteApp();
+      // Top-level venue admin fields are server-controlled via callable functions only.
+      allow create, update, delete: if false;
 
       match /perks/{perkId} {
         allow read: if true;
