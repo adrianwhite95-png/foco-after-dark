@@ -19329,7 +19329,30 @@
       }
       if (globalRefreshBtn) {
         globalRefreshBtn.style.display = (memberShow || staffShow || ceoShow) ? "inline-flex" : "none";
+        try {
+          if (globalRefreshBtn.parentElement !== document.body) {
+            document.body.appendChild(globalRefreshBtn);
+          }
+          globalRefreshBtn.style.position = "fixed";
+          globalRefreshBtn.style.top = "max(14px, calc(env(safe-area-inset-top, 0px) + 10px))";
+          globalRefreshBtn.style.right = "max(14px, calc(env(safe-area-inset-right, 0px) + 10px))";
+          globalRefreshBtn.style.left = "auto";
+          globalRefreshBtn.style.bottom = "auto";
+          globalRefreshBtn.style.transform = "translate3d(0,0,0)";
+          globalRefreshBtn.style.zIndex = "14000";
+        } catch (_) {}
       }
+      syncGlobalRefreshViewportPosition();
+    }
+    function syncGlobalRefreshViewportPosition() {
+      if (!globalRefreshBtn || globalRefreshBtn.style.display === "none") return;
+      const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent || "");
+      if (!isIos) return;
+      const vv = window.visualViewport;
+      const offsetTop = vv ? Math.max(0, vv.offsetTop || 0) : 0;
+      const offsetLeft = vv ? Math.max(0, vv.offsetLeft || 0) : 0;
+      globalRefreshBtn.style.top = `${Math.round(offsetTop + 12)}px`;
+      globalRefreshBtn.style.right = `${Math.round(offsetLeft + 12)}px`;
     }
 
     let glassBgRaf = 0;
@@ -20340,9 +20363,12 @@
       if (document.body?.dataset?.easterAttached === "1") return;
       if (document.body) document.body.dataset.easterAttached = "1";
       let taps = [];
+      let lastTapAt = 0;
       const windowMs = 1500;
       const recordTap = () => {
         const now = Date.now();
+        if (now - lastTapAt < 120) return;
+        lastTapAt = now;
         taps = taps.filter((ts) => (now - ts) <= windowMs);
         taps.push(now);
         if (taps.length >= 2) {
@@ -20355,21 +20381,17 @@
           }
         }
       };
-      const targetSelector = "#passScreen #passUserName, #passScreen #userUsername, #passScreen .username-row, #profileActivityScreen #profileActivityName";
-      const attachTarget = (el) => {
-        if (!el || el.dataset.easterTapAttached === "1") return;
-        el.dataset.easterTapAttached = "1";
-        el.addEventListener("click", recordTap, { passive: true });
-        el.addEventListener("touchend", recordTap, { passive: true });
-      };
-      document.querySelectorAll(targetSelector).forEach(attachTarget);
+      const targetSelector = "#passScreen #passUserName, #passScreen #userUsername, #passScreen .username-row, #passScreen .profile-summary, #profileActivityScreen #profileActivityName, #profileActivityScreen .profile-activity-card";
+      document.addEventListener("pointerup", (event) => {
+        const target = event?.target?.closest?.(targetSelector);
+        if (!target) return;
+        recordTap();
+      }, { passive: true, capture: true });
       document.addEventListener("click", (event) => {
         const target = event?.target?.closest?.(targetSelector);
         if (!target) return;
-        if (target.dataset.easterTapAttached === "1") return;
-        attachTarget(target);
         recordTap();
-      }, { passive: true });
+      }, { passive: true, capture: true });
     }
     function shouldForceExplorerTier(profile = memberProfile) {
       if (!profile) return false;
@@ -27321,7 +27343,7 @@ let onboardingIndex = 0;
       }
       const targetScreen = screens[currentScreenName] ? currentScreenName : "pass";
       if (typeof showToast === "function") {
-        showToast("Refreshing…", 900);
+        showToast("Refreshing", 1000);
       }
       try {
         showScreen(targetScreen);
@@ -27369,6 +27391,12 @@ let onboardingIndex = 0;
         if (!firebaseAuth?.currentUser || firebaseAuth.currentUser.isAnonymous) return;
         softRefresh();
       });
+    }
+    window.addEventListener("scroll", syncGlobalRefreshViewportPosition, { passive: true });
+    window.addEventListener("resize", syncGlobalRefreshViewportPosition, { passive: true });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", syncGlobalRefreshViewportPosition, { passive: true });
+      window.visualViewport.addEventListener("scroll", syncGlobalRefreshViewportPosition, { passive: true });
     }
     if (ceoRefreshBtn) {
       ceoRefreshBtn.addEventListener("click", () => {
