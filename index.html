@@ -3027,8 +3027,9 @@
       color: #fcd34d;
     }
     .accent-chip[data-accent="jade"] {
-      background: linear-gradient(120deg, rgba(16, 185, 129, 0.25), rgba(14, 165, 233, 0.18));
-      border-color: rgba(52, 211, 153, 0.45);
+      background: linear-gradient(120deg, rgba(2, 44, 34, 0.52), rgba(16, 185, 129, 0.22));
+      border-color: rgba(167, 243, 208, 0.64);
+      color: #ecfeff;
     }
     .accent-chip[data-accent="electric"] {
       background: linear-gradient(120deg, rgba(124, 58, 237, 0.25), rgba(34, 211, 238, 0.18));
@@ -18092,6 +18093,7 @@
     let staffAnalyticsOverlayNotice = "";
     let selectedStaffActor = null;
     let suppressStaffShiftPrompt = false;
+    let staffLogoutRequired = false;
     let staffReplyContextId = "";
     let ceoUnreadToastKeys = new Set();
     let venuePerksCache = {};
@@ -23769,8 +23771,21 @@
     function formatVenueOpenStatus(venueId, at = new Date()) {
       return isVenueOpenNow(venueId, at) ? "Open now" : "Closed right now";
     }
+    function getShiftVenueCandidates(venueId) {
+      const candidates = new Set();
+      const add = (value) => {
+        const resolved = resolveVenueId(String(value || ""));
+        if (resolved) candidates.add(resolved);
+      };
+      const raw = String(venueId || "").trim().toLowerCase();
+      add(raw);
+      if (raw === "beta") add("bar_district");
+      if (raw === "bar_district") add("beta");
+      return Array.from(candidates);
+    }
     async function isVenueAcceptingRedemptionsNow(venueId) {
-      const key = resolveVenueId(String(venueId || ""));
+      const candidates = getShiftVenueCandidates(venueId);
+      const key = candidates[0] || "";
       if (!key) return false;
       const cached = venueEligibilityCache.get(key);
       const ttlMs = cached?.ok === true ? 30000 : 4000;
@@ -23789,32 +23804,30 @@
       if (!isRedeemEnabledForUi()) {
         return commit(false, "REDEEM_DISABLED");
       }
-      if (!isVenueVisibleToMembers(key)) {
-        return commit(false, "VENUE_STATUS_BLOCKED");
-      }
-      if (!isVenueActiveForMembers(key)) {
-        return commit(false, "VENUE_PAUSED");
-      }
       try {
         if (db) {
-          const shiftRef = doc(db, "venues", key, "shiftState", "current");
-          const shiftSnap = await getDoc(shiftRef);
-          if (!shiftSnap.exists()) return commit(false, "NO_SHIFT_STATE");
-          const shiftData = shiftSnap.data() || {};
-          const active = shiftData.active === true;
-          const shiftKey = String(shiftData.shiftKey || "").trim();
-          if (!active || !shiftKey) {
-            return commit(false, "SHIFT_NOT_ACTIVE", shiftKey);
+          for (const candidate of candidates) {
+            const shiftRef = doc(db, "venues", candidate, "shiftState", "current");
+            const shiftSnap = await getDoc(shiftRef);
+            if (!shiftSnap.exists()) continue;
+            const shiftData = shiftSnap.data() || {};
+            const active = shiftData.active === true;
+            const shiftKey = String(shiftData.shiftKey || "").trim();
+            if (!active || !shiftKey) continue;
+            const lockRef = doc(db, "venues", candidate, "shiftCloseouts", shiftKey);
+            const lockSnap = await getDoc(lockRef);
+            const locked = lockSnap.exists() && lockSnap.data()?.shiftClosed === true;
+            if (!locked) {
+              return commit(true, "OK", shiftKey);
+            }
           }
-          const lockRef = doc(db, "venues", key, "shiftCloseouts", shiftKey);
-          const lockSnap = await getDoc(lockRef);
-          const locked = lockSnap.exists() && lockSnap.data()?.shiftClosed === true;
-          return commit(!locked, locked ? "SHIFT_LOCKED_CLOSED" : "OK", shiftKey);
+          return commit(false, "SHIFT_NOT_ACTIVE");
         }
       } catch (err) {
-        console.warn("Redeem preflight shift check failed", err);
+        console.warn("Redeem preflight shift check failed; deferring to server gate", err);
+        return commit(true, "NO_SHIFT_VERIFICATION");
       }
-      return commit(false, "NO_SHIFT_VERIFICATION");
+      return commit(true, "NO_SHIFT_VERIFICATION");
     }
     function getVenuePerksStatus(venueId) {
       const activeCount = getActiveVenuePerks(venueId).length;
@@ -30477,12 +30490,12 @@ let onboardingIndex = 0;
           shadow: "0 25px 60px rgba(1, 4, 12, 0.75), 0 0 35px rgba(251, 191, 36, 0.28)"
         },
         jade: {
-          primary: "#34d399",
-          secondary: "#0ea5e9",
-          glow: "rgba(52, 211, 153, 0.45)",
-          border: "rgba(52, 211, 153, 0.38)",
-          surface: "rgba(52, 211, 153, 0.12)",
-          shadow: "0 25px 60px rgba(0, 10, 8, 0.75), 0 0 35px rgba(52, 211, 153, 0.3)"
+          primary: "#065f46",
+          secondary: "#ecfeff",
+          glow: "rgba(167, 243, 208, 0.62)",
+          border: "rgba(167, 243, 208, 0.58)",
+          surface: "rgba(6, 95, 70, 0.20)",
+          shadow: "0 25px 60px rgba(1, 12, 9, 0.86), 0 0 44px rgba(167, 243, 208, 0.38)"
         },
         electric: {
           primary: "#7c3aed",
@@ -34611,6 +34624,12 @@ let onboardingIndex = 0;
       const venueId = String(staffSession?.venue || "").toLowerCase();
       const activeShift = venueId ? getActiveShiftForVenue(venueId) : null;
       const mustStartShift = !!(venueId && !activeShift && currentScreenName === "staffPortal");
+      const mustLogout = !!(staffLogoutRequired && currentScreenName === "staffPortal");
+      if (!force && mustLogout) {
+        if (staffShiftError) staffShiftError.textContent = "Shift closed. Please log out to continue.";
+        if (staffShiftModal) staffShiftModal.classList.add("active");
+        return false;
+      }
       if (!force && mustStartShift) {
         if (staffShiftError) staffShiftError.textContent = "Start shift and select staff to continue.";
         if (staffShiftModal) staffShiftModal.classList.add("active");
@@ -34629,6 +34648,19 @@ let onboardingIndex = 0;
     }
     function openStaffShiftModal() {
       if (!staffSession?.venue) return;
+      if (staffLogoutRequired) {
+        if (staffShiftPrompt) {
+          staffShiftPrompt.textContent = "Shift closed and report sent. Log out before starting another shift.";
+        }
+        if (staffShiftError) staffShiftError.textContent = "Please log out to continue.";
+        if (staffShiftStartBtn) {
+          staffShiftStartBtn.disabled = true;
+          staffShiftStartBtn.dataset.busy = "";
+          staffShiftStartBtn.textContent = "Shift closed";
+        }
+        if (staffShiftModal) staffShiftModal.classList.add("active");
+        return;
+      }
       const activeShift = getActiveShiftForVenue(staffSession.venue);
       if (activeShift) {
         closeStaffShiftModal({ force: true });
@@ -34651,6 +34683,11 @@ let onboardingIndex = 0;
       openStaffShiftModal();
     }
     function requireActiveShiftForAction(errorEl = verifyError) {
+      if (staffLogoutRequired) {
+        if (errorEl) errorEl.textContent = "Shift is closed. Log out to continue.";
+        openStaffShiftModal();
+        return null;
+      }
       const activeShift = getActiveShiftForVenue(staffSession?.venue);
       if (activeShift) return activeShift;
       if (errorEl) {
@@ -34693,18 +34730,25 @@ let onboardingIndex = 0;
         closedByStaffName: null,
         reportId: null
       };
+      if (!functionsClient) throw new Error("Cloud functions unavailable");
+      await ensureFirebaseUser();
+      try {
+        await invokeCallableWithRetry("staffShiftAction", {
+          action: "start",
+          venueId,
+          shiftKey,
+          staffId: shift.startedByStaffId || null,
+          staffName: shift.startedByStaffName || null
+        }, { lockKey: `staffShift:start:${venueId}:${shiftKey}`, retries: 3 });
+      } catch (err) {
+        delete staffActiveShiftMap[venueId];
+        saveStaffActiveShiftLocal(venueId, null);
+        renderStaffShiftStatus();
+        throw err;
+      }
       staffActiveShiftMap[venueId] = shift;
       saveStaffActiveShiftLocal(venueId, shift);
       renderStaffShiftStatus();
-      if (!functionsClient) throw new Error("Cloud functions unavailable");
-      await ensureFirebaseUser();
-      await invokeCallableWithRetry("staffShiftAction", {
-        action: "start",
-        venueId,
-        shiftKey,
-        staffId: shift.startedByStaffId || null,
-        staffName: shift.startedByStaffName || null
-      }, { lockKey: `staffShift:start:${venueId}:${shiftKey}`, retries: 3 });
       await logVenueStaffAction({
         actionType: "start_shift",
         staffId: shift.startedByStaffId,
@@ -38910,6 +38954,7 @@ let onboardingIndex = 0;
       staffVenueReceipts = [];
       selectedStaffActor = null;
       suppressStaffShiftPrompt = false;
+      staffLogoutRequired = false;
       renderStaffSentReceipts();
       renderStaffVipDeal();
       renderStaffAlertPreview();
@@ -39123,6 +39168,11 @@ let onboardingIndex = 0;
     }
     async function handleStaffShiftStartTap() {
       if (!staffShiftStartBtn) return;
+      if (staffLogoutRequired) {
+        if (staffShiftError) staffShiftError.textContent = "Shift closed. Please log out to continue.";
+        openStaffShiftModal();
+        return;
+      }
       if (staffShiftStartBtn.dataset.busy === "1") return;
       if (staffShiftError) staffShiftError.textContent = "";
       let actor = null;
@@ -39195,6 +39245,10 @@ let onboardingIndex = 0;
     if (staffShiftModal) {
       staffShiftModal.addEventListener("click", (e) => {
         if (e.target !== staffShiftModal) return;
+        if (staffLogoutRequired) {
+          if (staffShiftError) staffShiftError.textContent = "Shift closed. Please log out to continue.";
+          return;
+        }
         const mustStartShift = !!(staffSession?.venue && !getActiveShiftForVenue(staffSession.venue));
         if (mustStartShift) {
           if (staffShiftError) staffShiftError.textContent = "Select staff member and tap Start shift to continue.";
@@ -39351,6 +39405,11 @@ let onboardingIndex = 0;
           staffCloseOutStatus.textContent = sent ? "Report sent to focoafterdark@gmail.com." : "Report saved locally. Email delivery failed.";
           renderStaffPendingQueue();
           pendingCloseOutReport = report;
+          if (sent) {
+            staffLogoutRequired = true;
+            closeStaffCloseOutModal();
+            openStaffShiftModal();
+          }
         } catch (err) {
           console.warn("Close-out send failed", err);
           staffCloseOutStatus.textContent = err?.message || "Could not send close-out right now. Try again.";
@@ -44836,7 +44895,7 @@ let onboardingIndex = 0;
       try {
         venueAcceptingNow = await Promise.race([
           isVenueAcceptingRedemptionsNow(requestedVenue),
-          new Promise((resolve) => setTimeout(() => resolve(false), 3500))
+          new Promise((resolve) => setTimeout(() => resolve(true), 3500))
         ]);
       } finally {
         setRedeemEligibilityBusy(false);
@@ -44846,9 +44905,8 @@ let onboardingIndex = 0;
         const safeMessage = blockedReason === "VENUE_PAUSED"
           ? cfg.text("venue.paused.message", DEFAULT_CONFIG_TEXT["venue.paused.message"])
           : MEMBER_SHIFT_INACTIVE_MESSAGE;
+        console.warn("[redeem] preflight blocked; allowing server-authoritative check", { requestedVenue, blockedReason });
         creditInfo.textContent = safeMessage;
-        showToast(safeMessage, 3200);
-        return;
       }
       const voucherBalance = getVoucherBalanceForTier(getVoucherTier());
       if (!voucherBalance.unlimited && voucherBalance.remaining <= 0) {
