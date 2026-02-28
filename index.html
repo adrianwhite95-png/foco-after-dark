@@ -17055,18 +17055,14 @@
       if (nextMessage === "Notifications are off." && remembered && permission !== "denied") {
         nextMessage = "Notifications were enabled before. Tap to reconnect this device.";
       }
-      if (enableNotificationsStatus) {
-        enableNotificationsStatus.textContent = nextMessage;
-      }
-      if (notificationsPromptStatus) {
-        notificationsPromptStatus.textContent = nextMessage;
-      }
-      if (authNotificationsStatus) {
-        authNotificationsStatus.textContent = nextMessage;
-      }
-      if (ceoNotificationsStatus) {
-        ceoNotificationsStatus.textContent = nextMessage;
-      }
+      const enableStatusNode = document.getElementById("enableNotificationsStatus");
+      const promptStatusNode = document.getElementById("notificationsPromptStatus");
+      const authStatusNode = document.getElementById("authNotificationsStatus");
+      const ceoStatusNode = document.getElementById("ceoNotificationsStatus");
+      if (enableStatusNode) enableStatusNode.textContent = nextMessage;
+      if (promptStatusNode) promptStatusNode.textContent = nextMessage;
+      if (authStatusNode) authStatusNode.textContent = nextMessage;
+      if (ceoStatusNode) ceoStatusNode.textContent = nextMessage;
       refreshNotificationButtonsState();
     }
     function getNotificationStatusMessage() {
@@ -17078,10 +17074,14 @@
     }
     function syncNotificationStatusLines() {
       const message = getNotificationStatusMessage();
-      if (enableNotificationsStatus) enableNotificationsStatus.textContent = message;
-      if (notificationsPromptStatus) notificationsPromptStatus.textContent = message;
-      if (authNotificationsStatus) authNotificationsStatus.textContent = message;
-      if (ceoNotificationsStatus) ceoNotificationsStatus.textContent = message;
+      const enableStatusNode = document.getElementById("enableNotificationsStatus");
+      const promptStatusNode = document.getElementById("notificationsPromptStatus");
+      const authStatusNode = document.getElementById("authNotificationsStatus");
+      const ceoStatusNode = document.getElementById("ceoNotificationsStatus");
+      if (enableStatusNode) enableStatusNode.textContent = message;
+      if (promptStatusNode) promptStatusNode.textContent = message;
+      if (authStatusNode) authStatusNode.textContent = message;
+      if (ceoStatusNode) ceoStatusNode.textContent = message;
     }
     function refreshNotificationButtonsState() {
       const permission = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
