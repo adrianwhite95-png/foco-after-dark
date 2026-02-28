@@ -7391,7 +7391,7 @@ exports.sendWaitlistBlast = functions.https.onCall(async (data, context) => {
   try {
     await enforceCallableSecurity(context, {
       requireAuth: true,
-      rateLimit: { maxPerMin: 6, maxPerDay: 60, burstAllowance: 2 }
+      rateLimit: { maxPerMin: 30, maxPerDay: 5000, burstAllowance: 10 }
     });
     requireAdminClaim(context);
     const subject = String(data?.subject || "").trim().slice(0, 160);

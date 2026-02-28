@@ -40291,7 +40291,13 @@ let onboardingIndex = 0;
           }
         } catch (err) {
           console.warn("sendWaitlistBlast failed", err);
-          if (ceoWaitlistBlastStatus) ceoWaitlistBlastStatus.textContent = "Failed to queue waitlist email blast.";
+          const code = String(err?.code || "");
+          const msg = code.includes("permission-denied")
+            ? "Admin claim missing. Sign out/in and try again."
+            : code.includes("resource-exhausted")
+              ? "Rate limited. Wait a moment and try again."
+              : (err?.message || "Failed to queue waitlist email blast.");
+          if (ceoWaitlistBlastStatus) ceoWaitlistBlastStatus.textContent = msg;
           ceoWaitlistBlastBtn.disabled = false;
         }
       });
