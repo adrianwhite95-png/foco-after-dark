@@ -2782,10 +2782,19 @@
       right: max(14px, calc(env(safe-area-inset-right, 0px) + 10px));
       z-index: 14000;
       min-width: 94px;
+      transform: none !important;
     }
     /* Hide landing refresh when landing screen not active */
     #landingScreen:not(.active) .refresh-btn {
       display: none !important;
+    }
+    #passUserName,
+    #userUsername,
+    #profileActivityName {
+      -webkit-user-select: none;
+      user-select: none;
+      cursor: pointer;
+      touch-action: manipulation;
     }
     .progress-bar {
       width: 100%;
@@ -18026,6 +18035,7 @@
     let venuePerksCache = {};
     let authSubmitInFlight = false;
     let authTransition = false;
+    let authSubmitDefaultLabel = "";
     function isAuthBusy() {
       return authSubmitInFlight || authTransition || !!screens.auth?.classList.contains("active");
     }
@@ -20305,7 +20315,7 @@
     }
     function attachProfileLogoEasterEgg() {
       const targets = document.querySelectorAll(
-        "#menuScreen .experience-logo, #passScreen .experience-logo, #profileActivityScreen .experience-logo"
+        "#passUserName, #userUsername, #profileActivityName"
       );
       if (!targets.length) return;
       let taps = [];
@@ -20314,7 +20324,7 @@
         const now = Date.now();
         taps = taps.filter((ts) => (now - ts) <= windowMs);
         taps.push(now);
-        if (taps.length >= 3) {
+        if (taps.length >= 2) {
           taps = [];
           const unlocked = unlockAccentForCurrentMember("espresso_martini");
           if (unlocked) {
@@ -20829,13 +20839,20 @@
     function beginAuthSubmit() {
       authSubmitInFlight = true;
       authTransition = true;
-      if (authSubmitBtn) authSubmitBtn.disabled = true;
+      if (authSubmitBtn) {
+        if (!authSubmitDefaultLabel) authSubmitDefaultLabel = authSubmitBtn.textContent || "Log in";
+        authSubmitBtn.disabled = true;
+        authSubmitBtn.textContent = authMode === "login" ? "Logging in..." : "Creating account...";
+      }
       if (authError) authError.textContent = "";
     }
     function resetAuthSubmitState() {
       authSubmitInFlight = false;
       authTransition = false;
-      if (authSubmitBtn) authSubmitBtn.disabled = false;
+      if (authSubmitBtn) {
+        authSubmitBtn.disabled = false;
+        if (authSubmitDefaultLabel) authSubmitBtn.textContent = authSubmitDefaultLabel;
+      }
       if (authError) authError.textContent = "";
       console.info("LOGIN_FINALLY", {
         authSubmitInFlight,
@@ -45300,7 +45317,7 @@ let onboardingIndex = 0;
     }
     function triggerHapticFeedback() {
       const now = Date.now();
-      if (now - lastHapticAt < 120) return;
+      if (now - lastHapticAt < 320) return;
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       if (!hapticAudioCtx) {
@@ -45339,11 +45356,13 @@ let onboardingIndex = 0;
           });
         };
       };
-      if (hapticAudioCtx.state === "suspended") {
-        hapticAudioCtx.resume().then(doHaptic).catch(() => {});
-      } else {
-        doHaptic();
-      }
+      try {
+        if (hapticAudioCtx.state === "suspended") {
+          hapticAudioCtx.resume().then(doHaptic).catch(() => {});
+        } else {
+          doHaptic();
+        }
+      } catch (_) {}
     }
     function handleHapticEvent(e) {
       if (!shouldTriggerHaptic(e.target)) return;
