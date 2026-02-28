@@ -14304,6 +14304,135 @@
       padding: 8px 10px;
       font-size: 13px;
     }
+
+    /* ---------- CEO Control Center readability + spacing polish ---------- */
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] > p.small {
+      margin: 0 0 18px;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel-controls {
+      gap: 14px;
+      align-items: start;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel {
+      min-height: auto;
+      padding: 18px;
+      border-radius: 18px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel > h4 {
+      font-size: 26px;
+      letter-spacing: 0.09em;
+      margin: 0 0 8px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel > p.small {
+      font-size: 15px;
+      line-height: 1.45;
+      margin: 0 0 14px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row,
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row {
+      grid-template-columns: 1fr;
+      align-items: start;
+      gap: 12px;
+      padding: 15px 16px;
+      border-radius: 14px;
+      margin-bottom: 12px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row strong,
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row strong {
+      font-size: 18px;
+      line-height: 1.35;
+      letter-spacing: 0.06em;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row .small,
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row .small {
+      margin-top: 6px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-value {
+      min-height: 48px;
+      padding: 11px 13px;
+      font-size: 15px;
+      line-height: 1.35;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] textarea.ceo-control-value {
+      min-height: 98px;
+      resize: vertical;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row .btn,
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row .btn {
+      width: 100%;
+      min-height: 44px;
+      font-size: 15px;
+      letter-spacing: 0.04em;
+      padding-inline: 14px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-actions {
+      width: 100%;
+      justify-content: flex-start;
+      gap: 8px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-actions .btn {
+      width: auto;
+      min-width: 150px;
+      flex: 0 0 auto;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row .meta {
+      gap: 10px;
+      font-size: 13px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row .meta span {
+      padding: 4px 10px;
+    }
+
+    /* ---------- Cross-device spacing polish (web + iPad + iOS) ---------- */
+    #app .btn {
+      min-height: 42px;
+      padding: 10px 16px;
+      line-height: 1.2;
+    }
+    #app :is(input, select, textarea) {
+      line-height: 1.35;
+    }
+    @media (min-width: 820px) and (max-width: 1366px) {
+      #app .screen {
+        padding-inline: clamp(14px, 2.4vw, 26px);
+      }
+      #staffPortalScreen .staff-sticky-bar {
+        gap: 10px;
+        align-items: center;
+      }
+      #staffPortalScreen .sticky-actions {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+      #staffPortalScreen .sticky-actions .chip {
+        flex: 0 0 auto;
+      }
+      #staffPortalScreen .staff-board {
+        gap: 16px;
+      }
+      #staffPortalScreen .staff-form {
+        padding: 18px;
+      }
+      #staffPortalScreen .staff-perk-row {
+        gap: 8px;
+      }
+    }
+    @media (max-width: 768px) {
+      #app .btn {
+        min-height: 44px;
+      }
+      #app .screen {
+        padding-inline: 12px;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-actions .btn {
+        width: 100%;
+      }
+    }
   </style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/components.css?v=2026.02.21.2" />
