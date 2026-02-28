@@ -19300,8 +19300,12 @@
     }
 
     let glassBgRaf = 0;
+    function shouldUpdateLandingGlass() {
+      return currentScreenName === "landing";
+    }
     function updateGlassBGPositions() {
-      const boxes = document.querySelectorAll(".glassBox");
+      if (!shouldUpdateLandingGlass()) return;
+      const boxes = document.querySelectorAll("#landingScreen .glassBox");
       boxes.forEach((box) => {
         const r = box.getBoundingClientRect();
         box.style.setProperty("--bg-x", `${-Math.round(r.left)}px`);
@@ -19309,6 +19313,7 @@
       });
     }
     function requestGlassBGUpdate() {
+      if (!shouldUpdateLandingGlass()) return;
       if (glassBgRaf) return;
       glassBgRaf = requestAnimationFrame(() => {
         glassBgRaf = 0;
@@ -20299,9 +20304,10 @@
       });
     }
     function attachProfileLogoEasterEgg() {
-      const el = document.getElementById("profileEasterEggLogo");
-      if (!el || el.dataset.easterAttached === "1") return;
-      el.dataset.easterAttached = "1";
+      const targets = document.querySelectorAll(
+        "#menuScreen .experience-logo, #passScreen .experience-logo, #profileActivityScreen .experience-logo"
+      );
+      if (!targets.length) return;
       let taps = [];
       const windowMs = 1500;
       const onTap = () => {
@@ -20320,8 +20326,11 @@
           }
         }
       };
-      el.addEventListener("click", onTap, { passive: true });
-      el.addEventListener("touchend", onTap, { passive: true });
+      targets.forEach((el) => {
+        if (el.dataset.easterAttached === "1") return;
+        el.dataset.easterAttached = "1";
+        el.addEventListener("pointerup", onTap, { passive: true });
+      });
     }
     function shouldForceExplorerTier(profile = memberProfile) {
       if (!profile) return false;
