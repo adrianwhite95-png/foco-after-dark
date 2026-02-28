@@ -39761,6 +39761,9 @@ let onboardingIndex = 0;
             await attachStaffActionToEntry(result.entry, actor, "verify_redemption");
             applyVoucherConfirmSuccess(result.entry, code);
           }
+        } catch (err) {
+          console.warn("verifyCode failed", err);
+          verifyError.textContent = "Could not verify right now. Try again.";
         } finally {
           pill.dataset.busy = "";
           pill.textContent = originalPillText;
@@ -39769,6 +39772,7 @@ let onboardingIndex = 0;
     }
     if (staffPendingList) {
       staffPendingList.addEventListener("click", async (e) => {
+        let confirmActor = null;
         try {
           const btn = e.target.closest("[data-pending-confirm]");
           const row = e.target.closest("[data-pending-code]");
@@ -39820,6 +39824,7 @@ let onboardingIndex = 0;
               prompt: "Who are you? Select the staff member verifying this redemption."
             });
             if (!actor) return;
+            confirmActor = actor;
             const result = await verifyCode(code, venueId);
             if (!result.success) {
               const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
@@ -39852,6 +39857,9 @@ let onboardingIndex = 0;
           const venueId = staffSession?.venue || null;
           const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
           if (fallbackEntry) {
+            if (confirmActor) {
+              await attachStaffActionToEntry(fallbackEntry, confirmActor, "verify_redemption");
+            }
             applyVoucherConfirmSuccess(fallbackEntry, code);
             return;
           }
@@ -43604,10 +43612,10 @@ let onboardingIndex = 0;
       if (isShiftClosedForVenue(venueKey)) {
         return { success: false, message: "Shift is already closed. Start next shift to verify new redemptions." };
       }
-      const toIso = (ts) => {
-        if (!ts) return new Date().toISOString();
-        if (ts.toDate) return ts.toDate().toISOString();
-        return new Date(ts).toISOString();
+      const toIso = (ts, fallback = new Date().toISOString()) => {
+        if (!ts) return fallback;
+        const parsed = toDateSafe(ts);
+        return parsed ? parsed.toISOString() : fallback;
       };
       const mapEntry = (payload = {}) => {
         const resolvedPassId = (payload.passCode || payload.passId || "").toUpperCase();
@@ -44128,6 +44136,7 @@ let onboardingIndex = 0;
       e.preventDefault();
       const submitBtn = verifyForm.querySelector('button[type="submit"]');
       if (submitBtn?.dataset.busy === "1") return;
+      let confirmActor = null;
       try {
         if (submitBtn) {
           submitBtn.dataset.busy = "1";
@@ -44148,6 +44157,7 @@ let onboardingIndex = 0;
           prompt: "Who are you? Select the staff member verifying this redemption."
         });
         if (!actor) return;
+        confirmActor = actor;
         const result = await verifyCode(code, venueId);
         if (!result.success) {
           const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
@@ -44172,6 +44182,9 @@ let onboardingIndex = 0;
         const venueId = staffSession?.venue || null;
         const fallbackEntry = await awaitVerifiedRedemptionForVenue(code, venueId);
         if (fallbackEntry) {
+          if (confirmActor) {
+            await attachStaffActionToEntry(fallbackEntry, confirmActor, "verify_redemption");
+          }
           applyVoucherConfirmSuccess(fallbackEntry, code);
           verifyCodeInput.value = "";
           if (verifyCodeInput) verifyCodeInput.focus();
