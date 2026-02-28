@@ -17,6 +17,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const CEO_PASS_ID = "DREE4695";
 const CEO_EMAIL = "ceo@gmail.com";
+const WAITLIST_DRY_RUN_EMAIL = "focoafterdark@gmail.com";
 const CEO_UID = "ceo_master";
 const BETA_UID = "foco-beta-demo";
 const BETA_EMAIL = "beta@focoafterdark.com";
@@ -7462,7 +7463,7 @@ exports.processWaitlistBlastJob = functions.runWith(reportEmailSecrets).firestor
     const actorEmail = normalizeEmailInput(data.createdByEmail || "");
     let recipients = [];
     if (dryRun) {
-      recipients = [actorEmail || CEO_EMAIL].filter(Boolean);
+      recipients = [WAITLIST_DRY_RUN_EMAIL || actorEmail || CEO_EMAIL].filter(Boolean);
     } else {
       const waitSnap = await db.collection(WAITLIST_COLLECTION).where("status", "==", "active").get();
       recipients = waitSnap.docs
