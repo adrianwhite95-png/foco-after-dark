@@ -23509,6 +23509,7 @@
     let testimonialTicker = null;
     let landingTaglineTicker = null;
     let passBrandTaglineTicker = null;
+    let sharedQuotePool = [];
     let pitchIndex = 0;
     let alertsRotationIndex = 0;
     let memberHqFeedSeenMap = loadMemberHqFeedSeenMap();
@@ -23532,8 +23533,15 @@
     }
     achievementState = loadAchievementState();
     function updateRandomTestimonial() {
+      if (!testimonialQuote || !testimonialSource) return;
+      if (sharedQuotePool.length) {
+        const quote = sharedQuotePool[Math.floor(Math.random() * sharedQuotePool.length)];
+        testimonialQuote.textContent = `"${quote}"`;
+        testimonialSource.textContent = "– FoCo After Dark";
+        return;
+      }
       const pool = buildTestimonialPool();
-      if (!testimonialQuote || !testimonialSource || !pool.length) return;
+      if (!pool.length) return;
       const pick = pool[Math.floor(Math.random() * pool.length)];
       testimonialQuote.textContent = pick.quote;
       testimonialSource.textContent = pick.source;
@@ -23558,12 +23566,14 @@
     }
     function setLandingTagline() {
       if (!landingTagline) return;
-      const pick = LANDING_TAGLINES[Math.floor(Math.random() * LANDING_TAGLINES.length)];
+      const pool = sharedQuotePool.length ? sharedQuotePool : LANDING_TAGLINES;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
       landingTagline.textContent = pick;
     }
     function setPassBrandTagline() {
       if (!passBrandTagline) return;
-      const pick = PASS_BRAND_TAGLINES[Math.floor(Math.random() * PASS_BRAND_TAGLINES.length)];
+      const pool = sharedQuotePool.length ? sharedQuotePool : PASS_BRAND_TAGLINES;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
       passBrandTagline.textContent = pick;
     }
     function startLandingSlideshow() {
@@ -45720,8 +45730,12 @@ let onboardingIndex = 0;
   function initCheersQuotes() {
     const el = document.getElementById("cheersQuoteText");
     if (!el) return;
+    sharedQuotePool = Array.isArray(cheersQuotes) ? cheersQuotes.slice() : [];
     let idx = Math.floor(Math.random() * cheersQuotes.length);
     el.textContent = cheersQuotes[idx];
+    setLandingTagline();
+    setPassBrandTagline();
+    updateRandomTestimonial();
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return;
     }
@@ -45730,6 +45744,9 @@ let onboardingIndex = 0;
     cheersQuoteTimer = setInterval(() => {
       idx = (idx + 1) % cheersQuotes.length;
       el.textContent = cheersQuotes[idx];
+      setLandingTagline();
+      setPassBrandTagline();
+      updateRandomTestimonial();
     }, intervalMs);
   }
 
