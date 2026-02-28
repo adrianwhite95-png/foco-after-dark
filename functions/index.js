@@ -1137,7 +1137,25 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
       rateLimit: { maxPerMin: 240, maxPerDay: 12000 }
     });
     const passCode = String(data?.passCode || "").trim().toUpperCase();
-    const venueId = String(data?.venueId || "").trim().toLowerCase();
+    const venueIdInput = String(data?.venueId || "").trim().toLowerCase();
+    const venueIdCandidates = Array.from(
+      new Set([
+        venueIdInput,
+        venueIdInput.replace(/[\s-]+/g, "_"),
+        venueIdInput.replace(/[^a-z0-9_]+/g, ""),
+        venueIdInput.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")
+      ].filter(Boolean))
+    );
+    let venueId = venueIdCandidates[0] || "";
+    if (venueIdCandidates.length > 1) {
+      for (const candidate of venueIdCandidates) {
+        const candidateSnap = await db.collection("venues").doc(candidate).get();
+        if (candidateSnap.exists) {
+          venueId = candidate;
+          break;
+        }
+      }
+    }
     const perkId = String(data?.perkId || "").trim();
     const perkLabel = String(data?.perkLabel || "").trim();
     const perkKey = String(data?.perkKey || "venue_perk").trim();
