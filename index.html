@@ -14232,6 +14232,63 @@
         flex: 0 0 auto;
       }
     }
+    .ceo-control-row,
+    .ceo-venue-admin-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(2, 6, 23, 0.55);
+      margin-bottom: 8px;
+    }
+    .ceo-control-row strong,
+    .ceo-venue-admin-row strong {
+      color: #e2e8f0;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .ceo-control-row .small,
+    .ceo-venue-admin-row .small {
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+    .ceo-control-row .btn,
+    .ceo-venue-admin-row .btn {
+      min-width: 120px;
+    }
+    .ceo-venue-admin-row .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+      font-size: 11px;
+      color: #cbd5f5;
+    }
+    .ceo-venue-admin-row .meta span {
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.55);
+    }
+    .ceo-venue-admin-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+    .ceo-control-value {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.85);
+      color: #e2e8f0;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
   </style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/components.css?v=2026.02.21.2" />
@@ -14303,8 +14360,8 @@
             <div class="launch-hero-grid">
               <section class="launch-billboard glassBox photo-glass premiumGlass" aria-label="FoCo premium nightlife billboard">
                 <div class="billboard-pill-row">LIVE VENUE FEED • LOCAL-ONLY PERKS • MEMBER-ONLY ACCESS</div>
-                <h2 class="launch-hero-title neonHero">Unlock Tonight's VIP Perks &amp; Flash Deals.</h2>
-                <p class="launch-hero-copy">Live posts from Fort Collins venues — members see everything.</p>
+                <h2 class="launch-hero-title neonHero" id="landingHeroHeadline">Unlock Tonight's VIP Perks &amp; Flash Deals.</h2>
+                <p class="launch-hero-copy" id="landingHeroSubhead">Live posts from Fort Collins venues — members see everything.</p>
               </section>
               <section class="landing-live-feed landing-live-feed-premium glassBox photo-glass premiumGlass" aria-label="Live Right Now venue feed">
                 <header class="landing-live-feed-header">
@@ -15642,6 +15699,7 @@
         <button type="button" class="ceo-nav-item active" data-ceo-tab="overview">HQ Overview</button>
         <button type="button" class="ceo-nav-item" data-ceo-tab="members">Members</button>
         <button type="button" class="ceo-nav-item" data-ceo-tab="ops">Ops Controls</button>
+        <button type="button" class="ceo-nav-item" data-ceo-tab="control">Control Center</button>
         <button type="button" class="ceo-nav-item" data-ceo-tab="content">Content</button>
         <button type="button" class="ceo-nav-item" data-ceo-tab="redemptions">Redemptions</button>
         <button type="button" class="ceo-nav-item" data-ceo-tab="datareset">Data Reset</button>
@@ -15849,6 +15907,95 @@
               <button type="button" class="btn btn-secondary" id="ceoPreviewReturn">Return to CEO (beta)</button>
             </div>
           </div>
+        </section>
+
+        <section class="ceo-hq-panel" data-ceo-panel="control">
+          <div class="ceo-panel-header">
+            <h3>CEO Control Center</h3>
+            <p class="small">Global switches and venue soft-controls without redeploys.</p>
+          </div>
+          <div class="ceo-hq-grid">
+            <section class="ceo-panel">
+              <div class="ceo-panel-header">
+                <h4>Switchboard</h4>
+                <p>Flags grouped by app surface.</p>
+              </div>
+              <div class="field">
+                <label for="ceoControlFlagSearch">Search flags</label>
+                <input id="ceoControlFlagSearch" type="text" placeholder="home., billing., redeem., staff., venues., maintenance." />
+              </div>
+              <div id="ceoControlFlagsList" class="ceo-scroll"></div>
+            </section>
+
+            <section class="ceo-panel">
+              <div class="ceo-panel-header">
+                <h4>Copy editor</h4>
+                <p>Update controlled text keys live.</p>
+              </div>
+              <div id="ceoControlTextList" class="ceo-scroll"></div>
+            </section>
+
+            <section class="ceo-panel">
+              <div class="ceo-panel-header">
+                <h4>Numbers &amp; Lists</h4>
+                <p>Tune feed row count and ordering arrays.</p>
+              </div>
+              <div id="ceoControlNumbersList" class="ceo-scroll"></div>
+              <div id="ceoControlListsList" class="ceo-scroll" style="margin-top:8px;"></div>
+            </section>
+
+            <section class="ceo-panel">
+              <div class="ceo-panel-header">
+                <h4>Emergency controls</h4>
+                <p>Immediate kill-switches for core flows.</p>
+              </div>
+              <div class="ceo-reset-actions" id="ceoEmergencyActions" style="margin-top:0;">
+                <button type="button" class="btn btn-secondary" data-emergency-key="maintenance.enabled">Toggle maintenance</button>
+                <button type="button" class="btn btn-secondary" data-emergency-key="billing.enabled">Toggle billing</button>
+                <button type="button" class="btn btn-secondary" data-emergency-key="redeem.enabled">Toggle redeem</button>
+                <button type="button" class="btn btn-secondary" data-emergency-key="staff.enabled">Toggle staff</button>
+              </div>
+              <div class="field">
+                <label for="ceoEmergencyMessage">Maintenance message</label>
+                <textarea id="ceoEmergencyMessage" rows="3" placeholder="Shown when maintenance.enabled is true."></textarea>
+              </div>
+              <div class="ceo-panel-actions">
+                <button type="button" class="btn btn-secondary" id="ceoEmergencyMessageSave">Save message</button>
+              </div>
+            </section>
+          </div>
+
+          <section class="ceo-panel" style="margin-top:12px;">
+            <div class="ceo-panel-header">
+              <h4>Venues manager</h4>
+              <p>Hide, pause, archive, and prioritize venues without deleting data.</p>
+            </div>
+            <div class="ceo-panel-tools">
+              <input id="ceoVenueAdminSearch" type="text" placeholder="Search venue…" />
+              <button type="button" class="btn btn-secondary" id="ceoVenueAdminRefresh">Refresh venues</button>
+            </div>
+            <div id="ceoVenueAdminList" class="ceo-scroll"></div>
+            <div class="ceo-subpanel" style="margin-top:10px;">
+              <div class="ceo-subpanel-header">
+                <strong>Add venue</strong>
+              </div>
+              <div class="field">
+                <label for="ceoNewVenueName">Venue name</label>
+                <input id="ceoNewVenueName" type="text" />
+              </div>
+              <div class="field">
+                <label for="ceoNewVenueAddress">Address</label>
+                <input id="ceoNewVenueAddress" type="text" />
+              </div>
+              <div class="field">
+                <label for="ceoNewVenueHours">Hours (optional)</label>
+                <input id="ceoNewVenueHours" type="text" placeholder="Daily 11:00 AM-2:00 AM" />
+              </div>
+              <div class="ceo-panel-actions">
+                <button type="button" class="btn btn-secondary" id="ceoCreateVenueBtn">Add venue</button>
+              </div>
+            </div>
+          </section>
         </section>
 
         <section class="ceo-hq-panel" data-ceo-panel="content">
@@ -17694,12 +17841,69 @@
     } catch (_) {}
     let ceoHealthUnsub = null;
     let settingsUnsub = null;
+    let appConfigUnsub = null;
+    let venueAdminUnsub = null;
     let settingsPollTimer = null;
     let ceoMembersUnsub = null;
     let ceoMembersCache = [];
     let ceoAuthUidAllowlist = null;
     let memberAuthBootstrapAllowUntil = 0;
     let memberAuthBootstrapUid = "";
+    const APP_CONFIG_CACHE_KEY = "appConfig_public_cache_v1";
+    const APP_CONFIG_SECTION_KEYS = ["flags", "text", "numbers", "lists", "style"];
+    const DEFAULT_CONFIG_FLAGS = Object.freeze({
+      "home.hero.enabled": true,
+      "home.dealFeed.enabled": true,
+      "home.livePills.enabled": true,
+      "home.socialProof.enabled": true,
+      "home.addToHomeScreen.enabled": true,
+      "home.memberLogin.enabled": true,
+      "home.staffLogin.enabled": true,
+      "billing.enabled": true,
+      "redeem.enabled": true,
+      "staff.enabled": true,
+      "maintenance.enabled": false,
+      "blurDealsForNonMembers": true,
+    });
+    const DEFAULT_CONFIG_NUMBERS = Object.freeze({
+      "home.feed.maxRows": 4,
+    });
+    const DEFAULT_CONFIG_TEXT = Object.freeze({
+      "maintenance.message": "🍺 The keg is tapped and bar-backs are on it. Quick tune-up in progress.",
+    });
+    const HOME_FEED_DEFAULT_ORDER = ["rec_room", "bondi_beach", "bar_district", "lucky_joes"];
+    const DEFAULT_VENUE_CONTROL = Object.freeze({
+      status: "active",
+      showInHomeFeed: true,
+      priority: 50,
+      reason: "",
+      adminNote: "",
+    });
+    const venueAdminStateMap = new Map();
+    const cfg = {
+      ready: false,
+      version: 0,
+      data: { flags: {}, text: {}, numbers: {}, lists: {}, style: {}, updatedAt: null, updatedBy: "" },
+      on(key, defaultVal = true) {
+        const raw = this.data?.flags?.[key];
+        return typeof raw === "boolean" ? raw : !!defaultVal;
+      },
+      text(key, defaultVal = "") {
+        const raw = this.data?.text?.[key];
+        return typeof raw === "string" ? raw : String(defaultVal ?? "");
+      },
+      num(key, defaultVal = 0) {
+        const raw = Number(this.data?.numbers?.[key]);
+        if (Number.isFinite(raw)) return raw;
+        const fallback = Number(defaultVal);
+        return Number.isFinite(fallback) ? fallback : 0;
+      },
+      list(key, defaultVal = []) {
+        const raw = this.data?.lists?.[key];
+        if (Array.isArray(raw)) return raw;
+        return Array.isArray(defaultVal) ? defaultVal : [];
+      }
+    };
 
     function shouldRequireMemberReauthOnResume(user = firebaseAuth?.currentUser) {
       if (!user || user.isAnonymous) return false;
@@ -17786,6 +17990,298 @@
       await signOutToLanding();
       return true;
     }
+
+    function normalizeVenueSoftStatus(value = "") {
+      const normalized = String(value || "").trim().toLowerCase();
+      if (normalized === "hidden" || normalized === "paused" || normalized === "archived") return normalized;
+      return "active";
+    }
+
+    function getVenueAdminState(venueId = "") {
+      const key = String(venueId || "").trim().toLowerCase();
+      const raw = key ? (venueAdminStateMap.get(key) || {}) : {};
+      const status = normalizeVenueSoftStatus(raw?.status || DEFAULT_VENUE_CONTROL.status);
+      const priorityValue = Number(raw?.priority);
+      return {
+        status,
+        showInHomeFeed: raw?.showInHomeFeed !== false,
+        priority: Number.isFinite(priorityValue) ? priorityValue : DEFAULT_VENUE_CONTROL.priority,
+        reason: String(raw?.reason || ""),
+        adminNote: String(raw?.adminNote || ""),
+      };
+    }
+
+    function isVenueActiveForMembers(venueId = "") {
+      return getVenueAdminState(venueId).status === "active";
+    }
+
+    function isVenueVisibleInHomeFeed(venueId = "") {
+      const state = getVenueAdminState(venueId);
+      return state.status === "active" && state.showInHomeFeed !== false;
+    }
+
+    function sanitizeConfigSectionObject(raw, fallback = {}) {
+      const next = {};
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ...fallback };
+      Object.keys(raw).forEach((key) => {
+        if (!key) return;
+        next[key] = raw[key];
+      });
+      return { ...fallback, ...next };
+    }
+
+    function readCachedAppConfig() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(APP_CONFIG_CACHE_KEY) || "null");
+        if (!parsed || typeof parsed !== "object") return null;
+        return parsed;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function cacheAppConfig(payload) {
+      try {
+        localStorage.setItem(APP_CONFIG_CACHE_KEY, JSON.stringify(payload || {}));
+      } catch (_) {}
+    }
+
+    function applyConfigPayload(payload = {}, options = {}) {
+      const next = payload && typeof payload === "object" ? payload : {};
+      cfg.data = {
+        flags: sanitizeConfigSectionObject(next.flags, DEFAULT_CONFIG_FLAGS),
+        text: sanitizeConfigSectionObject(next.text, DEFAULT_CONFIG_TEXT),
+        numbers: sanitizeConfigSectionObject(next.numbers, DEFAULT_CONFIG_NUMBERS),
+        lists: sanitizeConfigSectionObject(next.lists, {}),
+        style: sanitizeConfigSectionObject(next.style, {}),
+        updatedAt: next.updatedAt || null,
+        updatedBy: String(next.updatedBy || ""),
+      };
+      cfg.ready = options.ready === true;
+      cfg.version += 1;
+      cacheAppConfig(cfg.data);
+      applyRuntimeConfig();
+    }
+
+    function getConfiguredHomeFeedVenueIds() {
+      const allVenueIds = Object.keys(venuesInfo || {});
+      const orderRaw = cfg.list("home.feed.venueOrder", []);
+      const order = [];
+      if (Array.isArray(orderRaw)) {
+        orderRaw.forEach((value) => {
+          const resolved = resolveVenueId(String(value || ""));
+          if (!resolved || order.includes(resolved) || !allVenueIds.includes(resolved)) return;
+          order.push(resolved);
+        });
+      }
+      if (!order.length) {
+        HOME_FEED_DEFAULT_ORDER.forEach((venueId) => {
+          if (allVenueIds.includes(venueId) && !order.includes(venueId)) order.push(venueId);
+        });
+      }
+      allVenueIds.forEach((venueId) => {
+        if (!order.includes(venueId)) order.push(venueId);
+      });
+      const visible = order.filter((venueId) => isVenueVisibleInHomeFeed(venueId));
+      return visible;
+    }
+
+    function applyLandingFeedVenueConfig() {
+      const feed = document.querySelector(".landing-live-feed");
+      if (!feed) return;
+      const rows = Array.from(feed.querySelectorAll(".landing-live-row"));
+      if (!rows.length) return;
+      const maxRows = Math.max(1, Math.min(rows.length, Math.round(cfg.num("home.feed.maxRows", rows.length) || rows.length)));
+      const orderedVenueIds = getConfiguredHomeFeedVenueIds();
+      rows.forEach((row, index) => {
+        if (index >= maxRows) {
+          row.style.display = "none";
+          return;
+        }
+        const venueId = orderedVenueIds[index] || "";
+        if (!venueId) {
+          row.style.display = "none";
+          return;
+        }
+        row.style.display = "";
+        row.dataset.venueId = venueId;
+        const nameNode = row.querySelector(".landing-live-venue");
+        if (nameNode && venueId) {
+          nameNode.textContent = getVenueDisplayName(venueId);
+        }
+      });
+    }
+
+    function applyLandingSectionVisibility() {
+      const landingScreen = screens?.landing || document.getElementById("landingScreen");
+      if (!landingScreen) return;
+      const hero = landingScreen.querySelector(".launch-billboard");
+      const feed = landingScreen.querySelector(".landing-live-feed");
+      const social = landingScreen.querySelector(".launch-social-proof");
+      const heroHeadline = landingScreen.querySelector("#landingHeroHeadline");
+      const heroSubhead = landingScreen.querySelector("#landingHeroSubhead");
+      const addToHomeWrap = landingScreen.querySelector(".launch-secondary-actions");
+      if (hero) hero.style.display = cfg.on("home.hero.enabled", true) ? "" : "none";
+      if (feed) feed.style.display = cfg.on("home.dealFeed.enabled", true) ? "" : "none";
+      if (social) social.style.display = cfg.on("home.socialProof.enabled", true) ? "" : "none";
+      if (addToHomeWrap) addToHomeWrap.style.display = cfg.on("home.addToHomeScreen.enabled", true) ? "" : "none";
+      if (landingLoginLink) {
+        landingLoginLink.style.display = cfg.on("home.memberLogin.enabled", true) ? "" : "none";
+      }
+      if (landingStaffLogin) {
+        const showStaffLogin = cfg.on("home.staffLogin.enabled", true) && cfg.on("staff.enabled", true);
+        landingStaffLogin.style.display = showStaffLogin ? "" : "none";
+      }
+      if (landingGetPassBtn) {
+        const billingOn = cfg.on("billing.enabled", true);
+        landingGetPassBtn.disabled = !billingOn;
+        landingGetPassBtn.title = billingOn ? "Get the Nightlife Pass" : "Billing temporarily unavailable";
+      }
+      if (heroHeadline) {
+        const headline = cfg.text("home.hero.headline", "Unlock Tonight's VIP Perks & Flash Deals.");
+        heroHeadline.textContent = headline || "Unlock Tonight's VIP Perks & Flash Deals.";
+      }
+      if (heroSubhead) {
+        const subhead = cfg.text("home.hero.subhead", "Live posts from Fort Collins venues — members see everything.");
+        heroSubhead.textContent = subhead || "Live posts from Fort Collins venues — members see everything.";
+      }
+      document.body.classList.toggle("landing-unblurred-deals", !cfg.on("blurDealsForNonMembers", true));
+      applyLandingFeedVenueConfig();
+      applyLandingLivePillsByTime();
+      requestGlassBGUpdate();
+    }
+
+    function applyRedeemAvailabilityUi() {
+      const redeemEnabled = isRedeemEnabledForUi();
+      if (redeemTrigger) {
+        redeemTrigger.disabled = !redeemEnabled;
+        redeemTrigger.setAttribute("aria-disabled", redeemEnabled ? "false" : "true");
+        redeemTrigger.title = redeemEnabled ? "Redeem a perk" : "Redemptions are temporarily unavailable";
+      }
+      if (tonightRedeemBtn) {
+        tonightRedeemBtn.classList.toggle("disabled", !redeemEnabled);
+        tonightRedeemBtn.setAttribute("aria-disabled", redeemEnabled ? "false" : "true");
+      }
+      if (!redeemEnabled && redeemModal?.classList.contains("active")) {
+        closeRedeemModal();
+      }
+    }
+
+    function applyStaffAvailabilityUi() {
+      const staffEnabled = isStaffUiEnabled();
+      if (landingStaffLogin) {
+        landingStaffLogin.disabled = !staffEnabled;
+        landingStaffLogin.setAttribute("aria-disabled", staffEnabled ? "false" : "true");
+        landingStaffLogin.title = staffEnabled ? "Venue staff portal log in" : "Staff portal temporarily unavailable";
+      }
+      if (!staffEnabled && (currentScreenName === "staffLogin" || currentScreenName === "staffPortal")) {
+        showToast("Staff tools are temporarily unavailable.", 2200);
+        showScreen("landing");
+      }
+    }
+
+    function applyRuntimeConfig() {
+      try {
+        applyLandingSectionVisibility();
+        applyRedeemAvailabilityUi();
+        applyStaffAvailabilityUi();
+        if (currentScreenName === "ceoPortal" && document.querySelector('[data-ceo-panel="control"]')?.classList.contains("active")) {
+          renderCeoControlCenter();
+        }
+      } catch (_) {}
+      const maintenanceEnabled = cfg.on("maintenance.enabled", false);
+      const maintenanceMessage = cfg.text("maintenance.message", DEFAULT_CONFIG_TEXT["maintenance.message"]);
+      if (maintenanceEnabled) {
+        if (!maintenanceModeActive) {
+          renderMaintenanceScreen({ maintenanceMessage: maintenanceMessage || DEFAULT_CONFIG_TEXT["maintenance.message"] });
+        } else if (maintenanceMessage && maintenanceMessage !== maintenanceSettingsCache?.maintenanceMessage) {
+          renderMaintenanceScreen({ ...(maintenanceSettingsCache || {}), maintenanceMessage: maintenanceMessage });
+        }
+      } else if (maintenanceModeActive && !maintenanceSettingsCache?.maintenanceMode) {
+        clearMaintenanceScreen();
+      }
+    }
+
+    function startAppConfigListener() {
+      if (!db || appConfigUnsub) return;
+      const cached = readCachedAppConfig();
+      if (cached) {
+        applyConfigPayload(cached, { ready: false });
+      } else {
+        applyConfigPayload({}, { ready: false });
+      }
+      const ref = doc(db, "appConfig", "public");
+      appConfigUnsub = subscribeSnapshot("publicConfig", ref, { includeMetadataChanges: true }, (snap) => {
+        if (!snap.exists()) {
+          applyConfigPayload({}, { ready: true });
+          return;
+        }
+        applyConfigPayload(snap.data() || {}, { ready: true });
+      }, () => {
+        if (!cfg.ready) {
+          applyConfigPayload(cached || {}, { ready: false });
+        }
+      });
+    }
+
+    function startVenueAdminListener() {
+      if (!db || venueAdminUnsub) return;
+      const ref = query(collection(db, "venues"), limit(300));
+      venueAdminUnsub = subscribeSnapshot("venueAdminState", ref, null, (snap) => {
+        const next = new Map();
+        snap.docs.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          next.set(docSnap.id, {
+            status: normalizeVenueSoftStatus(data.status || DEFAULT_VENUE_CONTROL.status),
+            showInHomeFeed: data.showInHomeFeed !== false,
+            priority: Number.isFinite(Number(data.priority)) ? Number(data.priority) : DEFAULT_VENUE_CONTROL.priority,
+            reason: String(data.reason || ""),
+            adminNote: String(data.adminNote || "")
+          });
+        });
+        venueAdminStateMap.clear();
+        next.forEach((value, key) => venueAdminStateMap.set(String(key || "").toLowerCase(), value));
+        refreshFeaturedVenuesData();
+        populateRedeemVenueOptions();
+        initCeoVenueFilter();
+        applyLandingFeedVenueConfig();
+        renderVenueButtons();
+        if (venueDetailModal?.classList.contains("active")) {
+          const activeVenueId = String(venueDetailModal.dataset.venueId || "");
+          if (activeVenueId && !isVenueActiveForMembers(activeVenueId)) {
+            closeVenueDetail();
+          }
+        }
+      });
+    }
+
+    function isBillingEnabledForUi() {
+      return cfg.on("billing.enabled", true);
+    }
+
+    function isRedeemEnabledForUi() {
+      return cfg.on("redeem.enabled", true);
+    }
+
+    function isStaffUiEnabled() {
+      return cfg.on("staff.enabled", true);
+    }
+
+    function openBillingScreenForTier(tier, options = {}) {
+      const requestedTier = normalizeMembershipTierSelection(tier || getRequestedTier(memberProfile));
+      const fallbackScreen = String(options.fallbackScreen || "").trim();
+      if (!isBillingEnabledForUi()) {
+        showToast("Billing is temporarily unavailable. Please check back shortly.", 2400);
+        if (fallbackScreen) showScreen(fallbackScreen);
+        return false;
+      }
+      updatePaymentSummary(requestedTier);
+      resetPaymentForm();
+      showScreen("payment");
+      showToast("Loading secure billing…", 1200);
+      prepareStripePayment(requestedTier);
+      return true;
+    }
     let ceoMembersHydrating = false;
     let ceoAuthSummarySyncTimer = null;
     let ceoAnalyticsLatestSnapshot = null;
@@ -17804,6 +18300,32 @@
     let ceoAnalyticsLargeRangeNotice = "";
     let ceoMembersFilterKey = "all";
     let ceoMembersSearchTerm = "";
+    let ceoControlVenueSearchTerm = "";
+    const CEO_CONTROL_FLAG_KEYS = [
+      "home.hero.enabled",
+      "home.dealFeed.enabled",
+      "home.livePills.enabled",
+      "home.socialProof.enabled",
+      "home.addToHomeScreen.enabled",
+      "home.memberLogin.enabled",
+      "home.staffLogin.enabled",
+      "billing.enabled",
+      "redeem.enabled",
+      "staff.enabled",
+      "maintenance.enabled",
+      "blurDealsForNonMembers",
+    ];
+    const CEO_CONTROL_TEXT_KEYS = [
+      "maintenance.message",
+      "home.hero.headline",
+      "home.hero.subhead",
+    ];
+    const CEO_CONTROL_NUMBER_KEYS = [
+      "home.feed.maxRows",
+    ];
+    const CEO_CONTROL_LIST_KEYS = [
+      "home.feed.venueOrder",
+    ];
     let rewardsProgress = { count: 0, threshold: 5, available: false, rewardType: null, cycleKey: null, claimed: 0 };
     let memberDocRef = null;
     let currentPassCode = null;
@@ -18000,6 +18522,17 @@
       rows.forEach((row) => {
         row.querySelectorAll(".landing-live-pill.dynamic-live-pill").forEach((pill) => pill.remove());
       });
+      if (!cfg.on("home.livePills.enabled", true)) {
+        rows.forEach((row) => {
+          const postedNode = row.querySelector(".landing-live-posted");
+          if (!postedNode) return;
+          postedNode.textContent = "";
+          postedNode.style.display = "none";
+          const meta = postedNode.closest(".landing-live-meta");
+          if (meta) meta.style.display = "none";
+        });
+        return;
+      }
       const minutes = (now.getHours() * 60) + now.getMinutes();
       const inLiveWindow = minutes >= 660 || minutes <= 120; // 11:00 AM -> 2:00 AM
       const rowPostedNodes = rows.map((row) => row.querySelector(".landing-live-posted"));
@@ -18086,6 +18619,9 @@
         && requiresAgeVerificationClient(memberProfile, firebaseAuth?.currentUser)
       ) {
         name = "ageVerify";
+      }
+      if ((name === "staffLogin" || name === "staffPortal") && !isStaffUiEnabled()) {
+        name = "landing";
       }
       if ((name === "pass" || name === "tonight" || name === "map" || name === "profileActivity" || name === "menu") && requiresMembershipSelection()) {
         name = "membership";
@@ -18302,6 +18838,10 @@
     const landingStaffLogin = document.getElementById("landingStaffLogin");
     if (landingGetPassBtn) {
       landingGetPassBtn.addEventListener("click", () => {
+        if (!isBillingEnabledForUi()) {
+          showToast("Billing is temporarily unavailable. Please check back shortly.", 2400);
+          return;
+        }
         authMode = "signup";
         updateAuthModeText();
         showScreen("auth");
@@ -18740,11 +19280,7 @@
         showScreen("tonight");
         return;
       }
-      updatePaymentSummary(requestedTier);
-      resetPaymentForm();
-      showScreen("payment");
-      showToast("Loading secure billing…", 1200);
-      prepareStripePayment(requestedTier);
+      openBillingScreenForTier(requestedTier, { fallbackScreen: "membership" });
     }
     function renderAgeVerificationState(statusOverride = "") {
       if (!ageVerifyStatus || !ageVerifyPlan) return;
@@ -20507,11 +21043,7 @@
           localStorage.removeItem(`membership_${user.uid}`);
         }
         clearPassLoading();
-        updatePaymentSummary(requestedTier);
-        resetPaymentForm();
-        showScreen("payment");
-        showToast("Loading secure billing…", 1200);
-        prepareStripePayment(requestedTier);
+        openBillingScreenForTier(requestedTier, { fallbackScreen: "membership" });
         return;
       }
 
@@ -21354,6 +21886,21 @@
     const ceoMaintenanceCard = document.getElementById("ceoMaintenanceCard");
     const ceoMaintenanceStatus = document.getElementById("ceoMaintenanceStatus");
     const ceoMaintenanceToggle = document.getElementById("ceoMaintenanceToggle");
+    const ceoControlFlagSearch = document.getElementById("ceoControlFlagSearch");
+    const ceoControlFlagsList = document.getElementById("ceoControlFlagsList");
+    const ceoControlTextList = document.getElementById("ceoControlTextList");
+    const ceoControlNumbersList = document.getElementById("ceoControlNumbersList");
+    const ceoControlListsList = document.getElementById("ceoControlListsList");
+    const ceoEmergencyActions = document.getElementById("ceoEmergencyActions");
+    const ceoEmergencyMessage = document.getElementById("ceoEmergencyMessage");
+    const ceoEmergencyMessageSave = document.getElementById("ceoEmergencyMessageSave");
+    const ceoVenueAdminSearch = document.getElementById("ceoVenueAdminSearch");
+    const ceoVenueAdminRefresh = document.getElementById("ceoVenueAdminRefresh");
+    const ceoVenueAdminList = document.getElementById("ceoVenueAdminList");
+    const ceoNewVenueName = document.getElementById("ceoNewVenueName");
+    const ceoNewVenueAddress = document.getElementById("ceoNewVenueAddress");
+    const ceoNewVenueHours = document.getElementById("ceoNewVenueHours");
+    const ceoCreateVenueBtn = document.getElementById("ceoCreateVenueBtn");
     const ceoSystemHealthCard = document.getElementById("ceoSystemHealthCard");
     const ceoSystemHealth = document.getElementById("ceoSystemHealth");
     const confirmModal = document.getElementById("confirmModal");
@@ -22178,6 +22725,9 @@
       return { startMin, endMin };
     }
     function isVenueOpenNow(venueId, at = new Date()) {
+      if (!isVenueActiveForMembers(venueId)) {
+        return false;
+      }
       const realtime = venueOpenNowMap.get(String(venueId || "").toLowerCase());
       if (realtime && typeof realtime.openNow === "boolean") {
         return realtime.openNow;
@@ -22220,6 +22770,12 @@
         });
         return !!ok;
       };
+      if (!isRedeemEnabledForUi()) {
+        return commit(false, "REDEEM_DISABLED");
+      }
+      if (!isVenueActiveForMembers(key)) {
+        return commit(false, "VENUE_STATUS_BLOCKED");
+      }
       try {
         const realtime = venueOpenNowMap.get(key);
         if (realtime && realtime.openNow === false) {
@@ -22268,8 +22824,26 @@
       if (Array.isArray(cached)) return cached;
       return [];
     }
+    function getSortedVenueIds(options = {}) {
+      const includeInactive = options.includeInactive === true;
+      const homeFeedOnly = options.homeFeedOnly === true;
+      const ids = Object.keys(venuesInfo || {}).filter((venueId) => {
+        if (includeInactive) return true;
+        if (homeFeedOnly) return isVenueVisibleInHomeFeed(venueId);
+        return isVenueActiveForMembers(venueId);
+      });
+      ids.sort((a, b) => {
+        const aState = getVenueAdminState(a);
+        const bState = getVenueAdminState(b);
+        if (aState.priority !== bState.priority) return aState.priority - bState.priority;
+        const aName = String(venuesInfo?.[a]?.name || a);
+        const bName = String(venuesInfo?.[b]?.name || b);
+        return aName.localeCompare(bName);
+      });
+      return ids;
+    }
     function buildFeaturedVenuesFromPerks() {
-      const venueIds = Object.keys(venuesInfo || {});
+      const venueIds = getSortedVenueIds({ includeInactive: false });
       const list = [];
       venueIds.forEach(venueId => {
         const perks = getActiveVenuePerks(venueId);
@@ -27489,11 +28063,7 @@ let onboardingIndex = 0;
           }
           showToast("Add a card to continue.");
           pendingMembershipTier = tier;
-          updatePaymentSummary(tier);
-          resetPaymentForm();
-          showScreen("payment");
-          showToast("Loading secure billing…", 1200);
-          prepareStripePayment(tier);
+          openBillingScreenForTier(tier, { fallbackScreen: "membership" });
           return false;
         }
         showToast("Membership update failed.");
@@ -27840,8 +28410,8 @@ let onboardingIndex = 0;
 
     function populateRedeemVenueOptions() {
       if (!redeemVenueSelect) return;
-      const venues = Object.entries(venuesInfo || {})
-        .map(([id, info]) => ({ id, name: info?.name || id }))
+      const venues = getSortedVenueIds({ includeInactive: false })
+        .map((id) => ({ id, name: venuesInfo?.[id]?.name || id }))
         .filter(item => item.id && item.name)
         .sort((a, b) => a.name.localeCompare(b.name));
       const options = ['<option value="" selected disabled>Select venue</option>'];
@@ -28124,6 +28694,13 @@ let onboardingIndex = 0;
     function startRedeemVenuePerksListener(venueId) {
       stopRedeemPerksListener();
       if (!venueId) {
+        renderRedemptionOptions();
+        return;
+      }
+      if (!isVenueActiveForMembers(venueId)) {
+        if (creditInfo) {
+          creditInfo.textContent = "This venue is temporarily unavailable.";
+        }
         renderRedemptionOptions();
         return;
       }
@@ -36663,6 +37240,9 @@ let onboardingIndex = 0;
     function renderVenueButtons() {
       venueButtons.forEach(btn => {
         const vid = btn.dataset.venue;
+        const active = isVenueActiveForMembers(vid);
+        btn.style.display = active ? "" : "none";
+        if (!active) return;
         const avg = getVenueAverage(vid);
         let label = btn.textContent.split("★")[0].trim();
         btn.innerHTML = `<span>${label}</span>` + (avg ? `<span class="venue-rating-pill">★ ${avg.toFixed(1)}</span>` : "");
@@ -36970,6 +37550,10 @@ let onboardingIndex = 0;
     async function processStaffLogin() {
       staffLoginError.textContent = "";
       console.info("[staff] start");
+      if (!isStaffUiEnabled()) {
+        staffLoginError.textContent = "Staff portal is temporarily unavailable.";
+        return;
+      }
       // silent: keep staff login feedback inline only
       if (!staffGateVerified) {
         staffGateResumeLogin = true;
@@ -37215,6 +37799,10 @@ let onboardingIndex = 0;
 
     if (landingStaffLogin) {
       landingStaffLogin.addEventListener("click", () => {
+        if (!isStaffUiEnabled()) {
+          showToast("Staff portal is temporarily unavailable.", 2200);
+          return;
+        }
         if (staffSession) {
           const result = applyStaffSession(staffSession.venue);
           if (!result.success) {
@@ -37937,8 +38525,259 @@ let onboardingIndex = 0;
     ceoCardModal.addEventListener("click", (e) => {
       if (e.target === ceoCardModal) ceoCardModal.classList.remove("active");
     });
+    function canAccessCeoControlCenter() {
+      return !!(isCeoAccount && authClaimsReady && hasAdminClaim());
+    }
+
+    function getCeoControlTabButton() {
+      return Array.from(ceoNavItems || []).find((btn) => btn.dataset.ceoTab === "control") || null;
+    }
+
+    function getCeoControlPanel() {
+      return document.querySelector('[data-ceo-panel="control"]');
+    }
+
+    function applyCeoControlAccessUi() {
+      const controlBtn = getCeoControlTabButton();
+      const controlPanel = getCeoControlPanel();
+      const canUse = canAccessCeoControlCenter();
+      if (controlBtn) {
+        controlBtn.style.display = canUse ? "" : "none";
+      }
+      if (controlPanel) {
+        controlPanel.style.display = canUse ? "" : "none";
+      }
+      if (!canUse && controlPanel?.classList.contains("active")) {
+        showCeoPanel("overview");
+      }
+    }
+
+    function setLocalConfigValue(section, key, value) {
+      if (!cfg.data || typeof cfg.data !== "object") {
+        cfg.data = { flags: {}, text: {}, numbers: {}, lists: {}, style: {} };
+      }
+      if (!cfg.data[section] || typeof cfg.data[section] !== "object" || Array.isArray(cfg.data[section])) {
+        cfg.data[section] = {};
+      }
+      cfg.data[section][key] = value;
+      cfg.version += 1;
+      cacheAppConfig(cfg.data);
+      applyRuntimeConfig();
+    }
+
+    async function updateConfigViaAdmin(section, key, value) {
+      if (!functionsClient || !canAccessCeoControlCenter()) {
+        showToast("CEO admin claim required for Control Center actions.", 2600);
+        return false;
+      }
+      await invokeCallableWithRetry("adminUpdateConfig", { section, key, value }, {
+        lockKey: `adminUpdateConfig:${section}:${key}`,
+        retries: 2,
+        baseDelayMs: 220
+      });
+      setLocalConfigValue(section, key, value);
+      return true;
+    }
+
+    function applyLocalVenueAdminPatch(venueId, patch = {}) {
+      const key = String(venueId || "").toLowerCase();
+      if (!key) return;
+      const current = getVenueAdminState(key);
+      const nextPriority = Number(patch.priority);
+      const merged = {
+        status: normalizeVenueSoftStatus(patch.status || current.status),
+        showInHomeFeed: patch.showInHomeFeed === undefined ? current.showInHomeFeed : patch.showInHomeFeed !== false,
+        priority: Number.isFinite(nextPriority) ? Math.max(0, Math.min(999, Math.round(nextPriority))) : current.priority,
+        reason: patch.reason === undefined ? current.reason : String(patch.reason || ""),
+        adminNote: patch.adminNote === undefined ? current.adminNote : String(patch.adminNote || ""),
+      };
+      venueAdminStateMap.set(key, merged);
+      refreshFeaturedVenuesData();
+      populateRedeemVenueOptions();
+      applyLandingFeedVenueConfig();
+      renderVenueButtons();
+      renderCeoControlCenter();
+    }
+
+    async function updateVenueViaAdmin(venueId, patch = {}) {
+      if (!functionsClient || !canAccessCeoControlCenter()) {
+        showToast("CEO admin claim required for venue changes.", 2600);
+        return false;
+      }
+      const venueKey = resolveVenueId(venueId);
+      await invokeCallableWithRetry("adminUpdateVenue", { venueId: venueKey, patch }, {
+        lockKey: `adminUpdateVenue:${venueKey}:${Object.keys(patch).join(",")}`,
+        retries: 2,
+        baseDelayMs: 220
+      });
+      applyLocalVenueAdminPatch(venueKey, patch);
+      return true;
+    }
+
+    function getAllKnownVenueIds() {
+      const ids = new Set([
+        ...Object.keys(venuesInfo || {}),
+        ...Array.from(venueAdminStateMap.keys() || [])
+      ]);
+      return Array.from(ids).filter(Boolean).map((id) => resolveVenueId(id));
+    }
+
+    function renderCeoControlFlags() {
+      if (!ceoControlFlagsList) return;
+      const search = String(ceoControlFlagSearch?.value || "").trim().toLowerCase();
+      const keys = CEO_CONTROL_FLAG_KEYS.filter((key) => !search || key.toLowerCase().includes(search));
+      if (!keys.length) {
+        ceoControlFlagsList.innerHTML = '<p class="small">No flags match this search.</p>';
+        return;
+      }
+      const groups = new Map();
+      keys.forEach((key) => {
+        const prefix = key.includes(".") ? key.split(".")[0] : "misc";
+        if (!groups.has(prefix)) groups.set(prefix, []);
+        groups.get(prefix).push(key);
+      });
+      let html = "";
+      Array.from(groups.keys()).sort().forEach((prefix) => {
+        html += `<p class="small" style="text-transform:uppercase;letter-spacing:.12em;margin:10px 2px 8px;">${escapeHtmlText(prefix)}</p>`;
+        groups.get(prefix).forEach((key) => {
+          const enabled = cfg.on(key, DEFAULT_CONFIG_FLAGS[key] !== false);
+          html += `
+            <div class="ceo-control-row" data-control-key="${escapeHtmlText(key)}">
+              <div>
+                <strong>${escapeHtmlText(key)}</strong>
+                <div class="small">${enabled ? "Enabled" : "Disabled"}</div>
+              </div>
+              <button type="button" class="btn btn-secondary" data-control-flag-toggle="${escapeHtmlText(key)}">${enabled ? "Disable" : "Enable"}</button>
+            </div>
+          `;
+        });
+      });
+      ceoControlFlagsList.innerHTML = html;
+    }
+
+    function renderCeoControlText() {
+      if (!ceoControlTextList) return;
+      ceoControlTextList.innerHTML = CEO_CONTROL_TEXT_KEYS.map((key) => `
+        <div class="ceo-control-row" data-control-text-key="${escapeHtmlText(key)}">
+          <div style="width:100%;">
+            <strong>${escapeHtmlText(key)}</strong>
+            <textarea class="ceo-control-value" rows="2" data-control-text-input="${escapeHtmlText(key)}">${escapeHtmlText(cfg.text(key, DEFAULT_CONFIG_TEXT[key] || ""))}</textarea>
+          </div>
+          <button type="button" class="btn btn-secondary" data-control-text-save="${escapeHtmlText(key)}">Save</button>
+        </div>
+      `).join("");
+      if (ceoEmergencyMessage) {
+        ceoEmergencyMessage.value = cfg.text("maintenance.message", DEFAULT_CONFIG_TEXT["maintenance.message"]);
+      }
+    }
+
+    function renderCeoControlNumbers() {
+      if (!ceoControlNumbersList) return;
+      ceoControlNumbersList.innerHTML = CEO_CONTROL_NUMBER_KEYS.map((key) => `
+        <div class="ceo-control-row" data-control-number-key="${escapeHtmlText(key)}">
+          <div style="width:100%;">
+            <strong>${escapeHtmlText(key)}</strong>
+            <input class="ceo-control-value" type="number" data-control-number-input="${escapeHtmlText(key)}" value="${escapeHtmlText(String(cfg.num(key, DEFAULT_CONFIG_NUMBERS[key] || 0)))}" />
+          </div>
+          <button type="button" class="btn btn-secondary" data-control-number-save="${escapeHtmlText(key)}">Save</button>
+        </div>
+      `).join("");
+    }
+
+    function renderCeoControlLists() {
+      if (!ceoControlListsList) return;
+      ceoControlListsList.innerHTML = CEO_CONTROL_LIST_KEYS.map((key) => {
+        const listValue = cfg.list(key, key === "home.feed.venueOrder" ? HOME_FEED_DEFAULT_ORDER : []);
+        const jsonValue = JSON.stringify(listValue, null, 2);
+        return `
+          <div class="ceo-control-row" data-control-list-key="${escapeHtmlText(key)}">
+            <div style="width:100%;">
+              <strong>${escapeHtmlText(key)}</strong>
+              <textarea class="ceo-control-value" rows="4" data-control-list-input="${escapeHtmlText(key)}">${escapeHtmlText(jsonValue)}</textarea>
+            </div>
+            <button type="button" class="btn btn-secondary" data-control-list-save="${escapeHtmlText(key)}">Save</button>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderCeoVenueAdminList() {
+      if (!ceoVenueAdminList) return;
+      const search = String(ceoVenueAdminSearch?.value || ceoControlVenueSearchTerm || "").trim().toLowerCase();
+      const venueIds = getAllKnownVenueIds()
+        .filter((id) => {
+          const info = venuesInfo[id] || {};
+          const haystack = `${id} ${info.name || ""} ${info.address || ""}`.toLowerCase();
+          return !search || haystack.includes(search);
+        })
+        .sort((a, b) => {
+          const aState = getVenueAdminState(a);
+          const bState = getVenueAdminState(b);
+          if (aState.priority !== bState.priority) return aState.priority - bState.priority;
+          return getVenueDisplayName(a).localeCompare(getVenueDisplayName(b));
+        });
+      if (!venueIds.length) {
+        ceoVenueAdminList.innerHTML = '<p class="small">No venues found.</p>';
+        return;
+      }
+      ceoVenueAdminList.innerHTML = venueIds.map((venueId) => {
+        const info = venuesInfo[venueId] || {};
+        const state = getVenueAdminState(venueId);
+        const actions = [];
+        if (state.status === "active") {
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="hide">Hide</button>');
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="pause">Pause</button>');
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="archive">Archive</button>');
+        } else if (state.status === "hidden") {
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="unhide">Unhide</button>');
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="pause">Pause</button>');
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="archive">Archive</button>');
+        } else if (state.status === "paused") {
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="unpause">Unpause</button>');
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="hide">Hide</button>');
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="archive">Archive</button>');
+        } else {
+          actions.push('<button type="button" class="btn btn-secondary" data-venue-action="restore">Restore</button>');
+        }
+        actions.push(`<button type="button" class="btn btn-secondary" data-venue-action="toggle-feed">${state.showInHomeFeed ? "Hide from Home" : "Show in Home"}</button>`);
+        actions.push('<button type="button" class="btn btn-secondary" data-venue-action="set-reason">Reason</button>');
+        actions.push('<button type="button" class="btn btn-secondary" data-venue-action="set-note">Admin note</button>');
+        return `
+          <div class="ceo-venue-admin-row" data-venue-id="${escapeHtmlText(venueId)}">
+            <div>
+              <strong>${escapeHtmlText(info.name || getVenueDisplayName(venueId))}</strong>
+              <div class="small">${escapeHtmlText(venueId)} · ${escapeHtmlText(info.address || "Address pending")}</div>
+              <div class="meta">
+                <span>Status: ${escapeHtmlText(state.status)}</span>
+                <span>Home feed: ${state.showInHomeFeed ? "Yes" : "No"}</span>
+                <span>Priority: ${escapeHtmlText(String(state.priority))}</span>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center;">
+                <input class="ceo-control-value" style="max-width:110px;" type="number" min="0" max="999" step="1" data-venue-priority value="${escapeHtmlText(String(state.priority))}" />
+                <button type="button" class="btn btn-secondary" data-venue-action="save-priority">Save priority</button>
+              </div>
+            </div>
+            <div class="ceo-venue-admin-actions">${actions.join("")}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderCeoControlCenter() {
+      applyCeoControlAccessUi();
+      if (!canAccessCeoControlCenter()) return;
+      renderCeoControlFlags();
+      renderCeoControlText();
+      renderCeoControlNumbers();
+      renderCeoControlLists();
+      renderCeoVenueAdminList();
+    }
+
     function showCeoPanel(tab) {
       if (!ceoPanels || !ceoPanels.length) return;
+      if (tab === "control" && !canAccessCeoControlCenter()) {
+        tab = "overview";
+      }
       ceoPanels.forEach(panel => {
         panel.classList.toggle("active", panel.dataset.ceoPanel === tab);
       });
@@ -37950,6 +38789,8 @@ let onboardingIndex = 0;
         refreshCeoFreeCodeList();
       } else if (tab === "assistant") {
         syncCeoAssistantContext(false);
+      } else if (tab === "control") {
+        renderCeoControlCenter();
       }
     }
     if (ceoNavItems && ceoNavItems.length) {
@@ -37987,6 +38828,247 @@ let onboardingIndex = 0;
         const deltaX = touch.clientX - navTouchStartX;
         ceoNavRail.scrollLeft = navScrollStart - deltaX;
       }, { passive: true });
+    }
+    if (ceoControlFlagSearch) {
+      ceoControlFlagSearch.addEventListener("input", () => {
+        renderCeoControlFlags();
+      });
+    }
+    if (ceoControlFlagsList) {
+      ceoControlFlagsList.addEventListener("click", async (event) => {
+        const btn = event.target.closest("[data-control-flag-toggle]");
+        if (!btn) return;
+        const key = String(btn.dataset.controlFlagToggle || "").trim();
+        if (!key) return;
+        btn.disabled = true;
+        try {
+          const next = !cfg.on(key, DEFAULT_CONFIG_FLAGS[key] !== false);
+          const ok = await updateConfigViaAdmin("flags", key, next);
+          if (ok) {
+            showToast(`${key} ${next ? "enabled" : "disabled"}.`, 1800);
+            renderCeoControlFlags();
+          }
+        } catch (err) {
+          showToast(mapMemberFacingError(err, "generic"), 2400);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+    if (ceoControlTextList) {
+      ceoControlTextList.addEventListener("click", async (event) => {
+        const btn = event.target.closest("[data-control-text-save]");
+        if (!btn) return;
+        const key = String(btn.dataset.controlTextSave || "").trim();
+        const input = ceoControlTextList.querySelector(`[data-control-text-input="${key}"]`);
+        if (!input) return;
+        btn.disabled = true;
+        try {
+          const ok = await updateConfigViaAdmin("text", key, String(input.value || ""));
+          if (ok) showToast("Copy updated.", 1800);
+        } catch (err) {
+          showToast(mapMemberFacingError(err, "generic"), 2400);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+    if (ceoControlNumbersList) {
+      ceoControlNumbersList.addEventListener("click", async (event) => {
+        const btn = event.target.closest("[data-control-number-save]");
+        if (!btn) return;
+        const key = String(btn.dataset.controlNumberSave || "").trim();
+        const input = ceoControlNumbersList.querySelector(`[data-control-number-input="${key}"]`);
+        if (!input) return;
+        const nextValue = Number(input.value);
+        if (!Number.isFinite(nextValue)) {
+          showToast("Enter a valid number first.", 2200);
+          return;
+        }
+        btn.disabled = true;
+        try {
+          const ok = await updateConfigViaAdmin("numbers", key, nextValue);
+          if (ok) showToast("Number updated.", 1800);
+        } catch (err) {
+          showToast(mapMemberFacingError(err, "generic"), 2400);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+    if (ceoControlListsList) {
+      ceoControlListsList.addEventListener("click", async (event) => {
+        const btn = event.target.closest("[data-control-list-save]");
+        if (!btn) return;
+        const key = String(btn.dataset.controlListSave || "").trim();
+        const input = ceoControlListsList.querySelector(`[data-control-list-input="${key}"]`);
+        if (!input) return;
+        let parsed = [];
+        try {
+          parsed = JSON.parse(String(input.value || "[]"));
+          if (!Array.isArray(parsed)) throw new Error("list must be array");
+        } catch (_) {
+          showToast("List must be valid JSON array.", 2200);
+          return;
+        }
+        btn.disabled = true;
+        try {
+          const ok = await updateConfigViaAdmin("lists", key, parsed);
+          if (ok) showToast("List updated.", 1800);
+        } catch (err) {
+          showToast(mapMemberFacingError(err, "generic"), 2400);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+    if (ceoEmergencyActions) {
+      ceoEmergencyActions.addEventListener("click", async (event) => {
+        const btn = event.target.closest("[data-emergency-key]");
+        if (!btn) return;
+        const key = String(btn.dataset.emergencyKey || "").trim();
+        if (!key) return;
+        btn.disabled = true;
+        try {
+          const next = !cfg.on(key, DEFAULT_CONFIG_FLAGS[key] !== false);
+          const ok = await updateConfigViaAdmin("flags", key, next);
+          if (ok) {
+            showToast(`${key} ${next ? "enabled" : "disabled"}.`, 2000);
+            renderCeoControlCenter();
+          }
+        } catch (err) {
+          showToast(mapMemberFacingError(err, "generic"), 2400);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+    if (ceoEmergencyMessageSave) {
+      ceoEmergencyMessageSave.addEventListener("click", async () => {
+        const message = String(ceoEmergencyMessage?.value || "").trim()
+          || DEFAULT_CONFIG_TEXT["maintenance.message"];
+        ceoEmergencyMessageSave.disabled = true;
+        try {
+          const ok = await updateConfigViaAdmin("text", "maintenance.message", message);
+          if (ok) showToast("Maintenance message updated.", 1800);
+        } catch (err) {
+          showToast(mapMemberFacingError(err, "generic"), 2400);
+        } finally {
+          ceoEmergencyMessageSave.disabled = false;
+        }
+      });
+    }
+    if (ceoVenueAdminSearch) {
+      ceoVenueAdminSearch.addEventListener("input", () => {
+        ceoControlVenueSearchTerm = ceoVenueAdminSearch.value || "";
+        renderCeoVenueAdminList();
+      });
+    }
+    if (ceoVenueAdminRefresh) {
+      ceoVenueAdminRefresh.addEventListener("click", () => {
+        renderCeoControlCenter();
+      });
+    }
+    if (ceoVenueAdminList) {
+      ceoVenueAdminList.addEventListener("click", async (event) => {
+        const row = event.target.closest("[data-venue-id]");
+        const actionBtn = event.target.closest("[data-venue-action]");
+        if (!row || !actionBtn) return;
+        const venueId = String(row.dataset.venueId || "").trim();
+        if (!venueId) return;
+        const action = String(actionBtn.dataset.venueAction || "").trim();
+        const state = getVenueAdminState(venueId);
+        actionBtn.disabled = true;
+        try {
+          if (action === "hide") await updateVenueViaAdmin(venueId, { status: "hidden" });
+          else if (action === "unhide") await updateVenueViaAdmin(venueId, { status: "active" });
+          else if (action === "pause") await updateVenueViaAdmin(venueId, { status: "paused" });
+          else if (action === "unpause") await updateVenueViaAdmin(venueId, { status: "active" });
+          else if (action === "archive") await updateVenueViaAdmin(venueId, { status: "archived" });
+          else if (action === "restore") {
+            await invokeCallableWithRetry("adminRestoreVenue", { venueId }, {
+              lockKey: `adminRestoreVenue:${venueId}`,
+              retries: 2,
+              baseDelayMs: 220
+            });
+            applyLocalVenueAdminPatch(venueId, { status: "active", showInHomeFeed: true });
+          } else if (action === "toggle-feed") {
+            await updateVenueViaAdmin(venueId, { showInHomeFeed: !state.showInHomeFeed });
+          } else if (action === "save-priority") {
+            const input = row.querySelector("[data-venue-priority]");
+            const priority = Number(input?.value || state.priority);
+            if (!Number.isFinite(priority)) {
+              showToast("Priority must be numeric.", 2200);
+            } else {
+              await updateVenueViaAdmin(venueId, { priority });
+            }
+          } else if (action === "set-reason") {
+            const nextReason = window.prompt("Reason (optional):", state.reason || "");
+            if (nextReason !== null) {
+              await updateVenueViaAdmin(venueId, { reason: String(nextReason || "") });
+            }
+          } else if (action === "set-note") {
+            const nextNote = window.prompt("Admin note (optional):", state.adminNote || "");
+            if (nextNote !== null) {
+              await updateVenueViaAdmin(venueId, { adminNote: String(nextNote || "") });
+            }
+          }
+        } catch (err) {
+          showToast(mapMemberFacingError(err, "generic"), 2400);
+        } finally {
+          actionBtn.disabled = false;
+          renderCeoVenueAdminList();
+        }
+      });
+    }
+    if (ceoCreateVenueBtn) {
+      ceoCreateVenueBtn.addEventListener("click", async () => {
+        if (!functionsClient || !canAccessCeoControlCenter()) {
+          showToast("CEO admin claim required for venue creation.", 2600);
+          return;
+        }
+        const name = String(ceoNewVenueName?.value || "").trim();
+        const address = String(ceoNewVenueAddress?.value || "").trim();
+        const hours = String(ceoNewVenueHours?.value || "").trim();
+        if (!name || !address) {
+          showToast("Venue name and address are required.", 2200);
+          return;
+        }
+        ceoCreateVenueBtn.disabled = true;
+        try {
+          const resp = await invokeCallableWithRetry("adminCreateVenue", {
+            venue: { name, address, hours }
+          }, {
+            lockKey: `adminCreateVenue:${name.toLowerCase()}`,
+            retries: 2,
+            baseDelayMs: 240
+          });
+          const createdVenueId = String(resp?.data?.venueId || "").trim();
+          if (createdVenueId) {
+            venuesInfo[createdVenueId] = venuesInfo[createdVenueId] || {
+              name,
+              address,
+              hours: hours || "Hours pending",
+              hoursByDay: cloneVenueHours()
+            };
+            applyLocalVenueAdminPatch(createdVenueId, {
+              status: "active",
+              showInHomeFeed: true,
+              priority: 50
+            });
+          }
+          if (ceoNewVenueName) ceoNewVenueName.value = "";
+          if (ceoNewVenueAddress) ceoNewVenueAddress.value = "";
+          if (ceoNewVenueHours) ceoNewVenueHours.value = "";
+          showToast("Venue created.", 2000);
+          initCeoVenueFilter();
+          renderCeoControlCenter();
+        } catch (err) {
+          showToast(mapMemberFacingError(err, "generic"), 2400);
+        } finally {
+          ceoCreateVenueBtn.disabled = false;
+        }
+      });
     }
     ceoPortalBack.addEventListener("click", () => {
       showScreen("pass");
@@ -39010,6 +40092,12 @@ let onboardingIndex = 0;
     async function bootWithMaintenanceCheck() {
       if (maintenanceBootChecked) return;
       maintenanceBootChecked = true;
+      if (db) {
+        startAppConfigListener();
+        startVenueAdminListener();
+      } else {
+        applyConfigPayload({}, { ready: false });
+      }
       const data = await fetchAppSettingsOnce();
       isLaunched = !!data?.launched;
       appLocked = !!data?.appLocked;
@@ -40498,6 +41586,10 @@ let onboardingIndex = 0;
 
     function showVenueDetail(venueId) {
       if (!venueId || !venueDetailModal) return;
+      if (!isVenueActiveForMembers(venueId)) {
+        showToast("This venue is temporarily unavailable.", 2200);
+        return;
+      }
       const info = venuesInfo[venueId];
       if (!info) return;
       venueDetailName.textContent = info.name;
@@ -42009,6 +43101,7 @@ let onboardingIndex = 0;
       const ceoActive = isCeoActive();
       const ceoPreviewActive = !!ceoPreviewTier;
       const canCeoRealtime = authClaimsReady && hasCeoClaim() && !SAFE_MODE;
+      applyCeoControlAccessUi();
       if (ceoPassBanner) {
         ceoPassBanner.classList.toggle("active", ceoActive);
       }
@@ -42068,6 +43161,9 @@ let onboardingIndex = 0;
       } else {
         stopHealthWatch();
       }
+      if (ceoActive && canAccessCeoControlCenter()) {
+        renderCeoControlCenter();
+      }
       if (ceoActive && canCeoRealtime) {
         attachCeoRedemptionsRealtime();
         attachCloseOutReportsRealtime();
@@ -42092,6 +43188,10 @@ let onboardingIndex = 0;
     }
 
     function openRedeemModal() {
+      if (!isRedeemEnabledForUi()) {
+        showToast("Redemptions are temporarily unavailable. Please try again shortly.", 2400);
+        return;
+      }
       markMemberFeedSeen();
       if (redeemModal && redeemModal.parentElement !== document.body) {
         document.body.appendChild(redeemModal);
@@ -42119,6 +43219,10 @@ let onboardingIndex = 0;
     }
 
     redeemTrigger.addEventListener("click", () => {
+      if (!isRedeemEnabledForUi()) {
+        showToast("Redemptions are temporarily unavailable. Please try again shortly.", 2400);
+        return;
+      }
       updateExpiryDisplay();
       if (isExplorerMember()) {
         if (typeof showToast === "function") {
@@ -42512,6 +43616,10 @@ let onboardingIndex = 0;
     }
 
     function openMembershipChooser(sourceScreen = currentScreenName) {
+      if (!isBillingEnabledForUi()) {
+        showToast("Billing is temporarily unavailable. Please check back shortly.", 2400);
+        return;
+      }
       if (sourceScreen && sourceScreen !== "ageVerify" && sourceScreen !== "membership") {
         ageVerifyReturnScreen = sourceScreen;
         membershipReturnScreen = sourceScreen;
@@ -42527,6 +43635,10 @@ let onboardingIndex = 0;
     // Membership selection buttons
     membershipPlanButtons.forEach(btn => {
       btn.addEventListener("click", () => {
+        if (!isBillingEnabledForUi()) {
+          showToast("Billing is temporarily unavailable. Please check back shortly.", 2400);
+          return;
+        }
         const tier = btn.dataset.tier;
         const user = firebaseAuth.currentUser;
         if (!user && !betaPassMode) {
@@ -42555,11 +43667,7 @@ let onboardingIndex = 0;
           return;
         }
         pendingMembershipTier = tier;
-        updatePaymentSummary(tier);
-        resetPaymentForm();
-        showScreen("payment");
-        showToast("Loading secure billing…", 1200);
-        prepareStripePayment(tier);
+        openBillingScreenForTier(tier, { fallbackScreen: "membership" });
       });
     });
     if (statusPill) {

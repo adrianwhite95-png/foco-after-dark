@@ -96,6 +96,15 @@ const STAFF_VENUE_ALIASES = {
   "mayor of old town": "mayor_old_town",
   "the mayor of old town": "mayor_old_town"
 };
+const APP_PUBLIC_CONFIG_DOC_PATH = "appConfig/public";
+const APP_PUBLIC_CONFIG_SECTIONS = new Set(["flags", "text", "numbers", "lists", "style"]);
+const VENUE_STATUS_VALUES = new Set(["active", "hidden", "paused", "archived"]);
+const VENUE_SOFT_CONTROL_DEFAULTS = Object.freeze({
+  status: "active",
+  showInHomeFeed: true,
+  priority: 50
+});
+const ADMIN_VENUE_MUTABLE_KEYS = new Set(["status", "showInHomeFeed", "priority", "adminNote", "reason"]);
 Object.entries(STAFF_VENUES).forEach(([id, info]) => {
   if (info && info.login) {
     STAFF_VENUE_ALIASES[info.login] = id;
@@ -1151,6 +1160,8 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
       || callerUid.startsWith("staff_")
       || callerEmail.startsWith("staff+");
     const perkRef = db.collection("venues").doc(venueId).collection("perks").doc(perkId);
+    const venueRef = db.collection("venues").doc(venueId);
+    const publicConfigRef = db.doc(APP_PUBLIC_CONFIG_DOC_PATH);
     const shiftStateRef = db.collection("venues").doc(venueId).collection("shiftState").doc("current");
     const memberDisplayName = (member) =>
       (member?.displayName || member?.name || member?.fullName || member?.username || "FoCo member");
@@ -1159,6 +1170,47 @@ exports.createRedemption = functions.https.onCall(async (data, context) => {
       const redemptionId = generateCode(6).toUpperCase();
       try {
         const result = await db.runTransaction(async (tx) => {
+          const configSnap = await tx.get(publicConfigRef);
+          const configData = configSnap.exists ? (configSnap.data() || {}) : {};
+          const redeemEnabled = configFlagEnabled(configData, "redeem.enabled", true);
+          const memberRedeemDisabledMessage = "Redemptions are temporarily unavailable. Please try again shortly.";
+          const staffRedeemDisabledMessage = "Redemptions are disabled by HQ control.";
+          if (!redeemEnabled) {
+            console.info("[createRedemption] blocked", { reason: "REDEEM_DISABLED", venueId });
+            throw new HttpsError(
+              "failed-precondition",
+              callerIsStaffLike ? staffRedeemDisabledMessage : memberRedeemDisabledMessage,
+              {
+                success: false,
+                reason: "REDEEM_DISABLED",
+                venueId,
+                memberMessage: memberRedeemDisabledMessage,
+                staffMessage: staffRedeemDisabledMessage,
+              }
+            );
+          }
+
+          const venueSnap = await tx.get(venueRef);
+          const venueData = venueSnap.exists ? (venueSnap.data() || {}) : {};
+          const venueStatus = normalizeVenueStatusValue(venueData.status || VENUE_SOFT_CONTROL_DEFAULTS.status);
+          const memberVenueUnavailableMessage = "This venue is temporarily unavailable for redemptions.";
+          const staffVenueUnavailableMessage = `Venue is ${venueStatus}. Redemptions are blocked until status returns to active.`;
+          if (venueStatus !== "active") {
+            console.info("[createRedemption] blocked", { reason: "VENUE_UNAVAILABLE", venueId, venueStatus });
+            throw new HttpsError(
+              "failed-precondition",
+              callerIsStaffLike ? staffVenueUnavailableMessage : memberVenueUnavailableMessage,
+              {
+                success: false,
+                reason: "VENUE_UNAVAILABLE",
+                venueId,
+                venueStatus,
+                memberMessage: memberVenueUnavailableMessage,
+                staffMessage: staffVenueUnavailableMessage,
+              }
+            );
+          }
+
           let activeShiftKey = "";
           const shiftStateSnap = await tx.get(shiftStateRef);
           if (shiftStateSnap.exists) {
@@ -3871,6 +3923,77 @@ function isCeoContext(context) {
     context.auth.uid === CEO_UID ||
     email === CEO_EMAIL
   );
+}
+
+function requireAdminClaim(context) {
+  if (!context?.auth) {
+    throw new HttpsError("unauthenticated", "Auth required");
+  }
+  if (context.auth.token?.admin !== true) {
+    throw new HttpsError("permission-denied", "Admin claim required");
+  }
+}
+
+function safeJsonClone(value) {
+  if (value === undefined) return undefined;
+  return JSON.parse(JSON.stringify(value));
+}
+
+function sanitizeConfigSectionValue(section = "", value) {
+  const normalized = String(section || "").toLowerCase();
+  if (!APP_PUBLIC_CONFIG_SECTIONS.has(normalized)) {
+    throw new HttpsError("invalid-argument", "Invalid config section");
+  }
+  if (normalized === "flags") {
+    if (typeof value !== "boolean") {
+      throw new HttpsError("invalid-argument", "flags values must be boolean");
+    }
+    return value;
+  }
+  if (normalized === "text") {
+    if (typeof value !== "string") {
+      throw new HttpsError("invalid-argument", "text values must be string");
+    }
+    return value.slice(0, 4000);
+  }
+  if (normalized === "numbers") {
+    const next = Number(value);
+    if (!Number.isFinite(next)) {
+      throw new HttpsError("invalid-argument", "numbers values must be numeric");
+    }
+    return next;
+  }
+  if (normalized === "lists") {
+    if (!Array.isArray(value)) {
+      throw new HttpsError("invalid-argument", "lists values must be arrays");
+    }
+    return safeJsonClone(value).slice(0, 500);
+  }
+  if (normalized === "style") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new HttpsError("invalid-argument", "style values must be objects");
+    }
+    return safeJsonClone(value);
+  }
+  throw new HttpsError("invalid-argument", "Unsupported config section");
+}
+
+function normalizeVenueStatusValue(value) {
+  const status = String(value || "active").trim().toLowerCase();
+  return VENUE_STATUS_VALUES.has(status) ? status : "active";
+}
+
+function getAdminActorRef(context) {
+  return {
+    uid: String(context?.auth?.uid || ""),
+    email: String(context?.auth?.token?.email || "").toLowerCase()
+  };
+}
+
+function configFlagEnabled(configData, key, defaultVal = true) {
+  const flags = configData && typeof configData.flags === "object" ? configData.flags : {};
+  const raw = flags?.[key];
+  return typeof raw === "boolean" ? raw : defaultVal;
 }
 
 function isCeoMemberDoc(data = {}, uid = "") {
@@ -6783,6 +6906,183 @@ exports.setMaintenanceMode = functions.https.onCall(async (data, context) => {
   } catch (err) {
     console.warn("setMaintenanceMode failed", err);
     throw err instanceof HttpsError ? err : new HttpsError('internal', err?.message || 'Failed to update maintenance mode');
+  }
+});
+
+exports.adminUpdateConfig = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      rateLimit: { maxPerMin: 80, maxPerDay: 2500, burstAllowance: 20 },
+    });
+    requireAdminClaim(context);
+    const section = String(data?.section || "").trim().toLowerCase();
+    const key = String(data?.key || "").trim();
+    if (!section || !APP_PUBLIC_CONFIG_SECTIONS.has(section)) {
+      throw new HttpsError("invalid-argument", "Invalid config section");
+    }
+    if (!key || key.length > 120 || !/^[a-zA-Z0-9._-]+$/.test(key)) {
+      throw new HttpsError("invalid-argument", "Invalid config key");
+    }
+    const value = sanitizeConfigSectionValue(section, data?.value);
+    const actor = getAdminActorRef(context);
+    const patch = {
+      [`${section}.${key}`]: value,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: actor.uid,
+      version: admin.firestore.FieldValue.increment(1),
+    };
+    if (actor.email) patch.updatedByEmail = actor.email;
+    await db.doc(APP_PUBLIC_CONFIG_DOC_PATH).set(patch, { merge: true });
+    return { ok: true, section, key, value };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("adminUpdateConfig failed", err);
+    throw new HttpsError("internal", err?.message || "Could not update app config");
+  }
+});
+
+exports.adminUpdateVenue = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      rateLimit: { maxPerMin: 80, maxPerDay: 2500, burstAllowance: 20 },
+    });
+    requireAdminClaim(context);
+    const venueId = resolveStaffVenueId(String(data?.venueId || "").trim().toLowerCase());
+    if (!venueId) throw new HttpsError("invalid-argument", "venueId required");
+    const patch = data?.patch;
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+      throw new HttpsError("invalid-argument", "patch object required");
+    }
+    const updates = {};
+    Object.keys(patch).forEach((key) => {
+      if (!ADMIN_VENUE_MUTABLE_KEYS.has(key)) {
+        throw new HttpsError("invalid-argument", `Field '${key}' is not allowed`);
+      }
+      if (key === "status") {
+        updates.status = normalizeVenueStatusValue(patch.status);
+        return;
+      }
+      if (key === "showInHomeFeed") {
+        updates.showInHomeFeed = patch.showInHomeFeed !== false;
+        return;
+      }
+      if (key === "priority") {
+        const nextPriority = Number(patch.priority);
+        if (!Number.isFinite(nextPriority)) {
+          throw new HttpsError("invalid-argument", "priority must be numeric");
+        }
+        updates.priority = Math.max(0, Math.min(999, Math.round(nextPriority)));
+        return;
+      }
+      if (key === "adminNote") {
+        updates.adminNote = String(patch.adminNote || "").trim().slice(0, 400);
+        return;
+      }
+      if (key === "reason") {
+        updates.reason = String(patch.reason || "").trim().slice(0, 180);
+      }
+    });
+    const actor = getAdminActorRef(context);
+    updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+    updates.updatedBy = actor.uid;
+    if (actor.email) updates.updatedByEmail = actor.email;
+    await db.collection("venues").doc(venueId).set(updates, { merge: true });
+    return { ok: true, venueId, updates };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("adminUpdateVenue failed", err);
+    throw new HttpsError("internal", err?.message || "Could not update venue");
+  }
+});
+
+exports.adminCreateVenue = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      rateLimit: { maxPerMin: 30, maxPerDay: 400, burstAllowance: 8 },
+    });
+    requireAdminClaim(context);
+    const venue = data?.venue;
+    if (!venue || typeof venue !== "object" || Array.isArray(venue)) {
+      throw new HttpsError("invalid-argument", "venue object required");
+    }
+    const name = String(venue.name || "").trim().slice(0, 120);
+    const address = String(venue.address || "").trim().slice(0, 220);
+    const hours = String(venue.hours || "").trim().slice(0, 180);
+    if (!name || !address) {
+      throw new HttpsError("invalid-argument", "venue.name and venue.address are required");
+    }
+    const sourceId = String(venue.id || venue.venueId || "").trim().toLowerCase();
+    const generatedId = sourceId
+      || name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    const venueId = resolveStaffVenueId(generatedId).replace(/[^a-z0-9_]/g, "").slice(0, 60);
+    if (!venueId) throw new HttpsError("invalid-argument", "Could not derive venueId");
+    const ref = db.collection("venues").doc(venueId);
+    const existing = await ref.get();
+    if (existing.exists) throw new HttpsError("already-exists", "Venue already exists");
+    const actor = getAdminActorRef(context);
+    const payload = {
+      venueId,
+      name,
+      address,
+      hours: hours || null,
+      status: VENUE_SOFT_CONTROL_DEFAULTS.status,
+      showInHomeFeed: VENUE_SOFT_CONTROL_DEFAULTS.showInHomeFeed,
+      priority: VENUE_SOFT_CONTROL_DEFAULTS.priority,
+      adminNote: String(venue.adminNote || "").trim().slice(0, 400) || null,
+      reason: String(venue.reason || "").trim().slice(0, 180) || null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdBy: actor.uid,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: actor.uid,
+    };
+    if (actor.email) {
+      payload.createdByEmail = actor.email;
+      payload.updatedByEmail = actor.email;
+    }
+    await ref.set(payload, { merge: false });
+    return { ok: true, venueId, venue: payload };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("adminCreateVenue failed", err);
+    throw new HttpsError("internal", err?.message || "Could not create venue");
+  }
+});
+
+exports.adminRestoreVenue = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      rateLimit: { maxPerMin: 60, maxPerDay: 1200, burstAllowance: 12 },
+    });
+    requireAdminClaim(context);
+    const venueId = resolveStaffVenueId(String(data?.venueId || "").trim().toLowerCase());
+    if (!venueId) throw new HttpsError("invalid-argument", "venueId required");
+    const actor = getAdminActorRef(context);
+    const updates = {
+      status: "active",
+      showInHomeFeed: true,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: actor.uid,
+    };
+    if (actor.email) updates.updatedByEmail = actor.email;
+    if (data?.reason !== undefined) {
+      updates.reason = String(data.reason || "").trim().slice(0, 180) || null;
+    }
+    if (data?.adminNote !== undefined) {
+      updates.adminNote = String(data.adminNote || "").trim().slice(0, 400) || null;
+    }
+    await db.collection("venues").doc(venueId).set(updates, { merge: true });
+    return { ok: true, venueId, status: "active" };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("adminRestoreVenue failed", err);
+    throw new HttpsError("internal", err?.message || "Could not restore venue");
   }
 });
 
