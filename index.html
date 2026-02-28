@@ -14649,16 +14649,22 @@
 
     /* Targeted visual tweak: clearer landing background + destructive staff logout */
     .foco-premium .pageBg {
-      opacity: 0.97 !important;
-      filter: blur(4px) saturate(1.14) contrast(1.26) brightness(0.66) !important;
+      opacity: 1 !important;
+      filter: blur(2px) saturate(1.16) contrast(1.24) brightness(0.78) !important;
     }
     .foco-premium .pageWash {
       background:
-        radial-gradient(900px 650px at 18% 20%, rgba(34, 211, 238, 0.08), transparent 64%),
-        radial-gradient(900px 650px at 82% 22%, rgba(143, 91, 255, 0.08), transparent 64%),
-        radial-gradient(900px 650px at 50% 84%, rgba(255, 47, 184, 0.05), transparent 72%),
-        linear-gradient(180deg, rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.80)) !important;
-      box-shadow: inset 0 0 260px rgba(0, 0, 0, 0.86) !important;
+        radial-gradient(900px 650px at 18% 20%, rgba(34, 211, 238, 0.06), transparent 66%),
+        radial-gradient(900px 650px at 82% 22%, rgba(143, 91, 255, 0.06), transparent 66%),
+        radial-gradient(900px 650px at 50% 84%, rgba(255, 47, 184, 0.04), transparent 74%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.38), rgba(0, 0, 0, 0.56)) !important;
+      box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.56) !important;
+    }
+    .foco-premium .afterDarkVignette {
+      opacity: 0.68 !important;
+      background:
+        radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.42) 84%, rgba(0, 0, 0, 0.58) 100%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.42)) !important;
     }
 
     #staffLogoutTop,
