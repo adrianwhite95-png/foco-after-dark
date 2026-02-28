@@ -14306,85 +14306,112 @@
     }
 
     /* ---------- CEO Control Center readability + spacing polish ---------- */
-    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] > p.small {
-      margin: 0 0 18px;
-      font-size: 16px;
-      line-height: 1.55;
-    }
-    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel-controls {
-      gap: 14px;
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-hq-grid {
+      gap: 16px;
       align-items: start;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     }
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel {
       min-height: auto;
-      padding: 18px;
+      padding: clamp(16px, 2vw, 22px);
       border-radius: 18px;
     }
-    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel > h4 {
-      font-size: 26px;
-      letter-spacing: 0.09em;
-      margin: 0 0 8px;
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel-header h4 {
+      font-size: clamp(22px, 2.2vw, 28px);
+      letter-spacing: 0.07em;
+      line-height: 1.2;
+      margin-bottom: 8px;
     }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel-header p,
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel > p.small {
       font-size: 15px;
-      line-height: 1.45;
-      margin: 0 0 14px;
+      line-height: 1.5;
+      margin: 0 0 12px;
+      color: color-mix(in srgb, #dbeafe 84%, #94a3b8 16%);
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .field {
+      margin-bottom: 12px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .field label {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+      text-transform: uppercase;
     }
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row,
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row {
-      grid-template-columns: 1fr;
-      align-items: start;
+      grid-template-columns: minmax(0, 1fr) minmax(136px, 186px);
+      align-items: center;
       gap: 12px;
-      padding: 15px 16px;
+      padding: 14px 14px;
       border-radius: 14px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row strong,
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row strong {
-      font-size: 18px;
-      line-height: 1.35;
-      letter-spacing: 0.06em;
+      font-size: 16px;
+      line-height: 1.32;
+      letter-spacing: 0.045em;
+      display: block;
+      margin-bottom: 5px;
     }
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row .small,
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row .small {
-      margin-top: 6px;
-      font-size: 14px;
-      line-height: 1.45;
+      font-size: 13px;
+      line-height: 1.42;
+      margin-top: 4px;
+      color: color-mix(in srgb, #dbeafe 74%, #94a3b8 26%);
     }
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-value {
-      min-height: 48px;
-      padding: 11px 13px;
+      min-height: 46px;
+      padding: 10px 12px;
       font-size: 15px;
-      line-height: 1.35;
+      line-height: 1.3;
+      width: 100%;
     }
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] textarea.ceo-control-value {
-      min-height: 98px;
+      min-height: 104px;
       resize: vertical;
     }
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row .btn,
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row .btn {
-      width: 100%;
       min-height: 44px;
-      font-size: 15px;
-      letter-spacing: 0.04em;
+      width: 100%;
+      font-size: 14px;
       padding-inline: 14px;
+      letter-spacing: 0.04em;
+      justify-self: end;
     }
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-actions {
       width: 100%;
-      justify-content: flex-start;
+      display: flex;
+      flex-wrap: wrap;
       gap: 8px;
+      justify-content: flex-start;
     }
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-actions .btn {
       width: auto;
-      min-width: 150px;
-      flex: 0 0 auto;
+      min-width: 132px;
+      flex: 1 1 160px;
     }
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row .meta {
-      gap: 10px;
-      font-size: 13px;
+      gap: 8px;
+      font-size: 12px;
+      margin-top: 8px;
     }
     #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row .meta span {
       padding: 4px 10px;
+      line-height: 1.3;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel-tools {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel-tools .btn {
+      min-width: 140px;
     }
 
     /* ---------- Cross-device spacing polish (web + iPad + iOS) ---------- */
@@ -14396,10 +14423,10 @@
     #app :is(input, select, textarea) {
       line-height: 1.35;
     }
+    #app .screen {
+      padding-inline: clamp(12px, 2.2vw, 26px);
+    }
     @media (min-width: 820px) and (max-width: 1366px) {
-      #app .screen {
-        padding-inline: clamp(14px, 2.4vw, 26px);
-      }
       #staffPortalScreen .staff-sticky-bar {
         gap: 10px;
         align-items: center;
@@ -14421,6 +14448,26 @@
       #staffPortalScreen .staff-perk-row {
         gap: 8px;
       }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-hq-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 980px) {
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row,
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row {
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-control-row .btn,
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-row .btn {
+        justify-self: stretch;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel-tools {
+        grid-template-columns: 1fr;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel-tools .btn {
+        width: 100%;
+      }
     }
     @media (max-width: 768px) {
       #app .btn {
@@ -14429,8 +14476,142 @@
       #app .screen {
         padding-inline: 12px;
       }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel {
+        padding: 14px;
+      }
+      #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-panel-header h4 {
+        font-size: 22px;
+      }
       #ceoPortalScreen .ceo-hq-panel[data-ceo-panel="control"] .ceo-venue-admin-actions .btn {
         width: 100%;
+        min-width: 0;
+      }
+    }
+
+    /* ---------- Waitlist mode gate ---------- */
+    #waitlistGateScreen {
+      position: fixed;
+      inset: 0;
+      z-index: 14000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(14px, 3vw, 28px);
+      overflow: auto;
+    }
+    #waitlistGateScreen.active {
+      display: flex;
+      animation: waitlistFadeIn 300ms ease both;
+    }
+    .waitlist-backdrop {
+      position: absolute;
+      inset: 0;
+      backdrop-filter: blur(12px) saturate(1.12);
+      -webkit-backdrop-filter: blur(12px) saturate(1.12);
+      background: linear-gradient(165deg, rgba(2, 6, 23, 0.72), rgba(2, 6, 23, 0.88));
+      pointer-events: none;
+    }
+    .waitlist-card {
+      position: relative;
+      width: min(640px, 100%);
+      padding: clamp(18px, 3.2vw, 30px);
+      border-radius: 20px;
+      border: 1px solid rgba(34, 211, 238, 0.34);
+      box-shadow:
+        0 24px 56px rgba(2, 6, 23, 0.62),
+        0 0 26px rgba(34, 211, 238, 0.22),
+        0 0 32px rgba(255, 47, 184, 0.18);
+      animation: waitlistCardIn 360ms ease both;
+      overflow: hidden;
+    }
+    .waitlist-logo-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .waitlist-logo {
+      width: clamp(80px, 11vw, 110px);
+      height: clamp(80px, 11vw, 110px);
+      border-radius: 22px;
+      box-shadow:
+        0 0 22px rgba(34, 211, 238, 0.42),
+        0 0 34px rgba(143, 91, 255, 0.34);
+      animation: waitlistLogoPulse 2.8s ease-in-out infinite;
+    }
+    .waitlist-title {
+      margin: 0;
+      text-align: center;
+      font-size: clamp(26px, 4.1vw, 38px);
+      line-height: 1.15;
+      letter-spacing: 0.04em;
+      color: #f8fbff;
+      text-shadow: 0 0 16px rgba(34, 211, 238, 0.28), 0 0 24px rgba(143, 91, 255, 0.22);
+    }
+    .waitlist-subtitle,
+    .waitlist-live-count {
+      text-align: center;
+      margin: 8px 0 0;
+      color: rgba(219, 234, 254, 0.9);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+    .waitlist-live-count strong {
+      color: #22d3ee;
+      text-shadow: 0 0 12px rgba(34, 211, 238, 0.45);
+      font-size: 18px;
+      letter-spacing: 0.06em;
+    }
+    .waitlist-form {
+      margin-top: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .waitlist-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .waitlist-consent {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 13px;
+      line-height: 1.35;
+      color: rgba(219, 234, 254, 0.88);
+      margin-top: 2px;
+    }
+    .waitlist-consent input[type="checkbox"] {
+      margin-top: 2px;
+      accent-color: #22d3ee;
+    }
+    #waitlistSubmitBtn {
+      width: 100%;
+      min-height: 46px;
+      margin-top: 4px;
+    }
+    body.waitlist-mode #bottomNav,
+    body.waitlist-mode #globalRefreshBtn,
+    body.waitlist-mode .ceo-preview-exit {
+      display: none !important;
+    }
+    @keyframes waitlistFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes waitlistCardIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes waitlistLogoPulse {
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.03); filter: brightness(1.14); }
+    }
+    @media (max-width: 640px) {
+      .waitlist-grid {
+        grid-template-columns: 1fr;
+      }
+      .waitlist-title {
+        font-size: clamp(24px, 7vw, 31px);
       }
     }
   </style>
@@ -14473,6 +14654,41 @@
             <div class="maintenance-message" id="maintenanceMessage">🍺 The keg is tapped and bar-backs are on it. Quick tune-up in progress.</div>
             <div class="maintenance-subtext" id="maintenanceSubtext">Please check back in a few minutes.</div>
             <button type="button" class="maintenance-retry" id="maintenanceRetryBtn">Retry</button>
+          </div>
+        </div>
+        <!-- WAITLIST GATE SCREEN -->
+        <div id="waitlistGateScreen" class="screen waitlist-screen">
+          <div class="waitlist-backdrop"></div>
+          <div class="waitlist-card glassBox premiumGlass">
+            <div class="waitlist-logo-wrap">
+              <img src="foco-logo.png" alt="FoCo After Dark logo" class="waitlist-logo" />
+            </div>
+            <h2 class="waitlist-title">FoCo After Dark is opening soon.</h2>
+            <p class="waitlist-subtitle" id="waitlistGateSubtitle">Join the waitlist to get first access.</p>
+            <p class="waitlist-live-count"><strong id="waitlistTotalCount">0</strong> users have joined.</p>
+            <form id="waitlistForm" class="waitlist-form" autocomplete="on">
+              <div class="waitlist-grid">
+                <div class="field">
+                  <label for="waitlistFirstName">First name</label>
+                  <input id="waitlistFirstName" type="text" maxlength="60" required />
+                </div>
+                <div class="field">
+                  <label for="waitlistLastName">Last name</label>
+                  <input id="waitlistLastName" type="text" maxlength="60" required />
+                </div>
+              </div>
+              <div class="field">
+                <label for="waitlistEmail">Email</label>
+                <input id="waitlistEmail" type="email" maxlength="254" required />
+              </div>
+              <label class="waitlist-consent">
+                <input id="waitlistConsent" type="checkbox" />
+                <span>I agree to receive an email when the app goes live.</span>
+              </label>
+              <div class="error" id="waitlistError"></div>
+              <p class="support-success" id="waitlistSuccess" style="display:none;">Thank you for joining the FoCo After Dark waitlist.</p>
+              <button type="submit" class="btn btn-primary ctaNeon" id="waitlistSubmitBtn">Join waitlist</button>
+            </form>
           </div>
         </div>
         <!-- LANDING SCREEN -->
@@ -16105,6 +16321,38 @@
               </div>
               <div class="ceo-panel-actions">
                 <button type="button" class="btn btn-secondary" id="ceoEmergencyMessageSave">Save message</button>
+              </div>
+              <div class="ceo-subpanel" style="margin-top:12px;">
+                <div class="ceo-subpanel-header">
+                  <strong>Waitlist mode</strong>
+                </div>
+                <div class="small" id="ceoWaitlistSummary" style="margin-bottom:10px;color:#cbd5f5;">Loading waitlist status…</div>
+                <div class="ceo-panel-actions">
+                  <button type="button" class="btn btn-secondary" id="ceoWaitlistToggleBtn">Toggle waitlist mode</button>
+                </div>
+                <div class="field" style="margin-top:8px;">
+                  <label for="ceoWaitlistMessage">Waitlist message (optional)</label>
+                  <textarea id="ceoWaitlistMessage" rows="2" placeholder="Shown on waitlist screen"></textarea>
+                </div>
+                <div class="ceo-panel-actions">
+                  <button type="button" class="btn btn-secondary" id="ceoWaitlistMessageSaveBtn">Save waitlist message</button>
+                </div>
+                <div class="field" style="margin-top:8px;">
+                  <label for="ceoWaitlistBlastSubject">Email all waitlist users: subject</label>
+                  <input id="ceoWaitlistBlastSubject" type="text" maxlength="160" placeholder="FoCo After Dark is live 🍻" />
+                </div>
+                <div class="field">
+                  <label for="ceoWaitlistBlastBody">Message body (HTML allowed)</label>
+                  <textarea id="ceoWaitlistBlastBody" rows="3" placeholder="Paste announcement HTML or plain text"></textarea>
+                </div>
+                <label class="waitlist-consent" style="margin-top:6px;">
+                  <input id="ceoWaitlistBlastDryRun" type="checkbox" />
+                  <span>Dry run (send to CEO email only)</span>
+                </label>
+                <div class="ceo-panel-actions">
+                  <button type="button" class="btn btn-secondary" id="ceoWaitlistBlastBtn">Email waitlist: App is live</button>
+                </div>
+                <div class="small" id="ceoWaitlistBlastStatus" style="margin-top:8px;color:#cbd5f5;"></div>
               </div>
             </section>
           </div>
@@ -17927,6 +18175,7 @@
       auth: document.getElementById("authScreen"),
       ageVerify: document.getElementById("ageVerifyScreen"),
       maintenance: document.getElementById("maintenanceScreen"),
+      waitlistGate: document.getElementById("waitlistGateScreen"),
       membership: document.getElementById("membershipScreen"),
       payment: document.getElementById("paymentScreen"),
       tonight: document.getElementById("tonightScreen"),
@@ -17986,6 +18235,9 @@
     let ceoHealthUnsub = null;
     let settingsUnsub = null;
     let appConfigUnsub = null;
+    let globalConfigUnsub = null;
+    let waitlistCounterUnsub = null;
+    let waitlistBlastJobUnsub = null;
     let venueAdminUnsub = null;
     let settingsPollTimer = null;
     let ceoMembersUnsub = null;
@@ -18045,6 +18297,16 @@
       reason: "",
       adminNote: "",
     });
+    const WAITLIST_GLOBAL_CONFIG_DEFAULT = Object.freeze({
+      waitlistMode: false,
+      waitlistMessage: "Join the waitlist to get first access."
+    });
+    let globalConfigState = { ...WAITLIST_GLOBAL_CONFIG_DEFAULT };
+    let waitlistJoinedThisSession = false;
+    let waitlistTotalCached = 0;
+    let waitlistModePreviouslyActive = false;
+    let waitlistPreGateScreen = "landing";
+    let waitlistListenersSuspended = false;
     const venueAdminStateMap = new Map();
     const cfg = {
       ready: false,
@@ -18384,6 +18646,229 @@
       } else if (maintenanceModeActive && !maintenanceSettingsCache?.maintenanceMode) {
         clearMaintenanceScreen();
       }
+      applyWaitlistGateState();
+      updateCeoWaitlistUi();
+    }
+
+    function normalizeWaitlistMessage(value = "") {
+      const message = String(value || "").trim();
+      return message || WAITLIST_GLOBAL_CONFIG_DEFAULT.waitlistMessage;
+    }
+
+    function isWaitlistModeEnabled() {
+      return globalConfigState?.waitlistMode === true;
+    }
+
+    function updateWaitlistCounterUi() {
+      if (waitlistTotalCount) {
+        waitlistTotalCount.textContent = String(Math.max(0, Number(waitlistTotalCached) || 0));
+      }
+      if (ceoWaitlistSummary) {
+        const modeLabel = isWaitlistModeEnabled() ? "ON" : "OFF";
+        const updatedBy = String(globalConfigState?.updatedByUid || "").trim();
+        ceoWaitlistSummary.textContent = `Mode: ${modeLabel} · Total joined: ${Math.max(0, Number(waitlistTotalCached) || 0)}${updatedBy ? ` · Updated by: ${updatedBy}` : ""}`;
+      }
+    }
+
+    function updateCeoWaitlistUi() {
+      if (ceoWaitlistToggleBtn) {
+        ceoWaitlistToggleBtn.textContent = isWaitlistModeEnabled() ? "Disable waitlist mode" : "Enable waitlist mode";
+      }
+      if (ceoWaitlistMessage && document.activeElement !== ceoWaitlistMessage) {
+        ceoWaitlistMessage.value = normalizeWaitlistMessage(globalConfigState?.waitlistMessage || "");
+      }
+      if (waitlistGateSubtitle) {
+        waitlistGateSubtitle.textContent = normalizeWaitlistMessage(globalConfigState?.waitlistMessage || "");
+      }
+      updateWaitlistCounterUi();
+    }
+
+    function normalizeWaitlistName(value = "") {
+      return String(value || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 60);
+    }
+
+    function normalizeWaitlistEmail(value = "") {
+      return String(value || "").trim().toLowerCase().slice(0, 254);
+    }
+
+    function isValidWaitlistEmail(email = "") {
+      return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(email || ""));
+    }
+
+    async function submitWaitlistEntry() {
+      if (!functionsClient || !waitlistForm) return;
+      const firstName = normalizeWaitlistName(waitlistFirstName?.value || "");
+      const lastName = normalizeWaitlistName(waitlistLastName?.value || "");
+      const email = normalizeWaitlistEmail(waitlistEmail?.value || "");
+      const consent = waitlistConsent?.checked === true;
+      if (!firstName || !lastName) {
+        if (waitlistError) waitlistError.textContent = "Enter your first and last name.";
+        return;
+      }
+      if (!isValidWaitlistEmail(email)) {
+        if (waitlistError) waitlistError.textContent = "Enter a valid email address.";
+        return;
+      }
+      if (!consent) {
+        if (waitlistError) waitlistError.textContent = "Please agree to receive an email when we go live.";
+        return;
+      }
+      if (waitlistError) waitlistError.textContent = "";
+      if (waitlistSuccess) waitlistSuccess.style.display = "none";
+      if (waitlistSubmitBtn) {
+        waitlistSubmitBtn.disabled = true;
+        waitlistSubmitBtn.textContent = "Joining…";
+      }
+      try {
+        const result = await invokeCallableWithRetry("joinWaitlist", {
+          firstName,
+          lastName,
+          email,
+          consent: true,
+          source: "app",
+          userAgent: String(navigator?.userAgent || "").slice(0, 280)
+        }, {
+          lockKey: `joinWaitlist:${email}`,
+          actionKey: "joinWaitlist",
+          retries: 2,
+          baseDelayMs: 260
+        });
+        waitlistJoinedThisSession = true;
+        if (waitlistSuccess) {
+          waitlistSuccess.style.display = "block";
+          const wasExisting = result?.data?.existing === true;
+          waitlistSuccess.textContent = wasExisting
+            ? "You're already on the FoCo After Dark waitlist ✅"
+            : "Thank you for joining the FoCo After Dark waitlist.";
+        }
+        if (waitlistError) waitlistError.textContent = "";
+        if (waitlistForm) {
+          waitlistForm.dataset.submitted = "1";
+        }
+      } catch (err) {
+        console.warn("joinWaitlist failed", err);
+        if (waitlistError) {
+          waitlistError.textContent = "Could not join the waitlist right now. Please try again.";
+        }
+      } finally {
+        if (waitlistSubmitBtn) {
+          waitlistSubmitBtn.disabled = false;
+          waitlistSubmitBtn.textContent = waitlistJoinedThisSession ? "Joined ✅" : "Join waitlist";
+        }
+      }
+    }
+
+    function stopWaitlistBlastJobListener() {
+      if (waitlistBlastJobUnsub) {
+        try { waitlistBlastJobUnsub(); } catch (_) {}
+        waitlistBlastJobUnsub = null;
+      }
+    }
+
+    function watchWaitlistBlastJob(jobId = "") {
+      stopWaitlistBlastJobListener();
+      if (!db || !jobId) return;
+      const ref = doc(db, "mailQueue", jobId);
+      waitlistBlastJobUnsub = onSnapshot(ref, (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data() || {};
+        const stats = data.stats || {};
+        const status = String(data.status || "queued");
+        if (ceoWaitlistBlastStatus) {
+          ceoWaitlistBlastStatus.textContent = `Status: ${status} · Attempted ${Number(stats.attempted || 0)} · Sent ${Number(stats.sent || 0)} · Failed ${Number(stats.failed || 0)}`;
+        }
+        if (status === "done" || status === "error") {
+          if (ceoWaitlistBlastBtn) ceoWaitlistBlastBtn.disabled = false;
+          if (status === "done") showToast("Waitlist email blast complete.", 2200);
+          stopWaitlistBlastJobListener();
+        }
+      }, (err) => {
+        console.warn("waitlist blast watcher failed", err);
+        if (ceoWaitlistBlastBtn) ceoWaitlistBlastBtn.disabled = false;
+      });
+    }
+
+    function startWaitlistCounterListener() {
+      if (!db || waitlistCounterUnsub) return;
+      const counterRef = doc(db, "counters", "waitlist");
+      waitlistCounterUnsub = onSnapshot(counterRef, (snap) => {
+        waitlistTotalCached = snap.exists() ? Math.max(0, Number(snap.data()?.total || 0)) : 0;
+        updateWaitlistCounterUi();
+      }, (err) => {
+        console.warn("waitlist counter listener failed", err);
+      });
+    }
+
+    function stopWaitlistCounterListener() {
+      if (waitlistCounterUnsub) {
+        try { waitlistCounterUnsub(); } catch (_) {}
+        waitlistCounterUnsub = null;
+      }
+    }
+
+    function applyWaitlistGateState() {
+      const enabled = isWaitlistModeEnabled();
+      document.body.classList.toggle("waitlist-mode", enabled);
+      if (enabled) {
+        if (!waitlistModePreviouslyActive) {
+          waitlistPreGateScreen = currentScreenName || "landing";
+          waitlistModePreviouslyActive = true;
+          if (!waitlistListenersSuspended) {
+            detachAllRealtimeListeners("waitlist-mode-enabled");
+            waitlistListenersSuspended = true;
+          }
+        }
+        if (currentScreenName !== "waitlistGate") {
+          showScreen("waitlistGate");
+        }
+      } else if (waitlistModePreviouslyActive) {
+        waitlistModePreviouslyActive = false;
+        if (waitlistListenersSuspended) {
+          waitlistListenersSuspended = false;
+          if (authReady && firebaseAuth?.currentUser) {
+            attachRealtimeForCurrentContext("waitlist-mode-disabled");
+          }
+        }
+        if (currentScreenName === "waitlistGate") {
+          const fallback = firebaseAuth?.currentUser
+            ? (LAST_SCREEN_ALLOWLIST.has(waitlistPreGateScreen) ? waitlistPreGateScreen : "tonight")
+            : "landing";
+          showScreen(fallback);
+        }
+      }
+    }
+
+    function applyGlobalConfigPayload(payload = {}) {
+      const next = payload && typeof payload === "object" ? payload : {};
+      globalConfigState = {
+        waitlistMode: next.waitlistMode === true,
+        waitlistMessage: normalizeWaitlistMessage(next.waitlistMessage || ""),
+        updatedAt: next.updatedAt || null,
+        updatedByUid: String(next.updatedByUid || "")
+      };
+      applyWaitlistGateState();
+      updateCeoWaitlistUi();
+    }
+
+    function startGlobalConfigListener() {
+      if (!db || globalConfigUnsub) return;
+      const ref = doc(db, "config", "global");
+      globalConfigUnsub = onSnapshot(ref, (snap) => {
+        if (!snap.exists()) {
+          applyGlobalConfigPayload(WAITLIST_GLOBAL_CONFIG_DEFAULT);
+          return;
+        }
+        applyGlobalConfigPayload(snap.data() || {});
+      }, (err) => {
+        console.warn("global config listener failed", err);
+        applyGlobalConfigPayload(WAITLIST_GLOBAL_CONFIG_DEFAULT);
+        if (isCeoAccount) {
+          showToast("Global config unavailable. Using safe defaults.", 2200);
+        }
+      });
     }
 
     function startAppConfigListener() {
@@ -18455,6 +18940,11 @@
     function openBillingScreenForTier(tier, options = {}) {
       const requestedTier = normalizeMembershipTierSelection(tier || getRequestedTier(memberProfile));
       const fallbackScreen = String(options.fallbackScreen || "").trim();
+      if (isWaitlistModeEnabled()) {
+        showToast("Waitlist mode is active right now.", 2200);
+        showScreen("waitlistGate");
+        return false;
+      }
       if (!isBillingEnabledForUi()) {
         showToast(cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]), 2400);
         if (fallbackScreen) showScreen(fallbackScreen);
@@ -18800,12 +19290,22 @@
       randomizeLandingSocialProof();
       applyLandingLivePillsByTime();
     }
+    const waitlistFormNode = document.getElementById("waitlistForm");
+    if (waitlistFormNode) {
+      waitlistFormNode.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await submitWaitlistEntry();
+      });
+    }
     window.addEventListener("resize", requestGlassBGUpdate, { passive: true });
     window.addEventListener("scroll", requestGlassBGUpdate, { passive: true });
     window.addEventListener("load", requestGlassBGUpdate);
 
     function showScreen(name) {
       const previousScreenName = currentScreenName;
+      if (isWaitlistModeEnabled() && name !== "waitlistGate") {
+        name = "waitlistGate";
+      }
       if (maintenanceModeActive && name !== "maintenance" && !canBypassMaintenance()) {
         name = "maintenance";
       }
@@ -18864,6 +19364,8 @@
         randomizeLandingSocialProof();
         applyLandingLivePillsByTime();
         if (landingRefreshBtn) landingRefreshBtn.style.display = "inline-flex";
+      } else if (name === "waitlistGate") {
+        if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
       } else {
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
       }
@@ -18953,7 +19455,7 @@
       if (bottomNav) {
         const hasAuthedMember = !!firebaseAuth?.currentUser;
         const ceoInPreview = !!(ceoSession && ceoPreviewTier);
-        const shouldShowBottomNav = hasAuthedMember && memberPrimaryScreens.has(name) && !staffSession && (!ceoSession || ceoInPreview);
+        const shouldShowBottomNav = !isWaitlistModeEnabled() && hasAuthedMember && memberPrimaryScreens.has(name) && !staffSession && (!ceoSession || ceoInPreview);
         bottomNav.style.display = shouldShowBottomNav ? "grid" : "none";
         bottomNavItems.forEach((item) => {
           item.classList.toggle("active", item.dataset.bottomNav === name);
@@ -22092,6 +22594,15 @@
     const ceoEmergencyActions = document.getElementById("ceoEmergencyActions");
     const ceoEmergencyMessage = document.getElementById("ceoEmergencyMessage");
     const ceoEmergencyMessageSave = document.getElementById("ceoEmergencyMessageSave");
+    const ceoWaitlistSummary = document.getElementById("ceoWaitlistSummary");
+    const ceoWaitlistToggleBtn = document.getElementById("ceoWaitlistToggleBtn");
+    const ceoWaitlistMessage = document.getElementById("ceoWaitlistMessage");
+    const ceoWaitlistMessageSaveBtn = document.getElementById("ceoWaitlistMessageSaveBtn");
+    const ceoWaitlistBlastSubject = document.getElementById("ceoWaitlistBlastSubject");
+    const ceoWaitlistBlastBody = document.getElementById("ceoWaitlistBlastBody");
+    const ceoWaitlistBlastDryRun = document.getElementById("ceoWaitlistBlastDryRun");
+    const ceoWaitlistBlastBtn = document.getElementById("ceoWaitlistBlastBtn");
+    const ceoWaitlistBlastStatus = document.getElementById("ceoWaitlistBlastStatus");
     const ceoVenueAdminSearch = document.getElementById("ceoVenueAdminSearch");
     const ceoVenueAdminRefresh = document.getElementById("ceoVenueAdminRefresh");
     const ceoVenueAdminList = document.getElementById("ceoVenueAdminList");
@@ -22144,6 +22655,16 @@
     const memberSignalFocus = document.getElementById("memberSignalFocus");
     const valueLiveText = document.getElementById("valueLiveText");
     const FRIENDS_DISABLED = true;
+    const waitlistGateSubtitle = document.getElementById("waitlistGateSubtitle");
+    const waitlistTotalCount = document.getElementById("waitlistTotalCount");
+    const waitlistForm = document.getElementById("waitlistForm");
+    const waitlistFirstName = document.getElementById("waitlistFirstName");
+    const waitlistLastName = document.getElementById("waitlistLastName");
+    const waitlistEmail = document.getElementById("waitlistEmail");
+    const waitlistConsent = document.getElementById("waitlistConsent");
+    const waitlistError = document.getElementById("waitlistError");
+    const waitlistSuccess = document.getElementById("waitlistSuccess");
+    const waitlistSubmitBtn = document.getElementById("waitlistSubmitBtn");
 
     async function updateStaffCloseoutStamp() {
       if (!staffCloseoutStamp) return;
@@ -24529,6 +25050,10 @@
   }
   function attachRealtimeForCurrentContext(reason = "") {
     if (!authReady) return;
+    if (isWaitlistModeEnabled()) {
+      setRealtimeRequiredSources([]);
+      return;
+    }
     if (Date.now() < realtimeAttachDelayUntil) {
       logRealtime("attachSkipped", "reload-guard");
       const waitMs = Math.max(200, realtimeAttachDelayUntil - Date.now());
@@ -26410,6 +26935,7 @@ let onboardingIndex = 0;
       stopCeoMessagesListener();
       stopCeoLiveAnalyticsWatch();
       stopCloseOutReportsListener();
+      stopWaitlistBlastJobListener();
       stopMemberNoticesListener();
       updateCeoPassUI();
       pendingMembershipTier = null;
@@ -26432,6 +26958,7 @@ let onboardingIndex = 0;
       applyRememberedEmailToForm();
       showScreen("landing");
       stopIdleTimer();
+      waitlistJoinedThisSession = false;
       if (showRefreshToast) showToast("Refreshed. Please log in again.", 2000);
     }
 
@@ -38787,6 +39314,24 @@ let onboardingIndex = 0;
       return true;
     }
 
+    async function updateGlobalConfigViaAdmin(patch = {}) {
+      if (!functionsClient || !canAccessCeoControlCenter()) {
+        showToast("CEO admin claim required for waitlist controls.", 2600);
+        return false;
+      }
+      const resp = await invokeCallableWithRetry("adminUpdateGlobalConfig", { patch }, {
+        lockKey: `adminUpdateGlobalConfig:${Object.keys(patch || {}).join(",")}`,
+        retries: 2,
+        baseDelayMs: 240
+      });
+      const applied = resp?.data?.config || {};
+      applyGlobalConfigPayload({
+        waitlistMode: applied.waitlistMode === true,
+        waitlistMessage: normalizeWaitlistMessage(applied.waitlistMessage || "")
+      });
+      return true;
+    }
+
     function applyLocalVenueAdminPatch(venueId, patch = {}) {
       const key = String(venueId || "").toLowerCase();
       if (!key) return;
@@ -39081,6 +39626,7 @@ let onboardingIndex = 0;
       renderCeoControlNumbers();
       renderCeoControlLists();
       renderCeoVenueAdminList();
+      updateCeoWaitlistUi();
     }
 
     function showCeoPanel(tab) {
@@ -39141,7 +39687,7 @@ let onboardingIndex = 0;
     }
     if (ceoControlFlagSearch) {
       ceoControlFlagSearch.addEventListener("input", () => {
-        renderCeoControlFlags();
+        renderCeoControlCenter();
       });
     }
     if (ceoControlFlagsList) {
@@ -39327,6 +39873,83 @@ let onboardingIndex = 0;
         }
       });
     }
+    if (ceoWaitlistToggleBtn) {
+      ceoWaitlistToggleBtn.addEventListener("click", async () => {
+        const nextMode = !isWaitlistModeEnabled();
+        ceoWaitlistToggleBtn.disabled = true;
+        try {
+          await updateGlobalConfigViaAdmin({ waitlistMode: nextMode });
+          showToast(nextMode ? "Waitlist mode enabled." : "Waitlist mode disabled.", 2000);
+        } catch (err) {
+          console.warn("waitlist toggle failed", err);
+          showToast("Could not update waitlist mode.", 2200);
+        } finally {
+          ceoWaitlistToggleBtn.disabled = false;
+        }
+      });
+    }
+    if (ceoWaitlistMessageSaveBtn) {
+      ceoWaitlistMessageSaveBtn.addEventListener("click", async () => {
+        const message = normalizeWaitlistMessage(ceoWaitlistMessage?.value || "");
+        ceoWaitlistMessageSaveBtn.disabled = true;
+        try {
+          await updateGlobalConfigViaAdmin({ waitlistMessage: message });
+          showToast("Waitlist message saved.", 1800);
+        } catch (err) {
+          console.warn("waitlist message save failed", err);
+          showToast("Could not save waitlist message.", 2200);
+        } finally {
+          ceoWaitlistMessageSaveBtn.disabled = false;
+        }
+      });
+    }
+    if (ceoWaitlistBlastBtn) {
+      ceoWaitlistBlastBtn.addEventListener("click", async () => {
+        if (!functionsClient || !canAccessCeoControlCenter()) {
+          showToast("CEO admin claim required for waitlist emails.", 2400);
+          return;
+        }
+        const subject = String(ceoWaitlistBlastSubject?.value || "").trim().slice(0, 160);
+        const html = String(ceoWaitlistBlastBody?.value || "").trim().slice(0, 20000);
+        if (!subject || !html) {
+          showToast("Add both a subject and message body.", 2200);
+          return;
+        }
+        const confirmed = await openConfirmModal({
+          title: "Send waitlist announcement",
+          body: "This will email everyone on the active waitlist. Type SEND to confirm.",
+          confirmText: "SEND",
+          confirmLabelText: "Type SEND to continue",
+          confirmButtonText: "Queue blast",
+          confirmButtonClass: "btn-danger"
+        });
+        if (!confirmed) return;
+        ceoWaitlistBlastBtn.disabled = true;
+        if (ceoWaitlistBlastStatus) ceoWaitlistBlastStatus.textContent = "Queueing waitlist email blast…";
+        try {
+          const resp = await invokeCallableWithRetry("sendWaitlistBlast", {
+            subject,
+            html,
+            dryRun: ceoWaitlistBlastDryRun?.checked === true
+          }, {
+            lockKey: `sendWaitlistBlast:${subject}`,
+            retries: 1,
+            baseDelayMs: 260
+          });
+          const jobId = String(resp?.data?.jobId || "");
+          if (jobId) {
+            watchWaitlistBlastJob(jobId);
+          } else {
+            ceoWaitlistBlastBtn.disabled = false;
+            if (ceoWaitlistBlastStatus) ceoWaitlistBlastStatus.textContent = "Queued.";
+          }
+        } catch (err) {
+          console.warn("sendWaitlistBlast failed", err);
+          if (ceoWaitlistBlastStatus) ceoWaitlistBlastStatus.textContent = "Failed to queue waitlist email blast.";
+          ceoWaitlistBlastBtn.disabled = false;
+        }
+      });
+    }
     if (ceoVenueAdminSearch) {
       ceoVenueAdminSearch.addEventListener("input", () => {
         ceoControlVenueSearchTerm = ceoVenueAdminSearch.value || "";
@@ -39335,7 +39958,11 @@ let onboardingIndex = 0;
     }
     if (ceoVenueAdminRefresh) {
       ceoVenueAdminRefresh.addEventListener("click", () => {
+        refreshFeaturedVenuesData();
+        populateRedeemVenueOptions();
+        initCeoVenueFilter();
         renderCeoControlCenter();
+        showToast("Venue controls refreshed.", 1400);
       });
     }
     if (ceoVenueAdminList) {
@@ -40435,6 +41062,12 @@ let onboardingIndex = 0;
           return;
         }
         await refreshAuthClaims(user);
+        if (isWaitlistModeEnabled()) {
+          showScreen("waitlistGate");
+          updateRefreshButtonsVisibility();
+          initialAuthResolved = true;
+          return;
+        }
         const allowAnonSession = user.isAnonymous && (pendingStaffVenueId || staffSession || betaPassMode);
         if (user.isAnonymous && !allowAnonSession) {
           console.info("[auth] anonymous blocked → landing");
@@ -40491,10 +41124,13 @@ let onboardingIndex = 0;
       if (maintenanceBootChecked) return;
       maintenanceBootChecked = true;
       if (db) {
+        startGlobalConfigListener();
+        startWaitlistCounterListener();
         startAppConfigListener();
         startVenueAdminListener();
       } else {
         applyConfigPayload({}, { ready: false });
+        applyGlobalConfigPayload(WAITLIST_GLOBAL_CONFIG_DEFAULT);
       }
       const data = await fetchAppSettingsOnce();
       isLaunched = !!data?.launched;
@@ -43586,6 +44222,11 @@ let onboardingIndex = 0;
     }
 
     function openRedeemModal() {
+      if (isWaitlistModeEnabled()) {
+        showToast("Waitlist mode is active right now.", 2200);
+        showScreen("waitlistGate");
+        return;
+      }
       if (!isRedeemEnabledForUi()) {
         showToast(cfg.text("redeem.disabled.message", DEFAULT_CONFIG_TEXT["redeem.disabled.message"]), 2400);
         return;
@@ -43617,6 +44258,10 @@ let onboardingIndex = 0;
     }
 
     redeemTrigger.addEventListener("click", () => {
+      if (isWaitlistModeEnabled()) {
+        showScreen("waitlistGate");
+        return;
+      }
       if (!isRedeemEnabledForUi()) {
         showToast(cfg.text("redeem.disabled.message", DEFAULT_CONFIG_TEXT["redeem.disabled.message"]), 2400);
         return;
@@ -44381,258 +45026,283 @@ let onboardingIndex = 0;
     }
 
   const cheersQuotes = [
-    "Cheers to late nights and loud-ass laughs.",
-    "Here's to flirty glances and bad decisions.",
-    "Sip slow, talk dirty, dance filthy.",
-    "Raise a glass to reckless charisma.",
-    "Dark bars, bright hearts, zero bullshit.",
-    "Tonight tastes like trouble and tequila.",
-    "One drink closer to a legendary mess.",
-    "Glow up, drink up, shut up.",
-    "No curfew, just courage and chaos.",
-    "Kiss the night, not the damn clock.",
-    "Cocktails over caution.",
-    "Sinfully smooth, respectfully loud.",
-    "Good nights hit hard as hell.",
-    "Lips red, receipts blue.",
-    "Pour decisions welcome.",
-    "Flirt first, but ask like an adult.",
-    "Cheers to bad ideas and hot stories.",
-    "Hush now — the music's talking.",
-    "Stay reckless, drink responsible-ish.",
-    "Neon makes everything honest.",
-    "We don't count drinks, we count moments.",
-    "Midnight looks good on you.",
-    "Dress code: dangerous as fuck.",
-    "Let the bass do the talking.",
-    "Tonight's vibe: don't text your ex.",
-    "Bar lights, soft bites.",
-    "Make it a double, make it a story.",
-    "Dirty martini, clean intent.",
-    "Sip, smile, disappear.",
-    "Keep it wild, keep it classy.",
-    "Glow in, go out.",
-    "The night called. We answered.",
-    "Sparkle like you mean it.",
-    "Fewer rules, better nights.",
-    "Raise your standards and your glass.",
-    "Loose ties, tight circles.",
-    "Whispered plans, loud toasts.",
-    "Nightlife is a contact sport.",
-    "Kisses taste better after midnight.",
-    "Flirty, not sorry.",
-    "Take the shot, take the story.",
-    "Neon makes the truth look prettier.",
-    "You look like trouble I can toast to.",
-    "Clever drinks for dirty minds.",
-    "A little sin, a lot of sparkle.",
-    "Pour me a plot twist.",
-    "Make the bar your runway.",
-    "Good trouble, better company.",
-    "Keep your secrets, share your shots.",
-    "Stay gold, stay bold.",
-    "We came for one. We stayed for the vibe.",
-    "Confidence on the rocks.",
-    "Eyes up, glass up.",
-    "Make it loud, make it last.",
-    "All glitter, no guilt.",
-    "Bad decisions, premium ambiance.",
-    "The night is my plus one.",
-    "A toast to being unforgettable.",
-    "Show up. Glow up.",
-    "Drinks strong, boundaries stronger.",
-    "Meet me where the music is.",
-    "Neon nights, velvet fights.",
-    "We're not lost, we're bar-hopping.",
-    "Kiss me like the DJ dropped it.",
-    "Dressed to spill secrets.",
-    "Bite your lip, sip your drink.",
-    "Eyes on me, tab on you.",
-    "Caution is cute but overrated.",
-    "Let's make memories we can keep.",
-    "Keep the spark, lose the signal.",
-    "Tonight's currency: charisma.",
-    "Soft hearts, sharp heels.",
-    "Sway with me, not away from me.",
-    "No regrets, just receipts.",
-    "Flirt in italics.",
-    "We don't do quiet.",
-    "Sip happens.",
-    "Rendezvous with chaos.",
-    "Bad ideas taste like citrus.",
-    "Strobe lights, smooth lines.",
-    "Make it bold, make it yours.",
-    "Velvet nights, sharp edges.",
-    "Your move, my glass.",
-    "Neon on, doubts off.",
-    "Stay out, stand out.",
-    "The bar knows our names.",
-    "Cheers to the mischief in you.",
-    "Whiskey whispers, tequila tells.",
-    "Take a sip, take a risk.",
-    "Loud laugh, soft touch.",
-    "Confidence pours first.",
-    "Slower sips, faster sparks.",
-    "We're here for the glow.",
-    "Shots are cheap, stories are priceless.",
-    "Steal a look, leave a mark.",
-    "No soft launches tonight.",
-    "Suits, skirts, and secrets.",
-    "Guilty pleasures, clean exits.",
-    "Make it naughty, keep it nice.",
-    "A little chaos never hurt.",
-    "Sip it like you mean it.",
-    "Talk less, dance more.",
-    "Take me to the good part.",
-    "Glow hard or go home.",
-    "Tequila sunsets, midnight confessions.",
-    "Let's be the reason it's a good night.",
-    "Flirt with the city lights.",
-    "Neon makes everyone look dangerous.",
-    "One drink closer to a new story.",
-    "Tonight is the after party.",
-    "Dress up, show down.",
-    "Kisses cost extra.",
-    "This round's on fate.",
-    "Cheers to the chaos we chose."
-    ,"Consent is sexy, confidence is louder."
-    ,"Hot, honest, and a little bit dangerous."
-    ,"Pour me a wicked good time."
-    ,"Raise your glass and your standards."
-    ,"Flirty, filthy, and fully in control."
-    ,"Good girls go to bed. Bad girls go to brunch."
-    ,"Dirty minds, clean boundaries."
-    ,"A little spice, a lot of respect."
-    ,"Dress like a snack, drink like a boss."
-    ,"Cheers to the men who listen and the women who lead."
-    ,"Let's get a little messy—on the dance floor."
-    ,"Make it sexy, make it safe."
-    ,"Soft hearts, sharp tongues."
-    ,"One drink, two looks, three sparks."
-    ,"Naughty by choice, classy by default."
-    ,"Buy me a drink and mind your manners."
-    ,"Confidence is the hottest thing in the room."
-    ,"A dirty martini for a clean slate."
-    ,"Hot takes and harder sips."
-    ,"Cheers to strong women and kind men."
-    ,"Kiss the neck, skip the drama."
-    ,"The vibe is consent and cocktails."
-    ,"Sweet talk, strong pour."
-    ,"Flirty eyes, fearless heart."
-    ,"Keep it sexy, keep it respectful."
-    ,"Sip slow, choose fast."
-    ,"We love a man who says 'Are you into this?'"
-    ,"We love a woman who knows what she wants."
-    ,"Dirty jokes, clean intentions."
-    ,"Your body, your rules, your round."
-    ,"Tequila and truth—handle with care."
-    ,"Flirt responsibly."
-    ,"A little lust, a lot of trust."
-    ,"Bold lips, bold boundaries."
-    ,"Say it with your eyes, not your ego."
-    ,"Sexy is a mindset, not a dress code."
-    ,"Badass women, good dudes, great drinks."
-    ,"Let the shot be strong, not your assumptions."
-    ,"Sip happens—so does respect."
-    ,"I like my drinks dirty and my consent clear."
-    ,"Hot girls hydrate between rounds."
-    ,"Hot guys ask first."
-    ,"Classy, but we swear."
-    ,"Kinda filthy, fully fabulous."
-    ,"Flirty and feral—in a good way."
-    ,"Cute but can handle a double."
-    ,"Dirty martinis, clean comms."
-    ,"Seduce the night, not the standards."
-    ,"Good vibes, better boundaries."
-    ,"Neon lights, grown-up nights."
-    ,"Play nice, play hard."
-    ,"You can look, you can ask, you can listen."
-    ,"Confidence looks good on everyone."
-    ,"A toast to women who take up space."
-    ,"A toast to men who make it safe."
-    ,"She's the main character. He's the supporting act."
-    ,"Drink up, show up, respect up."
-    ,"If it's not a 'hell yes,' it's a no."
-    ,"Flirt with the night, not with consent."
-    ,"Raise a glass to mutual obsession."
-    ,"Keep your hands to yourself unless invited."
-    ,"Bold moves, soft asks."
-    ,"Cuss a little. Care a lot."
-    ,"Sexy doesn't mean available."
-    ,"Sweet smiles, sharp comebacks."
-    ,"We love a king with emotional intelligence."
-    ,"We love a queen with standards."
-    ,"Hot, horny, and highly respectful."
-    ,"Sassy, classy, and a little bad-ass-y."
-    ,"A little dirty, a lot of dignity."
-    ,"Cheers to consent, chemistry, and cocktails."
-    ,"If you're into it, say it."
-    ,"If you're not, say it louder."
-    ,"We drink for fun, not for pressure."
-    ,"Make it playful, not pushy."
-    ,"Your yes is sexy. Your no is powerful."
-    ,"Talk dirty, listen clean."
-    ,"Tonight's theme: bold and bothered."
-    ,"Respect turns me on."
-    ,"Kiss like you mean it—or don't."
-    ,"Good guys finish last round."
-    ,"Good girls choose their own pace."
-    ,"Bad boys ask nicely."
-    ,"Bad bitches set the bar."
-    ,"Flirt with purpose."
-    ,"Be a gentleman, not a ghost."
-    ,"Be a goddess, not a guest."
-    ,"Dirty dancing, clean consent."
-    ,"Shots? Sure. Pressure? Never."
-    ,"Grown folks only."
-    ,"Seduction is a conversation."
-    ,"Let's get reckless—with kindness."
-    ,"Love the night. Respect the room."
-    ,"We're adults. Act like it."
-    ,"Bold lips, brave asks."
-    ,"Spicy banter, sweet boundaries."
-    ,"Say please, say thank you, say yes."
-    ,"Hot mess, but make it polite."
-    ,"Flirty but firm."
-    ,"Cuss with charm."
-    ,"Glow up and own it."
-    ,"We came to sip, not to slip."
-    ,"The hottest thing? Mutual respect."
-    ,"No means no. Cheers means cheers."
-    ,"Cute, crude, and courteous."
-    ,"Steamy looks, chill vibes."
-    ,"Bad decisions are better with consent."
-    ,"Kinks are cool. Consent is cooler."
-    ,"We toast to power and pleasure."
-    ,"Own the night, share the spotlight."
-    ,"A little heat, a lot of heart."
-    ,"Sexy is confidence. Consent is mandatory."
-    ,"Late night, clear minds."
-    ,"Drink up, lift each other up."
-    ,"We flirt. We listen. We respect."
-    ,"Bold moves, kind hearts."
-    ,"Tonight's menu: sass, class, and a little ass."
-    ,"Hot takes, hotter consent."
-    ,"The bar is open. So is the conversation."
-    ,"Cheers to women who lead and men who learn."
-    ,"Adults only, respect always."
-    ,"Turn ons: kindness, confidence, boundaries."
-    ,"Raise your glass, not your voice."
-    ,"Dirty jokes, clean exits."
-    ,"Party hard, behave harder."
-    ,"Sexy nights, safe hearts."
-    ,"Clever, dirty, and downright respectful."
-    ,"Lights low, standards high."
-    ,"If it's mutual, make it memorable."
-    ,"Fun as hell, decent as always."
-    ,"Shamelessly classy."
-    ,"We do bold, not rude."
-    ,"Flirt fast, consent first."
-    ,"Tonight's vibe: grown & glowing."
-    ,"Power looks good on everyone."
-    ,"Respect is the real flex."
-    ,"Kiss with permission, dance with pride."
-  ];
+  "Drunk? Maybe. Responsible? Absolutely not.",
+  "Weekend me is a liability.",
+  "Shots first, decisions never.",
+  "I’m here to black out and be polite about it.",
+  "Tonight’s goal: chaos with good manners.",
+  "I’m not toxic, I’m just tequila-coded.",
+  "If you see me, no you didn’t.",
+  "I came for one drink. I lied.",
+  "This night is a group project and I’m failing it.",
+  "If the bar is open, I’m emotionally available.",
+  "My liver didn’t sign up for this.",
+  "I’m on my worst behavior—respectfully.",
+  "We’re drinking like tomorrow is a myth.",
+  "I’m not spiraling, I’m socializing.",
+  "FoCo After Dark: where self-control goes to die.",
+  "Tequila is my personality now.",
+  "Vodka made me do it.",
+  "If you’re buying shots, I’m buying bad ideas.",
+  "I’m one shot away from confidence.",
+  "My standards don’t get drunk. I do.",
+  "Let’s get absolutely irresponsible.",
+  "The plan is unhinged.",
+  "Tonight’s vibe: feral, but friendly.",
+  "We’re not grown—we’re just 21+.",
+  "I’m here for the drinks and poor judgment.",
+  "I’m not a role model, I’m a warning.",
+  "This is my villain origin story.",
+  "I’m on demon time with a seatbelt.",
+  "The weekend is my toxic trait.",
+  "I’m gonna regret this in 4K.",
+  "Shut up and pour up.",
+  "My bank account hates nightlife.",
+  "I’m not drunk, I’m just… loud.",
+  "Bar hopping is my love language.",
+  "I’m here to make tomorrow awkward.",
+  "Tonight’s forecast: messy.",
+  "I’m not leaving early. Don’t ask.",
+  "Shots are cheaper than therapy.",
+  "We drink to forget our emails.",
+  "I’m just here to ruin my sleep schedule.",
+  "Confidence is stored in the bottom of this cup.",
+  "If you’re sober, I don’t trust you.",
+  "I’m chasing the vibe, not the truth.",
+  "We’re outside like we pay rent downtown.",
+  "I’m about to do something dumb with enthusiasm.",
+  "This is a bad idea and I’m excited.",
+  "I’m on my “one more” era.",
+  "It’s giving “last call panic.”",
+  "I’m a good person on weekends only.",
+  "My toxic trait is thinking I can handle another shot.",
+  "I drink like I’m immune to consequences.",
+  "My balance is spiritual, not physical.",
+  "I’m flirting with disaster and the bartender.",
+  "Keep the drinks coming and the drama out.",
+  "I’m not messy, I’m festive.",
+  "Tonight’s agenda: shots and poor decisions.",
+  "If it’s not fun, I’m not going.",
+  "I’m here for a good time and a questionable text.",
+  "Don’t let me text my ex.",
+  "Put my phone in jail.",
+  "I came to party, not to heal.",
+  "This bar is my church and tequila is communion.",
+  "I’m about to become someone I don’t recognize.",
+  "I’m in my “bad choices build character” era.",
+  "If I fall, mind your business.",
+  "I’m drunk enough to believe in love.",
+  "My type is whoever buys the next round.",
+  "I’m looking for trouble and a ride home.",
+  "I’m here to dance like my dignity isn’t watching.",
+  "I’m a lightweight with heavyweight confidence.",
+  "I’m not arguing, I’m just drunk-speaking.",
+  "Someone take my credit card.",
+  "Tonight is sponsored by poor budgeting.",
+  "I’m about to make a memory I can’t remember.",
+  "I’m not late, I’m pre-gaming.",
+  "If you’re not a little unhinged, why are you here?",
+  "This is not a drill—this is tequila.",
+  "I’m about to get loud and affectionate.",
+  "I’m the reason your friend said “we out?”",
+  "I’m a problem with eyeliner.",
+  "I’m a problem with a clean fade.",
+  "I’m not single, I’m just… temporarily available.",
+  "The vibe is horny for the bass.",
+  "I’m dressed like a bad decision.",
+  "I’m dressed like I should not be trusted.",
+  "I’m dressed like I have a fake ID (I don’t).",
+  "If the music hits, I’m hitting send (someone stop me).",
+  "I’m here to flirt and forget.",
+  "I’m here to flirt and hydrate (barely).",
+  "I’m here to flirt and be asked first.",
+  "If you want me, use words.",
+  "If you want a kiss, ask like you mean it.",
+  "Make it freaky—make it mutual.",
+  "We do hookups with communication.",
+  "Keep it nasty on the dance floor, nice everywhere else.",
+  "I’m down for whatever—after you ask.",
+  "No guessing games. Use your mouth (to ask).",
+  "Hands off until it’s a yes.",
+  "Consent is the only pickup line that works.",
+  "If it’s not mutual, it’s not happening.",
+  "You can look. You can ask. You can listen.",
+  "Don’t be bold and weird. Be bold and respectful.",
+  "Flirt like an adult, not a creep.",
+  "You can be filthy without being disrespectful.",
+  "I’m here for eye contact and bad ideas.",
+  "Eye contact is foreplay.",
+  "Talk dirty, communicate cleaner.",
+  "I’m not your fantasy—ask me what I’m into.",
+  "I’m here to get kissed and go home safe.",
+  "Tonight’s theme: consent and chaos.",
+  "Make it hot, keep it human.",
+  "I’m a “pull my hair—after you ask” kind of night.",
+  "I’m a “tell me what you want” kind of night.",
+  "I’m a “read the room” kind of menace.",
+  "I’m in my “kiss me or move” era.",
+  "I’m in my “take me home (politely)” era.",
+  "I’m in my “do you wanna?” era.",
+  "I’m in my “say it with your chest” era.",
+  "I’m in my “don’t touch me—talk to me” era.",
+  "I’m a flirt, not a free-for-all.",
+  "I’m a tease with standards.",
+  "I’m a menace with boundaries.",
+  "I’m a sweetheart with a dirty mind.",
+  "I’m a sweetheart with a drink limit (allegedly).",
+  "If you’re cute, prove you can communicate.",
+  "If you’re cute, prove you can behave.",
+  "If you’re cute, buy water too.",
+  "This is a grown-up playground—act accordingly.",
+  "Grown people ask first.",
+  "Grown people take no well.",
+  "Grown people tip well.",
+  "Grown people don’t pressure.",
+  "I’m here for the music and questionable decisions.",
+  "I’m here for the bass and bad intentions (fun ones).",
+  "I’m here for the bass and better kisses.",
+  "I’m here for the bass and worse choices.",
+  "I’m here for the bass and the afters.",
+  "After party energy, pre-party morals.",
+  "Pre-game brain, post-game chaos.",
+  "I’m one drink away from dancing on something.",
+  "I’m two drinks away from telling the truth.",
+  "I’m three drinks away from bad tattoos (kidding).",
+  "I’m four drinks away from a life reset.",
+  "Don’t let me take shots like it’s cardio.",
+  "I’m the reason your Uber rating is low.",
+  "I’m the reason the bathroom line is long.",
+  "I’m the reason the DJ smiled.",
+  "I’m the reason the bartender sighed.",
+  "I’m the reason the group chat’s loud tomorrow.",
+  "I’m the reason we’re staying out.",
+  "This night is for the hot and irresponsible.",
+  "This night is for the cute and chaotic.",
+  "This night is for the single and delusional.",
+  "This night is for the taken and sneaky (don’t be).",
+  "This night is for the bold and respectful.",
+  "This night is for the loud and lovable.",
+  "I’m not a red flag, I’m a party favor.",
+  "I’m not a red flag, I’m a flashing neon sign.",
+  "I’m not a green flag, I’m a glow stick.",
+  "I’m a walking “you up?” text.",
+  "I’m a walking “come over” typo.",
+  "I’m a walking “last call” decision.",
+  "I’m a walking “where’s my drink?” question.",
+  "I’m a walking “shots?” answer.",
+  "This fit is asking for trouble.",
+  "This fit is asking for compliments.",
+  "This fit is asking for a dance.",
+  "This fit is asking for a confession.",
+  "This fit is asking for another round.",
+  "I didn’t choose the nightlife—the nightlife chose me.",
+  "FoCo’s missing piece: us acting up.",
+  "FoCo’s missing piece: this kind of night.",
+  "FoCo’s missing piece: the “fuck it” energy.",
+  "FoCo’s missing piece: the after-hours glow.",
+  "My week was hard. My weekend is harder.",
+  "I’m in my “I deserve this” era.",
+  "I’m in my “I earned this hangover” era.",
+  "I’m in my “I’ll start Monday” era.",
+  "I’m in my “what’s one more?” era.",
+  "I’m in my “I’m not driving” era.",
+  "I’m in my “Uber or die” era.",
+  "If you drive drunk, you’re dead to me.",
+  "If you’re too drunk, we get you water.",
+  "If you’re too drunk, we get you home.",
+  "We party hard, we take care of people.",
+  "We drink loud, we move safe.",
+  "We flirt nasty, we act decent.",
+  "We do chaos, not coercion.",
+  "We do tequila, not entitlement.",
+  "We do shots, not pressure.",
+  "We do weekends, not regrets (mostly).",
+  "You can be freaky and still be respectful.",
+  "You can be drunk and still be kind.",
+  "You can be wild and still be safe.",
+  "You can be loud and still be lovable.",
+  "I’m here to be a bad influence—safely.",
+  "I’m here to be a bad influence—with consent.",
+  "I’m here to be a bad influence—with water breaks.",
+  "I’m here for the “oops” and the “my bad.”",
+  "I’m here for the “what if?” and the “fuck it.”",
+  "I’m here for the “come dance” and the “come closer (ask first).”",
+  "I’m here for the “pull up” and the “pull me in (ask first).”",
+  "I’m here for the “take a shot” and the “take a hint (no).”",
+  "If you’re offended, drink water.",
+  "If you’re offended, go home.",
+  "If you’re offended, tip anyway.",
+  "If you’re broke, act rich emotionally.",
+  "If you’re broke, pregame responsibly.",
+  "If you’re broke, don’t be weird about it.",
+  "I’m about to spend money like I’m healed.",
+  "I’m about to spend money like I’m famous.",
+  "I’m about to spend money like it’s my birthday.",
+  "I’m about to spend money like I didn’t cry this week.",
+  "Tonight’s love language: shots.",
+  "Tonight’s love language: dancing.",
+  "Tonight’s love language: eye contact.",
+  "Tonight’s love language: “wanna come with?”",
+  "Tonight’s love language: “are you into this?”",
+  "Tonight’s love language: “you good?”",
+  "Tonight’s love language: “drink some water.”",
+  "I’m not romantic, I’m just tipsy and cute.",
+  "I’m not romantic, I’m just drunk and brave.",
+  "I’m not romantic, I’m just loud and lonely (kidding).",
+  "I’m not romantic, I’m just horny for the vibe.",
+  "I’m not romantic, I’m just here.",
+  "My excuse? It’s the weekend.",
+  "My excuse? It’s FoCo.",
+  "My excuse? The DJ.",
+  "My excuse? The tequila.",
+  "My excuse? The playlist.",
+  "My excuse? The neon.",
+  "I’m allergic to boring nights.",
+  "I’m allergic to weird energy.",
+  "I’m allergic to bad music.",
+  "I’m allergic to early bedtimes.",
+  "I’m allergic to responsibilities on Saturdays.",
+  "I’m allergic to feelings after midnight.",
+  "Don’t talk to me before my first drink.",
+  "Don’t talk to me after my fourth drink either.",
+  "Don’t let me order shots—I’ll do it.",
+  "Don’t let me pick the afters—I’ll go.",
+  "Don’t let me pick the song—I’ll scream it.",
+  "Don’t let me pick the venue—I’ll stay out.",
+  "I’m here to dance like I’m single.",
+  "I’m here to dance like I’m toxic.",
+  "I’m here to dance like I’m unbothered.",
+  "I’m here to dance like it’s 2016.",
+  "I’m here to dance like the floor owes me money.",
+  "I’m here to dance like the beat is flirting back.",
+  "The only thing I’m committing to is another round.",
+  "The only thing I’m committing to is the dance floor.",
+  "The only thing I’m committing to is having fun.",
+  "The only thing I’m committing to is going home safe.",
+  "The only thing I’m committing to is not texting my ex.",
+  "The only thing I’m committing to is drinking water later.",
+  "This vibe is fratty. This behavior is respectful.",
+  "This vibe is messy. This consent is clear.",
+  "This vibe is horny. This communication is cleaner.",
+  "This vibe is chaotic. This crew is caring.",
+  "This vibe is loud. This energy is friendly.",
+  "This vibe is drunk. This plan is Uber.",
+  "I’m in a committed relationship with last call.",
+  "I’m in a committed relationship with bad decisions.",
+  "I’m in a committed relationship with nightlife.",
+  "I’m in a committed relationship with my friends’ bad ideas.",
+  "I’m in a committed relationship with the DJ’s set.",
+  "I’m in a committed relationship with the dance floor.",
+  "FoCo After Dark: drink deals and bad ideas.",
+  "FoCo After Dark: louder nights, worse choices.",
+  "FoCo After Dark: the reason you’re tired Monday.",
+  "FoCo After Dark: the reason your group chat’s cursed.",
+  "FoCo After Dark: the reason your bank account’s mad.",
+  "FoCo After Dark: the reason your ex is blocked.",
+  "FoCo After Dark: the reason you’re hydrated (sometimes).",
+  "FoCo After Dark: the reason you’re smiling tomorrow.",
+  "FoCo After Dark: the reason you’re home safe."
+];
   let cheersQuoteTimer = null;
   function initCheersQuotes() {
     const el = document.getElementById("cheersQuoteText");

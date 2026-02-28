@@ -226,6 +226,50 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Global gate config (waitlist mode, launch messaging). Public read, server-only write.
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Public waitlist entries are separate from auth/users.
+    match /waitlist/{entryId} {
+      allow create: if request.resource.data.keys().hasOnly([
+          "firstName",
+          "lastName",
+          "email",
+          "createdAt",
+          "source",
+          "status",
+          "consent",
+          "ipHash",
+          "userAgent"
+        ])
+        && request.resource.data.firstName is string
+        && request.resource.data.lastName is string
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 4
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2,}$')
+        && request.resource.data.consent == true
+        && request.resource.data.status == "active"
+        && request.resource.data.source is string;
+      allow read: if isAdmin() || isCeo();
+      allow update, delete: if false;
+    }
+
+    // Public waitlist total count (updated via Cloud Functions only).
+    match /counters/{docId} {
+      allow read: if docId == "waitlist";
+      allow write: if false;
+    }
+
+    // Waitlist blast jobs (CEO/admin + server only).
+    match /mailQueue/{jobId} {
+      allow read: if isAdmin() || isCeo();
+      allow write: if false;
+    }
+
     // Voucher redemptions (codes)
     match /redemptions/{code} {
       // Global redemption ledger is staff/CEO/admin only.

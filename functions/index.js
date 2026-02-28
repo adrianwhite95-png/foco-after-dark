@@ -97,6 +97,10 @@ const STAFF_VENUE_ALIASES = {
   "the mayor of old town": "mayor_old_town"
 };
 const APP_PUBLIC_CONFIG_DOC_PATH = "appConfig/public";
+const GLOBAL_CONFIG_DOC_PATH = "config/global";
+const WAITLIST_COLLECTION = "waitlist";
+const WAITLIST_COUNTER_DOC_PATH = "counters/waitlist";
+const WAITLIST_MAIL_QUEUE_COLLECTION = "mailQueue";
 const APP_PUBLIC_CONFIG_SECTIONS = new Set(["flags", "text", "numbers", "lists", "style"]);
 const VENUE_STATUS_VALUES = new Set(["active", "hidden", "paused", "archived"]);
 const VENUE_SOFT_CONTROL_DEFAULTS = Object.freeze({
@@ -106,6 +110,7 @@ const VENUE_SOFT_CONTROL_DEFAULTS = Object.freeze({
   priority: 50
 });
 const ADMIN_VENUE_MUTABLE_KEYS = new Set(["status", "showInHomeFeed", "showLivePill", "priority", "adminNote", "reason"]);
+const WAITLIST_STATUSES = new Set(["active", "emailed", "unsubscribed"]);
 Object.entries(STAFF_VENUES).forEach(([id, info]) => {
   if (info && info.login) {
     STAFF_VENUE_ALIASES[info.login] = id;
@@ -3942,6 +3947,66 @@ function requireAdminClaim(context) {
   }
 }
 
+function normalizeNameInput(value = "", maxLen = 60) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, maxLen);
+}
+
+function normalizeEmailInput(value = "") {
+  return String(value || "").trim().toLowerCase().slice(0, 254);
+}
+
+function isValidEmailFormat(value = "") {
+  return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(value || ""));
+}
+
+function buildWaitlistDocId(email = "") {
+  return hashLookupKey(normalizeEmailInput(email));
+}
+
+function htmlToText(html = "") {
+  return String(html || "")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 12000);
+}
+
+function sleep(ms = 0) {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+}
+
+async function queueOrSendEmail({ to = "", subject = "", html = "", text = "" }) {
+  const email = normalizeEmailInput(to);
+  if (!email || !subject) {
+    return { sent: false, error: "Missing email or subject" };
+  }
+  const safeHtml = String(html || "").slice(0, 40000);
+  const safeText = String(text || htmlToText(safeHtml) || "").slice(0, 12000);
+  const smtpConfigured = !!(process.env.REPORTS_SMTP_USER && process.env.REPORTS_SMTP_PASS);
+  if (smtpConfigured) {
+    return sendReportEmail(subject, safeText, { to: email, html: safeHtml });
+  }
+  try {
+    await db.collection("mail").add({
+      to: email,
+      message: {
+        subject: String(subject).slice(0, 200),
+        text: safeText,
+        html: safeHtml
+      },
+      meta: {
+        type: "waitlist_blast"
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return { sent: true, queued: true };
+  } catch (err) {
+    return { sent: false, error: err?.message || "Queue write failed" };
+  }
+}
+
 function safeJsonClone(value) {
   if (value === undefined) return undefined;
   return JSON.parse(JSON.stringify(value));
@@ -6967,6 +7032,103 @@ exports.adminUpdateConfig = functions.https.onCall(async (data, context) => {
   }
 });
 
+exports.adminUpdateGlobalConfig = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      rateLimit: { maxPerMin: 40, maxPerDay: 1200, burstAllowance: 10 },
+    });
+    requireAdminClaim(context);
+    const patch = data?.patch;
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+      throw new HttpsError("invalid-argument", "patch object required");
+    }
+    const updates = {};
+    if (Object.prototype.hasOwnProperty.call(patch, "waitlistMode")) {
+      if (typeof patch.waitlistMode !== "boolean") {
+        throw new HttpsError("invalid-argument", "waitlistMode must be boolean");
+      }
+      updates.waitlistMode = patch.waitlistMode;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "waitlistMessage")) {
+      updates.waitlistMessage = String(patch.waitlistMessage || "").trim().slice(0, 400) || "Join the waitlist to get first access.";
+    }
+    const keys = Object.keys(updates);
+    if (!keys.length) {
+      throw new HttpsError("invalid-argument", "No valid global config keys in patch");
+    }
+    updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+    updates.updatedByUid = context.auth.uid;
+    await db.doc(GLOBAL_CONFIG_DOC_PATH).set(updates, { merge: true });
+    return {
+      ok: true,
+      config: {
+        waitlistMode: updates.waitlistMode === true,
+        waitlistMessage: updates.waitlistMessage || null,
+        updatedByUid: context.auth.uid
+      }
+    };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("adminUpdateGlobalConfig failed", err);
+    throw new HttpsError("internal", err?.message || "Could not update global config");
+  }
+});
+
+exports.joinWaitlist = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, {
+      requireAuth: false,
+      rateLimit: false
+    });
+    // Keep abuse protection but avoid hard daily signup caps.
+    await enforcePublicCallableRateLimit(context, "waitlist_join", {
+      limit: 1200,
+      windowMs: 10 * 60 * 1000
+    });
+    const firstName = normalizeNameInput(data?.firstName, 60);
+    const lastName = normalizeNameInput(data?.lastName, 60);
+    const email = normalizeEmailInput(data?.email);
+    const consent = data?.consent === true;
+    const source = String(data?.source || "app").trim().slice(0, 30) || "app";
+    const userAgent = String(data?.userAgent || "").trim().slice(0, 280);
+    if (!firstName || !lastName) {
+      throw new HttpsError("invalid-argument", "First and last name are required");
+    }
+    if (!isValidEmailFormat(email)) {
+      throw new HttpsError("invalid-argument", "Valid email required");
+    }
+    if (!consent) {
+      throw new HttpsError("failed-precondition", "Consent required");
+    }
+    const docId = buildWaitlistDocId(email);
+    const ref = db.collection(WAITLIST_COLLECTION).doc(docId);
+    let existed = false;
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (snap.exists) {
+        existed = true;
+        return;
+      }
+      tx.set(ref, {
+        firstName,
+        lastName,
+        email,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        source,
+        status: "active",
+        consent: true,
+        userAgent: userAgent || null
+      }, { merge: false });
+    });
+    return { ok: true, existing: existed, docId };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("joinWaitlist failed", err);
+    throw new HttpsError("internal", err?.message || "Could not join waitlist");
+  }
+});
+
 exports.adminUpdateVenue = functions.https.onCall(async (data, context) => {
   try {
     await enforceCallableSecurity(context, {
@@ -7146,6 +7308,159 @@ exports.adminArchiveVenue = functions.https.onCall(async (data, context) => {
     if (err instanceof HttpsError) throw err;
     console.warn("adminArchiveVenue failed", err);
     throw new HttpsError("internal", err?.message || "Could not archive venue");
+  }
+});
+
+exports.sendWaitlistBlast = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      rateLimit: { maxPerMin: 6, maxPerDay: 60, burstAllowance: 2 }
+    });
+    requireAdminClaim(context);
+    const subject = String(data?.subject || "").trim().slice(0, 160);
+    const html = String(data?.html || "").trim().slice(0, 40000);
+    const previewText = String(data?.previewText || "").trim().slice(0, 300);
+    const dryRun = data?.dryRun === true;
+    if (!subject || !html) {
+      throw new HttpsError("invalid-argument", "subject and html are required");
+    }
+    const ref = db.collection(WAITLIST_MAIL_QUEUE_COLLECTION).doc();
+    await ref.set({
+      type: "waitlist_blast",
+      subject,
+      html,
+      previewText: previewText || null,
+      dryRun,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdByUid: context.auth.uid,
+      createdByEmail: normalizeEmailInput(context.auth.token?.email || ""),
+      status: "queued",
+      stats: { attempted: 0, sent: 0, failed: 0 },
+      error: null
+    }, { merge: false });
+    return { ok: true, jobId: ref.id };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("sendWaitlistBlast failed", err);
+    throw new HttpsError("internal", err?.message || "Could not queue waitlist blast");
+  }
+});
+
+exports.waitlistOnCreateCounterIncrement = functions.firestore.document("waitlist/{entryId}").onCreate(async (snap) => {
+  const data = snap.data() || {};
+  const status = String(data.status || "active").toLowerCase();
+  if (!WAITLIST_STATUSES.has(status)) {
+    return null;
+  }
+  const counterRef = db.doc(WAITLIST_COUNTER_DOC_PATH);
+  await counterRef.set({
+    total: admin.firestore.FieldValue.increment(1),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+  return null;
+});
+
+exports.processWaitlistBlastJob = functions.runWith(reportEmailSecrets).firestore.document("mailQueue/{jobId}").onCreate(async (snap, context) => {
+  const jobId = context.params.jobId;
+  const data = snap.data() || {};
+  if (String(data.type || "") !== "waitlist_blast") return null;
+  const jobRef = snap.ref;
+  const subject = String(data.subject || "").trim().slice(0, 160);
+  const html = String(data.html || "").trim().slice(0, 40000);
+  if (!subject || !html) {
+    await jobRef.set({
+      status: "error",
+      error: "Missing subject/html",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return null;
+  }
+  try {
+    await jobRef.set({
+      status: "running",
+      error: null,
+      startedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    const dryRun = data.dryRun === true;
+    const previewText = String(data.previewText || "").trim().slice(0, 300);
+    const actorEmail = normalizeEmailInput(data.createdByEmail || "");
+    let recipients = [];
+    if (dryRun) {
+      recipients = [actorEmail || CEO_EMAIL].filter(Boolean);
+    } else {
+      const waitSnap = await db.collection(WAITLIST_COLLECTION).where("status", "==", "active").get();
+      recipients = waitSnap.docs
+        .map((docSnap) => {
+          const row = docSnap.data() || {};
+          return {
+            docId: docSnap.id,
+            email: normalizeEmailInput(row.email || "")
+          };
+        })
+        .filter((item) => !!item.email);
+    }
+    let attempted = 0;
+    let sent = 0;
+    let failed = 0;
+    const failedRows = [];
+    const emailedDocIds = [];
+    const waitMs = 80; // ~12.5/sec burst cap
+    const textBody = previewText || htmlToText(html) || "FoCo After Dark update";
+    for (const recipient of recipients) {
+      attempted += 1;
+      const targetEmail = typeof recipient === "string" ? recipient : recipient.email;
+      const res = await queueOrSendEmail({
+        to: targetEmail,
+        subject,
+        html,
+        text: textBody
+      });
+      if (res?.sent) {
+        sent += 1;
+        if (!dryRun && recipient?.docId) emailedDocIds.push(recipient.docId);
+      } else {
+        failed += 1;
+        failedRows.push({ email: targetEmail, error: res?.error || "send failed" });
+      }
+      if (attempted % 20 === 0) {
+        await jobRef.set({
+          stats: { attempted, sent, failed },
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
+      await sleep(waitMs);
+    }
+    if (!dryRun && emailedDocIds.length) {
+      while (emailedDocIds.length) {
+        const chunk = emailedDocIds.splice(0, 400);
+        const batch = db.batch();
+        chunk.forEach((docId) => {
+          batch.set(db.collection(WAITLIST_COLLECTION).doc(docId), {
+            status: "emailed",
+            emailedAt: admin.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        });
+        await batch.commit();
+      }
+    }
+    await jobRef.set({
+      status: "done",
+      stats: { attempted, sent, failed },
+      error: failedRows.length ? JSON.stringify(failedRows.slice(0, 20)) : null,
+      finishedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    console.info("processWaitlistBlastJob complete", { jobId, attempted, sent, failed, dryRun });
+    return null;
+  } catch (err) {
+    console.warn("processWaitlistBlastJob failed", { jobId, err: err?.message || err });
+    await jobRef.set({
+      status: "error",
+      error: err?.message || "waitlist blast failed",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return null;
   }
 });
 
