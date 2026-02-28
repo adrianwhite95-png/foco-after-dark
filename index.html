@@ -2784,6 +2784,16 @@
       min-width: 94px;
       transform: none !important;
     }
+    #globalRefreshBtn {
+      position: fixed !important;
+      top: max(14px, calc(env(safe-area-inset-top, 0px) + 10px)) !important;
+      right: max(14px, calc(env(safe-area-inset-right, 0px) + 10px)) !important;
+      left: auto !important;
+      bottom: auto !important;
+    }
+    #memberRefreshBtn {
+      display: none !important;
+    }
     /* Hide landing refresh when landing screen not active */
     #landingScreen:not(.active) .refresh-btn {
       display: none !important;
@@ -20327,13 +20337,11 @@
       });
     }
     function attachProfileLogoEasterEgg() {
+      if (document.body?.dataset?.easterAttached === "1") return;
+      if (document.body) document.body.dataset.easterAttached = "1";
       let taps = [];
       const windowMs = 1500;
-      const onTap = (event) => {
-        const target = event?.target?.closest?.(
-          "#passScreen #passUserName, #passScreen #userUsername, #passScreen .username-row, #profileActivityScreen #profileActivityName"
-        );
-        if (!target) return;
+      const recordTap = () => {
         const now = Date.now();
         taps = taps.filter((ts) => (now - ts) <= windowMs);
         taps.push(now);
@@ -20347,9 +20355,21 @@
           }
         }
       };
-      if (document.body?.dataset?.easterAttached === "1") return;
-      if (document.body) document.body.dataset.easterAttached = "1";
-      document.addEventListener("pointerup", onTap, { passive: true });
+      const targetSelector = "#passScreen #passUserName, #passScreen #userUsername, #passScreen .username-row, #profileActivityScreen #profileActivityName";
+      const attachTarget = (el) => {
+        if (!el || el.dataset.easterTapAttached === "1") return;
+        el.dataset.easterTapAttached = "1";
+        el.addEventListener("click", recordTap, { passive: true });
+        el.addEventListener("touchend", recordTap, { passive: true });
+      };
+      document.querySelectorAll(targetSelector).forEach(attachTarget);
+      document.addEventListener("click", (event) => {
+        const target = event?.target?.closest?.(targetSelector);
+        if (!target) return;
+        if (target.dataset.easterTapAttached === "1") return;
+        attachTarget(target);
+        recordTap();
+      }, { passive: true });
     }
     function shouldForceExplorerTier(profile = memberProfile) {
       if (!profile) return false;
