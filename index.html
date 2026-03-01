@@ -22214,6 +22214,11 @@
       if (appLocked && !isCeoProfile) {
         showToast("App is in read-only mode right now.", 2600);
       }
+      if (forceLandingAfterWaitlistDisable) {
+        showScreen("landing");
+        clearPassLoading();
+        return;
+      }
 
       updateLoginStatsForUser(user);
 
