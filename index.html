@@ -17469,6 +17469,7 @@
     const SAFE_MODE = params.get("safe") === "1";
     const DEBUG_MODE = params.get("debug") === "1";
     const QA_MODE = params.get("qa") === "1";
+    const CEO_ACCESS_ROUTE = /^\/ceo_access\/?$/i.test(String(window.location.pathname || "").trim());
     function hasRequiredFirebaseConfig(config = {}) {
       const required = ["apiKey", "authDomain", "projectId", "appId"];
       return required.every((key) => typeof config[key] === "string" && config[key].trim().length > 0);
@@ -18892,8 +18893,21 @@
       return message || WAITLIST_GLOBAL_CONFIG_DEFAULT.waitlistMessage;
     }
 
+    function canBypassWaitlistGate(userArg = firebaseAuth?.currentUser) {
+      if (!CEO_ACCESS_ROUTE) return false;
+      const user = userArg || null;
+      if (!user) return true;
+      const email = String(user?.email || "").toLowerCase();
+      if (email === "ceo@gmail.com") return true;
+      if (hasCeoClaim() || hasAdminClaim()) return true;
+      if (isCeoAccount || ceoSession) return true;
+      return false;
+    }
+
     function isWaitlistModeEnabled() {
-      return globalConfigState?.waitlistMode === true;
+      if (globalConfigState?.waitlistMode !== true) return false;
+      if (canBypassWaitlistGate()) return false;
+      return true;
     }
 
     function updateWaitlistCounterUi() {
@@ -41908,7 +41922,10 @@ let onboardingIndex = 0;
             initialAuthResolved = true;
             return;
           }
-          if (loginForced) {
+          if (CEO_ACCESS_ROUTE) {
+            suppressLandingRedirectOnce = true;
+            renderLoginScreen();
+          } else if (loginForced) {
             suppressLandingRedirectOnce = true;
             renderLoginScreen();
           } else {
@@ -42012,6 +42029,16 @@ let onboardingIndex = 0;
       applyLaunchModeUI();
       applyAppLockState();
       if (data?.maintenanceMode === true) {
+        if (CEO_ACCESS_ROUTE) {
+          maintenanceModeActive = true;
+          maintenanceSettingsCache = { ...(data || {}) };
+          applyMaintenanceModeState();
+          handleServerVersionSeen(data?.version, "settings");
+          refreshOnLaunch();
+          maybeShowNotificationsPrompt();
+          startAuthListener();
+          return;
+        }
         renderMaintenanceScreen(data);
         applyMaintenanceModeState();
         handleServerVersionSeen(data?.version, "settings");
