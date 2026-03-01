@@ -41922,10 +41922,7 @@ let onboardingIndex = 0;
             initialAuthResolved = true;
             return;
           }
-          if (CEO_ACCESS_ROUTE) {
-            suppressLandingRedirectOnce = true;
-            renderLoginScreen();
-          } else if (loginForced) {
+          if (loginForced && !CEO_ACCESS_ROUTE) {
             suppressLandingRedirectOnce = true;
             renderLoginScreen();
           } else {
