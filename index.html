@@ -1728,6 +1728,9 @@
       text-align: center;
       display: flex;
       justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
       margin-top: 8px;
     }
     .insta-cta {
@@ -1781,6 +1784,26 @@
     }
     .insta-cta a:hover {
       color: #a855f7;
+    }
+    .landing-share-btn {
+      margin: 6px auto 0;
+      min-height: 38px;
+      padding: 8px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(34, 211, 238, 0.32);
+      background: rgba(2, 6, 23, 0.42);
+      color: #e2e8f0;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, filter 0.16s ease;
+    }
+    .landing-share-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(143, 91, 255, 0.42);
+      filter: brightness(1.06);
     }
     .testimonial-bar {
       margin-top: 10px;
@@ -15023,6 +15046,7 @@
                 </svg>
                 <a href="https://www.instagram.com/focoafterdark/" target="_blank" rel="noopener">Add us on Instagram</a>
               </div>
+              <button id="landingShareBtn" class="landing-share-btn btnGlass btnPremiumGlass" type="button">Share with friends</button>
             </div>
       </div>
     </div>
@@ -20100,6 +20124,7 @@
     const landingGetPassBtn = document.getElementById("landingGetPassBtn");
     const landingLoginLink = document.getElementById("landingLoginLink");
     const landingStaffLogin = document.getElementById("landingStaffLogin");
+    const landingShareBtn = document.getElementById("landingShareBtn");
     if (landingGetPassBtn) {
       landingGetPassBtn.addEventListener("click", () => {
         if (!isBillingEnabledForUi()) {
@@ -20114,6 +20139,29 @@
     if (landingLoginLink) {
       landingLoginLink.addEventListener("click", () => {
         forceLoginScreen();
+      });
+    }
+    if (landingShareBtn) {
+      landingShareBtn.addEventListener("click", async () => {
+        const shareUrl = "https://foco-after-dark.web.app";
+        const shareTitle = "FoCo After Dark";
+        const shareText = "Come join FoCo After Dark.";
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+            showToast("Shared", 1400);
+            return;
+          }
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(shareUrl);
+            showToast("Link copied. Share it with friends.", 2200);
+            return;
+          }
+          throw new Error("share-unavailable");
+        } catch (err) {
+          const canceled = err && (err.name === "AbortError" || err.code === "ABORT_ERR");
+          if (!canceled) showToast("Share is not available on this device right now.", 2200);
+        }
       });
     }
     function scrollToSectionTarget(target) {
