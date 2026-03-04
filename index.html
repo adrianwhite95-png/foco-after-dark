@@ -19523,6 +19523,8 @@
     let maintenanceBootChecked = false;
     let maintenanceRetryInFlight = false;
     const PENDING_MEMBERSHIP_STORAGE_KEY = "pendingMembershipUser";
+    const ONBOARDING_RESUME_KEY = "fad:onboardingResume:v1";
+    const ONBOARDING_RESUME_TTL_MS = 45 * 60 * 1000; // 45 min safety window
     let profileWheelRotation = 0;
     let profileWheelSpinInFlight = false;
     let nightWheelLastSummary = "";
@@ -20685,7 +20687,9 @@
         showScreen("tonight");
         return;
       }
-      openBillingScreenForTier(requestedTier, { fallbackScreen: "membership" });
+      pendingMembershipInterval = normalizeMembershipIntervalSelection(memberProfile?.requestedBillingInterval || pendingMembershipInterval || "month");
+      openMembershipChooser("ageVerify");
+      showToast("ID verified. Choose Monthly or Yearly to continue.", 2400);
     }
     function renderAgeVerificationState(statusOverride = "") {
       if (!ageVerifyStatus || !ageVerifyPlan) return;
@@ -20769,6 +20773,14 @@
           && !suppressAgeVerifyAutoContinue
         ) {
           continuePostAgeVerification(getRequestedTier(memberProfile));
+        } else if (
+          data?.verified === true
+          && onboardingMembershipFlow
+          && !isFreeMember(memberProfile)
+          && !isExplorerMember(memberProfile)
+          && currentScreenName === "ageVerify"
+        ) {
+          showScreen("membership");
         }
         return data;
       } catch (err) {
@@ -20788,7 +20800,10 @@
       try {
         suppressAgeVerifyAutoContinue = false;
         const tier = normalizeMembershipTierSelection(opts.tier || getRequestedTier());
-        const returnUrl = `${window.location.origin}${window.location.pathname}`;
+        const interval = normalizeMembershipIntervalSelection(pendingMembershipInterval || memberProfile?.requestedBillingInterval || "month");
+        const returnUrl = `${window.location.origin}${window.location.pathname}?resume=ageVerify`;
+        writeOnboardingResume({ uid: firebaseAuth.currentUser?.uid || "", stage: "ageVerify", tier, interval });
+        allowMemberAuthBootstrap(firebaseAuth.currentUser?.uid || "");
         const fn = httpsCallable(functionsClient, "createAgeVerificationSession");
         const resp = await fn({
           tier,
@@ -21917,6 +21932,34 @@
       }
     }
 
+    function writeOnboardingResume(payload) {
+      try {
+        localStorage.setItem(ONBOARDING_RESUME_KEY, JSON.stringify({ ...(payload || {}), ts: Date.now() }));
+      } catch (_) {}
+    }
+
+    function readOnboardingResume() {
+      try {
+        return JSON.parse(localStorage.getItem(ONBOARDING_RESUME_KEY) || "null");
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function clearOnboardingResume() {
+      try {
+        localStorage.removeItem(ONBOARDING_RESUME_KEY);
+      } catch (_) {}
+    }
+
+    function resumeIsValidForUser(marker, user) {
+      if (!marker || !user?.uid) return false;
+      if (String(marker.uid || "") !== String(user.uid)) return false;
+      const ts = Number(marker.ts || 0);
+      if (!Number.isFinite(ts) || (Date.now() - ts) > ONBOARDING_RESUME_TTL_MS) return false;
+      return true;
+    }
+
     function normalizeUiErrorMessage(value, fallback = "Something went wrong. Try again.") {
       const code = String(value?.code || "");
       const raw = String(value?.message || value || "").trim();
@@ -22394,9 +22437,7 @@
         showToast("App is in read-only mode right now.", 2600);
       }
       if (forceLandingAfterWaitlistDisable) {
-        showScreen("landing");
-        clearPassLoading();
-        return;
+        forceLandingAfterWaitlistDisable = false;
       }
 
       updateLoginStatsForUser(user);
@@ -22480,6 +22521,19 @@
         }).catch((err) => console.warn("Explorer membership normalization failed", err));
       }
 
+      const onboardingResume = readOnboardingResume();
+      if (resumeIsValidForUser(onboardingResume, user) && !isFreeMember(memberProfile) && !isExplorerMember(memberProfile)) {
+        onboardingMembershipFlow = true;
+        forceMembershipScreen = true;
+        pendingMembershipTier = normalizeMembershipTierSelection(onboardingResume.tier || getRequestedTier(memberProfile));
+        pendingMembershipInterval = normalizeMembershipIntervalSelection(onboardingResume.interval || memberProfile?.requestedBillingInterval || "month");
+        memberProfile = {
+          ...(memberProfile || {}),
+          requestedTier: pendingMembershipTier,
+          requestedBillingInterval: pendingMembershipInterval
+        };
+      }
+
       if (requiresAgeVerificationClient(memberProfile, user)) {
         onboardingMembershipFlow = true;
         forceMembershipScreen = false;
@@ -22509,11 +22563,15 @@
         forceMembershipScreen = false;
         const requestedTier = getRequestedTier(memberProfile);
         pendingMembershipTier = requestedTier;
+        pendingMembershipInterval = normalizeMembershipIntervalSelection(memberProfile?.requestedBillingInterval || pendingMembershipInterval || "month");
         if (allowLocalCache() && user.uid) {
           localStorage.removeItem(`membership_${user.uid}`);
         }
         clearPassLoading();
-        openBillingScreenForTier(requestedTier, { fallbackScreen: "membership" });
+        openMembershipChooser("ageVerify");
+        if (resumeIsValidForUser(onboardingResume, user)) {
+          showToast("Pick Monthly or Yearly to finish signup.", 2400);
+        }
         return;
       }
 
@@ -28007,6 +28065,7 @@ let onboardingIndex = 0;
       document.body.classList.remove("ceo-active");
       document.body.classList.remove("ceo-preview-active");
       clearPendingMembershipFlagForUser(currentUid);
+      clearOnboardingResume();
       applyRememberedEmailToForm();
       showScreen("landing");
       stopIdleTimer();
@@ -42439,6 +42498,29 @@ let onboardingIndex = 0;
       }
     }
     let authListenerStarted = false;
+
+    function maybeResumeOnboardingAfterAuth(user) {
+      const marker = readOnboardingResume();
+      if (!resumeIsValidForUser(marker, user)) return false;
+      onboardingMembershipFlow = true;
+      forceMembershipScreen = true;
+      pendingMembershipTier = normalizeMembershipTierSelection(marker.tier || "standard");
+      pendingMembershipInterval = normalizeMembershipIntervalSelection(marker.interval || "month");
+      memberProfile = {
+        ...(memberProfile || {}),
+        requestedTier: pendingMembershipTier,
+        requestedBillingInterval: pendingMembershipInterval
+      };
+      if (requiresAgeVerificationClient(memberProfile, user)) {
+        renderAgeVerificationState();
+        showScreen("ageVerify");
+        return true;
+      }
+      showToast("ID verified. Choose Monthly or Yearly to continue.", 5000);
+      showScreen("membership");
+      return true;
+    }
+
     function startAuthListener() {
       if (authListenerStarted) return;
       authListenerStarted = true;
@@ -42558,6 +42640,15 @@ let onboardingIndex = 0;
           return;
         }
         await handleAuthenticatedUser(user);
+        if (maybeResumeOnboardingAfterAuth(user)) {
+          updateRefreshButtonsVisibility();
+          attachRealtimeForCurrentContext("auth-change");
+          requestBadgeClear();
+          updateDebugNotificationControls();
+          maybeShowNotificationsPrompt();
+          initialAuthResolved = true;
+          return;
+        }
         updateRefreshButtonsVisibility();
         if (isCeoAccount && authClaimsReady && hasCeoClaim()) {
           await loadCeoMembersSummaryLegacy();
@@ -45602,6 +45693,7 @@ let onboardingIndex = 0;
         onboardingMembershipFlow = false;
         forceMembershipScreen = false;
         clearPendingMembershipFlagForUser(user?.uid);
+        clearOnboardingResume();
         clearPendingTier(user?.uid);
         showScreen("pass");
         return;
