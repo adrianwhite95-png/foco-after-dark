@@ -3313,6 +3313,26 @@
       color: #e2e8f0;
       font-weight: 700;
     }
+    .signup-plan-card .plan-yearly {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #c7d2fe;
+      text-shadow: 0 0 10px rgba(143, 91, 255, 0.28);
+    }
+    .signup-plan-card .plan-save {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 2px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #071018;
+      background: linear-gradient(90deg, rgba(34, 211, 238, 0.95), rgba(143, 91, 255, 0.95));
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.28);
+    }
     .signup-plan-card .plan-copy {
       font-size: 11px;
       color: #94a3b8;
@@ -15119,6 +15139,8 @@
             <button type="button" class="signup-plan-card active" data-signup-tier="standard" aria-pressed="true">
               <span class="plan-name">Standard</span>
               <span class="plan-price">$5.00 / month</span>
+              <span class="plan-yearly">$50.00 / year</span>
+              <span class="plan-save">Save $10 yearly</span>
               <span class="plan-copy">5 monthly tokens</span>
               <span class="plan-copy">2 Night Wheel spins per month</span>
               <span class="plan-copy">Earn redemption points toward monthly pass savings</span>
@@ -15127,6 +15149,8 @@
             <button type="button" class="signup-plan-card" data-signup-tier="vip" aria-pressed="false">
               <span class="plan-name">VIP</span>
               <span class="plan-price">$10.00 / month</span>
+              <span class="plan-yearly">$96.00 / year</span>
+              <span class="plan-save">Save $24 yearly</span>
               <span class="plan-copy">10 monthly tokens</span>
               <span class="plan-copy">4 Night Wheel spins per month</span>
               <span class="plan-copy">VIP venue perks + better in-app token pricing</span>
@@ -15143,7 +15167,7 @@
             </button>
           </div>
           <p class="small" style="margin-top:6px;text-align:left;">
-            Standard/VIP continue to secure 21+ ID verification before billing. Explorer opens instantly, then verifies age only when upgrading to paid tiers.
+            Standard/VIP continue to secure 21+ ID verification before billing. Explorer opens instantly, then verifies age only when upgrading to paid tiers. Yearly plans are discounted and billed once per year.
           </p>
         </div>
         <div class="error" id="authError"></div>
