@@ -17140,7 +17140,7 @@
           <button type="button" id="aboutPatchNotesToggle" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;">View older</button>
         </div>
 
-        <p style="margin-top:12px;font-size:12px;color:#9ca3af;">Last updated: March 4, 2026</p>
+        <p id="aboutLastUpdatedText" style="margin-top:12px;font-size:12px;color:#9ca3af;">Last updated: March 4, 2026</p>
         <div style="margin-top:14px;border-top:1px solid rgba(148,163,184,0.06);padding-top:10px;text-align:center;color:var(--accent-magenta);font-weight:700;">© 2026 FoCo After Dark<br/>Founded &amp; Designed by Adrian White</div>
       </div>
     </div>
@@ -23395,6 +23395,7 @@
     const navAboutItem = document.getElementById("navAboutItem");
     const aboutPatchNotesList = document.getElementById("aboutPatchNotesList");
     const aboutPatchNotesToggle = document.getElementById("aboutPatchNotesToggle");
+    const aboutLastUpdatedText = document.getElementById("aboutLastUpdatedText");
     const achievementsList = document.getElementById("achievementsList");
     const ceoDemoBtn = document.getElementById("ceoDemoBtn");
     const demoModeBadge = document.getElementById("demoModeBadge");
@@ -23563,6 +23564,29 @@
         const hasOlder = list.length > 10;
         aboutPatchNotesToggle.style.display = hasOlder ? "inline-flex" : "none";
         aboutPatchNotesToggle.textContent = aboutPatchNotesExpanded ? "Show newer" : "View older";
+      }
+    }
+
+    async function refreshAboutLastUpdatedText() {
+      if (!aboutLastUpdatedText) return;
+      try {
+        const stamp = Date.now();
+        const resp = await fetch(`/version.json?v=${stamp}`, { cache: "no-store" });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const version = String(data?.version || "").trim();
+        const match = version.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
+        if (!match) return;
+        const [, year, month, day] = match;
+        const parsed = new Date(`${year}-${month}-${day}T12:00:00`);
+        if (Number.isNaN(parsed.getTime())) return;
+        aboutLastUpdatedText.textContent = `Last updated: ${parsed.toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric"
+        })}`;
+      } catch (_) {
+        // keep static fallback text
       }
     }
     const pointsRedeemCancel = document.getElementById("pointsRedeemCancel");
@@ -28017,6 +28041,7 @@ let onboardingIndex = 0;
         case "about":
           if (aboutModal) {
             renderPatchNotes();
+            refreshAboutLastUpdatedText();
             aboutModal.classList.add("active");
           }
           break;
@@ -28230,6 +28255,7 @@ let onboardingIndex = 0;
       });
     }
     renderPatchNotes();
+    refreshAboutLastUpdatedText();
     if (cancelMembershipConfirm) {
       cancelMembershipConfirm.addEventListener("click", cancelMembershipAndSignOut);
     }
