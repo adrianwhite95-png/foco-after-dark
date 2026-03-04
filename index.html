@@ -15410,7 +15410,7 @@
           <div class="explorer-lock-banner" id="explorerLockBanner">
             <div class="lock-copy">
               <strong>Explorer access</strong>
-              <span>Perk redemption is locked. Upgrade to Standard or VIP to unlock your live pass.</span>
+              <span>Voucher redemption is locked. Upgrade to Standard or VIP to unlock your live pass.</span>
             </div>
             <span class="explorer-lock-icon" aria-hidden="true">🔒</span>
             <button type="button" class="btn btn-primary" id="explorerUpgradeBtn" style="width:auto;padding:8px 12px;min-height:36px;">Upgrade</button>
@@ -15544,7 +15544,7 @@
                 <ul id="alertsList">
                   <li>
                     <strong>Social Underground</strong>
-                    <span>Glow shot hour 11pm – 12am</span>
+                    <span>Late-night voucher drop 11pm – 12am</span>
                     <span class="alerts-meta">VIP venues · Old Town</span>
                   </li>
                   <li>
@@ -15562,7 +15562,7 @@
             <div class="micro-label">Tonight's value</div>
             <div class="member-hero-header">
               <div class="member-hero-title">Tonight's value</div>
-              <div class="member-hero-sub">Your live pass balance + perks.</div>
+              <div class="member-hero-sub">Your live pass balance + redemptions.</div>
             </div>
             <div class="value-live-row">
               <div class="value-radar" aria-hidden="true">
@@ -15610,7 +15610,7 @@
 
             <div class="redeem-row" style="display:flex;flex-direction:column;gap:8px;">
               <button type="button" class="btn redeem-btn" id="redeemTrigger">
-                Redeem a perk
+                Redeem a voucher
               </button>
               <button type="button" class="btn add-vouchers-btn" id="buyDrinksBtn">
                 Buy redemption tokens
@@ -15705,7 +15705,7 @@
       <div class="modal-backdrop" id="redeemModal">
         <div class="modal-card">
           <div class="modal-header">
-            <div class="modal-title">Redeem a perk</div>
+            <div class="modal-title">Redeem a voucher</div>
             <button class="modal-close" id="redeemClose" type="button">Close</button>
           </div>
           <div class="modal-field">
@@ -15918,7 +15918,7 @@
   <div id="venuesScreen" class="screen">
     <div class="app-title"><span>Participating</span> Venues</div>
     <div class="tagline">
-      Doors where FoCo After Dark perks unlock drinks, bites, and VIP treatment.
+      Doors where FoCo After Dark voucher redemptions unlock venue-approved specials.
     </div>
         <div class="venues-card card-hd no-tilt smooth-enter">
       <div class="featured-venues" id="featuredVenues">
@@ -16144,7 +16144,7 @@
           <input id="alertAudience" type="hidden" value="all" />
           <div class="field">
             <label for="alertTitle">Alert headline</label>
-            <input id="alertTitle" type="text" placeholder="e.g. Glow shot hour" />
+            <input id="alertTitle" type="text" placeholder="e.g. Late-night voucher drop" />
           </div>
           <div class="field">
             <label for="alertDetail">Details</label>
@@ -16244,7 +16244,7 @@
           <div class="staff-team-card" style="margin-top:10px;">
             <div class="staff-ticker-header">Staff</div>
             <div class="small" style="color:#94a3b8;margin:4px 0 8px;">Add/remove active staff for this venue. Actions require staff attribution.</div>
-            <form id="staffMemberForm" class="staff-member-form" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+            <form id="staffMemberForm" class="staff-member-form" style="display:grid;grid-template-columns:1fr 1fr 140px;gap:8px;align-items:end;">
               <div class="field" style="margin:0;">
                 <label for="staffFirstName">First name</label>
                 <input id="staffFirstName" type="text" placeholder="First name" />
@@ -16253,7 +16253,22 @@
                 <label for="staffLastName">Last name</label>
                 <input id="staffLastName" type="text" placeholder="Last name" />
               </div>
-              <button type="submit" class="btn btn-primary" style="height:44px;">Add staff</button>
+              <div class="field" style="margin:0;">
+                <label for="staffRoleSelect">Role</label>
+                <select id="staffRoleSelect">
+                  <option value="staff" selected>Staff</option>
+                  <option value="manager">Manager</option>
+                </select>
+              </div>
+              <div class="field" id="staffManagerPinWrap" style="margin:0;display:none;">
+                <label for="staffManagerPin">Manager code (4 digits)</label>
+                <input id="staffManagerPin" type="password" inputmode="numeric" maxlength="4" placeholder="1234" />
+              </div>
+              <div class="field" id="staffManagerPinConfirmWrap" style="margin:0;display:none;">
+                <label for="staffManagerPinConfirm">Confirm manager code</label>
+                <input id="staffManagerPinConfirm" type="password" inputmode="numeric" maxlength="4" placeholder="1234" />
+              </div>
+              <button type="submit" class="btn btn-primary" style="height:44px;">Add team member</button>
             </form>
             <div class="error" id="staffMemberError"></div>
             <p class="support-success" id="staffMemberSuccess" style="display:none;">Staff member added.</p>
@@ -17315,6 +17330,28 @@
       <div class="error" id="staffActorError"></div>
       <div class="payment-actions" style="margin-top:8px;">
         <button type="button" class="btn btn-primary" id="staffActorConfirm">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="managerOverrideModal">
+    <div class="modal-card" style="max-width:520px;">
+      <div class="modal-header">
+        <div class="modal-title">Manager approval required</div>
+      </div>
+      <p class="small" id="managerOverridePrompt" style="margin:0 0 10px;color:#cbd5f5;">Input manager code for final approval.</p>
+      <div class="field">
+        <label for="managerOverrideSelect">Manager</label>
+        <select id="managerOverrideSelect"></select>
+      </div>
+      <div class="field">
+        <label for="managerOverridePin">Input manager code</label>
+        <input id="managerOverridePin" type="password" inputmode="numeric" maxlength="4" placeholder="4-digit code" />
+      </div>
+      <div class="error" id="managerOverrideError"></div>
+      <div class="payment-actions" style="margin-top:8px;">
+        <button type="button" class="btn btn-secondary" id="managerOverrideCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="managerOverrideConfirm">Approve</button>
       </div>
     </div>
   </div>
@@ -18896,7 +18933,7 @@
       if (redeemTrigger) {
         redeemTrigger.disabled = !redeemEnabled;
         redeemTrigger.setAttribute("aria-disabled", redeemEnabled ? "false" : "true");
-        redeemTrigger.title = redeemEnabled ? "Redeem a perk" : cfg.text("redeem.disabled.message", DEFAULT_CONFIG_TEXT["redeem.disabled.message"]);
+        redeemTrigger.title = redeemEnabled ? "Redeem a voucher" : cfg.text("redeem.disabled.message", DEFAULT_CONFIG_TEXT["redeem.disabled.message"]);
       }
       if (tonightRedeemBtn) {
         tonightRedeemBtn.classList.toggle("disabled", !redeemEnabled);
@@ -21095,6 +21132,13 @@
           if (alertError) alertError.textContent = "Cloud sync unavailable. Alert not posted.";
           return;
         }
+        const managerApproval = await requireManagerOverride({
+          prompt: "Input manager code for tonight's deal/alert approval."
+        });
+        if (!managerApproval) {
+          if (alertError) alertError.textContent = "Manager approval was not completed.";
+          return;
+        }
 
         if (audience === "vip") {
           // VIP-only path (previously vipDealForm)
@@ -21107,6 +21151,8 @@
               action: "upsert",
               offerType: "vipDeal",
               venueId,
+              managerStaffId: managerApproval.managerStaffId || null,
+              managerPin: managerApproval.managerPin || null,
               docId: venueId,
               title,
               detail,
@@ -21143,6 +21189,8 @@
               action: "upsert",
               offerType: "alert",
               venueId,
+              managerStaffId: managerApproval.managerStaffId || null,
+              managerPin: managerApproval.managerPin || null,
               title,
               detail,
               meta,
@@ -23105,6 +23153,11 @@
     const staffMemberForm = document.getElementById("staffMemberForm");
     const staffFirstName = document.getElementById("staffFirstName");
     const staffLastName = document.getElementById("staffLastName");
+    const staffRoleSelect = document.getElementById("staffRoleSelect");
+    const staffManagerPinWrap = document.getElementById("staffManagerPinWrap");
+    const staffManagerPin = document.getElementById("staffManagerPin");
+    const staffManagerPinConfirmWrap = document.getElementById("staffManagerPinConfirmWrap");
+    const staffManagerPinConfirm = document.getElementById("staffManagerPinConfirm");
     const staffTeamList = document.getElementById("staffTeamList");
     const staffMemberError = document.getElementById("staffMemberError");
     const staffMemberSuccess = document.getElementById("staffMemberSuccess");
@@ -23120,6 +23173,13 @@
     const staffActorError = document.getElementById("staffActorError");
     const staffActorConfirm = document.getElementById("staffActorConfirm");
     const staffActorClose = document.getElementById("staffActorClose");
+    const managerOverrideModal = document.getElementById("managerOverrideModal");
+    const managerOverridePrompt = document.getElementById("managerOverridePrompt");
+    const managerOverrideSelect = document.getElementById("managerOverrideSelect");
+    const managerOverridePin = document.getElementById("managerOverridePin");
+    const managerOverrideError = document.getElementById("managerOverrideError");
+    const managerOverrideCancel = document.getElementById("managerOverrideCancel");
+    const managerOverrideConfirm = document.getElementById("managerOverrideConfirm");
     const staffDealCodeList = document.getElementById("staffDealCodeList");
     const staffDealRedemptionLog = document.getElementById("staffDealRedemptionLog");
     const staffPerksList = document.getElementById("staffPerksList");
@@ -23965,9 +24025,9 @@
       { title: "Revenue ready", body: "Members preload vouchers. You get paid per redemption with transparent monthly reports." }
     ];
     const simulatedScans = [
-      { perk: "Drink perk voucher", member: "Demo Member", passId: "BETA321" },
-      { perk: "Shot perk voucher", member: "FoCo Tester", passId: "TEST713" },
-      { perk: "Guest entry perk", member: "VIP Preview", passId: "PREV999" }
+      { perk: "Standard voucher redemption", member: "Demo Member", passId: "BETA321" },
+      { perk: "Bonus voucher redemption", member: "FoCo Tester", passId: "TEST713" },
+      { perk: "Venue voucher", member: "VIP Preview", passId: "PREV999" }
     ];
     const FIXED_BASELINE_PRICE = 7.70;
     const DEAL_BASELINE_PRICING = {
@@ -24062,7 +24122,7 @@
       }
     }
     const onboardingSteps = [
-      { title: "Redeem in two taps", copy: "Use “Redeem a perk” to claim a venue deal. Your balance updates instantly." },
+      { title: "Redeem in two taps", copy: "Use “Redeem a voucher” to claim a venue deal. Your balance updates instantly." },
       { title: "Show your Pass ID", copy: "At the venue, show your Pass ID for staff verification—no scanners required." },
       { title: "Earn while you party", copy: "Spin the Night Wheel, leave reviews, and stack points all month long." }
     ];
@@ -30333,10 +30393,22 @@ let onboardingIndex = 0;
         if (staffPerksError) staffPerksError.textContent = "Cloud sync unavailable. Perks not saved.";
         return;
       }
+      const managerApproval = await requireManagerOverride({
+        prompt: "Input manager code for monthly perks approval."
+      });
+      if (!managerApproval) {
+        if (staffPerksError) staffPerksError.textContent = "Manager approval was not completed.";
+        return;
+      }
       try {
         await ensureFirebaseUser();
         const fn = httpsCallable(functionsClient, "staffUpsertVenuePerks");
-        await fn({ venueId, perks });
+        await fn({
+          venueId,
+          perks,
+          managerStaffId: managerApproval.managerStaffId || null,
+          managerPin: managerApproval.managerPin || null
+        });
         venuePerksCache[venueId] = perks;
         renderRedemptionOptions();
         refreshFeaturedVenuesData();
@@ -30545,9 +30617,9 @@ let onboardingIndex = 0;
     };
 
     const PERK_TYPES = {
-      drink: { label: "Drink perk" },
-      shot: { label: "Shot perk" },
-      cover: { label: "Guest entry perk" },
+      drink: { label: "Standard voucher" },
+      shot: { label: "Bonus voucher" },
+      cover: { label: "Venue voucher" },
     };
 
     function buildDefaultVenuePerks() {
@@ -35417,11 +35489,16 @@ let onboardingIndex = 0;
       const firstName = String(member.firstName || "").trim();
       const lastName = String(member.lastName || "").trim();
       const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+      const role = String(member.role || "").toLowerCase() === "manager" ? "manager" : "staff";
+      const managerPin = String(member.managerPin || "").replace(/\D/g, "").slice(0, 4);
       return {
         staffId: String(member.staffId || "").padStart(5, "0").slice(-5),
         firstName,
         lastName,
         fullName,
+        role,
+        isManager: role === "manager",
+        managerPin: managerPin.length === 4 ? managerPin : "",
         isActive: member.isActive !== false,
         createdAt: member.createdAt || new Date().toISOString(),
         removedAt: member.removedAt || null
@@ -35440,6 +35517,9 @@ let onboardingIndex = 0;
       const match = (staffMembersCache || []).find((member) => String(member.staffId || "").padStart(5, "0").slice(-5) === key);
       return match ? normalizeStaffMember(match).fullName : "";
     }
+    function getActiveManagers(venueId = staffSession?.venue) {
+      return getActiveStaffMembers(venueId).filter((member) => member.isManager);
+    }
     function renderStaffTeamList() {
       if (!staffTeamList || !staffSession) return;
       const active = (staffMembersCache || []).map(normalizeStaffMember).filter((member) => member.isActive);
@@ -35450,7 +35530,7 @@ let onboardingIndex = 0;
       }
       const activeMarkup = active.map((member) => `
         <div class="log-row" data-staff-id="${member.staffId}">
-          <strong>${member.fullName || "Staff member"} · #${member.staffId}</strong>
+          <strong>${member.fullName || "Staff member"} · #${member.staffId}${member.isManager ? ' · <span style="color:#ef4444;">Manager</span>' : ""}</strong>
           <div class="log-meta">
             <span style="color:#34d399;">Active</span>
             <button type="button" class="btn btn-secondary" data-remove-staff="${member.staffId}">Remove</button>
@@ -35460,7 +35540,7 @@ let onboardingIndex = 0;
       const inactiveMarkup = inactive.length
         ? `<div class="small" style="color:#94a3b8;margin-top:6px;">Recently removed</div>${inactive.map((member) => `
           <div class="log-row">
-            <strong>${member.fullName || "Staff member"} · #${member.staffId}</strong>
+            <strong>${member.fullName || "Staff member"} · #${member.staffId}${member.isManager ? ' · <span style="color:#ef4444;">Manager</span>' : ""}</strong>
             <div class="log-meta"><span style="color:#f97316;">Inactive · ${formatMST(member.removedAt || member.createdAt)}</span></div>
           </div>
         `).join("")}`
@@ -35480,19 +35560,26 @@ let onboardingIndex = 0;
       }
       return candidate;
     }
-    async function addStaffMemberToVenue(first, last) {
+    async function addStaffMemberToVenue(first, last, roleInput = "staff", managerPinInput = null) {
       if (!staffSession?.venue) return null;
       const venueId = String(staffSession.venue || "").toLowerCase();
       const firstName = String(first || "").trim();
       const lastName = String(last || "").trim();
+      const role = String(roleInput || "").toLowerCase() === "manager" ? "manager" : "staff";
+      const managerPin = role === "manager" ? String(managerPinInput || "").replace(/\D/g, "").slice(0, 4) : "";
       if (!firstName || !lastName) {
         throw new Error("First and last name are required.");
+      }
+      if (role === "manager" && managerPin.length !== 4) {
+        throw new Error("Manager code must be 4 digits.");
       }
       const staffId = generateVenueStaffId();
       const payload = normalizeStaffMember({
         staffId,
         firstName,
         lastName,
+        role,
+        managerPin: managerPin || null,
         isActive: true,
         createdAt: new Date().toISOString()
       });
@@ -35506,7 +35593,9 @@ let onboardingIndex = 0;
         action: "add",
         staffId,
         firstName,
-        lastName
+        lastName,
+        role,
+        managerPin: managerPin || null
       }, { lockKey: `staffManage:add:${venueId}:${staffId}` });
       await logVenueStaffAction({
         actionType: "staff_member_added",
@@ -35656,10 +35745,48 @@ let onboardingIndex = 0;
       }
     }
     let pendingStaffActorResolver = null;
+    let pendingManagerOverrideResolver = null;
     function closeStaffActorModal() {
       if (staffActorModal) staffActorModal.classList.remove("active");
       pendingStaffActorResolver = null;
       if (staffActorError) staffActorError.textContent = "";
+    }
+    function closeManagerOverrideModal() {
+      if (managerOverrideModal) managerOverrideModal.classList.remove("active");
+      pendingManagerOverrideResolver = null;
+      if (managerOverrideError) managerOverrideError.textContent = "";
+      if (managerOverridePin) managerOverridePin.value = "";
+    }
+    function openManagerOverrideModal({ prompt = "Input manager code for final approval." } = {}) {
+      return new Promise((resolve) => {
+        if (!staffSession?.venue) {
+          resolve(null);
+          return;
+        }
+        const managers = getActiveManagers(staffSession.venue);
+        if (!managers.length) {
+          resolve({
+            managerStaffId: null,
+            managerStaffName: null,
+            managerPin: null,
+            bypassed: true
+          });
+          return;
+        }
+        if (managerOverridePrompt) managerOverridePrompt.textContent = prompt;
+        if (managerOverrideSelect) {
+          managerOverrideSelect.innerHTML = managers.map((member) => (
+            `<option value="${member.staffId}">${member.fullName} · #${member.staffId} (Manager)</option>`
+          )).join("");
+        }
+        if (managerOverrideError) managerOverrideError.textContent = "";
+        if (managerOverridePin) managerOverridePin.value = "";
+        if (managerOverrideModal) managerOverrideModal.classList.add("active");
+        pendingManagerOverrideResolver = { resolve };
+      });
+    }
+    async function requireManagerOverride(options = {}) {
+      return openManagerOverrideModal(options);
     }
     function openStaffActorModal({ prompt = "Select the staff member completing this action.", requireReason = false, actionType = "" } = {}) {
       return new Promise((resolve) => {
@@ -35676,7 +35803,7 @@ let onboardingIndex = 0;
         if (staffActorPrompt) staffActorPrompt.textContent = prompt;
         if (staffActorSelect) {
           staffActorSelect.innerHTML = activeMembers.map((member) => (
-            `<option value="${member.staffId}" ${selectedStaffActor?.staffId === member.staffId ? "selected" : ""}>${member.fullName} · #${member.staffId}</option>`
+            `<option value="${member.staffId}" ${selectedStaffActor?.staffId === member.staffId ? "selected" : ""}>${member.fullName} · #${member.staffId}${member.isManager ? " (Manager)" : ""}</option>`
           )).join("");
         }
         if (staffActorReasonWrap) staffActorReasonWrap.style.display = requireReason ? "" : "none";
@@ -37780,11 +37907,11 @@ let onboardingIndex = 0;
     function getDemoRedemptions() {
       const now = Date.now();
       return [
-        { code: "QK1234", perk: "Drink perk voucher", perkKey: "drink", member: "Avery W.", status: "verified", timestamp: new Date(now - 1000 * 60 * 30).toISOString(), venue: "bar_district" },
-        { code: "LM4321", perk: "Shot perk voucher", perkKey: "shot", member: "Noah L.", status: "verified", timestamp: new Date(now - 1000 * 60 * 50).toISOString(), venue: "bondi_beach" },
+        { code: "QK1234", perk: "Standard voucher redemption", perkKey: "drink", member: "Avery W.", status: "verified", timestamp: new Date(now - 1000 * 60 * 30).toISOString(), venue: "bar_district" },
+        { code: "LM4321", perk: "Bonus voucher redemption", perkKey: "shot", member: "Noah L.", status: "verified", timestamp: new Date(now - 1000 * 60 * 50).toISOString(), venue: "bondi_beach" },
         { code: "YX9988", perk: "Guest entry voucher", perkKey: "cover", member: "Priya S.", status: "verified", timestamp: new Date(now - 1000 * 60 * 80).toISOString(), venue: "rec_room" },
-        { code: "DJ3412", perk: "Drink perk voucher", perkKey: "drink", member: "Mateo R.", status: "pending", timestamp: new Date(now - 1000 * 60 * 15).toISOString(), venue: "tap_handle" },
-        { code: "TR5522", perk: "Shot perk voucher", perkKey: "shot", member: "Charlotte H.", status: "verified", timestamp: new Date(now - 1000 * 60 * 120).toISOString(), venue: "yeti" }
+        { code: "DJ3412", perk: "Standard voucher redemption", perkKey: "drink", member: "Mateo R.", status: "pending", timestamp: new Date(now - 1000 * 60 * 15).toISOString(), venue: "tap_handle" },
+        { code: "TR5522", perk: "Bonus voucher redemption", perkKey: "shot", member: "Charlotte H.", status: "verified", timestamp: new Date(now - 1000 * 60 * 120).toISOString(), venue: "yeti" }
       ];
     }
 
@@ -38132,7 +38259,7 @@ let onboardingIndex = 0;
             const label = entry.perk
               ? entry.perk
               : entry.perkKey === "reward_shot"
-                ? "Reward: shot perk"
+                ? "Reward: bonus voucher"
                 : (entry.perkKey || "Perk");
             const displayStatus = normalizeStaffLogStatus(entry.status);
             const statusAttrs = displayStatus === "pending"
@@ -38198,7 +38325,7 @@ let onboardingIndex = 0;
             const label = entry.perk
               ? entry.perk
               : entry.perkKey === "reward_shot"
-                ? "Reward: shot perk"
+                ? "Reward: bonus voucher"
                 : (entry.perkKey || "Perk");
             return `
               <div class="log-row">
@@ -38926,7 +39053,7 @@ let onboardingIndex = 0;
         const tierText = entry.perk
           ? entry.perk
           : entry.perkKey === "reward_shot"
-            ? "Reward: shot perk"
+            ? "Reward: bonus voucher"
             : (entry.perkKey || "Perk");
         const rawStatus = (entry.status || "pending").toLowerCase();
         const statusKey = rawStatus === "cancelled" ? "canceled" : rawStatus;
@@ -39656,6 +39783,19 @@ let onboardingIndex = 0;
       });
     }
     if (staffMemberForm) {
+      const syncStaffRoleFields = () => {
+        const isManager = String(staffRoleSelect?.value || "staff").toLowerCase() === "manager";
+        if (staffManagerPinWrap) staffManagerPinWrap.style.display = isManager ? "" : "none";
+        if (staffManagerPinConfirmWrap) staffManagerPinConfirmWrap.style.display = isManager ? "" : "none";
+        if (!isManager) {
+          if (staffManagerPin) staffManagerPin.value = "";
+          if (staffManagerPinConfirm) staffManagerPinConfirm.value = "";
+        }
+      };
+      syncStaffRoleFields();
+      if (staffRoleSelect) {
+        staffRoleSelect.addEventListener("change", syncStaffRoleFields);
+      }
       staffMemberForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         if (staffMemberError) staffMemberError.textContent = "";
@@ -39666,16 +39806,34 @@ let onboardingIndex = 0;
         }
         const first = String(staffFirstName?.value || "").trim();
         const last = String(staffLastName?.value || "").trim();
+        const role = String(staffRoleSelect?.value || "staff").toLowerCase() === "manager" ? "manager" : "staff";
+        const managerPin = String(staffManagerPin?.value || "").replace(/\D/g, "");
+        const managerPinConfirm = String(staffManagerPinConfirm?.value || "").replace(/\D/g, "");
         if (!first || !last) {
           if (staffMemberError) staffMemberError.textContent = "Enter first and last name.";
           return;
         }
+        if (role === "manager") {
+          if (managerPin.length !== 4 || managerPinConfirm.length !== 4) {
+            if (staffMemberError) staffMemberError.textContent = "Manager code must be exactly 4 digits.";
+            return;
+          }
+          if (managerPin !== managerPinConfirm) {
+            if (staffMemberError) staffMemberError.textContent = "Manager codes do not match.";
+            return;
+          }
+        }
         try {
-          const member = await addStaffMemberToVenue(first, last);
+          const member = await addStaffMemberToVenue(first, last, role, managerPin || null);
           if (staffFirstName) staffFirstName.value = "";
           if (staffLastName) staffLastName.value = "";
+          if (staffRoleSelect) staffRoleSelect.value = "staff";
+          if (staffManagerPin) staffManagerPin.value = "";
+          if (staffManagerPinConfirm) staffManagerPinConfirm.value = "";
+          syncStaffRoleFields();
           if (staffMemberSuccess) {
-            staffMemberSuccess.textContent = `Added ${member?.fullName || "staff member"} (#${member?.staffId || "00000"}).`;
+            const roleLabel = member?.isManager ? "Manager" : "Staff";
+            staffMemberSuccess.textContent = `Added ${member?.fullName || "team member"} (#${member?.staffId || "00000"}) · ${roleLabel}.`;
             staffMemberSuccess.style.display = "block";
           }
         } catch (err) {
@@ -39765,6 +39923,29 @@ let onboardingIndex = 0;
           if (staffActorError) staffActorError.textContent = "Select a reason code.";
           return;
         }
+        if (member.isManager) {
+          openManagerOverrideModal({
+            prompt: `Manager ${member.fullName}, input your 4-digit code to approve this action.`
+          }).then((approval) => {
+            if (!approval || approval.managerStaffId !== member.staffId) {
+              if (staffActorError) staffActorError.textContent = "Manager approval is required.";
+              return;
+            }
+            selectedStaffActor = {
+              staffId: member.staffId,
+              staffName: member.fullName
+            };
+            pendingStaffActorResolver.resolve({
+              staffId: member.staffId,
+              staffName: member.fullName,
+              actionType: pendingStaffActorResolver.actionType || "",
+              reasonCode: reasonCode || null,
+              reasonNote: reasonNote || null
+            });
+            closeStaffActorModal();
+          });
+          return;
+        }
         selectedStaffActor = {
           staffId: member.staffId,
           staffName: member.fullName
@@ -39777,6 +39958,49 @@ let onboardingIndex = 0;
           reasonNote: reasonNote || null
         });
         closeStaffActorModal();
+      });
+    }
+    if (managerOverrideCancel) {
+      managerOverrideCancel.addEventListener("click", () => {
+        if (pendingManagerOverrideResolver?.resolve) pendingManagerOverrideResolver.resolve(null);
+        closeManagerOverrideModal();
+      });
+    }
+    if (managerOverrideModal) {
+      managerOverrideModal.addEventListener("click", (e) => {
+        if (e.target !== managerOverrideModal) return;
+        if (pendingManagerOverrideResolver?.resolve) pendingManagerOverrideResolver.resolve(null);
+        closeManagerOverrideModal();
+      });
+    }
+    if (managerOverrideConfirm) {
+      managerOverrideConfirm.addEventListener("click", () => {
+        if (!pendingManagerOverrideResolver?.resolve) return;
+        const managerStaffId = String(managerOverrideSelect?.value || "").trim();
+        const managerPin = String(managerOverridePin?.value || "").replace(/\D/g, "");
+        if (!managerStaffId) {
+          if (managerOverrideError) managerOverrideError.textContent = "Select a manager.";
+          return;
+        }
+        if (managerPin.length !== 4) {
+          if (managerOverrideError) managerOverrideError.textContent = "Enter the 4-digit manager code.";
+          return;
+        }
+        const manager = getActiveManagers(staffSession?.venue).find((item) => item.staffId === managerStaffId);
+        if (!manager) {
+          if (managerOverrideError) managerOverrideError.textContent = "Selected manager is no longer active.";
+          return;
+        }
+        if (String(manager.managerPin || "") !== managerPin) {
+          if (managerOverrideError) managerOverrideError.textContent = "Manager code did not match.";
+          return;
+        }
+        pendingManagerOverrideResolver.resolve({
+          managerStaffId,
+          managerStaffName: manager.fullName,
+          managerPin
+        });
+        closeManagerOverrideModal();
       });
     }
     async function handleStaffShiftStartTap() {
@@ -40695,6 +40919,7 @@ let onboardingIndex = 0;
           actions.push('<button type="button" class="btn btn-secondary" data-venue-action="restore">Restore venue</button>');
         }
         actions.push('<button type="button" class="btn btn-secondary" data-venue-action="set-reason">Set internal note</button>');
+        actions.push('<button type="button" class="btn btn-secondary" data-venue-action="view-managers">View managers + codes</button>');
         return `
           <div class="ceo-venue-admin-row" data-venue-id="${escapeHtmlText(venueId)}">
             <div>
@@ -41187,6 +41412,24 @@ let onboardingIndex = 0;
             if (nextNote !== null) {
               await updateVenueViaAdmin(venueId, { adminNote: String(nextNote || "") });
             }
+          } else if (action === "view-managers") {
+            const resp = await invokeCallableWithRetry("adminListVenueManagers", { venueId }, {
+              lockKey: `adminListVenueManagers:${venueId}`,
+              retries: 2,
+              baseDelayMs: 220
+            });
+            const managers = Array.isArray(resp?.data?.managers) ? resp.data.managers : [];
+            if (!managers.length) {
+              window.alert("No active managers configured for this venue.");
+            } else {
+              const lines = managers.map((manager) => {
+                const id = String(manager?.staffId || "").padStart(5, "0").slice(-5);
+                const name = String(manager?.fullName || "Manager").trim();
+                const pin = String(manager?.managerPin || "—");
+                return `${name} · #${id} · code ${pin}`;
+              });
+              window.alert(`Managers for ${venuesInfo[venueId]?.name || venueId}\n\n${lines.join("\n")}`);
+            }
           }
         } catch (err) {
           showToast(mapMemberFacingError(err, "generic"), 2400);
@@ -41262,8 +41505,8 @@ let onboardingIndex = 0;
         btn.addEventListener("click", async () => {
           const perkId = btn.dataset.ceoGenPerk;
           const labelMap = {
-            shot: "Shot perk voucher",
-            drink: "Drink perk voucher",
+            shot: "Bonus voucher redemption",
+            drink: "Standard voucher redemption",
             free_drink: "Free drink voucher"
           };
           // Try server-side generation first (callable function). If it fails, fallback to local generation.
@@ -45646,7 +45889,7 @@ let onboardingIndex = 0;
         setRedeemRequestBusy(false);
         return;
       }
-      const rewardLabel = selectedPerkId === "reward_shot" ? "Reward: shot perk" : perkLabel;
+      const rewardLabel = selectedPerkId === "reward_shot" ? "Reward: bonus voucher" : perkLabel;
       const vibeLabel = sanitizeCustomVibeText(
         document.getElementById("statTonightVibe")?.textContent || getVibeDisplayLabel(currentVibe)
       );
@@ -46084,7 +46327,7 @@ let onboardingIndex = 0;
         explorerLockBanner.style.display = "none";
       }
       if (redeemTrigger) {
-        redeemTrigger.textContent = tier === "explorer" ? "Unlock redemption" : "Redeem a perk";
+        redeemTrigger.textContent = tier === "explorer" ? "Unlock redemption" : "Redeem a voucher";
       }
       if (tonightRedeemBtn) {
         const redeemTitle = tonightRedeemBtn.querySelector(".tonight-redeem-title");

@@ -5989,6 +5989,54 @@ function normalizeStaffNameForWrite(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, 48);
 }
 
+function normalizeStaffRoleForWrite(value = "") {
+  return String(value || "").trim().toLowerCase() === "manager" ? "manager" : "staff";
+}
+
+function normalizeManagerPinForWrite(value = "") {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.length !== 4) throw new HttpsError("invalid-argument", "Manager code must be 4 digits.");
+  return digits;
+}
+
+async function listActiveVenueManagers(venueId = "") {
+  const ref = db.collection("venues").doc(venueId).collection("staffMembers");
+  const snap = await ref.where("isActive", "==", true).where("role", "==", "manager").get();
+  const managers = [];
+  snap.forEach((docSnap) => {
+    const data = docSnap.data() || {};
+    const rawPin = String(data.managerPin || "").replace(/\D/g, "");
+    managers.push({
+      staffId: String(data.staffId || docSnap.id || "").replace(/\D/g, "").padStart(5, "0").slice(-5),
+      fullName: String(data.fullName || [data.firstName, data.lastName].filter(Boolean).join(" ") || "Manager").trim(),
+      managerPin: rawPin.length === 4 ? rawPin : null
+    });
+  });
+  return managers;
+}
+
+async function assertManagerApprovalForVenue(venueId = "", data = {}) {
+  const managers = await listActiveVenueManagers(venueId);
+  if (!managers.length) {
+    return { required: false, approvedByStaffId: null, approvedByStaffName: null };
+  }
+  const managerStaffId = String(data?.managerStaffId || "").replace(/\D/g, "").padStart(5, "0").slice(-5);
+  const managerPin = String(data?.managerPin || "").replace(/\D/g, "");
+  if (!managerStaffId || managerPin.length !== 4) {
+    throw new HttpsError("permission-denied", "Manager approval (4-digit code) is required.");
+  }
+  const match = managers.find((item) => item.staffId === managerStaffId);
+  if (!match || !match.managerPin || match.managerPin !== managerPin) {
+    throw new HttpsError("permission-denied", "Manager approval code is invalid.");
+  }
+  return {
+    required: true,
+    approvedByStaffId: match.staffId,
+    approvedByStaffName: match.fullName
+  };
+}
+
 function normalizeStaffActionType(value = "") {
   return String(value || "").toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 48) || "unknown_action";
 }
@@ -5997,6 +6045,7 @@ exports.staffUpsertVenuePerks = functions.https.onCall(async (data, context) => 
   try {
     await enforceCallableSecurity(context, { requireAuth: true, appLockEnforced: true, rateLimit: true, maxPerMin: 180, maxPerDay: 2000 });
     const venueId = assertVenueMutationAccess(context, data?.venueId);
+    const managerApproval = await assertManagerApprovalForVenue(venueId, data || {});
     const rawPerks = Array.isArray(data?.perks) ? data.perks : [];
     const normalized = [];
     const labels = new Set();
@@ -6028,6 +6077,8 @@ exports.staffUpsertVenuePerks = functions.https.onCall(async (data, context) => 
         label: perk.label,
         standardQty: perk.standardQty,
         vipQty: perk.vipQty,
+        approvedByManagerId: managerApproval.approvedByStaffId || null,
+        approvedByManagerName: managerApproval.approvedByStaffName || null,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
     });
@@ -6062,12 +6113,17 @@ exports.staffManageVenueMember = functions.https.onCall(async (data, context) =>
     if (action === "add") {
       const firstName = normalizeStaffNameForWrite(data?.firstName);
       const lastName = normalizeStaffNameForWrite(data?.lastName);
+      const role = normalizeStaffRoleForWrite(data?.role);
+      const managerPin = role === "manager" ? normalizeManagerPinForWrite(data?.managerPin) : null;
       if (!firstName || !lastName) throw new HttpsError("invalid-argument", "First and last name required");
+      if (role === "manager" && !managerPin) throw new HttpsError("invalid-argument", "Manager 4-digit code required");
       await staffRef.set({
         staffId,
         firstName,
         lastName,
         fullName: `${firstName} ${lastName}`.trim(),
+        role,
+        managerPin,
         isActive: true,
         removedAt: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -6282,6 +6338,7 @@ exports.staffUpsertVenueOffer = functions.https.onCall(async (data, context) => 
       burstAllowance: 140
     });
     const venueId = assertVenueMutationAccess(context, data?.venueId);
+    const managerApproval = await assertManagerApprovalForVenue(venueId, data || {});
     const action = String(data?.action || "upsert").trim().toLowerCase();
     const offerTypeRaw = String(data?.offerType || "alert").trim().toLowerCase();
     const venueName = getStaffVenueName(venueId);
@@ -6328,6 +6385,8 @@ exports.staffUpsertVenueOffer = functions.https.onCall(async (data, context) => 
       detail,
       meta: meta || (audience === "vip" ? `VIP · ${venueName}` : venueName),
       expiresAt: admin.firestore.Timestamp.fromDate(expiresDate),
+      approvedByManagerId: managerApproval.approvedByStaffId || null,
+      approvedByManagerName: managerApproval.approvedByStaffName || null,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
     if (collectionName === "alerts") {
@@ -7515,6 +7574,32 @@ exports.adminArchiveVenue = functions.https.onCall(async (data, context) => {
     if (err instanceof HttpsError) throw err;
     console.warn("adminArchiveVenue failed", err);
     throw new HttpsError("internal", err?.message || "Could not archive venue");
+  }
+});
+
+exports.adminListVenueManagers = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      rateLimit: { maxPerMin: 120, maxPerDay: 5000, burstAllowance: 40 },
+    });
+    requireAdminClaim(context);
+    const venueId = resolveStaffVenueId(String(data?.venueId || "").trim().toLowerCase());
+    if (!venueId) throw new HttpsError("invalid-argument", "venueId required");
+    const managers = await listActiveVenueManagers(venueId);
+    return {
+      ok: true,
+      venueId,
+      managers: managers.map((item) => ({
+        staffId: item.staffId,
+        fullName: item.fullName,
+        managerPin: item.managerPin || null
+      }))
+    };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("adminListVenueManagers failed", err);
+    throw new HttpsError("internal", err?.message || "Could not load venue managers");
   }
 });
 
