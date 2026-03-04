@@ -15261,21 +15261,24 @@
 
       <div class="membership-card" id="standardOption">
         <div class="membership-title">STANDARD</div>
-        <div class="membership-price">$5.00 / month</div>
+        <div class="membership-price">$5.00 / month · $50 / year</div>
         <ul class="membership-perks">
           <li>Monthly perks set by venues</li>
           <li>Up to 5 monthly voucher redemptions</li>
           <li>Redemption points lower your monthly pass price</li>
           <li>Perks refresh on your billing date</li>
         </ul>
-        <button class="btn btn-primary select-membership" data-tier="standard">
-          Choose Standard
+        <button class="btn btn-primary select-membership" data-tier="standard" data-interval="month">
+          Choose Standard Monthly
+        </button>
+        <button class="btn btn-secondary select-membership" data-tier="standard" data-interval="year" style="margin-top:8px;">
+          Choose Standard Yearly
         </button>
       </div>
 
       <div class="membership-card" id="vipOption">
       <div class="membership-title vip">VIP</div>
-      <div class="membership-price">$10.00 / month</div>
+      <div class="membership-price">$10.00 / month · $96 / year</div>
         <ul class="membership-perks">
           <li>Up to 10 monthly voucher redemptions</li>
           <li>VIP-only drops & alerts</li>
@@ -15283,8 +15286,11 @@
           <li>Redemption points lower your monthly pass price</li>
           <li>Perks refresh on your billing date</li>
         </ul>
-        <button class="btn btn-primary select-membership" data-tier="vip">
-          Choose VIP
+        <button class="btn btn-primary select-membership" data-tier="vip" data-interval="month">
+          Choose VIP Monthly
+        </button>
+        <button class="btn btn-secondary select-membership" data-tier="vip" data-interval="year" style="margin-top:8px;">
+          Choose VIP Yearly
         </button>
       </div>
     </div>
@@ -17070,7 +17076,7 @@
         <p class="beta-ui">During beta, features, pricing, perks, and availability may change without notice. Some data or features may reset or be removed when the product launches live.</p>
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Billing & cancellations</h4>
-        <p>Memberships renew on the billing date associated with your account. Failed charges may be retried. If you cancel, access may remain active until the end of the current billing cycle. Payment processing is handled by Stripe or other third-party processors; FoCo After Dark does not store full card numbers.</p>
+        <p>Memberships are available on monthly and yearly billing schedules. Yearly plans are billed upfront. Failed charges may be retried. You may cancel at any time and access remains active until the end of the paid billing period. Yearly plans are non-refundable once billed except where required by law. Payment processing is handled by Stripe or other third-party processors; FoCo After Dark does not store full card numbers.</p>
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Venue responsibility</h4>
         <p>Venues control their own perks, redemption policies, and service decisions. Venue staff may refuse service, decline a redemption, or modify offers in accordance with local laws and venue policies.</p>
@@ -18372,6 +18378,7 @@
       updateCeoPassUI();
       stopMemberNoticesListener();
       pendingMembershipTier = null;
+      pendingMembershipInterval = "month";
       resetPaymentForm();
       resetSupportForm();
       applyAccentTheme("cyan");
@@ -18393,6 +18400,8 @@
     function updateMembershipStatusUI(opts = {}) {
       if (!statusPill) return;
       const status = (opts.status || memberProfile?.paymentStatus || "active").toLowerCase();
+      const billingInterval = normalizeMembershipIntervalSelection(memberProfile?.billingInterval || "month");
+      const intervalLabel = billingInterval === "year" ? "Yearly" : "Monthly";
       const paused = opts.paused === true || !!memberProfile?.paused;
       statusPill.classList.remove("vip-status", "ceo", "danger");
       let text = "Active Pass";
@@ -18416,9 +18425,9 @@
         } else if (currentMembershipTier === "vip") {
           statusPill.classList.add("vip-status");
           text = "VIP Member";
-          detail = "Status: Active";
+          detail = `Status: Active · ${intervalLabel}`;
         } else {
-          detail = "Status: Active";
+          detail = `Status: Active · ${intervalLabel}`;
         }
       }
       statusPill.textContent = text;
@@ -19359,6 +19368,9 @@
 
     function openBillingScreenForTier(tier, options = {}) {
       const requestedTier = normalizeMembershipTierSelection(tier || getRequestedTier(memberProfile));
+      const requestedInterval = normalizeMembershipIntervalSelection(
+        options.interval || pendingMembershipInterval || memberProfile?.requestedBillingInterval || memberProfile?.billingInterval || "month"
+      );
       const fallbackScreen = String(options.fallbackScreen || "").trim();
       if (isWaitlistModeEnabled()) {
         showToast("Waitlist mode is active right now.", 2200);
@@ -19370,11 +19382,12 @@
         if (fallbackScreen) showScreen(fallbackScreen);
         return false;
       }
-      updatePaymentSummary(requestedTier);
+      pendingMembershipInterval = requestedInterval;
+      updatePaymentSummary(requestedTier, requestedInterval);
       resetPaymentForm();
       showScreen("payment");
       showToast("Loading secure billing…", 1200);
-      prepareStripePayment(requestedTier);
+      prepareStripePayment(requestedTier, requestedInterval);
       return true;
     }
     let ceoMembersHydrating = false;
@@ -20416,6 +20429,14 @@
       if (value === "vip") return "vip";
       if (value === "explorer") return "explorer";
       return "standard";
+    }
+    function normalizeMembershipIntervalSelection(rawInterval) {
+      const value = String(rawInterval || "").toLowerCase();
+      if (value === "year" || value === "annual" || value === "yearly") return "year";
+      return "month";
+    }
+    function intervalLabelForUi(interval) {
+      return normalizeMembershipIntervalSelection(interval) === "year" ? "Yearly" : "Monthly";
     }
     function tierLabelForUi(tier) {
       const normalized = normalizeMembershipTierSelection(tier);
@@ -29050,8 +29071,11 @@ let onboardingIndex = 0;
       if (!receiptOverlay) return;
       receiptOverlay.classList.remove("active");
     }
-    function presentReceiptForTier(tier, methodLabel, meta = {}) {
-      const info = membershipPlanInfo[tier] || membershipPlanInfo.standard;
+    function membershipPlanKey(tier, interval) {
+      return `${normalizeMembershipTierSelection(tier)}_${normalizeMembershipIntervalSelection(interval)}`;
+    }
+    function presentReceiptForTier(tier, methodLabel, interval = "month", meta = {}) {
+      const info = membershipPlanInfo[membershipPlanKey(tier, interval)] || membershipPlanInfo.standard_month;
       const orderId = `FO-${Date.now().toString().slice(-6)}`;
       showReceipt([
         { label: "Order #", value: orderId },
@@ -29059,9 +29083,10 @@ let onboardingIndex = 0;
         { label: "Plan", value: info.label },
         { label: "Method", value: methodLabel },
         { label: "Total", value: info.price }
-      ], `Charged via ${methodLabel}. Auto-renews monthly.`, {
+      ], `Charged via ${methodLabel}. Auto-renews ${info.intervalLabel.toLowerCase()}.`, {
         type: "membership",
         tier,
+        interval: normalizeMembershipIntervalSelection(interval),
         method: methodLabel,
         title: `${info.label} membership`,
         detail: info.price,
@@ -29121,12 +29146,16 @@ let onboardingIndex = 0;
               console.warn("confirmMembershipActivation failed", err);
             }
             const tierToActivate = pendingMembershipTier || paymentIntent.metadata?.tier || "standard";
+            const intervalToActivate = pendingMembershipInterval || paymentIntent.metadata?.interval || "month";
             pendingMembershipTier = null;
+            pendingMembershipInterval = "month";
+            memberProfile = memberProfile || {};
+            memberProfile.billingInterval = normalizeMembershipIntervalSelection(intervalToActivate);
             if (attemptedPromoCode) {
               await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
             }
-            presentReceiptForTier(tierToActivate, "Card");
-            completeMembership(tierToActivate, { force: true });
+            presentReceiptForTier(tierToActivate, "Card", intervalToActivate);
+            completeMembership(tierToActivate, { force: true, interval: intervalToActivate });
             showScreen("pass");
           } else {
             paymentError.textContent = "Payment incomplete. Please try again.";
@@ -29143,9 +29172,13 @@ let onboardingIndex = 0;
     if (skipPaymentBtn) {
       skipPaymentBtn.addEventListener("click", () => {
         const tierToActivate = pendingMembershipTier || "vip";
+        const intervalToActivate = pendingMembershipInterval || "month";
         pendingMembershipTier = null;
+        pendingMembershipInterval = "month";
+        memberProfile = memberProfile || {};
+        memberProfile.billingInterval = normalizeMembershipIntervalSelection(intervalToActivate);
         resetPaymentForm();
-        completeMembership(tierToActivate, { force: true });
+        completeMembership(tierToActivate, { force: true, interval: intervalToActivate });
       });
     }
 
@@ -29315,8 +29348,10 @@ let onboardingIndex = 0;
     }
 
     const membershipPlanInfo = {
-      standard: { label: "Standard", price: `$${MEMBERSHIP_FEES.standard.toFixed(2)} / month` },
-      vip: { label: "VIP", price: `$${MEMBERSHIP_FEES.vip.toFixed(2)} / month` },
+      standard_month: { label: "Standard Monthly", price: `$${MEMBERSHIP_FEES.standard.toFixed(2)} / month`, intervalLabel: "Monthly" },
+      standard_year: { label: "Standard Yearly", price: "$50.00 / year", intervalLabel: "Yearly" },
+      vip_month: { label: "VIP Monthly", price: `$${MEMBERSHIP_FEES.vip.toFixed(2)} / month`, intervalLabel: "Monthly" },
+      vip_year: { label: "VIP Yearly", price: "$96.00 / year", intervalLabel: "Yearly" },
     };
     let stripeInstance = null;
     let stripeElements = null;
@@ -29329,7 +29364,7 @@ let onboardingIndex = 0;
     let voucherPaymentComplete = false;
     let voucherHasCardOnFile = false;
 
-    async function prepareStripePayment(tier) {
+    async function prepareStripePayment(tier, interval = "month") {
       if (!functionsClient) {
         paymentError.textContent = "Payments unavailable right now.";
         return;
@@ -29361,10 +29396,13 @@ let onboardingIndex = 0;
       try {
         const fn = httpsCallable(functionsClient, "createMembershipPaymentIntent");
         const promoCode = membershipPromoInput?.value?.trim() || "";
-        const resp = await fn({ tier, promoCode });
+        const resp = await fn({ tier, interval, promoCode });
         const data = resp?.data || {};
         if (data.alreadyActive) {
           pendingMembershipTier = null;
+          pendingMembershipInterval = "month";
+          memberProfile = memberProfile || {};
+          memberProfile.billingInterval = normalizeMembershipIntervalSelection(data.interval || interval || "month");
           showToast("Membership already active.");
           showScreen("pass");
           return;
@@ -29651,7 +29689,7 @@ let onboardingIndex = 0;
       }
     }
 
-    async function chargeMembershipOnFile(tier, options = {}) {
+    async function chargeMembershipOnFile(tier, interval = "month", options = {}) {
       if (!functionsClient) {
         showToast("Payments unavailable right now.");
         return false;
@@ -29676,6 +29714,7 @@ let onboardingIndex = 0;
         const hasPromoAttempt = !!promoCode;
         const resp = await fn({
           tier,
+          interval,
           promoCode,
           paymentMethodId: options?.paymentMethodId || ""
         });
@@ -29684,6 +29723,7 @@ let onboardingIndex = 0;
         const syncLocalMembershipBilling = () => {
           memberProfile = memberProfile || {};
           memberProfile.tier = tier;
+          memberProfile.billingInterval = normalizeMembershipIntervalSelection(data.interval || interval || "month");
           memberProfile.membershipStatus = String(data.membershipStatus || memberProfile.membershipStatus || "active").toLowerCase();
           memberProfile.paymentStatus = String(data.paymentStatus || memberProfile.paymentStatus || "active").toLowerCase();
           if (data.membershipPromoTag) memberProfile.membershipPromoTag = data.membershipPromoTag;
@@ -29699,7 +29739,7 @@ let onboardingIndex = 0;
           if (hasPromoOutcome) {
             await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
           }
-          completeMembership(tier, { force: true });
+          completeMembership(tier, { force: true, interval: data.interval || interval });
           return true;
         }
         if (data.requiresAction && data.clientSecret) {
@@ -29714,23 +29754,25 @@ let onboardingIndex = 0;
               console.warn("confirmMembershipActivation failed", err);
             }
             pendingMembershipTier = null;
+            pendingMembershipInterval = "month";
             if (hasPromoOutcome) {
               await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
             }
-            presentReceiptForTier(tier, "Card on file");
-            completeMembership(tier, { force: true });
+            presentReceiptForTier(tier, "Card on file", data.interval || interval);
+            completeMembership(tier, { force: true, interval: data.interval || interval });
             return true;
           }
           throw new Error("Payment incomplete.");
         }
         if (data.ok) {
           pendingMembershipTier = null;
+          pendingMembershipInterval = "month";
           syncLocalMembershipBilling();
           if (hasPromoOutcome) {
             await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
           }
-          presentReceiptForTier(tier, "Card on file");
-          completeMembership(tier, { force: true });
+          presentReceiptForTier(tier, "Card on file", data.interval || interval);
+          completeMembership(tier, { force: true, interval: data.interval || interval });
           return true;
         }
         throw new Error("Payment failed. Please try again.");
@@ -29744,7 +29786,8 @@ let onboardingIndex = 0;
           }
           showToast("Add a card to continue.");
           pendingMembershipTier = tier;
-          openBillingScreenForTier(tier, { fallbackScreen: "membership" });
+          pendingMembershipInterval = normalizeMembershipIntervalSelection(interval);
+          openBillingScreenForTier(tier, { fallbackScreen: "membership", interval });
           return false;
         }
         showToast("Membership update failed.");
@@ -30527,6 +30570,7 @@ let onboardingIndex = 0;
       return null;
     }
     let pendingMembershipTier = null;
+    var pendingMembershipInterval = "month";
     let currentPerkState = null;
     let selectedPerkId = null;
     let selectedVenuePerkId = null;
@@ -45099,8 +45143,8 @@ let onboardingIndex = 0;
       }
     }
 
-    function updatePaymentSummary(tier) {
-      const info = membershipPlanInfo[tier] || membershipPlanInfo.standard;
+    function updatePaymentSummary(tier, interval = "month") {
+      const info = membershipPlanInfo[membershipPlanKey(tier, interval)] || membershipPlanInfo.standard_month;
       paymentPlanLabel.textContent = info.label;
       paymentPlanPrice.textContent = info.price;
       paymentSuccess.classList.remove("visible");
@@ -45238,6 +45282,7 @@ let onboardingIndex = 0;
     function completeMembership(tier, options = {}) {
       const storageKey = getMembershipStorageKey();
       const user = firebaseAuth.currentUser;
+      const interval = normalizeMembershipIntervalSelection(options.interval || memberProfile?.billingInterval || pendingMembershipInterval || "month");
       const currentTier = memberProfile?.tier || (allowLocalCache() && user?.uid ? localStorage.getItem(`membership_${user.uid}`) : null);
       const isNew = !currentTier;
       const sameTier = currentTier && currentTier === tier;
@@ -45248,7 +45293,8 @@ let onboardingIndex = 0;
           localStorage.setItem(storageKey, tier);
         }
         if (memberProfile && user) {
-          updateMemberProfile({ tier });
+          updateMemberProfile({ tier, billingInterval: interval });
+          memberProfile.billingInterval = interval;
         }
         loadExtraVouchers();
         applyMembershipToPass(tier);
@@ -45795,24 +45841,31 @@ let onboardingIndex = 0;
     function refreshMembershipChoices() {
       if (!membershipPlanButtons.length) return;
       const currentTier = normalizeTierKey(currentMembershipTier || memberProfile?.tier) || "standard";
+      const currentInterval = normalizeMembershipIntervalSelection(memberProfile?.billingInterval || "month");
       membershipPlanButtons.forEach(btn => {
         const tier = normalizeTierKey(btn.dataset.tier) || btn.dataset.tier;
+        const interval = normalizeMembershipIntervalSelection(btn.dataset.interval || "month");
         btn.disabled = false;
         btn.classList.remove("is-current");
-        if (tier === currentTier) {
-          btn.textContent = `Current: ${tier.toUpperCase()}`;
+        if (tier === currentTier && interval === currentInterval) {
+          btn.textContent = `Current: ${tier.toUpperCase()} ${intervalLabelForUi(interval)}`;
           btn.disabled = true;
           btn.classList.add("is-current");
           return;
         }
         const isUpgrade = currentTier === "standard" && tier === "vip";
         const isDowngrade = currentTier === "vip" && tier === "standard";
+        const isIntervalChange = tier === currentTier && interval !== currentInterval;
         if (isUpgrade) {
-          btn.textContent = "Upgrade to VIP";
+          btn.textContent = `Upgrade to VIP ${intervalLabelForUi(interval)}`;
         } else if (isDowngrade) {
-          btn.textContent = "Downgrade to Standard";
+          btn.textContent = `Downgrade to Standard ${intervalLabelForUi(interval)}`;
+        } else if (isIntervalChange) {
+          btn.textContent = `Switch to ${tier.toUpperCase()} ${intervalLabelForUi(interval)}`;
         } else {
-          btn.textContent = tier === "vip" ? "Choose VIP" : "Choose Standard";
+          btn.textContent = tier === "vip"
+            ? `Choose VIP ${intervalLabelForUi(interval)}`
+            : `Choose Standard ${intervalLabelForUi(interval)}`;
         }
       });
     }
@@ -45842,6 +45895,7 @@ let onboardingIndex = 0;
           return;
         }
         const tier = btn.dataset.tier;
+        const interval = normalizeMembershipIntervalSelection(btn.dataset.interval || "month");
         const user = firebaseAuth.currentUser;
         if (!user && !betaPassMode) {
           showScreen("auth");
@@ -45849,17 +45903,20 @@ let onboardingIndex = 0;
         }
         if (isExplorerMember() && (tier === "standard" || tier === "vip") && !isAgeVerifiedClient(memberProfile)) {
           pendingMembershipTier = tier;
+          pendingMembershipInterval = interval;
           onboardingMembershipFlow = true;
           forceMembershipScreen = false;
           memberProfile = {
             ...(memberProfile || {}),
             requestedTier: tier,
+            requestedBillingInterval: interval,
             ageVerificationRequired: true,
             ageVerificationStatus: "required",
             ageVerified21: false
           };
           updateMemberProfile({
             requestedTier: tier,
+            requestedBillingInterval: interval,
             ageVerificationRequired: true,
             ageVerificationStatus: "required",
             ageVerified21: false
@@ -45869,7 +45926,8 @@ let onboardingIndex = 0;
           return;
         }
         pendingMembershipTier = tier;
-        openBillingScreenForTier(tier, { fallbackScreen: "membership" });
+        pendingMembershipInterval = interval;
+        openBillingScreenForTier(tier, { fallbackScreen: "membership", interval });
       });
     });
     if (statusPill) {
@@ -45901,11 +45959,12 @@ let onboardingIndex = 0;
       }
       closeTierModal();
       if (isBetaAccount || betaPassMode) {
-        completeMembership(targetTier, { force: true });
+        completeMembership(targetTier, { force: true, interval: normalizeMembershipIntervalSelection(memberProfile?.billingInterval || "month") });
         showToast(`Membership switched to ${targetTier.toUpperCase()}`);
         return;
       }
-      await chargeMembershipOnFile(targetTier);
+      const interval = normalizeMembershipIntervalSelection(memberProfile?.billingInterval || pendingMembershipInterval || "month");
+      await chargeMembershipOnFile(targetTier, interval);
     });
 
     function getProfileTierMode(tierRaw) {

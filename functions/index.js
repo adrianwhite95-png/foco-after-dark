@@ -3849,8 +3849,14 @@ const stripeSecrets = {
   secrets: ["STRIPE_SECRET", "STRIPE_PUBLISHABLE", "REPORTS_SMTP_USER", "REPORTS_SMTP_PASS"]
 };
 const STRIPE_MEMBERSHIP_PRICE_IDS = Object.freeze({
-  standard: "price_1T4Z1KQ4Ij3ax7ma27cvoyeO",
-  vip: "price_1T4Z2mQ4Ij3ax7maznTyPfl4",
+  standard: Object.freeze({
+    month: "price_1T4Z1KQ4Ij3ax7ma27cvoyeO",
+    year: "price_1T7KlbQ4Ij3ax7maGJmhVJjk",
+  }),
+  vip: Object.freeze({
+    month: "price_1T4Z2mQ4Ij3ax7maznTyPfl4",
+    year: "price_1T7KjOQ4Ij3ax7ma60cwQBXm",
+  }),
 });
 const STRIPE_PROMOS = {
   FOCOFAM20: {
@@ -4186,6 +4192,12 @@ function normalizeTierKey(tier = "standard") {
   return "standard";
 }
 
+function normalizeBillingIntervalKey(interval = "month") {
+  const key = String(interval || "month").trim().toLowerCase();
+  if (key === "year" || key === "annual" || key === "yearly") return "year";
+  return "month";
+}
+
 function assertValidPurchasableTier(tier = "") {
   const key = String(tier || "").trim().toLowerCase();
   if (!["standard", "vip"].includes(key)) {
@@ -4194,17 +4206,29 @@ function assertValidPurchasableTier(tier = "") {
   return key;
 }
 
-function priceIdForMembershipTier(tier = "") {
+function priceIdForMembershipTier(tier = "", interval = "month") {
   const key = assertValidPurchasableTier(tier);
-  const priceId = String(STRIPE_MEMBERSHIP_PRICE_IDS[key] || "").trim();
+  const normalizedInterval = normalizeBillingIntervalKey(interval);
+  const tierMap = STRIPE_MEMBERSHIP_PRICE_IDS[key] || {};
+  const priceId = String(tierMap[normalizedInterval] || "").trim();
   if (!priceId) {
-    throw new HttpsError("failed-precondition", `Missing Stripe price mapping for tier '${key}'.`);
+    throw new HttpsError("failed-precondition", `Missing Stripe price mapping for tier '${key}' interval '${normalizedInterval}'.`);
   }
-  return { tier: key, priceId };
+  return { tier: key, interval: normalizedInterval, priceId };
 }
 
 function membershipTierLabel(tier = "standard") {
   return normalizeTierKey(tier).toUpperCase();
+}
+
+function getSubscriptionInterval(subscription = null, fallback = "month") {
+  const recurringInterval = String(
+    subscription?.items?.data?.[0]?.price?.recurring?.interval
+    || subscription?.plan?.interval
+    || subscription?.metadata?.interval
+    || fallback
+  ).toLowerCase();
+  return normalizeBillingIntervalKey(recurringInterval);
 }
 
 function isoFromUnix(seconds) {
@@ -4785,10 +4809,10 @@ async function ensureStripeCustomer({ stripe, memberRef, memberDocData, uid, ema
   return customer.id;
 }
 
-function membershipStripePriceSelection(rawTier, source = "unknown") {
-  const { tier, priceId } = priceIdForMembershipTier(rawTier);
-  console.info("membership_price_selection", { source, tier, priceId });
-  return { tier, priceId };
+function membershipStripePriceSelection(rawTier, rawInterval, source = "unknown") {
+  const { tier, interval, priceId } = priceIdForMembershipTier(rawTier, rawInterval);
+  console.info("membership_price_selection", { source, tier, interval, priceId });
+  return { tier, interval, priceId };
 }
 
 async function retrieveStripeSubscription(stripe, subscriptionId) {
@@ -4822,8 +4846,12 @@ function isStripePromoError(err) {
   );
 }
 
-async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, uid, email, tier, token, discount, promoTag }) {
-  const { tier: normalizedTier, priceId: tierPriceId } = membershipStripePriceSelection(tier, "upsertMembershipSubscription");
+async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, uid, email, tier, interval, token, discount, promoTag }) {
+  const {
+    tier: normalizedTier,
+    interval: normalizedInterval,
+    priceId: tierPriceId
+  } = membershipStripePriceSelection(tier, interval, "upsertMembershipSubscription");
   const customerId = await ensureStripeCustomer({
     stripe,
     memberRef,
@@ -4840,21 +4868,26 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
   if (hasActiveSubscription) {
     const currentItem = subscription.items?.data?.[0];
     const currentTier = normalizeTierKey(subscription.metadata?.tier || memberDocData?.tier || normalizedTier);
-    if (currentItem && currentTier !== normalizedTier) {
+    const currentInterval = getSubscriptionInterval(subscription, memberDocData?.billingInterval || normalizedInterval);
+    const currentPriceId = String(currentItem?.price?.id || "").trim();
+    const planChanged = currentTier !== normalizedTier
+      || currentInterval !== normalizedInterval
+      || (currentPriceId && currentPriceId !== tierPriceId);
+    if (currentItem && planChanged) {
       subscription = await stripe.subscriptions.update(subscription.id, {
         cancel_at_period_end: false,
-        proration_behavior: "none",
+        proration_behavior: "create_prorations",
         billing_cycle_anchor: "unchanged",
-        metadata: { uid, tier: normalizedTier, ...promoMeta },
+        metadata: { uid, tier: normalizedTier, interval: normalizedInterval, ...promoMeta },
         items: [{
           id: currentItem.id,
           price: tierPriceId,
         }],
         expand: ["latest_invoice.payment_intent", "items.data.price"],
       });
-    } else if (subscription.metadata?.tier !== normalizedTier) {
+    } else if (subscription.metadata?.tier !== normalizedTier || subscription.metadata?.interval !== normalizedInterval) {
       subscription = await stripe.subscriptions.update(subscription.id, {
-        metadata: { uid, tier: normalizedTier, ...promoMeta },
+        metadata: { uid, tier: normalizedTier, interval: normalizedInterval, ...promoMeta },
         expand: ["latest_invoice.payment_intent", "items.data.price"],
       });
     }
@@ -4865,7 +4898,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
       payment_behavior: "default_incomplete",
       trial_from_plan: false,
       payment_settings: { save_default_payment_method: "on_subscription" },
-      metadata: { uid, tier: normalizedTier, ...promoMeta },
+      metadata: { uid, tier: normalizedTier, interval: normalizedInterval, ...promoMeta },
       discounts: discount ? [discount] : undefined,
       expand: ["latest_invoice.payment_intent", "items.data.price"],
     };
@@ -4876,7 +4909,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
         console.warn("Membership promo failed; retrying without discount", readStripeErrorMessage(err));
         subscription = await stripe.subscriptions.create({
           ...createPayload,
-          metadata: { uid, tier: normalizedTier },
+          metadata: { uid, tier: normalizedTier, interval: normalizedInterval },
           discounts: undefined,
         });
       } else {
@@ -4888,9 +4921,11 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
   const paymentIntent = subscription?.latest_invoice?.payment_intent || null;
   const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
   const subscriptionPromoTag = String(subscription?.metadata?.promo || promoTag || "").toLowerCase();
+  const billingInterval = getSubscriptionInterval(subscription, normalizedInterval);
   const updatePayload = {
     tier: normalizedTier,
     membershipTier: membershipTierLabel(normalizedTier),
+    billingInterval,
     membershipStatus: subscription?.status || "active",
     paymentStatus: stripeStatusToPaymentStatus(subscription?.status),
     billingProvider: "stripe",
@@ -4910,7 +4945,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
   };
   await memberRef.set(updatePayload, { merge: true });
 
-  return { subscription, paymentIntent };
+  return { subscription, paymentIntent, billingInterval };
 }
 
 exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
@@ -4919,7 +4954,11 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
     await assertBillingEnabledOrThrow();
     const uid = context.auth.uid;
     const email = (context.auth.token.email || '').toLowerCase();
-    const { tier, priceId } = membershipStripePriceSelection(data?.tier, "createMembershipPaymentIntent");
+    const { tier, interval, priceId } = membershipStripePriceSelection(
+      data?.tier,
+      data?.interval,
+      "createMembershipPaymentIntent"
+    );
     const promoCodeInput = (data?.promoCode || "").toString();
     const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
     assertStripeAllowed(context, memberDocData);
@@ -4935,13 +4974,14 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
       stripe,
     });
 
-    const { subscription, paymentIntent } = await upsertMembershipSubscription({
+    const { subscription, paymentIntent, billingInterval } = await upsertMembershipSubscription({
       stripe,
       memberRef,
       memberDocData,
       uid,
       email,
       tier,
+      interval,
       token: context.auth.token,
       discount: promoContext.discount,
       promoTag: promoContext.promoTag,
@@ -4952,6 +4992,7 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
         publishableKey: publishable,
         subscriptionId: subscription?.id || null,
         tier,
+        interval: billingInterval,
         priceId,
         alreadyActive: true,
       };
@@ -4961,6 +5002,7 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
       publishableKey: publishable,
       subscriptionId: subscription?.id || null,
       tier,
+      interval: billingInterval,
       priceId,
     };
   } catch (err) {
@@ -4998,11 +5040,13 @@ exports.confirmMembershipActivation = functions.runWith(stripeSecrets).https.onC
     }
   }
   const tier = normalizeTierKey(intent.metadata?.tier || memberDocData?.tier || 'standard');
+  const billingInterval = getSubscriptionInterval(subscription, intent.metadata?.interval || memberDocData?.billingInterval || "month");
   const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
   const promoTag = (subscription?.metadata?.promo || intent.metadata?.promo || "").toString().toLowerCase();
   const updates = {
     tier,
     membershipTier: membershipTierLabel(tier),
+    billingInterval,
     billingProvider: "stripe",
     membershipStatus: subscription?.status || "active",
     paymentStatus: stripeStatusToPaymentStatus(subscription?.status || "active"),
@@ -5028,12 +5072,16 @@ exports.confirmMembershipActivation = functions.runWith(stripeSecrets).https.onC
     tier,
     nextRenewalIso: currentPeriodEndIso,
   });
-  return { ok: true, tier, subscriptionId: updates.stripeSubscriptionId };
+  return { ok: true, tier, interval: billingInterval, subscriptionId: updates.stripeSubscriptionId };
 });
 
-function nextMonthlyRenewalISO(fromDate = new Date()) {
+function nextRenewalISOForInterval(interval = "month", fromDate = new Date()) {
   const next = new Date(fromDate);
-  next.setMonth(next.getMonth() + 1);
+  if (normalizeBillingIntervalKey(interval) === "year") {
+    next.setFullYear(next.getFullYear() + 1);
+  } else {
+    next.setMonth(next.getMonth() + 1);
+  }
   return next.toISOString();
 }
 
@@ -5100,11 +5148,13 @@ async function applyStripeSubscriptionUpdate(subscription, memberCtx, eventType 
   }
 
   const tier = normalizeTierKey(subscription?.metadata?.tier || memberDocData?.tier || "standard");
+  const billingInterval = getSubscriptionInterval(subscription, memberDocData?.billingInterval || "month");
   const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
   const promoTag = String(subscription?.metadata?.promo || memberDocData?.membershipPromoTag || "").toLowerCase();
   const updates = {
     tier,
     membershipTier: membershipTierLabel(tier),
+    billingInterval,
     billingProvider: "stripe",
     membershipStatus: subscription?.status || "active",
     paymentStatus: stripeStatusToPaymentStatus(subscription?.status),
@@ -5154,8 +5204,10 @@ async function applyStripePaymentIntentUpdate(intent, status) {
   };
   if (status === "succeeded") {
     const tier = normalizeTierKey((intent?.metadata?.tier || memberCtx.data?.tier || "standard").toString());
+    const interval = normalizeBillingIntervalKey(intent?.metadata?.interval || memberCtx.data?.billingInterval || "month");
     if (tier) updates.tier = tier;
     updates.membershipTier = membershipTierLabel(tier);
+    updates.billingInterval = interval;
     updates.billingProvider = "stripe";
     updates.paymentStatus = "active";
     updates.lastCharge = new Date().toISOString();
@@ -5171,11 +5223,11 @@ async function applyStripePaymentIntentUpdate(intent, status) {
         updates.stripeSubscriptionId = subscription.id;
         updates.cancelAtPeriodEnd = subscription.cancel_at_period_end === true;
       } else {
-        updates.nextRenewal = nextMonthlyRenewalISO();
+        updates.nextRenewal = nextRenewalISOForInterval(interval);
       }
     } catch (err) {
       console.warn("Failed to sync subscription from payment intent", err?.message || err);
-      updates.nextRenewal = nextMonthlyRenewalISO();
+      updates.nextRenewal = nextRenewalISOForInterval(interval);
     }
     if (intent?.payment_method) updates.defaultPaymentMethodId = intent.payment_method;
     if (intent?.customer) updates.stripeCustomerId = intent.customer;
@@ -5340,7 +5392,11 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
   await assertBillingEnabledOrThrow();
   const uid = context.auth.uid;
   const email = (context.auth.token.email || '').toLowerCase();
-  const { tier, priceId: tierPriceId } = membershipStripePriceSelection(data?.tier, "chargeMembershipOnFile");
+  const {
+    tier,
+    interval,
+    priceId: tierPriceId
+  } = membershipStripePriceSelection(data?.tier, data?.interval, "chargeMembershipOnFile");
   const promoCodeInput = (data?.promoCode || "").toString();
   const providedPaymentMethodId = String(data?.paymentMethodId || "").trim();
 
@@ -5402,13 +5458,21 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
   const hasActiveSubscription = subscription && !["canceled", "incomplete_expired"].includes(subscription.status);
   if (hasActiveSubscription) {
     const currentTier = normalizeTierKey(subscription.metadata?.tier || profile?.tier || tier);
-    const sameTierActive = currentTier === tier && subscription.status === "active" && subscription.cancel_at_period_end !== true;
-    if (sameTierActive) {
+    const currentInterval = getSubscriptionInterval(subscription, profile?.billingInterval || interval);
+    const currentPriceId = String(subscription?.items?.data?.[0]?.price?.id || "").trim();
+    const samePlanActive = currentTier === tier
+      && currentInterval === interval
+      && currentPriceId === tierPriceId
+      && subscription.status === "active"
+      && subscription.cancel_at_period_end !== true;
+    const billingInterval = currentInterval;
+    if (samePlanActive) {
       const activePromoTag = String(subscription?.metadata?.promo || "").toLowerCase();
       const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
       await memberRef.set({
         tier,
         membershipTier: membershipTierLabel(tier),
+        billingInterval,
         billingProvider: "stripe",
         membershipStatus: subscription.status || "active",
         paymentStatus: stripeStatusToPaymentStatus(subscription.status || "active"),
@@ -5429,6 +5493,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
       return {
         ok: true,
         tier,
+        interval: billingInterval,
         subscriptionId: subscription.id,
         alreadyActive: true,
         membershipStatus: subscription.status || "active",
@@ -5441,10 +5506,10 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     if (currentItem) {
       subscription = await stripe.subscriptions.update(subscription.id, {
         cancel_at_period_end: false,
-        proration_behavior: "none",
+        proration_behavior: "create_prorations",
         billing_cycle_anchor: "unchanged",
         default_payment_method: defaultPm,
-        metadata: { uid, tier, ...promoMeta },
+        metadata: { uid, tier, interval, ...promoMeta },
         items: [{
           id: currentItem.id,
           price: tierPriceId,
@@ -5460,7 +5525,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
       payment_behavior: "default_incomplete",
       trial_from_plan: false,
       payment_settings: { save_default_payment_method: "on_subscription" },
-      metadata: { uid, tier, ...promoMeta },
+      metadata: { uid, tier, interval, ...promoMeta },
       discounts: promoContext.discount ? [promoContext.discount] : undefined,
       expand: ["latest_invoice.payment_intent", "items.data.price"],
     });
@@ -5475,6 +5540,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
       paymentIntentId: paymentIntent.id,
       subscriptionId: subscription.id,
       tier,
+      interval,
     };
   }
   if (paymentIntent && paymentIntent.status !== "succeeded") {
@@ -5482,10 +5548,12 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
   }
 
   const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
+  const billingInterval = getSubscriptionInterval(subscription, interval);
   const finalPromoTag = String(subscription?.metadata?.promo || promoContext.promoTag || "").toLowerCase();
   await memberRef.set({
     tier,
     membershipTier: membershipTierLabel(tier),
+    billingInterval,
     billingProvider: "stripe",
     membershipStatus: subscription?.status || "active",
     paymentStatus: stripeStatusToPaymentStatus(subscription?.status || "active"),
@@ -5513,6 +5581,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
   return {
     ok: true,
     tier,
+    interval: billingInterval,
     subscriptionId: subscription?.id || null,
     membershipStatus: subscription?.status || "active",
     paymentStatus: stripeStatusToPaymentStatus(subscription?.status || "active"),
