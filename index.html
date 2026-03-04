@@ -16029,6 +16029,7 @@
         <button type="button" class="chip ghost" data-scroll="alertCard">Post alert</button>
         <button type="button" class="chip ghost" data-scroll="codesCard">Codes</button>
         <button type="button" class="chip ghost" data-scroll="staffMore">More</button>
+        <button type="button" class="chip ghost" id="staffAboutQuick">About/Legal</button>
         <button type="button" class="chip ghost chip-danger" id="staffLogoutQuick">Log out</button>
       </div>
     </div>
@@ -23203,6 +23204,7 @@
     const staffMsgBadge = document.getElementById("staffMsgBadge");
     const staffLogoutLink = document.getElementById("staffLogoutLink");
     const staffLogoutQuick = document.getElementById("staffLogoutQuick");
+    const staffAboutQuick = document.getElementById("staffAboutQuick");
     const staffLoginBack = document.getElementById("staffLoginBack");
     applyStaffRememberedLogin();
     const ceoPortalBack = document.getElementById("ceoPortalBack");
@@ -23583,6 +23585,24 @@
       }
     ];
     let aboutPatchNotesExpanded = false;
+    let latestVersionStamp = "";
+
+    function injectLatestDeployPatchNote() {
+      const version = String(latestVersionStamp || "").trim();
+      if (!version) return;
+      const base = Array.isArray(PATCH_NOTES) ? PATCH_NOTES : [];
+      const autoVersion = `build-${version}`;
+      if (base.some((entry) => String(entry?.version || "").trim() === autoVersion)) return;
+      const match = version.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
+      const isoDate = match ? `${match[1]}-${match[2]}-${match[3]}` : new Date().toISOString().slice(0, 10);
+      base.unshift({
+        version: autoVersion,
+        date: isoDate,
+        added: ["Latest production build deployed."],
+        improved: ["General stability and UX polish updates."],
+        fixed: ["Minor bugs and quality improvements."]
+      });
+    }
 
     function formatPatchNoteDate(value) {
       if (!value) return "";
@@ -23597,6 +23617,7 @@
 
     function renderPatchNotes() {
       if (!aboutPatchNotesList) return;
+      injectLatestDeployPatchNote();
       const list = Array.isArray(PATCH_NOTES) ? PATCH_NOTES.slice() : [];
       list.sort((a, b) => String(b?.date || "").localeCompare(String(a?.date || "")));
       const visible = aboutPatchNotesExpanded ? list : list.slice(0, 10);
@@ -23656,6 +23677,10 @@
         if (!resp.ok) return;
         const data = await resp.json();
         const version = String(data?.version || "").trim();
+        if (version) {
+          latestVersionStamp = version;
+          injectLatestDeployPatchNote();
+        }
         const match = version.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
         if (!match) return;
         const [, year, month, day] = match;
@@ -39718,6 +39743,14 @@ let onboardingIndex = 0;
     }
     if (staffLogoutQuick) {
       staffLogoutQuick.addEventListener("click", handleStaffLogout);
+    }
+    if (staffAboutQuick) {
+      staffAboutQuick.addEventListener("click", () => {
+        if (!aboutModal) return;
+        renderPatchNotes();
+        refreshAboutLastUpdatedText();
+        aboutModal.classList.add("active");
+      });
     }
       if (staffAnalyticsRange) {
         staffAnalyticsRange.addEventListener("click", (event) => {
