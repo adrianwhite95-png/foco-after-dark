@@ -17084,6 +17084,9 @@
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">App behavior (PWA)</h4>
         <p>When installed to a home screen, the app may cache assets for performance. Updates are delivered when the app reconnects and reloads. If the app is locked by administrators, access is restricted until unlocked by the CEO.</p>
 
+        <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Waitlist & launch communications</h4>
+        <p>If waitlist mode is active, app actions are temporarily disabled until launch access is restored. Waitlist submissions are used only for launch announcements, product updates, and account availability notices.</p>
+
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Liability & safety</h4>
         <p>FoCo After Dark is not responsible for injuries, property damage, or other consequences from alcohol consumption. Use vouchers responsibly. If you or someone appears intoxicated, seek assistance, use a rideshare service, and never let them drive.</p>
 
@@ -17130,7 +17133,14 @@
           <p style="color:#cbd5f5;">For privacy requests or questions, email <strong>focoafterdark@gmail.com</strong> or use the in-app support form. For legal inquiries, contact the FoCo After Dark team through the same address.</p>
         </div>
 
-        <p style="margin-top:12px;font-size:12px;color:#9ca3af;">Last updated: January 13, 2026</p>
+        <h4 style="margin-top:12px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Patch Notes <span style="font-size:11px;color:#9ca3af;font-weight:600;">(Newest first)</span></h4>
+        <p style="margin:0 0 8px;font-size:12px;color:#94a3b8;">Some updates aren't listed to protect app integrity.</p>
+        <div id="aboutPatchNotesList" style="display:flex;flex-direction:column;gap:10px;"></div>
+        <div style="margin-top:8px;display:flex;justify-content:flex-end;">
+          <button type="button" id="aboutPatchNotesToggle" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;">View older</button>
+        </div>
+
+        <p style="margin-top:12px;font-size:12px;color:#9ca3af;">Last updated: March 4, 2026</p>
         <div style="margin-top:14px;border-top:1px solid rgba(148,163,184,0.06);padding-top:10px;text-align:center;color:var(--accent-magenta);font-weight:700;">© 2026 FoCo After Dark<br/>Founded &amp; Designed by Adrian White</div>
       </div>
     </div>
@@ -23383,6 +23393,8 @@
     const manageBillingBtn = document.getElementById("manageBillingBtn");
     const aboutModal = document.getElementById("aboutModal");
     const navAboutItem = document.getElementById("navAboutItem");
+    const aboutPatchNotesList = document.getElementById("aboutPatchNotesList");
+    const aboutPatchNotesToggle = document.getElementById("aboutPatchNotesToggle");
     const achievementsList = document.getElementById("achievementsList");
     const ceoDemoBtn = document.getElementById("ceoDemoBtn");
     const demoModeBadge = document.getElementById("demoModeBadge");
@@ -23438,6 +23450,121 @@
     const pointsRedeemPreview = document.getElementById("pointsRedeemPreview");
     const pointsRedeemError = document.getElementById("pointsRedeemError");
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
+    const PATCH_NOTES = [
+      {
+        version: "v0.9.34",
+        date: "2026-03-04",
+        added: [
+          "Waitlist launch screen with real-time counter",
+          "CEO-only waitlist mode controls"
+        ],
+        improved: [
+          "Landing actions include one-tap share to friends",
+          "Home feed visuals and button responsiveness on iPhone and iPad"
+        ],
+        fixed: [
+          "Voucher verification date handling for late-night closeouts",
+          "Refresh and login button state messaging"
+        ]
+      },
+      {
+        version: "v0.9.33",
+        date: "2026-03-02",
+        added: [
+          "CEO bypass link for waitlist operations",
+          "Waitlist success celebration feedback"
+        ],
+        improved: [
+          "Staff closeout flow handoff after report send",
+          "Cross-device session restore and screen continuity"
+        ],
+        fixed: [
+          "Home button dead-state startup error",
+          "Notification prompt reconnect behavior"
+        ]
+      },
+      {
+        version: "v0.9.32",
+        date: "2026-02-28",
+        added: [
+          "Global refresh controls across member, staff, and CEO views",
+          "Expanded venue activity and closeout reporting details"
+        ],
+        improved: [
+          "Real-time redemption queue consistency by venue",
+          "Member profile interactions and pass rendering performance"
+        ],
+        fixed: [
+          "Shift close/open state mismatch across devices",
+          "Closeout modal state getting stuck after fallback paths"
+        ]
+      }
+    ];
+    let aboutPatchNotesExpanded = false;
+
+    function formatPatchNoteDate(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      });
+    }
+
+    function renderPatchNotes() {
+      if (!aboutPatchNotesList) return;
+      const list = Array.isArray(PATCH_NOTES) ? PATCH_NOTES.slice() : [];
+      list.sort((a, b) => String(b?.date || "").localeCompare(String(a?.date || "")));
+      const visible = aboutPatchNotesExpanded ? list : list.slice(0, 10);
+      aboutPatchNotesList.textContent = "";
+
+      visible.forEach((entry) => {
+        const card = document.createElement("div");
+        card.className = "glassBox premiumGlass";
+        card.style.padding = "10px 12px";
+
+        const header = document.createElement("div");
+        header.style.fontSize = "12px";
+        header.style.fontWeight = "800";
+        header.style.color = "var(--accent-cyan)";
+        header.style.marginBottom = "6px";
+        header.textContent = `${entry.version || "Version"} - ${formatPatchNoteDate(entry.date)}`;
+        card.appendChild(header);
+
+        [["Added", entry.added], ["Improved", entry.improved], ["Fixed", entry.fixed]].forEach(([label, items]) => {
+          const bucket = Array.isArray(items) ? items.filter(Boolean) : [];
+          if (!bucket.length) return;
+          const title = document.createElement("div");
+          title.style.fontSize = "11px";
+          title.style.fontWeight = "700";
+          title.style.color = "#cbd5f5";
+          title.style.marginBottom = "2px";
+          title.textContent = `${label}:`;
+          card.appendChild(title);
+
+          const ul = document.createElement("ul");
+          ul.style.margin = "0 0 8px 16px";
+          ul.style.color = "#94a3b8";
+          ul.style.fontSize = "12px";
+          bucket.forEach((line) => {
+            const li = document.createElement("li");
+            li.textContent = line;
+            ul.appendChild(li);
+          });
+          card.appendChild(ul);
+        });
+
+        aboutPatchNotesList.appendChild(card);
+      });
+
+      if (aboutPatchNotesToggle) {
+        const hasOlder = list.length > 10;
+        aboutPatchNotesToggle.style.display = hasOlder ? "inline-flex" : "none";
+        aboutPatchNotesToggle.textContent = aboutPatchNotesExpanded ? "Show newer" : "View older";
+      }
+    }
     const pointsRedeemCancel = document.getElementById("pointsRedeemCancel");
     const achievementsCompleteModal = document.getElementById("achievementsCompleteModal");
     const achievementsCompleteClose = document.getElementById("achievementsCompleteClose");
@@ -27888,7 +28015,10 @@ let onboardingIndex = 0;
           showCancelModal();
           break;
         case "about":
-          if (aboutModal) aboutModal.classList.add("active");
+          if (aboutModal) {
+            renderPatchNotes();
+            aboutModal.classList.add("active");
+          }
           break;
         default:
           break;
@@ -28093,6 +28223,13 @@ let onboardingIndex = 0;
         if (e.target === aboutModal) aboutModal.classList.remove("active");
       });
     }
+    if (aboutPatchNotesToggle) {
+      aboutPatchNotesToggle.addEventListener("click", () => {
+        aboutPatchNotesExpanded = !aboutPatchNotesExpanded;
+        renderPatchNotes();
+      });
+    }
+    renderPatchNotes();
     if (cancelMembershipConfirm) {
       cancelMembershipConfirm.addEventListener("click", cancelMembershipAndSignOut);
     }
