@@ -46282,10 +46282,12 @@ let onboardingIndex = 0;
       if (detailsReason === "VENUE_PAUSED") {
         return cfg.text("venue.paused.message", DEFAULT_CONFIG_TEXT["venue.paused.message"]);
       }
-      const isShiftClosed = detailsReason === "SHIFT_CLOSED"
+      const isShiftClosed = context === "redeem" && (
+        detailsReason === "SHIFT_CLOSED"
         || detailsReason === "SHIFT_INACTIVE"
         || code === "failed-precondition"
-        || message.includes("shift");
+        || message.includes("shift")
+      );
       if (isShiftClosed) {
         return MEMBER_SHIFT_INACTIVE_MESSAGE;
       }
@@ -46297,6 +46299,9 @@ let onboardingIndex = 0;
       }
       if (code === "invalid-argument" || code === "not-found") {
         return enforceMemberMessageGuard(context === "redeem" ? "Could not redeem right now. Please try again." : "Please review your info and try again.");
+      }
+      if (context === "payment" || context === "points") {
+        return enforceMemberMessageGuard("Could not complete payment right now. Please try again.");
       }
       return enforceMemberMessageGuard("Could not redeem right now. Please try again.");
     }
