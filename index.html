@@ -18407,6 +18407,7 @@
     let membershipPaymentPrepInFlight = false;
     let membershipPaymentPrepTimer = null;
     let lastMembershipPrepKey = "";
+    let queuedMembershipPaymentPrep = null;
     function isAuthBusy() {
       return authSubmitInFlight || authTransition || !!screens.auth?.classList.contains("active");
     }
@@ -19488,6 +19489,7 @@
         membershipPaymentPrepTimer = null;
       }
       membershipPaymentPrepInFlight = false;
+      queuedMembershipPaymentPrep = null;
     }
 
     function openBillingScreenForTier(tier, options = {}) {
@@ -19512,8 +19514,13 @@
       const promoKey = String(membershipPromoInput?.value || "").trim().toUpperCase();
       const prepKey = `${requestedTier}:${requestedInterval}:${promoKey}`;
       if (membershipPaymentPrepInFlight) {
+        queuedMembershipPaymentPrep = {
+          tier: requestedTier,
+          interval: requestedInterval,
+          prepKey
+        };
         showToast("Preparing secure checkout...", 1200);
-        return false;
+        return true;
       }
       if (membershipPaymentPrepTimer) {
         clearTimeout(membershipPaymentPrepTimer);
@@ -29721,11 +29728,22 @@ let onboardingIndex = 0;
     let voucherHasCardOnFile = false;
 
     async function prepareStripePayment(tier, interval = "month", prepKey = "") {
-      if (membershipPaymentPrepInFlight) return;
+      const normalizedTier = normalizeCheckoutTier(tier);
+      const normalizedInterval = normalizeMembershipIntervalSelection(interval || "month");
+      const computedKey = String(prepKey || `${normalizedTier}:${normalizedInterval}:${String(membershipPromoInput?.value || "").trim().toUpperCase()}`);
+      if (membershipPaymentPrepInFlight) {
+        queuedMembershipPaymentPrep = {
+          tier: normalizedTier,
+          interval: normalizedInterval,
+          prepKey: computedKey
+        };
+        return;
+      }
       membershipPaymentPrepInFlight = true;
       if (!functionsClient) {
         paymentError.textContent = "Payments unavailable right now.";
         membershipPaymentPrepInFlight = false;
+        queuedMembershipPaymentPrep = null;
         return;
       }
       paymentError.textContent = "";
@@ -29735,28 +29753,28 @@ let onboardingIndex = 0;
         paymentError.textContent = "Please finish creating your account, then try again.";
         showScreen("auth");
         membershipPaymentPrepInFlight = false;
+        queuedMembershipPaymentPrep = null;
         return;
       }
       if (authUser && !betaPassMode) {
         try {
-          await authUser.getIdToken(true);
+          await authUser.getIdToken();
         } catch (_) {}
       }
       if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
         paymentError.textContent = "Complete signup before billing.";
         showScreen("membership");
         membershipPaymentPrepInFlight = false;
+        queuedMembershipPaymentPrep = null;
         return;
       }
       if (isStripeExcludedMember()) {
         showToast("This account does not use Stripe billing.");
         showScreen("pass");
         membershipPaymentPrepInFlight = false;
+        queuedMembershipPaymentPrep = null;
         return;
       }
-      const normalizedTier = normalizeCheckoutTier(tier);
-      const normalizedInterval = normalizeMembershipIntervalSelection(interval || "month");
-      const computedKey = String(prepKey || `${normalizedTier}:${normalizedInterval}:${String(membershipPromoInput?.value || "").trim().toUpperCase()}`);
       if (
         computedKey
         && computedKey === lastMembershipPrepKey
@@ -29769,6 +29787,7 @@ let onboardingIndex = 0;
           paymentSubmitBtn.textContent = "Start Membership";
         }
         membershipPaymentPrepInFlight = false;
+        queuedMembershipPaymentPrep = null;
         return;
       }
       membershipPaymentMode = "payment";
@@ -29792,11 +29811,11 @@ let onboardingIndex = 0;
           {
             actionKey: "createMembershipPaymentIntent",
             lockKey: `membershipIntent:${firebaseAuth.currentUser?.uid || "anon"}:${normalizedTier}:${normalizedInterval}`,
-            retries: 2,
+            retries: 3,
             timeoutMs: 18000,
             baseDelayMs: 320,
-            windowMs: 2600,
-            maxBurst: 4
+            windowMs: 3200,
+            maxBurst: 8
           }
         );
         let resp;
@@ -29891,6 +29910,15 @@ let onboardingIndex = 0;
         }
       } finally {
         membershipPaymentPrepInFlight = false;
+        if (queuedMembershipPaymentPrep) {
+          const nextPrep = queuedMembershipPaymentPrep;
+          queuedMembershipPaymentPrep = null;
+          if (String(nextPrep.prepKey || "") !== String(computedKey || "")) {
+            setTimeout(() => {
+              prepareStripePayment(nextPrep.tier, nextPrep.interval, nextPrep.prepKey);
+            }, 0);
+          }
+        }
       }
     }
 
