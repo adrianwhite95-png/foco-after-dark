@@ -18402,6 +18402,7 @@
     let authSubmitDefaultLabel = "";
     let signupAccountSetupInFlight = false;
     let deferredOnboardingMembershipSelection = null;
+    let membershipPlanTapLock = false;
     function isAuthBusy() {
       return authSubmitInFlight || authTransition || !!screens.auth?.classList.contains("active");
     }
@@ -21887,7 +21888,9 @@
             };
             onboardingReturnScreen = "auth";
             membershipReturnScreen = onboardingReturnScreen;
-            showScreen("membership");
+            if (currentScreenName !== "membership") {
+              showScreen("membership");
+            }
             showToast("Choose Monthly or Yearly to continue.", 2200);
             setTimeout(() => { flushDeferredOnboardingMembershipSelection(); }, 0);
 	      } else if (requestedTier === "explorer" && !signupAppliedFreeInvite && !isFreeMember(memberProfile)) {
@@ -22617,7 +22620,11 @@
           localStorage.removeItem(`membership_${user.uid}`);
         }
         clearPassLoading();
-        openMembershipChooser(onboardingMembershipFlow ? onboardingReturnScreen : "ageVerify");
+        if (!(onboardingMembershipFlow && currentScreenName === "membership")) {
+          openMembershipChooser(onboardingMembershipFlow ? onboardingReturnScreen : "ageVerify");
+        } else {
+          refreshMembershipChoices();
+        }
         setTimeout(() => { flushDeferredOnboardingMembershipSelection(); }, 0);
         if (resumeIsValidForUser(onboardingResume, user)) {
           showToast("Pick Monthly or Yearly to finish signup.", 2400);
@@ -46396,6 +46403,11 @@ let onboardingIndex = 0;
     // Membership selection buttons
     membershipPlanButtons.forEach(btn => {
       btn.addEventListener("click", () => {
+        if (membershipPlanTapLock) return;
+        membershipPlanTapLock = true;
+        setTimeout(() => {
+          membershipPlanTapLock = false;
+        }, 1500);
         const tier = btn.dataset.tier;
         const interval = normalizeMembershipIntervalSelection(btn.dataset.interval || "month");
         if (signupAccountSetupInFlight && onboardingMembershipFlow) {
