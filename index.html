@@ -15195,7 +15195,7 @@
             </button>
           </div>
           <p class="small" style="margin-top:6px;text-align:left;">
-            Standard/VIP continue to secure 21+ ID verification before billing. Explorer opens instantly, then verifies age only when upgrading to paid tiers. Yearly plans are discounted and billed once per year.
+            Standard/VIP continue to membership billing after account creation. Choose Monthly or Yearly before paying. Explorer opens instantly with no billing. Yearly plans are discounted and billed once per year.
           </p>
         </div>
         <div class="error" id="authError"></div>
@@ -15212,10 +15212,10 @@
         <div class="modal-card">
           <div class="modal-title">Confirm your details</div>
           <p style="font-size:13px;color:#e2e8f0;line-height:1.4;">
-            By continuing, you confirm that all information you provide is accurate and truthful. You certify that you are 21 years of age or older, and you understand that a matching ID is required by the venue. Providing false information may result in account removal.
+            By continuing, you confirm that all information you provide is accurate and truthful. You certify that you are 21 years of age or older. Providing false information may result in account removal.
           </p>
           <p id="signupConfirmTierNote" style="font-size:12px;color:#94a3b8;line-height:1.45;margin-top:8px;">
-            Selected pass: Standard. Next step is secure ID verification.
+            Selected pass: Standard. Next step is choosing Monthly or Yearly billing.
           </p>
           <div class="modal-actions" style="margin-top:12px;">
             <button type="button" class="btn btn-secondary" id="signupBackBtn">Back</button>
@@ -17118,7 +17118,7 @@
         <p>Our goal is simple: support local nightlife, improve guest experience, and give venues practical tools that keep lines moving and service efficient. We build with a privacy-first mindset and continue improving the app through live feedback from members, venue staff, and local partners.</p>
 
         <h4 style="margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Age requirement</h4>
-        <p>You must be 21 years of age or older to redeem alcoholic beverage vouchers in Fort Collins, Colorado. FoCo After Dark uses third-party ID verification during signup before membership activation. Venues may still require a valid government-issued photo ID at redemption.</p>
+        <p>You must be 21 years of age or older to redeem alcoholic beverage vouchers in Fort Collins, Colorado. FoCo After Dark enforces 21+ account eligibility during signup. Venues may still require a valid government-issued photo ID at redemption.</p>
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Responsible service</h4>
         <p>Vouchers are subject to venue policies and Colorado law. Do not serve alcohol to persons who are visibly intoxicated. Venue staff retain the right to refuse service in accordance with state and local regulations.</p>
@@ -19583,19 +19583,8 @@
       return profile?.ageVerified21 === true || ageVerificationStatusKey(profile) === "verified";
     }
     function requiresAgeVerificationClient(profile = memberProfile, user = firebaseAuth?.currentUser) {
-      if (!profile || !user) return false;
-      if (isAgeVerificationExemptClient(profile, user)) return false;
-      const tier = normalizeTierKey(profile?.tier || currentMembershipTier || "");
-      if (tier === "explorer") return false;
-      const status = ageVerificationStatusKey(profile);
-      const explicitRequired = profile?.ageVerificationRequired === true
-        || status === "required"
-        || status === "processing"
-        || status === "requires_input"
-        || status === "underage"
-        || status === "canceled";
-      if (!explicitRequired) return false;
-      return !isAgeVerifiedClient(profile);
+      // ID verification is retired. 21+ is enforced by signup birthdate validation.
+      return false;
     }
 
     function withTimeout(promise, ms = 3500) {
@@ -20406,11 +20395,11 @@
       const forgotWrap = forgotPasswordLink ? forgotPasswordLink.closest("p") : null;
       const rememberRow = rememberMe ? rememberMe.closest(".remember-row") : null;
       if (authMode === "signup") {
-        authModeText.textContent = "Create your account, pick your pass, then verify 21+ ID.";
+        authModeText.textContent = "Create your account, pick your pass, then start your membership.";
         if (authModeSubline) authModeSubline.textContent = "You'll get a digital Nightlife Pass you can show at bars to unlock perks.";
         authToggleText.innerHTML =
           'Already have an account? <span class="linkish auth-toggle-link">Log in instead</span>';
-        authSubmitBtn.textContent = "Create Account and Verify ID";
+        authSubmitBtn.textContent = "Create Account";
         if (authEmailLabel) authEmailLabel.innerHTML = '<span class="required-asterisk">*</span> Email';
         if (authPasswordLabel) authPasswordLabel.innerHTML = '<span class="required-asterisk">*</span> Password';
         signupOnlyFields.forEach(el => {
@@ -20546,9 +20535,9 @@
       });
       if (signupConfirmTierNote) {
         if (signupSelectedTier === "explorer") {
-          signupConfirmTierNote.textContent = "Selected pass: Explorer. Account opens now with no billing. 21+ ID check runs when you upgrade to Standard or VIP.";
+          signupConfirmTierNote.textContent = "Selected pass: Explorer. Account opens now with no billing.";
         } else {
-          signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupSelectedTier)}. Next step is secure ID verification.`;
+          signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupSelectedTier)}. Next step is choosing Monthly or Yearly billing.`;
         }
       }
     }
@@ -21614,9 +21603,9 @@
         };
         if (signupConfirmTierNote) {
           if (signupTier === "explorer") {
-            signupConfirmTierNote.textContent = "Selected pass: Explorer. Account opens now with no billing. 21+ ID check runs when you upgrade to Standard or VIP.";
+            signupConfirmTierNote.textContent = "Selected pass: Explorer. Account opens now with no billing.";
           } else {
-            signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupTier)}. Next step is secure ID verification.`;
+            signupConfirmTierNote.textContent = `Selected pass: ${tierLabelForUi(signupTier)}. Next step is choosing Monthly or Yearly billing.`;
           }
         }
         showSignupConfirmModal();
@@ -21788,10 +21777,9 @@
           if (gender) profilePayload.gender = gender;
           profilePayload.requestedTier = requestedTier;
           if (studentPromoCode) profilePayload.pendingStudentPromoCode = normalizeStudentPromoCode(studentPromoCode);
-          const explorerSignup = requestedTier === "explorer";
-          profilePayload.ageVerificationRequired = !explorerSignup;
-          profilePayload.ageVerificationStatus = explorerSignup ? "skipped_explorer" : "required";
-          profilePayload.ageVerified21 = false;
+          profilePayload.ageVerificationRequired = false;
+          profilePayload.ageVerificationStatus = "self_attested_21";
+          profilePayload.ageVerified21 = true;
           profilePayload.onboardingEligible = true;
           profilePayload.onboardingComplete = false;
           let finalizedUsername = "";
@@ -21871,8 +21859,8 @@
               ...(memberProfile || {}),
               requestedTier
             };
-            showScreen("ageVerify");
-            showToast("Tap Verify my ID now when you're ready.", 2200);
+            showScreen("membership");
+            showToast("Choose Monthly or Yearly to continue.", 2200);
 	      } else if (requestedTier === "explorer" && !signupAppliedFreeInvite && !isFreeMember(memberProfile)) {
           memberProfile = {
             ...(memberProfile || {}),
@@ -21882,7 +21870,7 @@
             membershipStatus: "explorer",
             ageVerificationRequired: false,
             ageVerificationStatus: "skipped_explorer",
-            ageVerified21: false
+            ageVerified21: true
           };
           if (firebaseAuth?.currentUser) {
             updateMemberProfile({
@@ -21892,7 +21880,7 @@
               membershipStatus: "explorer",
               ageVerificationRequired: false,
               ageVerificationStatus: "skipped_explorer",
-              ageVerified21: false
+              ageVerified21: true
             }).catch((err) => console.warn("Explorer signup profile update failed", err));
           }
           applyMembershipToPass("explorer");
@@ -29301,8 +29289,8 @@ let onboardingIndex = 0;
         return;
       }
       if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
-        paymentError.textContent = "Complete 21+ ID verification before billing.";
-        showScreen("ageVerify");
+        paymentError.textContent = "Complete signup before billing.";
+        showScreen("membership");
         return;
       }
       if (!stripeInstance || !stripeElements || !stripeClientSecret) {
@@ -29572,8 +29560,8 @@ let onboardingIndex = 0;
         return;
       }
       if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
-        paymentError.textContent = "Complete 21+ ID verification before billing.";
-        showScreen("ageVerify");
+        paymentError.textContent = "Complete signup before billing.";
+        showScreen("membership");
         return;
       }
       if (isStripeExcludedMember()) {
@@ -29895,8 +29883,8 @@ let onboardingIndex = 0;
         return false;
       }
       if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
-        showToast("Complete 21+ ID verification first.");
-        showScreen("ageVerify");
+        showToast("Complete signup before billing.");
+        showScreen("membership");
         return false;
       }
       if (isStripeExcludedMember()) {
@@ -42539,12 +42527,7 @@ let onboardingIndex = 0;
         requestedTier: pendingMembershipTier,
         requestedBillingInterval: pendingMembershipInterval
       };
-      if (requiresAgeVerificationClient(memberProfile, user)) {
-        renderAgeVerificationState();
-        showScreen("ageVerify");
-        return true;
-      }
-      showToast("ID verified. Choose Monthly or Yearly to continue.", 5000);
+      showToast("Resume signup: choose Monthly or Yearly to continue.", 4200);
       showScreen("membership");
       return true;
     }
@@ -43999,7 +43982,7 @@ let onboardingIndex = 0;
         if (!wasOnboarding) pendingMembershipTier = null;
         resetPaymentForm();
         if (wasOnboarding) suppressAgeVerifyAutoContinue = true;
-        showScreen(wasOnboarding ? "ageVerify" : "membership");
+        showScreen("membership");
       });
     }
     if (ceoRedemptionBtn) {
@@ -46321,7 +46304,7 @@ let onboardingIndex = 0;
           showScreen("auth");
           return;
         }
-        if (isExplorerMember() && (tier === "standard" || tier === "vip") && !isAgeVerifiedClient(memberProfile)) {
+        if (isExplorerMember() && (tier === "standard" || tier === "vip")) {
           pendingMembershipTier = tier;
           pendingMembershipInterval = interval;
           onboardingMembershipFlow = true;
@@ -46330,20 +46313,18 @@ let onboardingIndex = 0;
             ...(memberProfile || {}),
             requestedTier: tier,
             requestedBillingInterval: interval,
-            ageVerificationRequired: true,
-            ageVerificationStatus: "required",
-            ageVerified21: false
+            ageVerificationRequired: false,
+            ageVerificationStatus: "self_attested_21",
+            ageVerified21: true
           };
           updateMemberProfile({
             requestedTier: tier,
             requestedBillingInterval: interval,
-            ageVerificationRequired: true,
-            ageVerificationStatus: "required",
-            ageVerified21: false
+            ageVerificationRequired: false,
+            ageVerificationStatus: "self_attested_21",
+            ageVerified21: true
           }).catch((err) => console.warn("Explorer upgrade precheck save failed", err));
-          showScreen("ageVerify");
-          showToast("Tap Verify my ID now to continue upgrade.", 2200);
-          return;
+          showToast("Choose Monthly or Yearly to continue.", 2200);
         }
         pendingMembershipTier = tier;
         pendingMembershipInterval = interval;
