@@ -18403,7 +18403,7 @@
     let authSubmitDefaultLabel = "";
     let signupAccountSetupInFlight = false;
     let deferredOnboardingMembershipSelection = null;
-    let membershipPlanTapLock = false;
+    let membershipPlanSelectionBusy = false;
     let membershipPaymentPrepInFlight = false;
     let membershipPaymentPrepTimer = null;
     let lastMembershipPrepKey = "";
@@ -23715,6 +23715,19 @@
     const pointsRedeemError = document.getElementById("pointsRedeemError");
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.39",
+        date: "2026-03-05",
+        added: [
+          "Membership chooser lock to prevent duplicate checkout starts"
+        ],
+        improved: [
+          "Plan switching now routes cleanly into a single checkout prep path"
+        ],
+        fixed: [
+          "Intermittent signup checkout errors caused by rapid plan taps"
+        ]
+      },
       {
         version: "v0.9.38",
         date: "2026-03-05",
@@ -29538,6 +29551,7 @@ let onboardingIndex = 0;
     if (membershipBackBtn) {
       membershipBackBtn.addEventListener("click", () => {
         clearPendingMembershipPaymentPrep();
+        setMembershipPlanSelectionBusy(false);
         if (onboardingMembershipFlow === true) {
           showScreen(onboardingReturnScreen || "auth");
           return;
@@ -29852,7 +29866,9 @@ let onboardingIndex = 0;
           interval: normalizedInterval
         });
         let msg = "Could not start payment right now. Please try again.";
-        if (errCode === "permission-denied" || errCode === "unauthenticated") {
+        if (errCode === "client-throttle") {
+          msg = "Preparing secure checkout...";
+        } else if (errCode === "permission-denied" || errCode === "unauthenticated") {
           msg = "Please log in again and retry.";
         } else if (errCode === "invalid-argument") {
           msg = "Invalid plan selection. Please try again.";
@@ -44244,11 +44260,13 @@ let onboardingIndex = 0;
     if (paymentBackBtn) {
       paymentBackBtn.addEventListener("click", () => {
         clearPendingMembershipPaymentPrep();
+        setMembershipPlanSelectionBusy(false);
         const wasOnboarding = onboardingMembershipFlow;
         if (!wasOnboarding) pendingMembershipTier = null;
         resetPaymentForm();
         if (wasOnboarding) suppressAgeVerifyAutoContinue = true;
         showScreen("membership");
+        refreshMembershipChoices();
       });
     }
     if (paymentRetrySetupBtn) {
@@ -46538,6 +46556,9 @@ let onboardingIndex = 0;
         if (detailsReason === "BILLING_DISABLED") {
           return cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]);
         }
+        if (code === "client-throttle") {
+          return "Preparing secure checkout...";
+        }
         if (detailsMemberMessage) {
           return enforcePaymentMessageGuard(detailsMemberMessage, "Could not start payment right now. Please try again.");
         }
@@ -46579,6 +46600,15 @@ let onboardingIndex = 0;
         return enforcePaymentMessageGuard("Could not complete payment right now. Please try again.");
       }
       return enforceRedeemMessageGuard("Could not redeem right now. Please try again.");
+    }
+
+    function setMembershipPlanSelectionBusy(busy = false) {
+      membershipPlanSelectionBusy = !!busy;
+      membershipPlanButtons.forEach((btn) => {
+        if (btn.classList.contains("is-current")) return;
+        btn.disabled = membershipPlanSelectionBusy;
+        btn.setAttribute("aria-busy", membershipPlanSelectionBusy ? "true" : "false");
+      });
     }
 
     function refreshMembershipChoices() {
@@ -46623,6 +46653,9 @@ let onboardingIndex = 0;
             : `Choose Standard ${intervalLabelForUi(interval)}`;
         }
       });
+      if (!hasActiveMembershipUi) {
+        setMembershipPlanSelectionBusy(membershipPlanSelectionBusy || membershipPaymentPrepInFlight);
+      }
     }
 
     function openMembershipChooser(sourceScreen = currentScreenName) {
@@ -46651,6 +46684,7 @@ let onboardingIndex = 0;
         return;
       }
       clearRedeemStateForMembershipChooser();
+      setMembershipPlanSelectionBusy(false);
       refreshMembershipChoices();
       showScreen("membership");
     }
@@ -46664,23 +46698,28 @@ let onboardingIndex = 0;
       refreshMembershipChoices();
       pendingMembershipTier = tier;
       pendingMembershipInterval = normalizeMembershipIntervalSelection(interval || "month");
-      openBillingScreenForTier(tier, {
+      setMembershipPlanSelectionBusy(true);
+      const started = openBillingScreenForTier(tier, {
         fallbackScreen: "membership",
         interval: pendingMembershipInterval
       });
+      if (!started) {
+        setMembershipPlanSelectionBusy(false);
+        refreshMembershipChoices();
+      }
       return true;
     }
 
     // Membership selection buttons
     membershipPlanButtons.forEach(btn => {
       btn.addEventListener("click", () => {
-        if (membershipPlanTapLock) return;
-        membershipPlanTapLock = true;
-        setTimeout(() => {
-          membershipPlanTapLock = false;
-        }, 420);
+        if (membershipPlanSelectionBusy || membershipPaymentPrepInFlight) {
+          showToast("Preparing secure checkout...", 1200);
+          return;
+        }
         const tier = btn.dataset.tier;
         const interval = normalizeMembershipIntervalSelection(btn.dataset.interval || "month");
+        setMembershipPlanSelectionBusy(true);
         if (signupAccountSetupInFlight && onboardingMembershipFlow) {
           pendingMembershipTier = tier;
           pendingMembershipInterval = interval;
@@ -46693,10 +46732,14 @@ let onboardingIndex = 0;
         }
         if (!isBillingEnabledForUi()) {
           showToast(cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]), 2400);
+          setMembershipPlanSelectionBusy(false);
+          refreshMembershipChoices();
           return;
         }
         const user = firebaseAuth.currentUser;
         if (!user && !betaPassMode) {
+          setMembershipPlanSelectionBusy(false);
+          refreshMembershipChoices();
           showScreen("auth");
           return;
         }
@@ -46724,7 +46767,11 @@ let onboardingIndex = 0;
         }
         pendingMembershipTier = tier;
         pendingMembershipInterval = interval;
-        openBillingScreenForTier(tier, { fallbackScreen: "membership", interval });
+        const started = openBillingScreenForTier(tier, { fallbackScreen: "membership", interval });
+        if (!started) {
+          setMembershipPlanSelectionBusy(false);
+          refreshMembershipChoices();
+        }
       });
     });
     if (statusPill) {
