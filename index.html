@@ -25992,6 +25992,10 @@
     function showToast(message, duration = 5000) {
       const text = String(message || "").trim();
       if (!text) return;
+      const onboardingMembershipUi = onboardingMembershipFlow && (currentScreenName === "membership" || currentScreenName === "payment");
+      if (onboardingMembershipUi && /(redeem|redemption|voucher|shift schedule|outside of this venue|try again tomorrow)/i.test(text)) {
+        return;
+      }
       const isStaffOrCeoContext = !!staffSession || !!ceoSession || isCeoAccount || isCeoActive();
       if (!isStaffOrCeoContext) {
         const userToastAllowlist = [
@@ -46268,7 +46272,7 @@ let onboardingIndex = 0;
       }
     }
     function mapMemberFacingError(err, context = "generic") {
-      if (isOnboardingPaywallState() && (context === "redeem" || context === "generic")) {
+      if (isOnboardingPaywallState()) {
         return "Could not complete signup right now. Please try again.";
       }
       const codeRaw = String(err?.code || "").toLowerCase();
