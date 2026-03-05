@@ -14855,7 +14855,35 @@
         width: calc(100vw - 22px);
       }
     }
-  </style>
+  
+    /* iPhone spacing safety patch: keep cards/controls clear of notch + top overlays */
+    @media (max-width: 932px) {
+      body.ios #app .screen {
+        padding-top: max(20px, calc(env(safe-area-inset-top, 0px) + 18px)) !important;
+        padding-bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) + 16px)) !important;
+      }
+      body.ios #app .screen .app-title {
+        margin-top: 4px !important;
+      }
+      body.ios #app .screen .tagline {
+        margin-bottom: 12px !important;
+      }
+      body.ios #authScreen .auth-card,
+      body.ios #membershipScreen .membership-card,
+      body.ios #staffPortalScreen .staff-board,
+      body.ios #ceoPortalScreen .ceo-hq-shell,
+      body.ios #passScreen .pass-card,
+      body.ios #tonightScreen .card-hd,
+      body.ios #venuesScreen .venues-card {
+        margin-top: 8px !important;
+      }
+      body.ios .global-refresh-wrap,
+      body.ios #globalRefreshBtn {
+        top: max(14px, calc(env(safe-area-inset-top, 0px) + 10px)) !important;
+      }
+    }
+
+</style>
   <link rel="stylesheet" href="/styles/tokens.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/components.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/screens.css?v=2026.02.21.2" />
