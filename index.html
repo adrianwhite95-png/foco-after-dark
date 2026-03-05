@@ -15396,6 +15396,7 @@
           <div class="payment-actions">
             <button type="submit" class="btn btn-primary" id="paymentSubmit">Start Membership</button>
             <button type="button" class="btn btn-secondary" id="paymentBackBtn">Back</button>
+            <button type="button" class="btn btn-secondary" id="paymentRetrySetupBtn" style="display:none;">Retry setup</button>
           </div>
         </form>
         <p class="success-msg" id="paymentSuccess">Membership Active!</p>
@@ -19477,6 +19478,10 @@
     function isStaffUiEnabled() {
       return cfg.on("staff.enabled", true);
     }
+    function normalizeCheckoutTier(rawTier) {
+      const tierKey = normalizeTierKey(rawTier || "standard");
+      return tierKey === "vip" ? "vip" : "standard";
+    }
     function clearPendingMembershipPaymentPrep() {
       if (membershipPaymentPrepTimer) {
         clearTimeout(membershipPaymentPrepTimer);
@@ -19486,7 +19491,7 @@
     }
 
     function openBillingScreenForTier(tier, options = {}) {
-      const requestedTier = normalizeMembershipTierSelection(tier || getRequestedTier(memberProfile));
+      const requestedTier = normalizeCheckoutTier(tier || getRequestedTier(memberProfile));
       const requestedInterval = normalizeMembershipIntervalSelection(
         options.interval || pendingMembershipInterval || memberProfile?.requestedBillingInterval || memberProfile?.billingInterval || "month"
       );
@@ -19516,6 +19521,16 @@
       }
       membershipPaymentPrepTimer = setTimeout(() => {
         membershipPaymentPrepTimer = null;
+        if (onboardingMembershipFlow && firebaseAuth?.currentUser?.uid) {
+          writeOnboardingResume({
+            uid: firebaseAuth.currentUser.uid,
+            stage: "payment",
+            tier: requestedTier,
+            interval: requestedInterval
+          });
+        } else {
+          clearOnboardingResume();
+        }
         showScreen("payment");
         showToast("Loading secure billing...", 1200);
         prepareStripePayment(requestedTier, requestedInterval, prepKey);
@@ -23678,6 +23693,7 @@
     const paymentElementContainer = document.getElementById("paymentElement");
     const paymentSubmitBtn = document.getElementById("paymentSubmit");
     const paymentBackBtn = document.getElementById("paymentBackBtn");
+    const paymentRetrySetupBtn = document.getElementById("paymentRetrySetupBtn");
     const paymentSavedCard = document.getElementById("paymentSavedCard");
     const heroCarousel = document.getElementById("heroCarousel");
     const featuredVenuesGrid = document.getElementById("featuredVenuesGrid");
@@ -23699,6 +23715,21 @@
     const pointsRedeemError = document.getElementById("pointsRedeemError");
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.36",
+        date: "2026-03-05",
+        added: [
+          "Payment setup retry action stays available on checkout screen"
+        ],
+        improved: [
+          "Signup onboarding resume now keeps users on secure payment without bouncing",
+          "Checkout session handling avoids hard reload while payment prep is active"
+        ],
+        fixed: [
+          "Plan payload normalization for membership payment intent calls",
+          "Membership screen now blocks redeem/shift message leakage during checkout"
+        ]
+      },
       {
         version: "v0.9.35",
         date: "2026-03-05",
@@ -26043,8 +26074,8 @@
     function showToast(message, duration = 5000) {
       const text = String(message || "").trim();
       if (!text) return;
-      const onboardingMembershipUi = onboardingMembershipFlow && (currentScreenName === "membership" || currentScreenName === "payment");
-      if (onboardingMembershipUi && /(redeem|redemption|voucher|shift schedule|outside of this venue|try again tomorrow)/i.test(text)) {
+      const membershipUi = currentScreenName === "membership" || currentScreenName === "payment";
+      if (membershipUi && /(redeem|redemption|voucher|shift schedule|outside of this venue|try again tomorrow)/i.test(text)) {
         return;
       }
       const isStaffOrCeoContext = !!staffSession || !!ceoSession || isCeoAccount || isCeoActive();
@@ -28222,12 +28253,20 @@ let onboardingIndex = 0;
     if (navMenuToggle) {
       navMenuToggle.addEventListener("click", () => toggleNavMenu());
     }
+    function hardReloadApp(reason = "manual") {
+      if (currentScreenName === "payment" || membershipPaymentPrepInFlight) {
+        console.warn("[refresh] hard reload blocked during payment", { reason, screen: currentScreenName });
+        showToast("Checkout is in progress. Please wait.", 1800);
+        return;
+      }
+      window.location.reload();
+    }
     function softRefresh() {
       if (navMenu) navMenu.classList.remove("open");
       const user = firebaseAuth?.currentUser;
       const authed = !!(user && !user.isAnonymous);
       if (!authed) {
-        window.location.reload();
+        hardReloadApp("soft-refresh-no-auth");
         return;
       }
       const targetScreen = screens[currentScreenName] ? currentScreenName : "pass";
@@ -28238,7 +28277,7 @@ let onboardingIndex = 0;
         showScreen(targetScreen);
         maybeSchedulePushAutoSync("manual-refresh", false);
       } catch (_) {
-        window.location.reload();
+        hardReloadApp("soft-refresh-fallback");
       }
     }
     if (refreshBtn) {
@@ -28265,7 +28304,7 @@ let onboardingIndex = 0;
           forceApplyUpdate();
           return;
         }
-        window.location.reload();
+        hardReloadApp("landing-refresh");
       });
     }
     if (memberRefreshBtn) {
@@ -29380,7 +29419,8 @@ let onboardingIndex = 0;
         return;
       }
       if (!stripeInstance || !stripeElements || !stripeClientSecret) {
-        paymentError.textContent = "Payment not ready. Please tap your plan again or wait a moment.";
+        paymentError.textContent = "Payment not ready. Tap Retry setup or choose your plan again.";
+        if (paymentRetrySetupBtn) paymentRetrySetupBtn.style.display = "";
         return;
       }
       const name = cardNameInput?.value?.trim() || undefined;
@@ -29649,11 +29689,17 @@ let onboardingIndex = 0;
       }
       paymentError.textContent = "";
       await waitForAuthReady(8000).catch(() => null);
-      if (!firebaseAuth.currentUser && !betaPassMode) {
-        paymentError.textContent = "Please sign in first.";
+      const authUser = firebaseAuth.currentUser;
+      if ((!authUser || authUser.isAnonymous) && !betaPassMode) {
+        paymentError.textContent = "Please finish creating your account, then try again.";
         showScreen("auth");
         membershipPaymentPrepInFlight = false;
         return;
+      }
+      if (authUser && !betaPassMode) {
+        try {
+          await authUser.getIdToken(true);
+        } catch (_) {}
       }
       if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
         paymentError.textContent = "Complete signup before billing.";
@@ -29667,7 +29713,7 @@ let onboardingIndex = 0;
         membershipPaymentPrepInFlight = false;
         return;
       }
-      const normalizedTier = normalizeMembershipTierSelection(tier);
+      const normalizedTier = normalizeCheckoutTier(tier);
       const normalizedInterval = normalizeMembershipIntervalSelection(interval || "month");
       const computedKey = String(prepKey || `${normalizedTier}:${normalizedInterval}:${String(membershipPromoInput?.value || "").trim().toUpperCase()}`);
       if (
@@ -29691,6 +29737,7 @@ let onboardingIndex = 0;
         paymentSubmitBtn.disabled = true;
         paymentSubmitBtn.textContent = "Preparing…";
       }
+      if (paymentRetrySetupBtn) paymentRetrySetupBtn.style.display = "none";
       if (paymentSavedCard) paymentSavedCard.style.display = "none";
       try {
         const emailForPromo = firebaseAuth.currentUser?.email || memberProfile?.email || "";
@@ -29711,7 +29758,6 @@ let onboardingIndex = 0;
             maxBurst: 4
           }
         );
-        try { await firebaseAuth.currentUser?.getIdToken?.(); } catch (_) {}
         let resp;
         try {
           resp = await invokeMembershipIntent(promoCode);
@@ -29769,20 +29815,36 @@ let onboardingIndex = 0;
         }
         lastMembershipPrepKey = computedKey;
       } catch (err) {
-        console.warn("prepareStripePayment failed", err);
-        const errCode = String(err?.code || "").replace(/^functions\//, "");
-        const blocked = errCode === "failed-precondition" && err?.details?.reason === "CEO_OR_CEO_FREE";
-        const rawMessage = String(err?.message || "");
-        const studentPromoDenied = rawMessage.toLowerCase().includes("csu50") && rawMessage.toLowerCase().includes(".edu");
-        const msg = blocked
-          ? "Billing is disabled for this account."
-          : studentPromoDenied
-            ? "CSU50 is for .edu emails only."
-            : mapMemberFacingError(err, "payment");
-        paymentError.textContent = enforcePaymentMessageGuard(msg, "Could not start payment. Please try again.");
+        const errCode = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
+        const detailsReason = String(err?.details?.reason || "").trim();
+        console.warn("createMembershipPaymentIntent failed", {
+          code: errCode || "unknown",
+          message: String(err?.message || ""),
+          details: err?.details || null,
+          tier: normalizedTier,
+          interval: normalizedInterval
+        });
+        let msg = "Could not start payment right now. Please try again.";
+        if (errCode === "permission-denied" || errCode === "unauthenticated") {
+          msg = "Please log in again and retry.";
+        } else if (errCode === "invalid-argument") {
+          msg = "Invalid plan selection. Please try again.";
+        } else if (errCode === "failed-precondition") {
+          if (detailsReason) {
+            msg = `Could not start payment (${detailsReason}).`;
+          } else {
+            msg = mapMemberFacingError(err, "payment");
+          }
+        } else {
+          msg = mapMemberFacingError(err, "payment");
+        }
+        paymentError.textContent = enforcePaymentMessageGuard(msg, "Could not start payment right now. Please try again.");
         if (paymentSubmitBtn) {
           paymentSubmitBtn.disabled = false;
-          paymentSubmitBtn.textContent = "Start Membership";
+          paymentSubmitBtn.textContent = "Retry setup";
+        }
+        if (paymentRetrySetupBtn) {
+          paymentRetrySetupBtn.style.display = "";
         }
       } finally {
         membershipPaymentPrepInFlight = false;
@@ -42677,6 +42739,7 @@ let onboardingIndex = 0;
     function maybeResumeOnboardingAfterAuth(user) {
       const marker = readOnboardingResume();
       if (!resumeIsValidForUser(marker, user)) return false;
+      const stage = String(marker?.stage || "chooseMembership").toLowerCase();
       onboardingMembershipFlow = true;
       forceMembershipScreen = true;
       pendingMembershipTier = normalizeMembershipTierSelection(marker.tier || "standard");
@@ -42686,7 +42749,21 @@ let onboardingIndex = 0;
         requestedTier: pendingMembershipTier,
         requestedBillingInterval: pendingMembershipInterval
       };
-      if (currentScreenName !== "membership" && currentScreenName !== "payment") {
+      if (currentScreenName === "payment" || membershipPaymentPrepInFlight || stage === "payment") {
+        if (currentScreenName !== "payment") {
+          const promoKey = String(membershipPromoInput?.value || "").trim().toUpperCase();
+          const prepKey = `${normalizeCheckoutTier(pendingMembershipTier)}:${pendingMembershipInterval}:${promoKey}`;
+          showScreen("payment");
+          if (!stripeClientSecret && !membershipPaymentPrepInFlight) {
+            setTimeout(() => {
+              if (currentScreenName !== "payment" || membershipPaymentPrepInFlight) return;
+              prepareStripePayment(pendingMembershipTier, pendingMembershipInterval, prepKey);
+            }, 0);
+          }
+        }
+        return true;
+      }
+      if (stage === "choosemembership" || stage === "ageverify" || !stage) {
         showToast("Resume signup: choose Monthly or Yearly to continue.", 4200);
         showScreen("membership");
       }
@@ -44145,6 +44222,17 @@ let onboardingIndex = 0;
         resetPaymentForm();
         if (wasOnboarding) suppressAgeVerifyAutoContinue = true;
         showScreen("membership");
+      });
+    }
+    if (paymentRetrySetupBtn) {
+      paymentRetrySetupBtn.addEventListener("click", () => {
+        const retryTier = normalizeCheckoutTier(pendingMembershipTier || getRequestedTier(memberProfile));
+        const retryInterval = normalizeMembershipIntervalSelection(
+          pendingMembershipInterval || memberProfile?.requestedBillingInterval || memberProfile?.billingInterval || "month"
+        );
+        const promoKey = String(membershipPromoInput?.value || "").trim().toUpperCase();
+        const prepKey = `${retryTier}:${retryInterval}:${promoKey}`;
+        prepareStripePayment(retryTier, retryInterval, prepKey);
       });
     }
     if (ceoRedemptionBtn) {
@@ -45713,6 +45801,7 @@ let onboardingIndex = 0;
       paymentPlanPrice.textContent = info.price;
       paymentSuccess.classList.remove("visible");
       paymentError.textContent = "";
+      if (paymentRetrySetupBtn) paymentRetrySetupBtn.style.display = "none";
       primeMembershipPromoCodeFromSignup();
     }
 
@@ -45720,6 +45809,7 @@ let onboardingIndex = 0;
       if (paymentForm) paymentForm.reset();
       paymentError.textContent = "";
       paymentSuccess.classList.remove("visible");
+      if (paymentRetrySetupBtn) paymentRetrySetupBtn.style.display = "none";
       stripeClientSecret = null;
       stripeElements = null;
       stripeInstance = null;
@@ -46516,6 +46606,14 @@ let onboardingIndex = 0;
       if (onboardingMembershipFlow === true) {
         onboardingReturnScreen = "auth";
         membershipReturnScreen = onboardingReturnScreen;
+        if (firebaseAuth?.currentUser?.uid) {
+          writeOnboardingResume({
+            uid: firebaseAuth.currentUser.uid,
+            stage: "chooseMembership",
+            tier: normalizeMembershipTierSelection(pendingMembershipTier || getRequestedTier(memberProfile)),
+            interval: normalizeMembershipIntervalSelection(pendingMembershipInterval || memberProfile?.requestedBillingInterval || "month")
+          });
+        }
       }
       if (sourceScreen && sourceScreen !== "ageVerify" && sourceScreen !== "membership") {
         ageVerifyReturnScreen = sourceScreen;
