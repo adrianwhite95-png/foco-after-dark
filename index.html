@@ -18401,6 +18401,7 @@
     let authTransition = false;
     let authSubmitDefaultLabel = "";
     let signupAccountSetupInFlight = false;
+    let deferredOnboardingMembershipSelection = null;
     function isAuthBusy() {
       return authSubmitInFlight || authTransition || !!screens.auth?.classList.contains("active");
     }
@@ -21888,6 +21889,7 @@
             membershipReturnScreen = onboardingReturnScreen;
             showScreen("membership");
             showToast("Choose Monthly or Yearly to continue.", 2200);
+            setTimeout(() => { flushDeferredOnboardingMembershipSelection(); }, 0);
 	      } else if (requestedTier === "explorer" && !signupAppliedFreeInvite && !isFreeMember(memberProfile)) {
           memberProfile = {
             ...(memberProfile || {}),
@@ -22616,6 +22618,7 @@
         }
         clearPassLoading();
         openMembershipChooser(onboardingMembershipFlow ? onboardingReturnScreen : "ageVerify");
+        setTimeout(() => { flushDeferredOnboardingMembershipSelection(); }, 0);
         if (resumeIsValidForUser(onboardingResume, user)) {
           showToast("Pick Monthly or Yearly to finish signup.", 2400);
         }
@@ -46274,6 +46277,9 @@ let onboardingIndex = 0;
     }
     function mapMemberFacingError(err, context = "generic") {
       if (isOnboardingPaywallState()) {
+        if (context === "payment" || context === "points") {
+          return "Could not start payment right now. Please try again.";
+        }
         return "Could not complete signup right now. Please try again.";
       }
       const codeRaw = String(err?.code || "").toLowerCase();
@@ -46370,20 +46376,42 @@ let onboardingIndex = 0;
       refreshMembershipChoices();
       showScreen("membership");
     }
+    function flushDeferredOnboardingMembershipSelection() {
+      if (!deferredOnboardingMembershipSelection) return false;
+      if (!onboardingMembershipFlow) return false;
+      const user = firebaseAuth.currentUser;
+      if (!user && !betaPassMode) return false;
+      const { tier, interval } = deferredOnboardingMembershipSelection;
+      deferredOnboardingMembershipSelection = null;
+      refreshMembershipChoices();
+      pendingMembershipTier = tier;
+      pendingMembershipInterval = normalizeMembershipIntervalSelection(interval || "month");
+      openBillingScreenForTier(tier, {
+        fallbackScreen: "membership",
+        interval: pendingMembershipInterval
+      });
+      return true;
+    }
 
     // Membership selection buttons
     membershipPlanButtons.forEach(btn => {
       btn.addEventListener("click", () => {
-        if (signupAccountSetupInFlight) {
-          showToast("Finishing account setup…", 1500);
+        const tier = btn.dataset.tier;
+        const interval = normalizeMembershipIntervalSelection(btn.dataset.interval || "month");
+        if (signupAccountSetupInFlight && onboardingMembershipFlow) {
+          pendingMembershipTier = tier;
+          pendingMembershipInterval = interval;
+          deferredOnboardingMembershipSelection = { tier, interval };
+          membershipPlanButtons.forEach((planBtn) => {
+            planBtn.disabled = true;
+          });
+          btn.textContent = `Preparing ${tier.toUpperCase()} ${intervalLabelForUi(interval)}...`;
           return;
         }
         if (!isBillingEnabledForUi()) {
           showToast(cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]), 2400);
           return;
         }
-        const tier = btn.dataset.tier;
-        const interval = normalizeMembershipIntervalSelection(btn.dataset.interval || "month");
         const user = firebaseAuth.currentUser;
         if (!user && !betaPassMode) {
           showScreen("auth");
