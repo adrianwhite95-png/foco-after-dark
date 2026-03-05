@@ -22620,9 +22620,11 @@
           localStorage.removeItem(`membership_${user.uid}`);
         }
         clearPassLoading();
-        if (!(onboardingMembershipFlow && currentScreenName === "membership")) {
+        const onboardingStableScreen = onboardingMembershipFlow
+          && (currentScreenName === "membership" || currentScreenName === "payment");
+        if (!onboardingStableScreen) {
           openMembershipChooser(onboardingMembershipFlow ? onboardingReturnScreen : "ageVerify");
-        } else {
+        } else if (currentScreenName === "membership") {
           refreshMembershipChoices();
         }
         setTimeout(() => { flushDeferredOnboardingMembershipSelection(); }, 0);
@@ -29628,9 +29630,51 @@ let onboardingIndex = 0;
       }
       if (paymentSavedCard) paymentSavedCard.style.display = "none";
       try {
-        const fn = httpsCallable(functionsClient, "createMembershipPaymentIntent");
-        const promoCode = membershipPromoInput?.value?.trim() || "";
-        const resp = await fn({ tier, interval, promoCode });
+        const normalizedTier = normalizeMembershipTierSelection(tier);
+        const normalizedInterval = normalizeMembershipIntervalSelection(interval || "month");
+        const emailForPromo = firebaseAuth.currentUser?.email || memberProfile?.email || "";
+        const promoCodeRaw = membershipPromoInput?.value?.trim() || "";
+        const promoCode = emailEligibleForStudentCode(emailForPromo)
+          ? normalizeStudentPromoCode(promoCodeRaw)
+          : "";
+        const invokeMembershipIntent = async (promoValue = "") => invokeCallableWithRetry(
+          "createMembershipPaymentIntent",
+          { tier: normalizedTier, interval: normalizedInterval, promoCode: String(promoValue || "").trim() },
+          {
+            actionKey: "createMembershipPaymentIntent",
+            lockKey: `membershipIntent:${firebaseAuth.currentUser?.uid || "anon"}:${normalizedTier}:${normalizedInterval}`,
+            retries: 2,
+            timeoutMs: 18000,
+            baseDelayMs: 320,
+            windowMs: 2600,
+            maxBurst: 4
+          }
+        );
+        try { await firebaseAuth.currentUser?.getIdToken?.(); } catch (_) {}
+        let resp;
+        try {
+          resp = await invokeMembershipIntent(promoCode);
+        } catch (err) {
+          const errCode = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
+          const errMessage = String(err?.message || "").toLowerCase();
+          const promoRetry = !!promoCode && (
+            errCode === "invalid-argument"
+            || errMessage.includes("promo")
+            || errMessage.includes(".edu")
+          );
+          const authRetry = errCode === "unauthenticated";
+          if (authRetry) {
+            try { await firebaseAuth.currentUser?.getIdToken?.(true); } catch (_) {}
+          }
+          if (promoRetry && membershipPromoInput) {
+            membershipPromoInput.value = "";
+          }
+          if (promoRetry || authRetry) {
+            resp = await invokeMembershipIntent(promoRetry ? "" : promoCode);
+          } else {
+            throw err;
+          }
+        }
         const data = resp?.data || {};
         if (data.alreadyActive) {
           pendingMembershipTier = null;
@@ -29664,7 +29708,8 @@ let onboardingIndex = 0;
         }
       } catch (err) {
         console.warn("prepareStripePayment failed", err);
-        const blocked = err?.code === "failed-precondition" && err?.details?.reason === "CEO_OR_CEO_FREE";
+        const errCode = String(err?.code || "").replace(/^functions\//, "");
+        const blocked = errCode === "failed-precondition" && err?.details?.reason === "CEO_OR_CEO_FREE";
         const rawMessage = String(err?.message || "");
         const studentPromoDenied = rawMessage.toLowerCase().includes("csu50") && rawMessage.toLowerCase().includes(".edu");
         const msg = blocked
@@ -29672,7 +29717,9 @@ let onboardingIndex = 0;
           : studentPromoDenied
             ? "CSU50 is for .edu emails only."
             : mapMemberFacingError(err, "payment");
-        paymentError.textContent = enforceMemberMessageGuard(msg, "Could not start payment. Please try again.");
+        paymentError.textContent = sanitizeMembershipPaymentMessage(
+          enforceMemberMessageGuard(msg, "Could not start payment. Please try again.")
+        );
         if (paymentSubmitBtn) {
           paymentSubmitBtn.disabled = false;
           paymentSubmitBtn.textContent = "Start Membership";
@@ -42577,8 +42624,10 @@ let onboardingIndex = 0;
         requestedTier: pendingMembershipTier,
         requestedBillingInterval: pendingMembershipInterval
       };
-      showToast("Resume signup: choose Monthly or Yearly to continue.", 4200);
-      showScreen("membership");
+      if (currentScreenName !== "membership" && currentScreenName !== "payment") {
+        showToast("Resume signup: choose Monthly or Yearly to continue.", 4200);
+        showScreen("membership");
+      }
       return true;
     }
 
@@ -46282,18 +46331,41 @@ let onboardingIndex = 0;
         closeRedeemModal();
       }
     }
-    function mapMemberFacingError(err, context = "generic") {
-      if (isOnboardingPaywallState()) {
-        if (context === "payment" || context === "points") {
-          return "Could not start payment right now. Please try again.";
-        }
-        return "Could not complete signup right now. Please try again.";
+    function sanitizeMembershipPaymentMessage(raw = "", fallback = "Could not start payment right now. Please try again.") {
+      const text = String(raw || "").trim();
+      if (!text) return fallback;
+      if (/(redeem|redemption|voucher|shift schedule|outside of this venue|try again tomorrow)/i.test(text)) {
+        return fallback;
       }
+      return text;
+    }
+    function mapMemberFacingError(err, context = "generic") {
       const codeRaw = String(err?.code || "").toLowerCase();
       const code = codeRaw.replace(/^functions\//, "");
       const detailsReason = String(err?.details?.reason || "").toUpperCase();
       const detailsMemberMessage = String(err?.details?.memberMessage || "").trim();
       const message = String(err?.message || "").toLowerCase();
+      const isPaymentContext = context === "payment" || context === "points";
+      if (isOnboardingPaywallState() && !isPaymentContext) {
+        return "Could not complete signup right now. Please try again.";
+      }
+      if (isPaymentContext) {
+        if (detailsReason === "BILLING_DISABLED") {
+          return cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]);
+        }
+        if (detailsMemberMessage) {
+          return sanitizeMembershipPaymentMessage(enforceMemberMessageGuard(detailsMemberMessage, "Could not start payment right now. Please try again."));
+        }
+        if (message.includes("promo") || message.includes(".edu")) {
+          return "Promo code could not be applied. Remove it and try again.";
+        }
+        if (code === "permission-denied" || code === "unauthenticated") {
+          return "Please sign in again and try payment once more.";
+        }
+        if (code === "resource-exhausted" || message.includes("too many requests") || message.includes("rate limit")) {
+          return "Too many attempts right now. Please wait a moment and try again.";
+        }
+      }
       if (detailsReason === "REDEEM_DISABLED") {
         return cfg.text("redeem.disabled.message", DEFAULT_CONFIG_TEXT["redeem.disabled.message"]);
       }
@@ -46318,8 +46390,8 @@ let onboardingIndex = 0;
       if (code === "invalid-argument" || code === "not-found") {
         return enforceMemberMessageGuard(context === "redeem" ? "Could not redeem right now. Please try again." : "Please review your info and try again.");
       }
-      if (context === "payment" || context === "points") {
-        return enforceMemberMessageGuard("Could not complete payment right now. Please try again.");
+      if (isPaymentContext) {
+        return sanitizeMembershipPaymentMessage(enforceMemberMessageGuard("Could not complete payment right now. Please try again."));
       }
       return enforceMemberMessageGuard("Could not redeem right now. Please try again.");
     }
@@ -46407,7 +46479,7 @@ let onboardingIndex = 0;
         membershipPlanTapLock = true;
         setTimeout(() => {
           membershipPlanTapLock = false;
-        }, 1500);
+        }, 420);
         const tier = btn.dataset.tier;
         const interval = normalizeMembershipIntervalSelection(btn.dataset.interval || "month");
         if (signupAccountSetupInFlight && onboardingMembershipFlow) {
