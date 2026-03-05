@@ -18403,6 +18403,9 @@
     let signupAccountSetupInFlight = false;
     let deferredOnboardingMembershipSelection = null;
     let membershipPlanTapLock = false;
+    let membershipPaymentPrepInFlight = false;
+    let membershipPaymentPrepTimer = null;
+    let lastMembershipPrepKey = "";
     function isAuthBusy() {
       return authSubmitInFlight || authTransition || !!screens.auth?.classList.contains("active");
     }
@@ -19474,6 +19477,13 @@
     function isStaffUiEnabled() {
       return cfg.on("staff.enabled", true);
     }
+    function clearPendingMembershipPaymentPrep() {
+      if (membershipPaymentPrepTimer) {
+        clearTimeout(membershipPaymentPrepTimer);
+        membershipPaymentPrepTimer = null;
+      }
+      membershipPaymentPrepInFlight = false;
+    }
 
     function openBillingScreenForTier(tier, options = {}) {
       const requestedTier = normalizeMembershipTierSelection(tier || getRequestedTier(memberProfile));
@@ -19494,9 +19504,22 @@
       pendingMembershipInterval = requestedInterval;
       updatePaymentSummary(requestedTier, requestedInterval);
       resetPaymentForm();
-      showScreen("payment");
-      showToast("Loading secure billing…", 1200);
-      prepareStripePayment(requestedTier, requestedInterval);
+      const promoKey = String(membershipPromoInput?.value || "").trim().toUpperCase();
+      const prepKey = `${requestedTier}:${requestedInterval}:${promoKey}`;
+      if (membershipPaymentPrepInFlight) {
+        showToast("Preparing secure checkout...", 1200);
+        return false;
+      }
+      if (membershipPaymentPrepTimer) {
+        clearTimeout(membershipPaymentPrepTimer);
+        membershipPaymentPrepTimer = null;
+      }
+      membershipPaymentPrepTimer = setTimeout(() => {
+        membershipPaymentPrepTimer = null;
+        showScreen("payment");
+        showToast("Loading secure billing...", 1200);
+        prepareStripePayment(requestedTier, requestedInterval, prepKey);
+      }, 250);
       return true;
     }
     let ceoMembersHydrating = false;
@@ -23676,6 +23699,21 @@
     const pointsRedeemError = document.getElementById("pointsRedeemError");
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.35",
+        date: "2026-03-05",
+        added: [
+          "Membership checkout request guard to prevent duplicate prep calls"
+        ],
+        improved: [
+          "Signup onboarding handoff between membership and payment screens",
+          "Checkout reliability for rapid plan taps and promo fallback"
+        ],
+        fixed: [
+          "Redeem/shift messaging leaking into membership checkout",
+          "False 'Current plan' state on new signup membership chooser"
+        ]
+      },
       {
         version: "v0.9.34",
         date: "2026-03-04",
@@ -29432,6 +29470,7 @@ let onboardingIndex = 0;
     const membershipBackBtn = document.getElementById("membershipBackBtn");
     if (membershipBackBtn) {
       membershipBackBtn.addEventListener("click", () => {
+        clearPendingMembershipPaymentPrep();
         if (onboardingMembershipFlow === true) {
           showScreen(onboardingReturnScreen || "auth");
           return;
@@ -29600,25 +29639,49 @@ let onboardingIndex = 0;
     let voucherPaymentComplete = false;
     let voucherHasCardOnFile = false;
 
-    async function prepareStripePayment(tier, interval = "month") {
+    async function prepareStripePayment(tier, interval = "month", prepKey = "") {
+      if (membershipPaymentPrepInFlight) return;
+      membershipPaymentPrepInFlight = true;
       if (!functionsClient) {
         paymentError.textContent = "Payments unavailable right now.";
+        membershipPaymentPrepInFlight = false;
         return;
       }
       paymentError.textContent = "";
+      await waitForAuthReady(8000).catch(() => null);
       if (!firebaseAuth.currentUser && !betaPassMode) {
         paymentError.textContent = "Please sign in first.";
         showScreen("auth");
+        membershipPaymentPrepInFlight = false;
         return;
       }
       if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
         paymentError.textContent = "Complete signup before billing.";
         showScreen("membership");
+        membershipPaymentPrepInFlight = false;
         return;
       }
       if (isStripeExcludedMember()) {
         showToast("This account does not use Stripe billing.");
         showScreen("pass");
+        membershipPaymentPrepInFlight = false;
+        return;
+      }
+      const normalizedTier = normalizeMembershipTierSelection(tier);
+      const normalizedInterval = normalizeMembershipIntervalSelection(interval || "month");
+      const computedKey = String(prepKey || `${normalizedTier}:${normalizedInterval}:${String(membershipPromoInput?.value || "").trim().toUpperCase()}`);
+      if (
+        computedKey
+        && computedKey === lastMembershipPrepKey
+        && stripeClientSecret
+        && paymentElementContainer
+        && paymentElementContainer.childElementCount > 0
+      ) {
+        if (paymentSubmitBtn) {
+          paymentSubmitBtn.disabled = false;
+          paymentSubmitBtn.textContent = "Start Membership";
+        }
+        membershipPaymentPrepInFlight = false;
         return;
       }
       membershipPaymentMode = "payment";
@@ -29630,8 +29693,6 @@ let onboardingIndex = 0;
       }
       if (paymentSavedCard) paymentSavedCard.style.display = "none";
       try {
-        const normalizedTier = normalizeMembershipTierSelection(tier);
-        const normalizedInterval = normalizeMembershipIntervalSelection(interval || "month");
         const emailForPromo = firebaseAuth.currentUser?.email || memberProfile?.email || "";
         const promoCodeRaw = membershipPromoInput?.value?.trim() || "";
         const promoCode = emailEligibleForStudentCode(emailForPromo)
@@ -29706,6 +29767,7 @@ let onboardingIndex = 0;
           paymentSubmitBtn.disabled = false;
           paymentSubmitBtn.textContent = "Start Membership";
         }
+        lastMembershipPrepKey = computedKey;
       } catch (err) {
         console.warn("prepareStripePayment failed", err);
         const errCode = String(err?.code || "").replace(/^functions\//, "");
@@ -29717,13 +29779,13 @@ let onboardingIndex = 0;
           : studentPromoDenied
             ? "CSU50 is for .edu emails only."
             : mapMemberFacingError(err, "payment");
-        paymentError.textContent = sanitizeMembershipPaymentMessage(
-          enforceMemberMessageGuard(msg, "Could not start payment. Please try again.")
-        );
+        paymentError.textContent = enforcePaymentMessageGuard(msg, "Could not start payment. Please try again.");
         if (paymentSubmitBtn) {
           paymentSubmitBtn.disabled = false;
           paymentSubmitBtn.textContent = "Start Membership";
         }
+      } finally {
+        membershipPaymentPrepInFlight = false;
       }
     }
 
@@ -29744,9 +29806,9 @@ let onboardingIndex = 0;
 
     function formatPaymentError(err, fallback) {
       const code = (err?.code || "").toString().toLowerCase();
-      if (code === "internal") return enforceMemberMessageGuard(fallback, fallback);
+      if (code === "internal") return enforcePaymentMessageGuard(fallback, fallback);
       if (code === "failed-precondition") return mapMemberFacingError(err, "payment");
-      return enforceMemberMessageGuard(mapMemberFacingError(err, "payment"), fallback);
+      return enforcePaymentMessageGuard(mapMemberFacingError(err, "payment"), fallback);
     }
 
     async function prepareVoucherPayment(pack) {
@@ -44077,6 +44139,7 @@ let onboardingIndex = 0;
     }
     if (paymentBackBtn) {
       paymentBackBtn.addEventListener("click", () => {
+        clearPendingMembershipPaymentPrep();
         const wasOnboarding = onboardingMembershipFlow;
         if (!wasOnboarding) pendingMembershipTier = null;
         resetPaymentForm();
@@ -46307,7 +46370,7 @@ let onboardingIndex = 0;
       3) Staff "More" analytics updates live and watcher remains singleton.
       4) Close-out email includes sparkline + deep link and staff venue scoping is enforced.
     */
-    function enforceMemberMessageGuard(raw = "", fallback = "Could not complete this action right now.") {
+    function enforceRedeemMessageGuard(raw = "", fallback = "Could not complete this action right now.") {
       const text = String(raw || "").trim();
       if (!text) return fallback;
       const lowered = text.toLowerCase();
@@ -46315,6 +46378,11 @@ let onboardingIndex = 0;
         return MEMBER_SHIFT_INACTIVE_MESSAGE;
       }
       return text;
+    }
+    function enforcePaymentMessageGuard(raw = "", fallback = "Could not start payment right now. Please try again.") {
+      const text = String(raw || "").trim();
+      if (!text) return fallback;
+      return sanitizeMembershipPaymentMessage(text, fallback);
     }
     function isOnboardingPaywallState() {
       return onboardingMembershipFlow === true
@@ -46354,7 +46422,7 @@ let onboardingIndex = 0;
           return cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]);
         }
         if (detailsMemberMessage) {
-          return sanitizeMembershipPaymentMessage(enforceMemberMessageGuard(detailsMemberMessage, "Could not start payment right now. Please try again."));
+          return enforcePaymentMessageGuard(detailsMemberMessage, "Could not start payment right now. Please try again.");
         }
         if (message.includes("promo") || message.includes(".edu")) {
           return "Promo code could not be applied. Remove it and try again.";
@@ -46382,26 +46450,32 @@ let onboardingIndex = 0;
         return MEMBER_SHIFT_INACTIVE_MESSAGE;
       }
       if (detailsMemberMessage) {
-        return enforceMemberMessageGuard(detailsMemberMessage, context === "redeem" ? "Could not redeem right now. Please try again." : "Could not complete this action right now.");
+        return enforceRedeemMessageGuard(detailsMemberMessage, context === "redeem" ? "Could not redeem right now. Please try again." : "Could not complete this action right now.");
       }
       if (code === "permission-denied" || code === "unauthenticated") {
-        return enforceMemberMessageGuard(context === "redeem" ? "Could not redeem right now. Please try again." : "Could not complete this action right now.");
+        return enforceRedeemMessageGuard(context === "redeem" ? "Could not redeem right now. Please try again." : "Could not complete this action right now.");
       }
       if (code === "invalid-argument" || code === "not-found") {
-        return enforceMemberMessageGuard(context === "redeem" ? "Could not redeem right now. Please try again." : "Please review your info and try again.");
+        return enforceRedeemMessageGuard(context === "redeem" ? "Could not redeem right now. Please try again." : "Please review your info and try again.");
       }
       if (isPaymentContext) {
-        return sanitizeMembershipPaymentMessage(enforceMemberMessageGuard("Could not complete payment right now. Please try again."));
+        return enforcePaymentMessageGuard("Could not complete payment right now. Please try again.");
       }
-      return enforceMemberMessageGuard("Could not redeem right now. Please try again.");
+      return enforceRedeemMessageGuard("Could not redeem right now. Please try again.");
     }
 
     function refreshMembershipChoices() {
       if (!membershipPlanButtons.length) return;
       const onboardingUi = onboardingMembershipFlow === true;
-      const hasActiveMembershipUi = !onboardingUi && membershipSelected();
+      const membershipStatus = String(memberProfile?.membershipStatus || "").toLowerCase();
+      const paymentStatus = String(memberProfile?.paymentStatus || "").toLowerCase();
+      const rawCurrentTier = String(currentMembershipTier || memberProfile?.tier || "").toLowerCase();
+      const hasRecognizedCurrentTier = rawCurrentTier === "standard" || rawCurrentTier === "vip";
+      const hasActiveMembershipUi = !onboardingUi
+        && hasRecognizedCurrentTier
+        && (membershipStatus === "active" || paymentStatus === "active");
       const currentTier = hasActiveMembershipUi
-        ? (normalizeTierKey(currentMembershipTier || memberProfile?.tier) || "standard")
+        ? normalizeTierKey(rawCurrentTier)
         : null;
       const currentInterval = hasActiveMembershipUi
         ? normalizeMembershipIntervalSelection(memberProfile?.billingInterval || "month")
