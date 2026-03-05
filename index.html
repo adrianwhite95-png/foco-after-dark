@@ -18385,6 +18385,7 @@
     let authSubmitInFlight = false;
     let authTransition = false;
     let authSubmitDefaultLabel = "";
+    let signupAccountSetupInFlight = false;
     function isAuthBusy() {
       return authSubmitInFlight || authTransition || !!screens.auth?.classList.contains("active");
     }
@@ -20997,10 +20998,18 @@
         const selectedTier = normalizeMembershipTierSelection(pendingSignupData?.tier || signupSelectedTier || "standard");
         onboardingMembershipFlow = selectedTier !== "explorer";
         forceMembershipScreen = selectedTier !== "explorer";
+        signupAccountSetupInFlight = onboardingMembershipFlow;
+        if (onboardingMembershipFlow) {
+          onboardingReturnScreen = "auth";
+          membershipReturnScreen = onboardingReturnScreen;
+          showScreen("membership");
+        }
         try {
           await completeSignup(pendingSignupData);
         } catch (err) {
           console.error("Signup confirmation failed:", err);
+        } finally {
+          signupAccountSetupInFlight = false;
         }
       });
     }
@@ -46258,10 +46267,12 @@ let onboardingIndex = 0;
       if (detailsReason === "VENUE_PAUSED") {
         return cfg.text("venue.paused.message", DEFAULT_CONFIG_TEXT["venue.paused.message"]);
       }
-      const isShiftClosed = detailsReason === "SHIFT_CLOSED"
+      const isShiftClosed = context === "redeem" && (
+        detailsReason === "SHIFT_CLOSED"
         || detailsReason === "SHIFT_INACTIVE"
         || code === "failed-precondition"
-        || message.includes("shift");
+        || message.includes("shift")
+      );
       if (isShiftClosed) {
         return MEMBER_SHIFT_INACTIVE_MESSAGE;
       }
@@ -46340,6 +46351,10 @@ let onboardingIndex = 0;
     // Membership selection buttons
     membershipPlanButtons.forEach(btn => {
       btn.addEventListener("click", () => {
+        if (signupAccountSetupInFlight) {
+          showToast("Finishing account setup…", 1500);
+          return;
+        }
         if (!isBillingEnabledForUi()) {
           showToast(cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]), 2400);
           return;
