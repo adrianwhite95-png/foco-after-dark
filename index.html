@@ -23912,6 +23912,19 @@
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
       {
+        version: "v0.9.48",
+        date: "2026-03-05",
+        added: [
+          "Membership checkout now shows a guaranteed crossed-out original price with discounted first-month amount after CSU50 is applied"
+        ],
+        improved: [
+          "Promo pricing visuals now stay consistent for both Standard Monthly and VIP Monthly selections"
+        ],
+        fixed: [
+          "Resolved cases where accepted promo codes were applied but discounted pricing did not visibly render on checkout"
+        ]
+      },
+      {
         version: "v0.9.47",
         date: "2026-03-05",
         added: [
@@ -46389,25 +46402,46 @@ let onboardingIndex = 0;
       };
     }
 
+    function getPromoEstimatedPricing(tier, interval = "month", promoCode = "") {
+      const normalizedInterval = normalizeMembershipIntervalSelection(interval);
+      const normalizedTier = normalizeCheckoutTier(tier);
+      const normalizedCode = String(promoCode || "").trim().toUpperCase();
+      if (normalizedCode !== "CSU50" || normalizedInterval !== "month") return null;
+      const baseFee = normalizedTier === "vip" ? Number(MEMBERSHIP_FEES.vip) : Number(MEMBERSHIP_FEES.standard);
+      if (!Number.isFinite(baseFee) || baseFee <= 0) return null;
+      const subtotalCents = Math.round(baseFee * 100);
+      const totalCents = Math.max(0, Math.round(subtotalCents * 0.5));
+      return {
+        subtotalCents,
+        totalCents,
+        discountCents: Math.max(0, subtotalCents - totalCents),
+        currency: "usd"
+      };
+    }
+
     function renderMembershipPricingPreview(tier, interval = "month", options = {}) {
       const info = membershipPlanInfo[membershipPlanKey(tier, interval)] || membershipPlanInfo.standard_month;
-      const pricing = normalizePricingPreview(options.pricing || membershipPricingPreview);
       const promo = options.promo && typeof options.promo === "object" ? options.promo : {};
       const promoCode = String(promo.code || membershipAppliedPromoCode || "").trim().toUpperCase();
+      const pricing = normalizePricingPreview(options.pricing || membershipPricingPreview);
+      const estimatedPricing = getPromoEstimatedPricing(tier, interval, promoCode);
+      const effectivePricing = pricing || estimatedPricing;
       const firstMonthOnly = promo.firstMonthOnly === true;
-      const hasDiscount = !!pricing && Number(pricing.discountCents || 0) > 0 && Number(pricing.totalCents || 0) < Number(pricing.subtotalCents || 0);
+      const hasDiscount = !!effectivePricing
+        && Number(effectivePricing.discountCents || 0) > 0
+        && Number(effectivePricing.totalCents || 0) < Number(effectivePricing.subtotalCents || 0);
       if (paymentPlanLabel) paymentPlanLabel.textContent = info.label;
       if (paymentPlanPrice) paymentPlanPrice.textContent = info.price;
       if (paymentSummaryPrice) paymentSummaryPrice.classList.toggle("is-discounted", hasDiscount);
       if (paymentPromoPriceRow) paymentPromoPriceRow.style.display = hasDiscount ? "inline-flex" : "none";
       if (paymentPromoPriceOriginal) {
         paymentPromoPriceOriginal.textContent = hasDiscount
-          ? `${formatStripeMoneyCents(pricing.subtotalCents, pricing.currency)} ${normalizeMembershipIntervalSelection(interval) === "year" ? "/ year" : "/ month"}`
+          ? `${formatStripeMoneyCents(effectivePricing.subtotalCents, effectivePricing.currency)} ${normalizeMembershipIntervalSelection(interval) === "year" ? "/ year" : "/ month"}`
           : "";
       }
       if (paymentPromoPriceDiscounted) {
         paymentPromoPriceDiscounted.textContent = hasDiscount
-          ? `${formatStripeMoneyCents(pricing.totalCents, pricing.currency)} ${firstMonthOnly ? "first month" : "today"}`
+          ? `${formatStripeMoneyCents(effectivePricing.totalCents, effectivePricing.currency)} ${firstMonthOnly ? "first month" : "today"}`
           : "";
       }
       if (paymentPromoHint) {
