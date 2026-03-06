@@ -23912,13 +23912,26 @@
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
       {
+        version: "v0.9.50",
+        date: "2026-03-05",
+        added: [
+          "Checkout now updates the visible plan price immediately when CSU30 is applied, including crossed-out original pricing"
+        ],
+        improved: [
+          "Promo confirmation copy now explains that CSU30 recurring discounts appear on future statements"
+        ],
+        fixed: [
+          "Resolved payment summary staying on full-price display after successful CSU30 application"
+        ]
+      },
+      {
         version: "v0.9.49",
         date: "2026-03-05",
         added: [
-          "Student promo moved to CSU30 with full Monthly and Yearly eligibility across Standard and VIP plans"
+          "Student promo moved with full Monthly and Yearly eligibility across Standard and VIP plans"
         ],
         improved: [
-          "Checkout now previews crossed-out and discounted pricing for CSU30 across all plan intervals"
+          "Checkout now previews crossed-out and discounted pricing for student discount across all plan intervals"
         ],
         fixed: [
           "Promo validation now consistently enforces .edu/CSU email eligibility before applying discount"
@@ -46446,7 +46459,11 @@ let onboardingIndex = 0;
         && Number(effectivePricing.discountCents || 0) > 0
         && Number(effectivePricing.totalCents || 0) < Number(effectivePricing.subtotalCents || 0);
       if (paymentPlanLabel) paymentPlanLabel.textContent = info.label;
-      if (paymentPlanPrice) paymentPlanPrice.textContent = info.price;
+      if (paymentPlanPrice) {
+        paymentPlanPrice.textContent = hasDiscount
+          ? `${formatStripeMoneyCents(effectivePricing.totalCents, effectivePricing.currency)} ${normalizeMembershipIntervalSelection(interval) === "year" ? "/ year" : "/ month"}`
+          : info.price;
+      }
       if (paymentSummaryPrice) paymentSummaryPrice.classList.toggle("is-discounted", hasDiscount);
       if (paymentPromoPriceRow) paymentPromoPriceRow.style.display = hasDiscount ? "inline-flex" : "none";
       if (paymentPromoPriceOriginal) {
@@ -46461,7 +46478,9 @@ let onboardingIndex = 0;
       }
       if (paymentPromoHint) {
         if (hasDiscount && promoCode) {
-          paymentPromoHint.textContent = `${promoCode} applied${firstMonthOnly ? " · first month only" : ""}`;
+          paymentPromoHint.textContent = promoCode === "CSU30"
+            ? "CSU30 Applied, you will see 30% discount applied on recurring statements"
+            : `${promoCode} applied${firstMonthOnly ? " · first month only" : ""}`;
           paymentPromoHint.style.display = "block";
         } else {
           paymentPromoHint.textContent = "";
