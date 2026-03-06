@@ -24419,6 +24419,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.75",
+        date: "2026-03-06",
+        added: [
+          "CEO +1 global gift now stores explicit sentAt/expiresAt millisecond fields for exact 14-day expiry tracking"
+        ],
+        improved: [
+          "Gift callable now runs with higher timeout/memory to prevent false client errors after successful sends"
+        ],
+        fixed: [
+          "Resolved cases where global gift returned an error despite users receiving the token and popup"
+        ]
+      },
+      {
         version: "v0.9.74",
         date: "2026-03-06",
         added: [
@@ -30918,7 +30931,7 @@ let onboardingIndex = 0;
         const active = Object.values(grants).reduce((inner, grant) => {
           const amount = Math.max(0, Number(grant?.tokenAmount || 0) || 0);
           if (!amount) return inner;
-          const expiresAt = toDateSafe(grant?.expiresAt);
+          const expiresAt = toDateSafe(grant?.expiresAtMs ?? grant?.expiresAt);
           if (!expiresAt || expiresAt.getTime() <= nowMs) return inner;
           return inner + amount;
         }, 0);
@@ -30948,7 +30961,7 @@ let onboardingIndex = 0;
         const value = Number(entry?.tokenAmount || 0);
         const amount = Number.isFinite(value) ? Math.max(0, value) : 0;
         if (!amount) return sum;
-        const expiresAt = toDateSafe(entry?.expiresAt);
+        const expiresAt = toDateSafe(entry?.expiresAtMs ?? entry?.expiresAt);
         if (expiresAt && expiresAt.getTime() <= Date.now()) return sum;
         return sum + amount;
       }, 0);
@@ -33817,8 +33830,10 @@ let onboardingIndex = 0;
           : "Vouchers added";
       }
       const createdAt = toDateSafe(payload?.createdAt);
-      const rawExpiresAt = toDateSafe(payload?.expiresAt);
+      const rawExpiresAt = toDateSafe(payload?.expiresAtMs ?? payload?.expiresAt);
+      const sentAt = toDateSafe(payload?.sentAtMs);
       const effectiveExpiresAt = rawExpiresAt
+        || (sentAt ? new Date(sentAt.getTime() + (14 * 24 * 60 * 60 * 1000)) : null)
         || (createdAt ? new Date(createdAt.getTime() + (14 * 24 * 60 * 60 * 1000)) : null);
       const expiresLabel = effectiveExpiresAt
         ? formatMST(effectiveExpiresAt, { month: "short", day: "numeric" })

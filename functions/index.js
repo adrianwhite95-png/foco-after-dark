@@ -7478,7 +7478,9 @@ exports.adminUpdateGlobalConfig = functions.https.onCall(async (data, context) =
   }
 });
 
-exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data, context) => {
+exports.grantVoucherTokenToAllActiveMembers = functions
+  .runWith({ timeoutSeconds: 300, memory: "512MB" })
+  .https.onCall(async (data, context) => {
   try {
     await enforceCallableSecurity(context, {
       requireAuth: true,
@@ -7605,7 +7607,9 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
     }
 
     const now = new Date();
-    const expiresAt = Timestamp.fromDate(new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000)));
+    const sentAtMs = now.getTime();
+    const expiresAtMs = sentAtMs + (14 * 24 * 60 * 60 * 1000);
+    const expiresAt = Timestamp.fromMillis(expiresAtMs);
     const profiles = Array.from(resolvedProfiles.values());
     const totalMembersScanned = profiles.length;
     let eligibleCount = 0;
@@ -7640,6 +7644,8 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
         [`extraVoucherBuckets.${billingMonthKey}.adminGrants.${campaignId}`]: {
           tokenAmount,
           grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+          sentAtMs,
+          expiresAtMs,
           expiresAt,
           grantedBy: actor.uid,
           reason,
@@ -7649,6 +7655,8 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
           campaignId,
           tokenAmount,
           billingMonthKey,
+          sentAtMs,
+          expiresAtMs,
           title: "You just got rewarded +1 voucher token 🎉",
           message: "FoCo After Dark just added +1 voucher token to your balance for the next 14 days.",
           helperText: "Valid for 14 days from the drop date.",
@@ -7661,6 +7669,8 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
           tokenAmount,
           monthKey: billingMonthKey,
           campaignId,
+          sentAtMs,
+          expiresAtMs,
           message: "FoCo After Dark just added +1 voucher token to your balance for the next 14 days.",
           helperText: "Valid for 14 days from the drop date.",
           expiresAt,
