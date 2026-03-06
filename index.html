@@ -33761,9 +33761,11 @@ let onboardingIndex = 0;
       if (!voucherGrantModal || !voucherGrantBody) return;
       const uid = firebaseAuth.currentUser?.uid || "anon";
       const noticeId = String(opts.noticeId || payload.id || payload.createdAt || `${amount}-${payload.monthKey || payload.billingMonthKey || ""}`).trim();
-      if (noticeId && wasVoucherGrantSeenLocal(uid, noticeId)) return;
-      if (noticeId) markVoucherGrantSeenLocal(uid, noticeId);
       const fromNotice = opts.fromNotice === true;
+      // For server-authored notices, Firestore `seen` is the source of truth.
+      // Avoid local pre-suppression so users do not miss unread reward popups.
+      if (!fromNotice && noticeId && wasVoucherGrantSeenLocal(uid, noticeId)) return;
+      if (!fromNotice && noticeId) markVoucherGrantSeenLocal(uid, noticeId);
       const cycle = getVoucherCycleWindow(memberProfile?.billing || {})?.current;
       const endLabel = cycle?.end ? formatMST(cycle.end, { year: "numeric" }) : "end of this billing cycle";
       if (voucherGrantTitle) {
