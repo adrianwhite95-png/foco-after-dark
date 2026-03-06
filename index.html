@@ -13343,8 +13343,17 @@
       font-size: clamp(30px, 5.2vw, 56px);
       line-height: 1.08;
       letter-spacing: 0.01em;
-      color: #eef8ff;
-      text-shadow: 0 10px 30px rgba(2, 12, 30, 0.72), 0 0 24px rgba(124, 232, 255, 0.22);
+      background: linear-gradient(92deg, #ffd166 0%, #ff7ad9 48%, #7ee7ff 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      text-shadow:
+        0 0 18px rgba(255, 209, 102, 0.24),
+        0 0 30px rgba(255, 122, 217, 0.24),
+        0 0 42px rgba(126, 231, 255, 0.2),
+        0 10px 34px rgba(2, 12, 30, 0.65);
+      filter: drop-shadow(0 0 18px rgba(255, 122, 217, 0.22));
     }
     .neonTitle {
       text-shadow:
@@ -13731,7 +13740,10 @@
       border: 1px solid rgba(34, 211, 238, 0.36);
       color: #bbf4ff;
       background: rgba(2, 6, 20, 0.58);
-      white-space: nowrap;
+      white-space: normal;
+      line-height: 1.22;
+      text-align: right;
+      max-width: 64%;
     }
     .rewards-plan-card.boosted .rewards-plan-badge {
       border-color: rgba(255, 47, 184, 0.44);
@@ -13818,8 +13830,21 @@
       }
     }
     @media (min-width: 921px) {
+      #landingScreen .launch-hero-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 0.96fr);
+        gap: 12px;
+      }
+      #landingScreen .landing-live-feed-premium {
+        min-height: unset;
+        padding: 12px;
+      }
+      .rewards-plan-badge {
+        max-width: 62%;
+        font-size: 9px;
+        padding: 2px 7px;
+      }
       .rewards-console {
-        padding: 16px;
+        padding: 10px;
       }
       .rewards-console-header .rewards-subtitle {
         max-width: 90%;
@@ -24393,6 +24418,19 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.70",
+        date: "2026-03-06",
+        added: [
+          "Home hero headline now matches the premium Standard vs VIP gradient treatment with stronger nightlife glow depth"
+        ],
+        improved: [
+          "Desktop rewards module spacing is denser and more balanced to prevent clipped text and oversized dead space on web"
+        ],
+        fixed: [
+          "Resolved web card content clipping in rewards pricing badges while preserving iOS/mobile layout behavior"
+        ]
+      },
       {
         version: "v0.9.69",
         date: "2026-03-06",
