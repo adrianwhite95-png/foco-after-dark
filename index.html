@@ -9086,6 +9086,14 @@
       gap: 14px;
       margin-top: 8px;
     }
+    @media (min-width: 921px) {
+      #landingScreen .launch-hero-grid {
+        align-items: start;
+      }
+      #landingScreen .launch-hero-grid > * {
+        align-self: start;
+      }
+    }
     .launch-hero-main {
       border-radius: 20px;
       border: 1px solid color-mix(in srgb, var(--accent-primary-live) 22%, var(--border));
@@ -13307,6 +13315,13 @@
       background: linear-gradient(160deg, rgba(6, 12, 18, 0.72), rgba(5, 10, 16, 0.66));
       animation: floaty 6s ease-in-out infinite;
     }
+    #landingScreen .launch-billboard .launch-hero-title,
+    #landingScreen .launch-billboard .neonHero {
+      text-shadow:
+        0 0 18px rgba(34, 211, 238, 0.3),
+        0 0 32px rgba(143, 91, 255, 0.24),
+        0 0 46px rgba(255, 47, 184, 0.16);
+    }
     #landingScreen .billboard-pill-row {
       display: inline-flex;
       align-items: center;
@@ -13506,6 +13521,9 @@
       color: #e9f6ff;
       text-shadow: 0 0 16px rgba(34, 211, 238, 0.35), 0 0 28px rgba(255, 47, 184, 0.22);
       display: inline-block;
+      text-shadow:
+        0 0 14px rgba(34, 211, 238, 0.28),
+        0 0 26px rgba(143, 91, 255, 0.2);
     }
     .rewards-points-value.pulse {
       animation: rewardsPointsPulse 0.55s ease;
@@ -13590,6 +13608,7 @@
       line-height: 1.34;
       overflow-wrap: anywhere;
       word-break: break-word;
+      text-shadow: 0 0 10px rgba(34, 211, 238, 0.16);
     }
     .rewards-option-action {
       min-width: 120px;
@@ -13672,6 +13691,7 @@
       color: #edf6ff;
       position: relative;
       z-index: 1;
+      text-shadow: 0 0 12px rgba(34, 211, 238, 0.18);
     }
     .rewards-plan-badge {
       border-radius: 999px;
@@ -13705,6 +13725,14 @@
     .rewards-plan-list strong {
       color: #f7fbff;
       font-weight: 800;
+      text-shadow: 0 0 10px rgba(34, 211, 238, 0.14);
+    }
+    .rewards-key-number {
+      color: #f4fbff;
+      font-weight: 900;
+      text-shadow:
+        0 0 12px rgba(34, 211, 238, 0.3),
+        0 0 18px rgba(255, 47, 184, 0.18);
     }
     .rewards-cycle-note {
       margin-top: 10px;
@@ -15592,12 +15620,12 @@
                 </div>
                 <div class="rewards-token-summary">
                   <span class="rewards-label">Redeem points for extra monthly voucher tokens</span>
-                  <strong id="landingRewardsExtraTokens">+2 · +3 · +5</strong>
+                  <strong id="landingRewardsExtraTokens">+2 / +3 / +5</strong>
                 </div>
                 <div id="landingRewardsOptions" class="rewards-options-grid"></div>
                 <div class="rewards-footer">
-                  <div id="landingRenewalBonusNote" class="rewards-footer-pill">Renewal bonus: Standard +200 • VIP +300 points</div>
-                  <div id="landingTierBoostNote" class="rewards-footer-pill">Point rate: Standard 1.0x • VIP 1.25x</div>
+                  <div id="landingRenewalBonusNote" class="rewards-footer-pill">Renewal bonus: Standard +200 | VIP +300 points</div>
+                  <div id="landingTierBoostNote" class="rewards-footer-pill">Point rate: Standard 1.0x | VIP 1.25x</div>
                 </div>
               </section>
             </div>
@@ -20429,7 +20457,7 @@
       }
       landingRewardsLastPoints = null;
       if (landingRewardsExtraTokens) {
-        landingRewardsExtraTokens.textContent = "500→+2 · 700→+3 · 1000→+5";
+        landingRewardsExtraTokens.textContent = "500→+2 / 700→+3 / 1000→+5";
       }
 
       const tierKey = normalizeTierKey(currentMembershipTier || memberProfile?.tier || "");
@@ -20440,11 +20468,11 @@
         landingRewardsTierBadge.classList.toggle("boosted", vipLike);
       }
       if (landingTierBoostNote) {
-        landingTierBoostNote.textContent = "Points multiplier: Standard 1.0x • VIP 1.25x";
+        landingTierBoostNote.textContent = "Points multiplier: Standard 1.0x | VIP 1.25x";
         landingTierBoostNote.classList.toggle("boosted", vipLike);
       }
       if (landingRenewalBonusNote) {
-        landingRenewalBonusNote.textContent = "Monthly renewal bonus: Standard +200 • VIP +300 points";
+        landingRenewalBonusNote.textContent = "Monthly renewal bonus: Standard +200 | VIP +300 points";
       }
 
       landingRewardsOptions.innerHTML = `
@@ -20452,23 +20480,23 @@
           <article class="rewards-plan-card">
             <h4 class="rewards-plan-title">
               <span>Standard</span>
-              <span class="rewards-plan-badge">$5/mo · $50/yr</span>
+              <span class="rewards-plan-badge">$5/mo / $50/yr</span>
             </h4>
             <ul class="rewards-plan-list">
               <li><strong>Points Rate:</strong> 1.0x earning</li>
               <li><strong>Renewal Bonus:</strong> +200 points</li>
-              <li><strong>Token Packs:</strong> +2 $4.00 · +4 $7.00 · +6 $12.00</li>
+              <li><strong>Token Packs:</strong> +2 $4.00 / +4 $7.00 / +6 $12.00</li>
             </ul>
           </article>
           <article class="rewards-plan-card boosted">
             <h4 class="rewards-plan-title">
               <span>VIP</span>
-              <span class="rewards-plan-badge">$10/mo · $96/yr</span>
+              <span class="rewards-plan-badge">$10/mo / $96/yr</span>
             </h4>
             <ul class="rewards-plan-list">
               <li><strong>Points Rate:</strong> 1.25x earning boost</li>
               <li><strong>Renewal Bonus:</strong> +300 points</li>
-              <li><strong>Token Packs:</strong> +2 $3.50 · +4 $6.00 · +6 $10.50</li>
+              <li><strong>Token Packs:</strong> +2 $3.50 / +4 $6.00 / +6 $10.50</li>
             </ul>
           </article>
         </div>
@@ -20478,7 +20506,7 @@
             <span class="rewards-option-action">How it works</span>
           </div>
           <div class="rewards-progress"><div class="rewards-progress-fill" style="width:100%;"></div></div>
-          <div class="rewards-progress-meta">500 pts = +2 monthly tokens · 700 pts = +3 · 1000 pts = +5</div>
+          <div class="rewards-progress-meta"><span class="rewards-key-number">500 → +2</span> monthly tokens  <span class="rewards-key-number">700 → +3</span>  <span class="rewards-key-number">1000 → +5</span></div>
           <div class="rewards-cycle-note">All extra tokens from points apply to the current billing cycle only and do not roll over.</div>
         </article>
       `;
@@ -24275,6 +24303,19 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.66",
+        date: "2026-03-06",
+        added: [
+          "Home rewards module now emphasizes a cleaner Standard vs VIP perks list with clearer web hierarchy and key perk-number highlights"
+        ],
+        improved: [
+          "Desktop landing hero cards now size independently to remove dead stretched space while preserving mobile/iOS layout behavior"
+        ],
+        fixed: [
+          "Removed dot-separated point/token value formatting in home rewards copy for cleaner readability"
+        ]
+      },
       {
         version: "v0.9.65",
         date: "2026-03-06",
