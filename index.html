@@ -24276,6 +24276,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.65",
+        date: "2026-03-06",
+        added: [
+          "CEO global +1 token gift now auto-retries with a fresh campaign ID when no custom ID is provided"
+        ],
+        improved: [
+          "Campaign ID input now clears after auto-generated sends to prevent accidental duplicate ID reuse"
+        ],
+        fixed: [
+          "Resolved 409 conflict failures showing generic redemption errors during CEO token gift actions"
+        ]
+      },
+      {
         version: "v0.9.64",
         date: "2026-03-06",
         added: [
@@ -33869,17 +33882,40 @@ let onboardingIndex = 0;
       }
       const reason = String(ceoGlobalGiftReason?.value || "").trim();
       const campaignInput = String(ceoGlobalGiftCampaignId?.value || "").trim();
+      const userSuppliedCampaign = campaignInput.length > 0;
       if (ceoGlobalGiftBtn) ceoGlobalGiftBtn.disabled = true;
       try {
         const fn = httpsCallable(functionsClient, "grantVoucherTokenToAllActiveMembers");
-        const resp = await fn({
-          tokenAmount: 1,
-          reason,
-          campaignId: campaignInput || undefined
-        });
+        let resp;
+        try {
+          resp = await fn({
+            tokenAmount: 1,
+            reason,
+            campaignId: campaignInput || undefined
+          });
+        } catch (err) {
+          const code = String(err?.code || "").toLowerCase();
+          // If CEO did not type a custom campaign id, auto-retry once with a fresh id.
+          if (!userSuppliedCampaign && (code.includes("already-exists") || code.includes("409"))) {
+            const fallbackCampaignId = `gift_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+            resp = await fn({
+              tokenAmount: 1,
+              reason,
+              campaignId: fallbackCampaignId
+            });
+          } else {
+            throw err;
+          }
+        }
         const data = resp?.data || {};
         const campaignId = String(data.campaignId || campaignInput || "").trim();
-        if (ceoGlobalGiftCampaignId) ceoGlobalGiftCampaignId.value = campaignId;
+        if (ceoGlobalGiftCampaignId) {
+          // Keep custom IDs visible; clear auto-generated IDs to prevent accidental re-use.
+          ceoGlobalGiftCampaignId.value = userSuppliedCampaign ? campaignId : "";
+          if (!userSuppliedCampaign) {
+            ceoGlobalGiftCampaignId.placeholder = "Optional campaign id (leave blank to auto-generate)";
+          }
+        }
         showCeoGlobalGiftFeedback(
           `Gift sent: ${Number(data.grantedCount || 0)} granted, ${Number(data.skippedCount || 0)} skipped.`,
           true
@@ -33887,7 +33923,11 @@ let onboardingIndex = 0;
         showToast(`Campaign ${campaignId || "gift"} sent to ${Number(data.grantedCount || 0)} active members.`, 3000);
       } catch (err) {
         console.warn("grantVoucherTokenToAllActiveMembers failed", err);
-        showCeoGlobalGiftFeedback(mapMemberFacingError(err, "message"), false);
+        const code = String(err?.code || "").toLowerCase();
+        const msg = (code.includes("already-exists") || code.includes("409"))
+          ? "This campaign ID was already used. Enter a new one or leave it blank."
+          : mapMemberFacingError(err, "message");
+        showCeoGlobalGiftFeedback(msg, false);
       } finally {
         if (ceoGlobalGiftBtn) ceoGlobalGiftBtn.disabled = false;
       }
