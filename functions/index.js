@@ -4512,26 +4512,51 @@ function isNewMembership(memberDocData = {}) {
   );
 }
 
-async function resolveMembershipPromo({ uid, memberDocData, promoCodeInput, authEmail = "", stripe = null }) {
+async function resolveMembershipPromo({
+  uid,
+  memberDocData,
+  promoCodeInput,
+  authEmail = "",
+  stripe = null,
+  interval = "month"
+}) {
   const promoInput = normalizePromoCodeInput(promoCodeInput);
+  const billingInterval = normalizeBillingIntervalKey(interval);
   const isNew = isNewMembership(memberDocData);
   if (!isNew && promoInput) {
-    throw new HttpsError("failed-precondition", "Promo codes are only available for new memberships.");
+    throw new HttpsError(
+      "failed-precondition",
+      "Promo codes are only available for new memberships.",
+      { reason: "PROMO_NEW_MEMBERS_ONLY" }
+    );
   }
   if (promoInput) {
     if (promoInput === "FOCOFAM20") {
       return {
         discount: { promotion_code: STRIPE_PROMOS.FOCOFAM20.promotionCodeId },
         promoTag: "focofam20",
+        promoCode: promoInput,
+        firstMonthOnly: billingInterval === "month",
       };
     }
     if (promoInput === STRIPE_PROMOS.CSU50.code) {
+      if (billingInterval !== "month") {
+        throw new HttpsError(
+          "failed-precondition",
+          "CSU50 applies to Monthly memberships only.",
+          { reason: "PROMO_MONTHLY_ONLY" }
+        );
+      }
       const normalizedAuthEmail = String(authEmail || "").trim().toLowerCase();
       const emailDomain = normalizedAuthEmail.includes("@") ? normalizedAuthEmail.split("@").pop() : "";
       const isEduEmail = normalizedAuthEmail.endsWith(".edu");
       const isApprovedCsuDomain = CSU_APPROVED_EMAIL_DOMAINS.includes(emailDomain);
       if (!isEduEmail && !isApprovedCsuDomain) {
-        throw new HttpsError("failed-precondition", "CSU50 is only available for .edu or approved CSU email domains.");
+        throw new HttpsError(
+          "failed-precondition",
+          "CSU50 is only available for .edu or approved CSU email domains.",
+          { reason: "PROMO_EDU_ONLY" }
+        );
       }
       if (!stripe) {
         throw new HttpsError("failed-precondition", "Promo validation requires Stripe to be configured.");
@@ -4540,11 +4565,13 @@ async function resolveMembershipPromo({ uid, memberDocData, promoCodeInput, auth
       return {
         discount: { promotion_code: promotionCodeId },
         promoTag: "csu50",
+        promoCode: promoInput,
+        firstMonthOnly: true,
       };
     }
     throw new HttpsError("invalid-argument", "Invalid promo code.");
   }
-  return { discount: null, promoTag: null };
+  return { discount: null, promoTag: null, promoCode: "", firstMonthOnly: false };
 }
 
 async function getMemberContext(uid) {
@@ -4846,6 +4873,23 @@ function isStripePromoError(err) {
   );
 }
 
+function buildMembershipPricingPreview(subscription = null, paymentIntent = null) {
+  const invoice = subscription?.latest_invoice || null;
+  const itemPriceCents = Number(subscription?.items?.data?.[0]?.price?.unit_amount || 0);
+  const subtotalRaw = Number(invoice?.subtotal);
+  const totalRaw = Number(invoice?.total);
+  const paymentIntentAmount = Number(paymentIntent?.amount);
+  const subtotalCents = Number.isFinite(subtotalRaw) && subtotalRaw >= 0
+    ? subtotalRaw
+    : (itemPriceCents > 0 ? itemPriceCents : (Number.isFinite(paymentIntentAmount) ? paymentIntentAmount : 0));
+  const totalCents = Number.isFinite(totalRaw) && totalRaw >= 0
+    ? totalRaw
+    : (Number.isFinite(paymentIntentAmount) ? paymentIntentAmount : subtotalCents);
+  const discountCents = Math.max(0, subtotalCents - totalCents);
+  const currency = String(invoice?.currency || paymentIntent?.currency || "usd").toLowerCase();
+  return { subtotalCents, totalCents, discountCents, currency };
+}
+
 async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, uid, email, tier, interval, token, discount, promoTag }) {
   const {
     tier: normalizedTier,
@@ -4983,6 +5027,7 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
       promoCodeInput,
       authEmail: email,
       stripe,
+      interval,
     });
 
     const { subscription, paymentIntent, billingInterval } = await upsertMembershipSubscription({
@@ -4998,6 +5043,12 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
       promoTag: promoContext.promoTag,
     });
 
+    const pricing = buildMembershipPricingPreview(subscription, paymentIntent);
+    const promo = {
+      code: promoContext.promoCode || "",
+      tag: promoContext.promoTag || "",
+      firstMonthOnly: promoContext.firstMonthOnly === true,
+    };
     if (!paymentIntent?.client_secret) {
       return {
         publishableKey: publishable,
@@ -5005,6 +5056,8 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
         tier,
         interval: billingInterval,
         priceId,
+        pricing,
+        promo,
         alreadyActive: true,
       };
     }
@@ -5015,6 +5068,8 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
       tier,
       interval: billingInterval,
       priceId,
+      pricing,
+      promo,
     };
   } catch (err) {
     if (err instanceof HttpsError) throw err;
@@ -5423,6 +5478,7 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     promoCodeInput,
     authEmail: email,
     stripe,
+    interval,
   });
   const promoMeta = promoContext.promoTag ? { promo: promoContext.promoTag } : {};
 
