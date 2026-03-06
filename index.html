@@ -23912,6 +23912,19 @@
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
       {
+        version: "v0.9.51",
+        date: "2026-03-05",
+        added: [
+          "CSU50 alias now routes to the active CSU student discount and preserves promo usage through final membership charge"
+        ],
+        improved: [
+          "Existing in-progress subscriptions now receive promo discount updates instead of silently charging full price"
+        ],
+        fixed: [
+          "Blocked checkout from silently retrying promo charges without discount when Stripe promo application fails"
+        ]
+      },
+      {
         version: "v0.9.50",
         date: "2026-03-05",
         added: [
@@ -30314,7 +30327,9 @@ let onboardingIndex = 0;
             : "Invalid plan selection. Please try again.";
         } else if (errCode === "failed-precondition") {
           if (detailsReason === "PROMO_EDU_ONLY") {
-            msg = "CSU30 requires a valid .edu or CSU email address.";
+            msg = "CSU50 requires a valid .edu or CSU email address.";
+          } else if (detailsReason === "PROMO_APPLY_FAILED") {
+            msg = "Promo code could not be applied. Please retry promo setup.";
           } else if (detailsReason) {
             msg = `Could not start payment (${detailsReason}).`;
           } else {
@@ -30621,7 +30636,7 @@ let onboardingIndex = 0;
       }
       try {
         const fn = httpsCallable(functionsClient, "chargeMembershipOnFile");
-        const promoCode = membershipPromoInput?.value?.trim() || "";
+        const promoCode = normalizeStudentPromoCode(membershipAppliedPromoCode || membershipPromoInput?.value || "");
         const hasPromoAttempt = !!promoCode;
         const resp = await fn({
           tier,
@@ -30693,8 +30708,12 @@ let onboardingIndex = 0;
           const reason = String(err?.details?.reason || "").toUpperCase();
           const rawMessage = String(err?.message || "");
           const lowered = rawMessage.toLowerCase();
-          if (reason === "PROMO_EDU_ONLY" || (lowered.includes("csu30") && lowered.includes(".edu"))) {
-            showToast("CSU30 requires a valid .edu or CSU email.");
+          if (reason === "PROMO_EDU_ONLY" || lowered.includes("csu")) {
+            showToast("CSU50 requires a valid .edu or CSU email.");
+            return false;
+          }
+          if (reason === "PROMO_APPLY_FAILED") {
+            showToast("Promo code was not applied. No discounted charge was made.");
             return false;
           }
           showToast("Add a card to continue.");
@@ -44798,7 +44817,7 @@ let onboardingIndex = 0;
           );
           setMembershipPromoStatus("Tap Try promo code to apply.", "");
           if (
-            normalized === "CSU30"
+            (normalized === "CSU30" || normalized === "CSU50")
             && currentScreenName === "payment"
             && !membershipPaymentPrepInFlight
           ) {
@@ -44808,7 +44827,7 @@ let onboardingIndex = 0;
             promoAutoApplyTimer = setTimeout(() => {
               promoAutoApplyTimer = null;
               const stillTyped = normalizeStudentPromoCode(membershipPromoInput?.value || "");
-              if (stillTyped === "CSU30" && stillTyped !== normalizeStudentPromoCode(membershipAppliedPromoCode || "")) {
+              if ((stillTyped === "CSU30" || stillTyped === "CSU50") && stillTyped !== normalizeStudentPromoCode(membershipAppliedPromoCode || "")) {
                 applyMembershipPromoCode(stillTyped).catch(() => {});
               }
             }, 320);
@@ -46432,7 +46451,7 @@ let onboardingIndex = 0;
       const normalizedInterval = normalizeMembershipIntervalSelection(interval);
       const normalizedTier = normalizeCheckoutTier(tier);
       const normalizedCode = String(promoCode || "").trim().toUpperCase();
-      if (normalizedCode !== "CSU30") return null;
+      if (normalizedCode !== "CSU30" && normalizedCode !== "CSU50") return null;
       const baseFee = normalizedInterval === "year"
         ? (normalizedTier === "vip" ? 96 : 50)
         : (normalizedTier === "vip" ? Number(MEMBERSHIP_FEES.vip) : Number(MEMBERSHIP_FEES.standard));
@@ -46478,8 +46497,8 @@ let onboardingIndex = 0;
       }
       if (paymentPromoHint) {
         if (hasDiscount && promoCode) {
-          paymentPromoHint.textContent = promoCode === "CSU30"
-            ? "CSU30 Applied, you will see 30% discount applied on recurring statements"
+          paymentPromoHint.textContent = (promoCode === "CSU30" || promoCode === "CSU50")
+            ? "CSU50 Applied, you will see 30% discount applied on recurring statements"
             : `${promoCode} applied${firstMonthOnly ? " · first month only" : ""}`;
           paymentPromoHint.style.display = "block";
         } else {
@@ -47230,8 +47249,8 @@ let onboardingIndex = 0;
         if (message.includes("promo")) {
           return "Promo code could not be applied. Remove it and try again.";
         }
-        if (message.includes("csu30") && (message.includes(".edu") || message.includes("csu email"))) {
-          return "CSU30 requires a valid .edu or CSU email address.";
+        if (message.includes("csu") && (message.includes(".edu") || message.includes("csu email"))) {
+          return "CSU50 requires a valid .edu or CSU email address.";
         }
         if (code === "permission-denied" || code === "unauthenticated") {
           return "Please sign in again and try payment once more.";

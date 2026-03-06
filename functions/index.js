@@ -3893,6 +3893,7 @@ const STRIPE_PROMOS = {
   },
   CSU30: {
     code: "CSU30",
+    legacyCode: "CSU50",
     promotionCodeId: "promo_1T7pq1Q4Ij3ax7maqhmQn3wn",
   },
 };
@@ -4567,11 +4568,11 @@ async function resolveMembershipPromo({
         firstMonthOnly: billingInterval === "month",
       };
     }
-    if (promoInput === STRIPE_PROMOS.CSU30.code) {
+    if (promoInput === STRIPE_PROMOS.CSU30.code || promoInput === STRIPE_PROMOS.CSU30.legacyCode) {
       if (!isEduEligibleEmail(authEmail)) {
         throw new HttpsError(
           "failed-precondition",
-          "CSU30 is only available for approved .edu or CSU email addresses.",
+          "CSU student promo is only available for approved .edu or CSU email addresses.",
           { reason: "PROMO_EDU_ONLY" }
         );
       }
@@ -4585,7 +4586,7 @@ async function resolveMembershipPromo({
         // Prefer coupon id to avoid Stripe "new customer only" promotion-code restrictions.
         discount: resolvedCouponId ? { coupon: resolvedCouponId } : { promotion_code: resolvedPromotionCodeId },
         promoTag: "csu30",
-        promoCode: promoInput,
+        promoCode: STRIPE_PROMOS.CSU30.legacyCode,
         firstMonthOnly: false,
       };
     }
@@ -4943,12 +4944,8 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
       return await stripe.subscriptions.create(createPayload);
     } catch (err) {
       if (discountInput && isStripePromoError(err)) {
-        console.warn("Membership promo failed; retrying without discount", readStripeErrorMessage(err));
-        return stripe.subscriptions.create({
-          ...createPayload,
-          metadata: { uid, tier: normalizedTier, interval: normalizedInterval },
-          discounts: undefined,
-        });
+        const promoErr = readStripeErrorMessage(err) || "Promo code could not be applied.";
+        throw new HttpsError("failed-precondition", promoErr, { reason: "PROMO_APPLY_FAILED" });
       }
       throw err;
     }
@@ -4972,22 +4969,47 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
       }
       subscription = await createSubscription();
     } else if (currentItem && planChanged) {
-      subscription = await stripe.subscriptions.update(subscription.id, {
-        cancel_at_period_end: false,
-        proration_behavior: "create_prorations",
-        billing_cycle_anchor: "unchanged",
-        metadata: { uid, tier: normalizedTier, interval: normalizedInterval, ...promoMeta },
-        items: [{
-          id: currentItem.id,
-          price: tierPriceId,
-        }],
-        expand: ["latest_invoice.payment_intent", "items.data.price"],
-      });
+      try {
+        subscription = await stripe.subscriptions.update(subscription.id, {
+          cancel_at_period_end: false,
+          proration_behavior: "create_prorations",
+          billing_cycle_anchor: "unchanged",
+          metadata: { uid, tier: normalizedTier, interval: normalizedInterval, ...promoMeta },
+          items: [{
+            id: currentItem.id,
+            price: tierPriceId,
+          }],
+          discounts: discount ? [discount] : undefined,
+          expand: ["latest_invoice.payment_intent", "items.data.price"],
+        });
+      } catch (err) {
+        if (discount && isStripePromoError(err)) {
+          const promoErr = readStripeErrorMessage(err) || "Promo code could not be applied.";
+          throw new HttpsError("failed-precondition", promoErr, { reason: "PROMO_APPLY_FAILED" });
+        }
+        throw err;
+      }
     } else if (subscription.metadata?.tier !== normalizedTier || subscription.metadata?.interval !== normalizedInterval) {
       subscription = await stripe.subscriptions.update(subscription.id, {
         metadata: { uid, tier: normalizedTier, interval: normalizedInterval, ...promoMeta },
         expand: ["latest_invoice.payment_intent", "items.data.price"],
       });
+    } else if (discount) {
+      try {
+        subscription = await stripe.subscriptions.update(subscription.id, {
+          cancel_at_period_end: false,
+          metadata: { uid, tier: normalizedTier, interval: normalizedInterval, ...promoMeta },
+          discounts: [discount],
+          proration_behavior: "none",
+          expand: ["latest_invoice.payment_intent", "items.data.price"],
+        });
+      } catch (err) {
+        if (isStripePromoError(err)) {
+          const promoErr = readStripeErrorMessage(err) || "Promo code could not be applied.";
+          throw new HttpsError("failed-precondition", promoErr, { reason: "PROMO_APPLY_FAILED" });
+        }
+        throw err;
+      }
     }
   } else {
     subscription = await createSubscription();
