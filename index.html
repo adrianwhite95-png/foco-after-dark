@@ -23735,6 +23735,19 @@
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
       {
+        version: "v0.9.42",
+        date: "2026-03-05",
+        added: [
+          "Checkout setup retry state now uses a single dedicated Retry setup action"
+        ],
+        improved: [
+          "Payment setup now forces a fresh secure session token before creating Stripe checkout"
+        ],
+        fixed: [
+          "Removed duplicate Retry setup button state on payment screen errors"
+        ]
+      },
+      {
         version: "v0.9.41",
         date: "2026-03-05",
         added: [
@@ -29796,8 +29809,22 @@ let onboardingIndex = 0;
       }
       if (authUser && !betaPassMode) {
         try {
-          await authUser.getIdToken();
-        } catch (_) {}
+          await authUser.getIdToken(true);
+        } catch (_) {
+          paymentError.textContent = "Finalizing secure login… please retry in a moment.";
+          if (paymentSubmitBtn) {
+            paymentSubmitBtn.disabled = true;
+            paymentSubmitBtn.textContent = "Start Membership";
+          }
+          if (paymentRetrySetupBtn) {
+            paymentRetrySetupBtn.style.display = "";
+            paymentRetrySetupBtn.disabled = false;
+            paymentRetrySetupBtn.textContent = "Retry setup";
+          }
+          membershipPaymentPrepInFlight = false;
+          queuedMembershipPaymentPrep = null;
+          return;
+        }
       }
       if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
         paymentError.textContent = "Complete signup before billing.";
@@ -29835,7 +29862,11 @@ let onboardingIndex = 0;
         paymentSubmitBtn.disabled = true;
         paymentSubmitBtn.textContent = "Preparing…";
       }
-      if (paymentRetrySetupBtn) paymentRetrySetupBtn.style.display = "none";
+      if (paymentRetrySetupBtn) {
+        paymentRetrySetupBtn.style.display = "none";
+        paymentRetrySetupBtn.disabled = false;
+        paymentRetrySetupBtn.textContent = "Retry setup";
+      }
       if (paymentSavedCard) paymentSavedCard.style.display = "none";
       try {
         const emailForPromo = firebaseAuth.currentUser?.email || memberProfile?.email || "";
@@ -29940,11 +29971,13 @@ let onboardingIndex = 0;
         }
         paymentError.textContent = enforcePaymentMessageGuard(msg, "Could not start payment right now. Please try again.");
         if (paymentSubmitBtn) {
-          paymentSubmitBtn.disabled = false;
-          paymentSubmitBtn.textContent = "Retry setup";
+          paymentSubmitBtn.disabled = true;
+          paymentSubmitBtn.textContent = "Start Membership";
         }
         if (paymentRetrySetupBtn) {
           paymentRetrySetupBtn.style.display = "";
+          paymentRetrySetupBtn.disabled = false;
+          paymentRetrySetupBtn.textContent = "Retry setup";
         }
       } finally {
         membershipPaymentPrepInFlight = false;
@@ -44337,6 +44370,8 @@ let onboardingIndex = 0;
     }
     if (paymentRetrySetupBtn) {
       paymentRetrySetupBtn.addEventListener("click", () => {
+        paymentRetrySetupBtn.disabled = true;
+        paymentRetrySetupBtn.textContent = "Retrying...";
         const retryTier = normalizeCheckoutTier(pendingMembershipTier || getRequestedTier(memberProfile));
         const retryInterval = normalizeMembershipIntervalSelection(
           pendingMembershipInterval || memberProfile?.requestedBillingInterval || memberProfile?.billingInterval || "month"
