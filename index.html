@@ -23912,6 +23912,19 @@
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
       {
+        version: "v0.9.52",
+        date: "2026-03-05",
+        added: [
+          "Membership billing now records Stripe promo audit logs for setup and final charge steps"
+        ],
+        improved: [
+          "Promo validation now blocks checkout whenever Stripe does not confirm discount attachment"
+        ],
+        fixed: [
+          "Resolved in-progress plan changes dropping promo discounts before the final subscription charge"
+        ]
+      },
+      {
         version: "v0.9.51",
         date: "2026-03-05",
         added: [
@@ -30285,7 +30298,7 @@ let onboardingIndex = 0;
         const paymentElementOptions = { layout: "tabs", paymentMethodOrder: ["card"] };
         stripePaymentElement = stripeElements.create("payment", paymentElementOptions);
         stripePaymentElement.mount("#paymentElement");
-        membershipAppliedPromoCode = normalizeStudentPromoCode(data?.promo?.code || requestedPromoCode || "");
+        membershipAppliedPromoCode = normalizeStudentPromoCode(data?.promo?.code || "");
         membershipPricingPreview = normalizePricingPreview(data?.pricing || null);
         membershipPricingPreviewTier = normalizedTier;
         membershipPricingPreviewInterval = normalizedInterval;
@@ -30297,7 +30310,7 @@ let onboardingIndex = 0;
           if (membershipPromoInput) membershipPromoInput.value = membershipAppliedPromoCode;
           setMembershipPromoStatus(`${membershipAppliedPromoCode} applied.`, "success");
         } else if (requestedPromoCode) {
-          setMembershipPromoStatus("Code accepted, no discount applied.", "error");
+          setMembershipPromoStatus("Promo not confirmed by billing yet.", "error");
         } else {
           setMembershipPromoStatus("");
         }

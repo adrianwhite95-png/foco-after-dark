@@ -4566,6 +4566,8 @@ async function resolveMembershipPromo({
         promoTag: "focofam20",
         promoCode: promoInput,
         firstMonthOnly: billingInterval === "month",
+        promotionCodeId: STRIPE_PROMOS.FOCOFAM20.promotionCodeId,
+        couponId: "",
       };
     }
     if (promoInput === STRIPE_PROMOS.CSU30.code || promoInput === STRIPE_PROMOS.CSU30.legacyCode) {
@@ -4588,11 +4590,20 @@ async function resolveMembershipPromo({
         promoTag: "csu30",
         promoCode: STRIPE_PROMOS.CSU30.legacyCode,
         firstMonthOnly: false,
+        promotionCodeId: resolvedPromotionCodeId,
+        couponId: resolvedCouponId,
       };
     }
     throw new HttpsError("invalid-argument", "Invalid promo code.");
   }
-  return { discount: null, promoTag: null, promoCode: "", firstMonthOnly: false };
+  return {
+    discount: null,
+    promoTag: null,
+    promoCode: "",
+    firstMonthOnly: false,
+    promotionCodeId: "",
+    couponId: "",
+  };
 }
 
 async function getMemberContext(uid) {
@@ -4911,6 +4922,12 @@ function buildMembershipPricingPreview(subscription = null, paymentIntent = null
   return { subtotalCents, totalCents, discountCents, currency };
 }
 
+function subscriptionHasAnyDiscount(subscription = null) {
+  const directDiscount = subscription?.discount;
+  const multiDiscounts = Array.isArray(subscription?.discounts?.data) ? subscription.discounts.data : [];
+  return Boolean((directDiscount && (directDiscount.id || directDiscount.coupon || directDiscount.promotion_code)) || multiDiscounts.length > 0);
+}
+
 async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, uid, email, tier, interval, token, discount, promoTag }) {
   const {
     tier: normalizedTier,
@@ -5057,6 +5074,8 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
       "createMembershipPaymentIntent"
     );
     const promoCodeInput = (data?.promoCode || "").toString();
+    const promoCodeRaw = String(data?.promoCode || "");
+    const promoCodeNormalized = normalizePromoCodeInput(promoCodeRaw);
     const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
     assertStripeAllowed(context, memberDocData);
     const stripe = getStripeClient();
@@ -5086,11 +5105,33 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
     });
 
     const pricing = buildMembershipPricingPreview(subscription, paymentIntent);
+    const promoAttached = subscriptionHasAnyDiscount(subscription) || pricing.discountCents > 0;
+    if (promoCodeNormalized && !promoAttached) {
+      throw new HttpsError("failed-precondition", "Promo code could not be applied.", { reason: "PROMO_APPLY_FAILED" });
+    }
     const promo = {
       code: promoContext.promoCode || "",
       tag: promoContext.promoTag || "",
       firstMonthOnly: promoContext.firstMonthOnly === true,
     };
+    console.info("membership_intent_promo_audit", {
+      uid,
+      tier,
+      interval: billingInterval,
+      promoRaw: promoCodeRaw,
+      promoNormalized: promoCodeNormalized,
+      promoResolvedCode: promo.code || "",
+      promoTag: promo.tag || "",
+      promoCouponId: promoContext.couponId || "",
+      promoPromotionCodeId: promoContext.promotionCodeId || "",
+      discountRequest: promoContext.discount || null,
+      discountAttached: promoAttached,
+      subscriptionId: subscription?.id || null,
+      paymentIntentId: paymentIntent?.id || null,
+      subtotalCents: pricing.subtotalCents,
+      totalCents: pricing.totalCents,
+      discountCents: pricing.discountCents,
+    });
     if (!paymentIntent?.client_secret) {
       return {
         publishableKey: publishable,
@@ -5506,6 +5547,8 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     priceId: tierPriceId
   } = membershipStripePriceSelection(data?.tier, data?.interval, "chargeMembershipOnFile");
   const promoCodeInput = (data?.promoCode || "").toString();
+  const promoCodeRaw = String(data?.promoCode || "");
+  const promoCodeNormalized = normalizePromoCodeInput(promoCodeRaw);
   const providedPaymentMethodId = String(data?.paymentMethodId || "").trim();
 
   const { ref: memberRef, data: profile } = await getMemberContext(uid);
@@ -5523,6 +5566,18 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     interval,
   });
   const promoMeta = promoContext.promoTag ? { promo: promoContext.promoTag } : {};
+  console.info("charge_membership_promo_input", {
+    uid,
+    tier,
+    interval,
+    promoRaw: promoCodeRaw,
+    promoNormalized: promoCodeNormalized,
+    promoResolvedCode: promoContext.promoCode || "",
+    promoTag: promoContext.promoTag || "",
+    promoCouponId: promoContext.couponId || "",
+    promoPromotionCodeId: promoContext.promotionCodeId || "",
+    discountRequest: promoContext.discount || null,
+  });
 
   const customerId = await ensureStripeCustomer({
     stripe,
@@ -5576,6 +5631,24 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
       && subscription.cancel_at_period_end !== true;
     const billingInterval = currentInterval;
     if (samePlanActive) {
+      if (promoContext.discount) {
+        try {
+          subscription = await stripe.subscriptions.update(subscription.id, {
+            cancel_at_period_end: false,
+            default_payment_method: defaultPm,
+            metadata: { uid, tier, interval, ...promoMeta },
+            discounts: [promoContext.discount],
+            proration_behavior: "none",
+            expand: ["latest_invoice.payment_intent", "items.data.price", "discount", "discounts"],
+          });
+        } catch (err) {
+          if (isStripePromoError(err)) {
+            const promoErr = readStripeErrorMessage(err) || "Promo code could not be applied.";
+            throw new HttpsError("failed-precondition", promoErr, { reason: "PROMO_APPLY_FAILED" });
+          }
+          throw err;
+        }
+      }
       const activePromoTag = String(subscription?.metadata?.promo || "").toLowerCase();
       const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
       await memberRef.set({
@@ -5613,18 +5686,44 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
     }
     const currentItem = subscription.items?.data?.[0];
     if (currentItem) {
-      subscription = await stripe.subscriptions.update(subscription.id, {
-        cancel_at_period_end: false,
-        proration_behavior: "create_prorations",
-        billing_cycle_anchor: "unchanged",
-        default_payment_method: defaultPm,
-        metadata: { uid, tier, interval, ...promoMeta },
-        items: [{
-          id: currentItem.id,
-          price: tierPriceId,
-        }],
-        expand: ["latest_invoice.payment_intent", "items.data.price"],
-      });
+      try {
+        subscription = await stripe.subscriptions.update(subscription.id, {
+          cancel_at_period_end: false,
+          proration_behavior: "create_prorations",
+          billing_cycle_anchor: "unchanged",
+          default_payment_method: defaultPm,
+          metadata: { uid, tier, interval, ...promoMeta },
+          items: [{
+            id: currentItem.id,
+            price: tierPriceId,
+          }],
+          discounts: promoContext.discount ? [promoContext.discount] : undefined,
+          expand: ["latest_invoice.payment_intent", "items.data.price", "discount", "discounts"],
+        });
+      } catch (err) {
+        if (promoContext.discount && isStripePromoError(err)) {
+          const promoErr = readStripeErrorMessage(err) || "Promo code could not be applied.";
+          throw new HttpsError("failed-precondition", promoErr, { reason: "PROMO_APPLY_FAILED" });
+        }
+        throw err;
+      }
+    } else if (promoContext.discount) {
+      try {
+        subscription = await stripe.subscriptions.update(subscription.id, {
+          cancel_at_period_end: false,
+          default_payment_method: defaultPm,
+          metadata: { uid, tier, interval, ...promoMeta },
+          discounts: [promoContext.discount],
+          proration_behavior: "none",
+          expand: ["latest_invoice.payment_intent", "items.data.price", "discount", "discounts"],
+        });
+      } catch (err) {
+        if (isStripePromoError(err)) {
+          const promoErr = readStripeErrorMessage(err) || "Promo code could not be applied.";
+          throw new HttpsError("failed-precondition", promoErr, { reason: "PROMO_APPLY_FAILED" });
+        }
+        throw err;
+      }
     }
   } else {
     subscription = await stripe.subscriptions.create({
@@ -5636,9 +5735,31 @@ exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(a
       payment_settings: { save_default_payment_method: "on_subscription" },
       metadata: { uid, tier, interval, ...promoMeta },
       discounts: promoContext.discount ? [promoContext.discount] : undefined,
-      expand: ["latest_invoice.payment_intent", "items.data.price"],
+      expand: ["latest_invoice.payment_intent", "items.data.price", "discount", "discounts"],
     });
   }
+
+  const pricingPreview = buildMembershipPricingPreview(subscription, subscription?.latest_invoice?.payment_intent || null);
+  const promoAttached = subscriptionHasAnyDiscount(subscription) || pricingPreview.discountCents > 0;
+  if (promoCodeNormalized && !promoAttached) {
+    throw new HttpsError("failed-precondition", "Promo code could not be applied.", { reason: "PROMO_APPLY_FAILED" });
+  }
+  console.info("charge_membership_promo_result", {
+    uid,
+    tier,
+    interval,
+    promoRaw: promoCodeRaw,
+    promoNormalized: promoCodeNormalized,
+    promoResolvedCode: promoContext.promoCode || "",
+    promoTag: promoContext.promoTag || "",
+    promoCouponId: promoContext.couponId || "",
+    promoPromotionCodeId: promoContext.promotionCodeId || "",
+    promoAttached,
+    subscriptionId: subscription?.id || null,
+    subtotalCents: pricingPreview.subtotalCents,
+    totalCents: pricingPreview.totalCents,
+    discountCents: pricingPreview.discountCents,
+  });
 
   const paymentIntent = subscription?.latest_invoice?.payment_intent || null;
   if (paymentIntent?.status === "requires_action" && paymentIntent.client_secret) {
