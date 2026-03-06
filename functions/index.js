@@ -7497,9 +7497,32 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
       throw err;
     }
 
-    const snap = await db.collection("members").get();
+    const authUsers = [];
+    let nextPageToken = undefined;
+    do {
+      const page = await admin.auth().listUsers(1000, nextPageToken);
+      for (const user of (page.users || [])) {
+        const email = String(user.email || "").toLowerCase();
+        const isAnonymousUser = !email && (!user.providerData || user.providerData.length === 0);
+        const isStaffUser = user.uid.startsWith("staff_") || user.customClaims?.staff === true;
+        if (isAnonymousUser || isStaffUser) continue;
+        authUsers.push(user);
+      }
+      nextPageToken = page.pageToken;
+    } while (nextPageToken);
+
+    const memberDocs = [];
+    const memberRefs = authUsers.map((u) => db.collection("members").doc(u.uid));
+    for (let i = 0; i < memberRefs.length; i += 250) {
+      const chunk = memberRefs.slice(i, i + 250);
+      const snaps = await db.getAll(...chunk);
+      snaps.forEach((snap) => {
+        if (snap.exists) memberDocs.push(snap);
+      });
+    }
+
     const now = new Date();
-    const totalMembersScanned = snap.size;
+    const totalMembersScanned = memberDocs.length;
     let eligibleCount = 0;
     let grantedCount = 0;
     let skippedCount = 0;
@@ -7513,7 +7536,7 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
       pendingWrites = 0;
     };
 
-    for (const docSnap of snap.docs) {
+    for (const docSnap of memberDocs) {
       const memberData = docSnap.data() || {};
       if (!isActiveEligibleForAdminTokenGift(memberData)) {
         skippedCount += 1;

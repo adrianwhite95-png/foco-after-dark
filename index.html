@@ -24419,6 +24419,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.71",
+        date: "2026-03-06",
+        added: [
+          "CEO global +1 token gifts now target real authenticated member accounts only (non-staff), matching live member list behavior"
+        ],
+        improved: [
+          "CEO global gift action now gives instant button feedback with a sending state to prevent repeated taps"
+        ],
+        fixed: [
+          "Resolved inflated gift recipient counts caused by stale member documents not tied to active auth users"
+        ]
+      },
+      {
         version: "v0.9.70",
         date: "2026-03-06",
         added: [
@@ -34089,11 +34102,18 @@ let onboardingIndex = 0;
         showCeoGlobalGiftFeedback("CEO access required.", false);
         return;
       }
+      if (ceoGlobalGiftBtn?.dataset.busy === "1") return;
       const buildGiftCampaignId = () => `gift_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
       const reason = String(ceoGlobalGiftReason?.value || "").trim();
       const campaignInput = String(ceoGlobalGiftCampaignId?.value || "").trim();
       const userSuppliedCampaign = campaignInput.length > 0;
-      if (ceoGlobalGiftBtn) ceoGlobalGiftBtn.disabled = true;
+      const originalLabel = ceoGlobalGiftBtn?.textContent || "Gift +1 voucher token to all active members";
+      if (ceoGlobalGiftBtn) {
+        ceoGlobalGiftBtn.disabled = true;
+        ceoGlobalGiftBtn.dataset.busy = "1";
+        ceoGlobalGiftBtn.textContent = "Sending...";
+      }
+      showToast("Sending +1 token gift to active members...", 1400);
       try {
         const fn = httpsCallable(functionsClient, "grantVoucherTokenToAllActiveMembers");
         let resp;
@@ -34143,7 +34163,11 @@ let onboardingIndex = 0;
           : mapMemberFacingError(err, "message");
         showCeoGlobalGiftFeedback(msg, false);
       } finally {
-        if (ceoGlobalGiftBtn) ceoGlobalGiftBtn.disabled = false;
+        if (ceoGlobalGiftBtn) {
+          ceoGlobalGiftBtn.disabled = false;
+          ceoGlobalGiftBtn.dataset.busy = "";
+          ceoGlobalGiftBtn.textContent = originalLabel;
+        }
       }
     }
 
