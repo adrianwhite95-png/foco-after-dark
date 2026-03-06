@@ -17126,7 +17126,14 @@
             </div>
             <div class="ceo-status-card" id="ceoNotificationsCard">
               <strong>Notifications</strong>
-              <div class="meta-note">Push diagnostics are hidden in production.</div>
+              <div class="meta-note">Send a custom push promo or update to all users.</div>
+              <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+                <input id="ceoBroadcastPushTitle" type="text" maxlength="80" placeholder="Push title (e.g. FoCo Alert)" />
+                <textarea id="ceoBroadcastPushBody" rows="3" maxlength="160" placeholder="Push message to all users"></textarea>
+                <input id="ceoBroadcastPushLink" type="text" maxlength="220" placeholder="Optional link (default /#alertCard)" />
+                <button type="button" class="btn btn-secondary" id="ceoBroadcastPushBtn" style="width:100%;">Send push to all users</button>
+                <div class="small" id="ceoBroadcastPushStatus" style="color:#94a3b8;">Ready.</div>
+              </div>
               <div class="small" id="ceoNotificationsSummary" style="margin-top:10px;color:#94a3b8;">Append <code>?debug=1</code> to view push debug controls.</div>
               <div id="ceoPushDebugRows" style="margin-top:10px;display:none;flex-direction:column;gap:8px;">
                 <button type="button" class="btn btn-secondary" id="sendTestNotificationBtn" style="width:100%;">Send test notification</button>
@@ -18852,15 +18859,15 @@
     function updateDebugNotificationControls() {
       const shouldShow = DEBUG_MODE;
       if (ceoNotificationsCard) {
-        ceoNotificationsCard.style.display = shouldShow ? "" : "none";
+        ceoNotificationsCard.style.display = "";
       }
-      if (!shouldShow) return;
       if (ceoPushDebugRows) {
-        ceoPushDebugRows.style.display = "flex";
+        ceoPushDebugRows.style.display = shouldShow ? "flex" : "none";
       }
       if (ceoNotificationsSummary) {
-        ceoNotificationsSummary.style.display = "none";
+        ceoNotificationsSummary.style.display = shouldShow ? "none" : "";
       }
+      if (!shouldShow) return;
       refreshPushDebugStatus();
     }
 
@@ -19023,6 +19030,63 @@
         return;
       }
       showToast("Posted, but push dispatch status was empty.", 3000);
+    }
+
+    function setCeoBroadcastPushStatus(message = "Ready.", success = true) {
+      if (!ceoBroadcastPushStatus) return;
+      ceoBroadcastPushStatus.textContent = String(message || "Ready.");
+      ceoBroadcastPushStatus.style.color = success ? "#a7f3d0" : "#f97373";
+    }
+
+    async function sendCeoBroadcastPush() {
+      if (!isCeoAccount || !functionsClient || SAFE_MODE) {
+        setCeoBroadcastPushStatus("CEO access required.", false);
+        return;
+      }
+      if (!ceoBroadcastPushBtn || ceoBroadcastPushBtn.dataset.busy === "1") return;
+      const title = String(ceoBroadcastPushTitle?.value || "").trim().slice(0, 80) || "FoCo Alert";
+      const body = String(ceoBroadcastPushBody?.value || "").trim().slice(0, 160);
+      const link = String(ceoBroadcastPushLink?.value || "").trim().slice(0, 220) || "/#alertCard";
+      if (!body) {
+        setCeoBroadcastPushStatus("Add a push message first.", false);
+        return;
+      }
+      const confirmSend = window.confirm(`Send this push to all users now?\n\n${title}\n${body}`);
+      if (!confirmSend) return;
+      const originalLabel = ceoBroadcastPushBtn.textContent || "Send push to all users";
+      ceoBroadcastPushBtn.disabled = true;
+      ceoBroadcastPushBtn.dataset.busy = "1";
+      ceoBroadcastPushBtn.textContent = "Sending...";
+      setCeoBroadcastPushStatus("Sending push to all users...", true);
+      try {
+        await firebaseAuth?.currentUser?.getIdToken?.(true);
+        const fn = httpsCallable(functionsClient, "pushBroadcastNow");
+        const dedupeKey = `ceo-broadcast:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`;
+        const res = await fn({
+          title,
+          body,
+          link,
+          source: "ceo-broadcast",
+          dedupeKey,
+          dedupeWindowMs: 5000,
+          force: true,
+        });
+        const data = res?.data || {};
+        const sent = Number(data.sent || 0);
+        const failed = Number(data.failed || 0);
+        setCeoBroadcastPushStatus(`Sent ${sent} · Failed ${failed}`, failed === 0);
+        showPushDispatchToast({ data }, "Push sent to users.");
+        if (ceoBroadcastPushBody) ceoBroadcastPushBody.value = "";
+      } catch (err) {
+        console.warn("CEO broadcast push failed", err);
+        const msg = String(err?.message || "Push failed");
+        setCeoBroadcastPushStatus(msg, false);
+        showToast("Could not send push right now.", 2600);
+      } finally {
+        ceoBroadcastPushBtn.disabled = false;
+        ceoBroadcastPushBtn.dataset.busy = "";
+        ceoBroadcastPushBtn.textContent = originalLabel;
+      }
     }
     let staffMessagesUnsub = null;
     let ceoMessagesUnsub = null;
@@ -23474,6 +23538,11 @@
     const forceUpdateStatus = document.getElementById("forceUpdateStatus");
     const forceUpdateBtn = document.getElementById("forceUpdateBtn");
     const ceoNotificationsCard = document.getElementById("ceoNotificationsCard");
+    const ceoBroadcastPushTitle = document.getElementById("ceoBroadcastPushTitle");
+    const ceoBroadcastPushBody = document.getElementById("ceoBroadcastPushBody");
+    const ceoBroadcastPushLink = document.getElementById("ceoBroadcastPushLink");
+    const ceoBroadcastPushBtn = document.getElementById("ceoBroadcastPushBtn");
+    const ceoBroadcastPushStatus = document.getElementById("ceoBroadcastPushStatus");
     const ceoNotificationsSummary = document.getElementById("ceoNotificationsSummary");
     const ceoPushDebugRows = document.getElementById("ceoPushDebugRows");
     const ceoNotificationsStatus = document.getElementById("ceoNotificationsStatus");
@@ -23820,6 +23889,11 @@
     if (sendTestNotificationBtn) {
       sendTestNotificationBtn.addEventListener("click", () => {
         sendTestNotification();
+      });
+    }
+    if (ceoBroadcastPushBtn) {
+      ceoBroadcastPushBtn.addEventListener("click", () => {
+        sendCeoBroadcastPush();
       });
     }
     if (forceUpdateBtn) {
@@ -24418,6 +24492,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.76",
+        date: "2026-03-06",
+        added: [
+          "CEO HQ now includes a plain-English custom push composer to send promo/update notifications to all users"
+        ],
+        improved: [
+          "Notifications card now stays visible in production while keeping advanced debug rows behind ?debug=1"
+        ],
+        fixed: []
+      },
       {
         version: "v0.9.75",
         date: "2026-03-06",
