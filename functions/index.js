@@ -4199,29 +4199,9 @@ function normalizeTierForAdminTokenGift(memberData = {}) {
 function isActiveEligibleForAdminTokenGift(memberData = {}) {
   const tier = normalizeTierForAdminTokenGift(memberData);
   if (!tier) return false;
-  if (memberData?.revoked === true || memberData?.paused === true) return false;
-  const passCode = String(memberData?.passCode || "").trim();
-  if (!passCode) return false;
-  const paymentStatus = String(memberData?.paymentStatus || "").toLowerCase();
-  const membershipStatus = String(memberData?.membershipStatus || "").toLowerCase();
-  const status = (paymentStatus || membershipStatus || "").toLowerCase();
-  const inactiveStatuses = new Set(["inactive", "canceled", "cancelled", "canceling", "paused", "revoked", "past_due", "unpaid", "expired"]);
-  if (tier !== "ceo_free" && (inactiveStatuses.has(status) || inactiveStatuses.has(paymentStatus) || inactiveStatuses.has(membershipStatus))) return false;
-  const isActive = paymentStatus === "active" || membershipStatus === "active" || status === "active";
-  if (tier === "standard" || tier === "vip") {
-    if (!isActive) return false;
-    const hasStripeSub = String(memberData?.stripeSubscriptionId || "").trim().length > 0;
-    if (!hasStripeSub) return false;
-    const billing = (memberData?.billing && typeof memberData.billing === "object") ? memberData.billing : {};
-    return hasSuccessfulPaymentThisCycleForWallet(tier, billing, memberData, new Date());
-  }
-  if (tier === "ceo_free") {
-    // CEO-issued/free accounts stay eligible even if legacy paid statuses are stale.
-    const override = String(memberData?.membershipOverride || memberData?.override || "").toUpperCase();
-    const rawTier = normalizeTierKey(memberData?.tier || memberData?.membershipTier || "");
-    return memberData?.freeMembership === true || override === "CEO_FREE" || rawTier === "ceo_free" || rawTier === "free" || isActive;
-  }
-  return false;
+  // Product rule: include all Standard/VIP/CEO_FREE accounts.
+  // Only Explorer accounts are excluded.
+  return tier === "standard" || tier === "vip" || tier === "ceo_free";
 }
 
 function normalizeNameInput(value = "", maxLen = 60) {
