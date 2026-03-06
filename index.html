@@ -13389,6 +13389,250 @@
       filter: drop-shadow(0 0 10px rgba(112, 220, 255, 0.5));
       flex: 0 0 auto;
     }
+    .rewards-console {
+      position: relative;
+      overflow: hidden;
+      gap: 12px;
+    }
+    .rewards-console::before {
+      content: "";
+      position: absolute;
+      inset: -35% -40%;
+      pointer-events: none;
+      background: linear-gradient(120deg, transparent 18%, rgba(34, 211, 238, 0.14) 48%, rgba(255, 47, 184, 0.1) 58%, transparent 85%);
+      transform: translateX(-42%);
+      animation: rewardsSweep 5.6s linear infinite;
+      opacity: 0.55;
+    }
+    .rewards-console > * {
+      position: relative;
+      z-index: 1;
+    }
+    .rewards-console-header .rewards-subtitle {
+      margin: 4px 0 0;
+      color: rgba(163, 188, 215, 0.88);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .rewards-tier-badge {
+      border-radius: 999px;
+      border: 1px solid rgba(143, 91, 255, 0.42);
+      background: rgba(2, 6, 23, 0.42);
+      color: rgba(240, 244, 255, 0.92);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 6px 10px;
+      box-shadow: 0 0 16px rgba(143, 91, 255, 0.22);
+    }
+    .rewards-tier-badge.boosted {
+      border-color: rgba(255, 47, 184, 0.52);
+      box-shadow: 0 0 20px rgba(255, 47, 184, 0.24), 0 0 24px rgba(34, 211, 238, 0.2);
+    }
+    .rewards-balance-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(120, 186, 255, 0.22);
+      background: linear-gradient(165deg, rgba(3, 9, 23, 0.72), rgba(2, 6, 18, 0.82));
+      padding: 10px 12px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 24px rgba(0, 0, 0, 0.36);
+    }
+    .rewards-label {
+      display: block;
+      margin: 0;
+      color: rgba(171, 198, 222, 0.86);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .rewards-points-value {
+      font-size: clamp(28px, 3.8vw, 42px);
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      color: #e9f6ff;
+      text-shadow: 0 0 16px rgba(34, 211, 238, 0.35), 0 0 28px rgba(255, 47, 184, 0.22);
+      display: inline-block;
+    }
+    .rewards-points-value.pulse {
+      animation: rewardsPointsPulse 0.55s ease;
+    }
+    .rewards-token-orb {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 28% 24%, rgba(34, 211, 238, 0.25), rgba(2, 6, 23, 0.18) 62%);
+      box-shadow: 0 0 22px rgba(34, 211, 238, 0.2), inset 0 0 18px rgba(255, 47, 184, 0.16);
+    }
+    .rewards-token-orb img {
+      width: 58px;
+      height: 58px;
+      object-fit: cover;
+      border-radius: 50%;
+      animation: rewardsTokenSpin 11s linear infinite, rewardsTokenFloat 4.2s ease-in-out infinite;
+      will-change: transform;
+    }
+    .rewards-token-summary {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: rgba(2, 6, 23, 0.42);
+      padding: 8px 10px;
+      color: #d6e8fa;
+    }
+    .rewards-token-summary strong {
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: 0.01em;
+      color: #eef8ff;
+      text-shadow: 0 0 14px rgba(143, 91, 255, 0.24);
+    }
+    .rewards-options-grid {
+      display: grid;
+      gap: 8px;
+    }
+    .rewards-option {
+      position: relative;
+      border-radius: 14px;
+      border: 1px solid rgba(129, 156, 188, 0.28);
+      background: linear-gradient(150deg, rgba(4, 10, 24, 0.75), rgba(2, 7, 18, 0.82));
+      padding: 10px;
+      overflow: hidden;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .rewards-option.ready {
+      border-color: rgba(34, 211, 238, 0.4);
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.16);
+    }
+    .rewards-option.ready::after {
+      content: "";
+      position: absolute;
+      inset: -35% -45%;
+      background: linear-gradient(120deg, transparent 28%, rgba(255, 255, 255, 0.22) 50%, transparent 72%);
+      transform: translateX(-45%);
+      animation: rewardsSweep 3.6s linear infinite;
+      opacity: 0.35;
+      pointer-events: none;
+    }
+    .rewards-option:hover {
+      transform: translateY(-1px);
+      border-color: rgba(34, 211, 238, 0.46);
+    }
+    .rewards-option-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .rewards-option-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #e9f5ff;
+      letter-spacing: 0.02em;
+    }
+    .rewards-option-action {
+      min-width: 120px;
+      padding: 6px 11px;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      border: 1px solid rgba(34, 211, 238, 0.32);
+      background: rgba(2, 6, 23, 0.34);
+      color: rgba(236, 246, 255, 0.95);
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.14);
+    }
+    .rewards-option-action[disabled] {
+      opacity: 0.55;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .rewards-progress {
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(12, 22, 37, 0.84);
+      border: 1px solid rgba(120, 145, 172, 0.24);
+      overflow: hidden;
+    }
+    .rewards-progress-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(34, 211, 238, 0.82), rgba(143, 91, 255, 0.72), rgba(255, 47, 184, 0.62));
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.28);
+      transform-origin: left center;
+      transition: transform 0.25s ease, width 0.25s ease;
+    }
+    .rewards-progress-meta {
+      margin-top: 5px;
+      font-size: 11px;
+      color: rgba(171, 198, 222, 0.86);
+      letter-spacing: 0.03em;
+    }
+    .rewards-footer {
+      display: grid;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .rewards-footer-pill {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(2, 6, 23, 0.4);
+      color: rgba(219, 233, 247, 0.92);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 7px 10px;
+      text-align: center;
+    }
+    .rewards-footer-pill.boosted {
+      border-color: rgba(255, 47, 184, 0.46);
+      color: rgba(255, 225, 246, 0.96);
+      box-shadow: 0 0 16px rgba(255, 47, 184, 0.2), 0 0 16px rgba(34, 211, 238, 0.16);
+    }
+    .rewards-console.celebrate {
+      animation: rewardsCelebratePulse 0.66s ease;
+    }
+    @keyframes rewardsPointsPulse {
+      0% { transform: scale(1); }
+      42% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+    @keyframes rewardsTokenSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes rewardsTokenFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    @keyframes rewardsSweep {
+      0% { transform: translateX(-52%); }
+      100% { transform: translateX(52%); }
+    }
+    @keyframes rewardsCelebratePulse {
+      0% { box-shadow: 0 0 0 rgba(34, 211, 238, 0); }
+      35% { box-shadow: 0 0 32px rgba(34, 211, 238, 0.32), 0 0 48px rgba(255, 47, 184, 0.24); }
+      100% { box-shadow: 0 0 0 rgba(34, 211, 238, 0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .rewards-console::before,
+      .rewards-option.ready::after,
+      .rewards-token-orb img,
+      .rewards-points-value.pulse,
+      .rewards-console.celebrate {
+        animation: none !important;
+      }
+    }
     .dealTease {
       position: relative;
       display: block;
@@ -15183,62 +15427,32 @@
                 <h2 class="launch-hero-title neonHero" id="landingHeroHeadline">Unlock Tonight's VIP Perks &amp; Flash Deals.</h2>
                 <p class="launch-hero-copy" id="landingHeroSubhead">Live posts from Fort Collins venues — members see everything.</p>
               </section>
-              <section class="landing-live-feed landing-live-feed-premium glassBox photo-glass premiumGlass" aria-label="Live Right Now venue feed">
-                <header class="landing-live-feed-header">
-                  <span class="launch-live-tag neonLabel">Live Right Now</span>
+              <section id="landingRewardsModule" class="landing-live-feed landing-live-feed-premium rewards-console glassBox photo-glass premiumGlass" aria-label="Tonight's rewards">
+                <header class="landing-live-feed-header rewards-console-header">
+                  <div>
+                    <span class="launch-live-tag neonLabel">Tonight's Rewards</span>
+                    <p class="rewards-subtitle">Live loyalty console</p>
+                  </div>
+                  <span id="landingRewardsTierBadge" class="rewards-tier-badge">STANDARD</span>
                 </header>
-                <article class="landing-live-row glassBox feedRow photo-glass premiumGlass" style="--live-row-index:0;">
-                  <div class="landing-live-copy">
-                    <div class="landing-live-top">
-                      <strong class="landing-live-venue">The Rec Room</strong>
-                    </div>
-                    <div class="dealTease" aria-hidden="true">
-                      <span class="dealTeaseText">██████████ ██████ ███████</span>
-                      <span class="dealTeaseOverlay"></span>
-                    </div>
-                    <div class="landing-live-meta"><span class="landing-live-posted">Posted 5 min ago</span></div>
+                <div class="rewards-balance-row">
+                  <div>
+                    <p class="rewards-label">Current points</p>
+                    <strong id="landingRewardsPoints" class="rewards-points-value">0</strong>
                   </div>
-                  <span class="landing-live-lock" aria-hidden="true">🔒</span>
-                </article>
-                <article class="landing-live-row glassBox feedRow photo-glass premiumGlass" style="--live-row-index:1;">
-                  <div class="landing-live-copy">
-                    <div class="landing-live-top">
-                      <strong class="landing-live-venue">Bondi</strong>
-                    </div>
-                    <div class="dealTease" aria-hidden="true">
-                      <span class="dealTeaseText">███████████ █████ ███████</span>
-                      <span class="dealTeaseOverlay"></span>
-                    </div>
-                    <div class="landing-live-meta"><span class="landing-live-posted">Posted 2 min ago</span></div>
+                  <div class="rewards-token-orb" aria-hidden="true">
+                    <img src="media/foco-redemption-token.png" alt="" />
                   </div>
-                  <span class="landing-live-lock" aria-hidden="true">🔒</span>
-                </article>
-                <article class="landing-live-row glassBox feedRow photo-glass premiumGlass" style="--live-row-index:2;">
-                  <div class="landing-live-copy">
-                    <div class="landing-live-top">
-                      <strong class="landing-live-venue">Bar District</strong>
-                    </div>
-                    <div class="dealTease" aria-hidden="true">
-                      <span class="dealTeaseText">████████ ███████ ████████</span>
-                      <span class="dealTeaseOverlay"></span>
-                    </div>
-                    <div class="landing-live-meta"><span class="landing-live-posted">Posted 8 min ago</span></div>
-                  </div>
-                  <span class="landing-live-lock" aria-hidden="true">🔒</span>
-                </article>
-                <article class="landing-live-row glassBox feedRow photo-glass premiumGlass" style="--live-row-index:3;">
-                  <div class="landing-live-copy">
-                    <div class="landing-live-top">
-                      <strong class="landing-live-venue">Lucky Joe's</strong>
-                    </div>
-                    <div class="dealTease" aria-hidden="true">
-                      <span class="dealTeaseText">██████████ ███████ █████</span>
-                      <span class="dealTeaseOverlay"></span>
-                    </div>
-                    <div class="landing-live-meta"><span class="landing-live-posted">Posted 11 min ago</span></div>
-                  </div>
-                  <span class="landing-live-lock" aria-hidden="true">🔒</span>
-                </article>
+                </div>
+                <div class="rewards-token-summary">
+                  <span class="rewards-label">Extra tokens this billing cycle</span>
+                  <strong id="landingRewardsExtraTokens">0</strong>
+                </div>
+                <div id="landingRewardsOptions" class="rewards-options-grid"></div>
+                <div class="rewards-footer">
+                  <div id="landingRenewalBonusNote" class="rewards-footer-pill">Renewal bonus: +200 points each successful cycle</div>
+                  <div id="landingTierBoostNote" class="rewards-footer-pill">Standard earns 1.0x points</div>
+                </div>
               </section>
             </div>
             <div class="launch-actions">
@@ -19172,6 +19386,7 @@
       document.body.classList.toggle("landing-unblurred-deals", !cfg.on("blurDealsForNonMembers", true));
       applyLandingFeedVenueConfig();
       applyLandingLivePillsByTime();
+      renderLandingRewardsModule();
       requestGlassBGUpdate();
     }
 
@@ -20059,10 +20274,98 @@
       countNode.textContent = String(count);
       applyLandingWeeklySavings();
     }
+    let landingRewardsLastPoints = null;
+    function getLoyaltyRenewalBonusForCurrentMember() {
+      const tier = normalizeTierKey(currentMembershipTier || memberProfile?.tier || "");
+      if (isCeoActive() || isFreeMember() || memberProfile?.freeMembership === true || tier === "vip" || tier === "ceo_free" || tier === "free") {
+        return 300;
+      }
+      return 200;
+    }
+    function renderLandingRewardsModule() {
+      if (!landingRewardsModule || !landingRewardsOptions) return;
+      const loggedInMember = !!(firebaseAuth?.currentUser?.uid || currentPassCode || memberProfile?.uid);
+      const points = loggedInMember ? getAvailablePoints() : 0;
+      if (landingRewardsPoints) {
+        landingRewardsPoints.textContent = `${points}`;
+        if (landingRewardsLastPoints !== null && landingRewardsLastPoints !== points) {
+          landingRewardsPoints.classList.remove("pulse");
+          void landingRewardsPoints.offsetWidth;
+          landingRewardsPoints.classList.add("pulse");
+        }
+      }
+      landingRewardsLastPoints = points;
+      const extras = getCurrentCycleExtraTokenBreakdown(memberProfile);
+      const currentCycleExtras = Math.max(0, Number(extras.total || 0));
+      if (landingRewardsExtraTokens) {
+        landingRewardsExtraTokens.textContent = String(currentCycleExtras);
+      }
+
+      const tierKey = normalizeTierKey(currentMembershipTier || memberProfile?.tier || "");
+      const vipLike = isCeoActive() || isFreeMember() || tierKey === "vip" || tierKey === "ceo_free" || tierKey === "free";
+      if (landingRewardsTierBadge) {
+        const badgeText = vipLike ? "VIP BOOST 1.25x" : "STANDARD 1.0x";
+        landingRewardsTierBadge.textContent = badgeText;
+        landingRewardsTierBadge.classList.toggle("boosted", vipLike);
+      }
+      if (landingTierBoostNote) {
+        landingTierBoostNote.textContent = vipLike
+          ? "VIP / CEO FREE boost: earn 25% more loyalty points"
+          : "Standard rate: earn points every night and redeem in-cycle";
+        landingTierBoostNote.classList.toggle("boosted", vipLike);
+      }
+      if (landingRenewalBonusNote) {
+        landingRenewalBonusNote.textContent = `Monthly renewal bonus: +${getLoyaltyRenewalBonusForCurrentMember()} points (one-time per cycle)`;
+      }
+
+      if (!loggedInMember) {
+        landingRewardsOptions.innerHTML = `
+          <div class="rewards-option">
+            <div class="rewards-option-head">
+              <div class="rewards-option-label">Sign in to unlock loyalty rewards</div>
+              <button type="button" class="rewards-option-action" data-open-member-login>Member Login</button>
+            </div>
+            <div class="rewards-progress"><div class="rewards-progress-fill" style="width:12%;"></div></div>
+            <div class="rewards-progress-meta">Track points, claim voucher tokens, and see renewal bonuses live.</div>
+          </div>
+        `;
+        return;
+      }
+
+      const canApplyPoints = canRedeemPoints();
+      const isUnlimited = isCeoActive() || isFreeMember() || memberProfile?.ceo === true;
+      landingRewardsOptions.innerHTML = POINTS_TOKEN_REDEMPTIONS.map((option) => {
+        const pct = Math.max(4, Math.min(100, Math.round((points / option.pointsCost) * 100)));
+        const ready = canApplyPoints && points >= option.pointsCost;
+        const statusLabel = ready ? "Ready to redeem" : `${Math.max(0, option.pointsCost - points)} pts to go`;
+        const buttonLabel = isUnlimited ? "Included" : (ready ? "Apply Points" : "Locked");
+        const disabled = isUnlimited || !ready;
+        return `
+          <article class="rewards-option ${ready ? "ready" : ""}">
+            <div class="rewards-option-head">
+              <span class="rewards-option-label">${option.pointsCost} pts → +${option.tokenAmount} voucher tokens</span>
+              <button type="button" class="rewards-option-action" ${disabled ? "disabled" : ""} data-points-redemption-id="${option.id}">${buttonLabel}</button>
+            </div>
+            <div class="rewards-progress"><div class="rewards-progress-fill" style="width:${pct}%;"></div></div>
+            <div class="rewards-progress-meta">${isUnlimited ? "Unlimited account · no points redemption needed" : statusLabel}</div>
+          </article>
+        `;
+      }).join("");
+    }
+    function celebrateLandingRewards() {
+      if (!landingRewardsModule) return;
+      landingRewardsModule.classList.remove("celebrate");
+      void landingRewardsModule.offsetWidth;
+      landingRewardsModule.classList.add("celebrate");
+      setTimeout(() => {
+        landingRewardsModule?.classList.remove("celebrate");
+      }, 760);
+    }
     if (screens.landing?.classList.contains("active")) {
       randomizeLandingPostedTimes();
       randomizeLandingSocialProof();
       applyLandingLivePillsByTime();
+      renderLandingRewardsModule();
     }
     const waitlistFormNode = document.getElementById("waitlistForm");
     if (waitlistFormNode) {
@@ -20141,6 +20444,7 @@
         randomizeLandingPostedTimes();
         randomizeLandingSocialProof();
         applyLandingLivePillsByTime();
+        renderLandingRewardsModule();
         if (landingRefreshBtn) landingRefreshBtn.style.display = "inline-flex";
       } else if (name === "waitlistGate") {
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
@@ -23821,7 +24125,27 @@
     const pointsRedeemBalance = document.getElementById("pointsRedeemBalance");
     const pointsRedeemPreview = document.getElementById("pointsRedeemPreview");
     const pointsRedeemError = document.getElementById("pointsRedeemError");
+    const landingRewardsModule = document.getElementById("landingRewardsModule");
+    const landingRewardsPoints = document.getElementById("landingRewardsPoints");
+    const landingRewardsOptions = document.getElementById("landingRewardsOptions");
+    const landingRewardsExtraTokens = document.getElementById("landingRewardsExtraTokens");
+    const landingRewardsTierBadge = document.getElementById("landingRewardsTierBadge");
+    const landingTierBoostNote = document.getElementById("landingTierBoostNote");
+    const landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.61",
+        date: "2026-03-06",
+        added: [
+          "Home screen Live Right Now panel replaced with an animated Tonight's Rewards loyalty module"
+        ],
+        improved: [
+          "Rewards console now shows live points, in-cycle extra tokens, renewal bonus info, and tier boost state"
+        ],
+        fixed: [
+          "Points redemption success now updates the home loyalty console immediately with a celebration pulse"
+        ]
+      },
       {
         version: "v0.9.60",
         date: "2026-03-06",
@@ -25671,6 +25995,7 @@
         if (statVouchersLeft) statVouchersLeft.textContent = "Locked";
         if (voucherBalanceNote) voucherBalanceNote.textContent = "Explorer mode active. Upgrade to unlock vouchers and redemptions.";
         if (redeemVoucherBalance) redeemVoucherBalance.textContent = "Explorer mode has no voucher balance.";
+        renderLandingRewardsModule();
         return;
       }
       const tier = getVoucherTier();
@@ -25679,6 +26004,7 @@
         if (statVouchersLeft) statVouchersLeft.textContent = "Unlimited";
         if (voucherBalanceNote) voucherBalanceNote.textContent = "";
         if (redeemVoucherBalance) redeemVoucherBalance.textContent = "Unlimited vouchers available.";
+        renderLandingRewardsModule();
         return;
       }
       if (statVouchersLeft) statVouchersLeft.textContent = `${balance.remaining}`;
@@ -25699,6 +26025,7 @@
           redeemVoucherBalance.textContent = `Included monthly: ${included} · Purchased this cycle: ${extras.purchased} · Points redeemed this cycle: ${extras.points} · CEO gifts this cycle: ${extras.gifted} · Extra total this cycle: ${extra} · Available now: ${balance.remaining}.`;
         }
       }
+      renderLandingRewardsModule();
     }
 
     function getBillingKey(uid) {
@@ -29864,6 +30191,20 @@ let onboardingIndex = 0;
         applyPointsRedemptionOption(redemptionId);
       });
     }
+    if (landingRewardsOptions) {
+      landingRewardsOptions.addEventListener("click", (event) => {
+        const loginBtn = event.target?.closest?.("button[data-open-member-login]");
+        if (loginBtn) {
+          showScreen("auth");
+          return;
+        }
+        const button = event.target?.closest?.("button[data-points-redemption-id]");
+        if (!button) return;
+        const redemptionId = String(button.dataset.pointsRedemptionId || "").trim();
+        if (!redemptionId || button.disabled) return;
+        applyPointsRedemptionOption(redemptionId);
+      });
+    }
 
     const membershipPlanInfo = {
       standard_month: { label: "Standard Monthly", price: `$${MEMBERSHIP_FEES.standard.toFixed(2)} / month`, intervalLabel: "Monthly" },
@@ -32564,6 +32905,7 @@ let onboardingIndex = 0;
       }
       refreshPointsRedeemAvailability();
       updateQuickStrip();
+      renderLandingRewardsModule();
     }
 
     function canViewPointsRedemptions() {
@@ -32681,6 +33023,10 @@ let onboardingIndex = 0;
         updateVoucherBalanceUI();
         renderRedemptionOptions();
         renderPointsRedemptionOptions();
+        celebrateLandingRewards();
+        if (typeof burstConfetti === "function") {
+          burstConfetti(["#22d3ee", "#8f5bff", "#ff2fb8"]);
+        }
         showToast(`Points applied — ${option.tokenAmount} voucher tokens added for this billing cycle.`, 2800);
       } catch (err) {
         if (pointsRedeemError) pointsRedeemError.textContent = mapMemberFacingError(err, "points");

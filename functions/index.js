@@ -2828,6 +2828,91 @@ function getPointsMultiplierForTier(tier = "", member = {}) {
   return 1.0;
 }
 
+function getRenewalLoyaltyPointsForMember(member = {}) {
+  const normalizedTier = normalizeTierKey(member?.tier || member?.membershipTier || "");
+  const override = String(member?.membershipOverride || member?.override || "").toUpperCase();
+  if (
+    normalizedTier === "vip"
+    || normalizedTier === "ceo_free"
+    || normalizedTier === "free"
+    || member?.freeMembership === true
+    || override === "CEO_FREE"
+  ) {
+    return 300;
+  }
+  if (normalizedTier === "standard") return 200;
+  return 0;
+}
+
+async function grantRenewalLoyaltyPoints({
+  memberRef,
+  memberData = {},
+  billingMonthKey = "",
+  source = "renewal",
+  invoiceId = "",
+  stripeEventId = "",
+}) {
+  const safeKey = String(billingMonthKey || "").trim();
+  if (!memberRef || !safeKey || !/^\d{4}-\d{2}$/.test(safeKey)) {
+    return { awarded: false, reason: "invalid_cycle_key", billingMonthKey: safeKey };
+  }
+  const pointsToGrant = getRenewalLoyaltyPointsForMember(memberData);
+  if (!Number.isFinite(pointsToGrant) || pointsToGrant <= 0) {
+    return { awarded: false, reason: "ineligible_tier", billingMonthKey: safeKey };
+  }
+  const grantPath = `loyaltyGrants.renewal_${safeKey}`;
+  const nowIso = new Date().toISOString();
+  let awarded = false;
+  let latestPoints = Math.max(0, Number(memberData?.points || 0));
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(memberRef);
+    if (!snap.exists) return;
+    const live = snap.data() || {};
+    const existing = live?.loyaltyGrants?.[`renewal_${safeKey}`];
+    if (existing) {
+      latestPoints = Math.max(0, Number(live?.points || 0));
+      return;
+    }
+    const current = Math.max(0, Number(live?.points || 0));
+    latestPoints = current + pointsToGrant;
+    tx.set(memberRef, {
+      points: latestPoints,
+      [grantPath]: {
+        points: pointsToGrant,
+        billingMonthKey: safeKey,
+        source: String(source || "renewal"),
+        invoiceId: String(invoiceId || "").trim() || null,
+        stripeEventId: String(stripeEventId || "").trim() || null,
+        grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      lastRenewalBonusAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastRenewalBonusPoints: pointsToGrant,
+      lastLoyaltyActivity: `Monthly renewal bonus: +${pointsToGrant} points`,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    tx.set(db.collection("auditLogs").doc(), {
+      action: "renewalLoyaltyBonus",
+      uid: memberRef.id,
+      points: pointsToGrant,
+      billingMonthKey: safeKey,
+      source: String(source || "renewal"),
+      invoiceId: String(invoiceId || "").trim() || null,
+      stripeEventId: String(stripeEventId || "").trim() || null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    awarded = true;
+  });
+  return {
+    awarded,
+    pointsAwarded: awarded ? pointsToGrant : 0,
+    points: latestPoints,
+    billingMonthKey: safeKey,
+    reason: awarded ? "awarded" : "already_awarded",
+    message: awarded ? `Monthly renewal bonus: +${pointsToGrant} points` : "",
+    createdAt: nowIso,
+  };
+}
+
 // Server-side points adjust with idempotency support for one-time awards.
 exports.awardPoints = functions.https.onCall(async (data, context) => {
   await enforceCallableSecurity(context, {
@@ -5503,6 +5588,32 @@ exports.stripeWebhook = functions.runWith(stripeWebhookSecrets).https.onRequest(
           invoiceUpdates.membershipStatus = "past_due";
         }
         await memberCtx.ref.set(invoiceUpdates, { merge: true });
+        if (paid) {
+          const billingReason = String(intent?.billing_reason || "").toLowerCase();
+          const isRenewalCycle = billingReason === "subscription_cycle";
+          if (isRenewalCycle) {
+            const cycleAnchor = isoFromUnix(intent?.lines?.data?.[0]?.period?.start) || new Date().toISOString();
+            const mergedMember = { ...(memberCtx?.data || {}), ...invoiceUpdates };
+            const billingMonthKey = getCurrentVoucherBillingMonthKeyForWallet(mergedMember, toDateSafe(cycleAnchor) || new Date());
+            const loyaltyResult = await grantRenewalLoyaltyPoints({
+              memberRef: memberCtx.ref,
+              memberData: mergedMember,
+              billingMonthKey,
+              source: "stripe.invoice_renewal",
+              invoiceId: String(intent?.id || ""),
+              stripeEventId: String(event?.id || ""),
+            });
+            console.info("renewal_loyalty_bonus", {
+              uid: memberCtx.uid,
+              invoiceId: intent?.id || null,
+              billingReason,
+              billingMonthKey,
+              awarded: loyaltyResult?.awarded === true,
+              pointsAwarded: loyaltyResult?.pointsAwarded || 0,
+              livemode: !!event?.livemode,
+            });
+          }
+        }
       }
     } else if (event.type === "checkout.session.completed") {
       const memberCtx = await resolveMemberContextFromStripeObject(intent);
@@ -7962,6 +8073,39 @@ exports.processRenewals = functions.runWith({ secrets: ["STRIPE_SECRET"] }).pubs
     if (pageSnap.size < pageSize) break;
     cursor = pageSnap.docs[pageSnap.docs.length - 1];
     pageSnap = await baseQuery.startAfter(cursor).limit(pageSize).get();
+  }
+  const now = new Date();
+  const processedCeoFree = new Set();
+  const ceoFreeQueries = [
+    db.collection("members").where("freeMembership", "==", true),
+    db.collection("members").where("membershipOverride", "==", "CEO_FREE"),
+  ];
+  for (const q of ceoFreeQueries) {
+    let ceoCursor = null;
+    let ceoSnap = await q.limit(pageSize).get();
+    while (!ceoSnap.empty) {
+      for (const docSnap of ceoSnap.docs) {
+        if (processedCeoFree.has(docSnap.id)) continue;
+        processedCeoFree.add(docSnap.id);
+        const memberData = docSnap.data() || {};
+        if (!isActiveEligibleForAdminTokenGift(memberData)) continue;
+        if (normalizeTierForAdminTokenGift(memberData) !== "ceo_free") continue;
+        const billingMonthKey = getCurrentVoucherBillingMonthKeyForWallet(memberData, now);
+        try {
+          await grantRenewalLoyaltyPoints({
+            memberRef: docSnap.ref,
+            memberData,
+            billingMonthKey,
+            source: "scheduled.ceo_free_cycle",
+          });
+        } catch (err) {
+          console.warn("processRenewals ceo_free loyalty bonus failed", docSnap.id, err?.message || err);
+        }
+      }
+      if (ceoSnap.size < pageSize) break;
+      ceoCursor = ceoSnap.docs[ceoSnap.docs.length - 1];
+      ceoSnap = await q.startAfter(ceoCursor).limit(pageSize).get();
+    }
   }
   return null;
 });
