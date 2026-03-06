@@ -15248,7 +15248,11 @@
         </div>
         <div class="field signup-only" id="signupInviteCodeField">
           <label for="signupInviteCode">CEO issued invite code (optional)</label>
-          <input id="signupInviteCode" type="text" maxlength="28" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
+          <div class="membership-promo-row">
+            <input id="signupInviteCode" type="text" maxlength="28" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
+            <button type="button" class="btn btn-secondary membership-promo-apply" id="signupInviteCodeTryBtn">Try promo code</button>
+          </div>
+          <div id="signupInviteCodeStatus" class="membership-promo-status"></div>
         </div>
         <div class="field signup-only" id="signupPlanField">
           <label><span class="required-asterisk">*</span> Choose your pass</label>
@@ -18487,6 +18491,8 @@
     let authTransition = false;
     let authSubmitDefaultLabel = "";
     let signupConfirmInFlight = false;
+    let signupInviteCodeVerified = false;
+    let signupInviteCodeVerifiedValue = "";
     let signupAccountSetupInFlight = false;
     let deferredOnboardingMembershipSelection = null;
     let membershipPlanSelectionBusy = false;
@@ -20475,6 +20481,8 @@
     const birthDateInput = document.getElementById("birthDate");
     const genderSelect = document.getElementById("genderSelect");
     const signupInviteCodeInput = document.getElementById("signupInviteCode");
+    const signupInviteCodeTryBtn = document.getElementById("signupInviteCodeTryBtn");
+    const signupInviteCodeStatus = document.getElementById("signupInviteCodeStatus");
     const signupPlanGrid = document.getElementById("signupPlanGrid");
     const signupConfirmTierNote = document.getElementById("signupConfirmTierNote");
     const signupOnlyFields = document.querySelectorAll(".signup-only");
@@ -20560,6 +20568,12 @@
         });
         if (rememberRow) rememberRow.style.display = "none";
         if (forgotWrap) forgotWrap.style.display = "none";
+        const inviteCode = normalizeCeoFreeInviteCode(signupInviteCodeInput?.value || "");
+        if (inviteCode) {
+          setSignupInviteCodeStatus("Tap Try promo code to validate.", "");
+        } else {
+          setSignupInviteCodeStatus("");
+        }
       } else {
         authModeText.textContent = "Log in to access your Nightlife Pass.";
         if (authModeSubline) authModeSubline.textContent = "Welcome back — your FoCo After Dark pass is ready.";
@@ -20573,6 +20587,9 @@
         });
         if (rememberRow) rememberRow.style.display = "";
         if (forgotWrap) forgotWrap.style.display = "";
+        signupInviteCodeVerified = false;
+        signupInviteCodeVerifiedValue = "";
+        setSignupInviteCodeStatus("");
       }
       updateSignupStudentCodeVisibility();
       if (skipLoginBetaLink) {
@@ -20710,6 +20727,41 @@
         const normalized = normalizeCeoFreeInviteCode(signupInviteCodeInput.value || "");
         if (signupInviteCodeInput.value !== normalized) {
           signupInviteCodeInput.value = normalized;
+        }
+        signupInviteCodeVerified = false;
+        signupInviteCodeVerifiedValue = "";
+        if (!normalized) {
+          setSignupInviteCodeStatus("");
+        } else {
+          setSignupInviteCodeStatus("Tap Try promo code to validate.", "");
+        }
+      });
+    }
+    if (signupInviteCodeTryBtn) {
+      signupInviteCodeTryBtn.addEventListener("click", async () => {
+        const code = normalizeCeoFreeInviteCode(signupInviteCodeInput?.value || "");
+        signupInviteCodeVerified = false;
+        signupInviteCodeVerifiedValue = "";
+        if (!code) {
+          setSignupInviteCodeStatus("Enter an invite code first.", "error");
+          return;
+        }
+        const original = signupInviteCodeTryBtn.textContent;
+        signupInviteCodeTryBtn.disabled = true;
+        signupInviteCodeTryBtn.textContent = "Checking...";
+        setSignupInviteCodeStatus("Checking invite code...");
+        try {
+          const result = await previewCeoFreeSignupCodeCloud(code);
+          if (result.ok && result.valid) {
+            signupInviteCodeVerified = true;
+            signupInviteCodeVerifiedValue = code;
+            setSignupInviteCodeStatus("CEO invite code accepted. Stripe will be skipped after signup.", "success");
+          } else {
+            setSignupInviteCodeStatus(result.message || "Invite code is invalid or inactive.", "error");
+          }
+        } finally {
+          signupInviteCodeTryBtn.disabled = false;
+          signupInviteCodeTryBtn.textContent = original;
         }
       });
     }
@@ -21749,6 +21801,13 @@
           const msg = "Invite code format is invalid. Use at least 6 characters.";
           authError.textContent = msg;
           if (typeof showToast === "function") showToast(msg, 2200);
+          return;
+        }
+        if (inviteCode && (!signupInviteCodeVerified || signupInviteCodeVerifiedValue !== inviteCode)) {
+          const msg = "Tap Try promo code to validate your CEO invite code.";
+          authError.textContent = msg;
+          setSignupInviteCodeStatus(msg, "error");
+          if (typeof showToast === "function") showToast(msg, 2400);
           return;
         }
         const birthDate = new Date(`${birthDateValue}T00:00:00`);
@@ -23852,6 +23911,19 @@
     const pointsRedeemError = document.getElementById("pointsRedeemError");
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.45",
+        date: "2026-03-05",
+        added: [
+          "Signup now includes a CEO invite Try promo code check before account confirmation"
+        ],
+        improved: [
+          "Membership checkout promo apply now uses Stripe-backed CSU50 preview pricing for the first monthly charge"
+        ],
+        fixed: [
+          "CSU50 promo now validates against Monthly billing without requiring a campus email domain"
+        ]
+      },
       {
         version: "v0.9.44",
         date: "2026-03-05",
@@ -29105,6 +29177,41 @@ let onboardingIndex = 0;
         .toUpperCase()
         .replace(/[^A-Z0-9-]/g, "")
         .slice(0, 28);
+    }
+    function setSignupInviteCodeStatus(text = "", state = "") {
+      if (!signupInviteCodeStatus) return;
+      signupInviteCodeStatus.textContent = String(text || "");
+      signupInviteCodeStatus.classList.remove("error", "success");
+      if (!text) return;
+      if (state === "error") signupInviteCodeStatus.classList.add("error");
+      if (state === "success") signupInviteCodeStatus.classList.add("success");
+    }
+    async function previewCeoFreeSignupCodeCloud(code) {
+      const normalized = normalizeCeoFreeInviteCode(code);
+      if (!normalized) {
+        return { ok: false, valid: false, code: "invalid-argument", message: "Enter an invite code first." };
+      }
+      if (!functionsClient) {
+        return { ok: false, valid: false, code: "unavailable", message: "Invite check unavailable right now." };
+      }
+      try {
+        const fn = httpsCallable(functionsClient, "previewCeoFreeSignupCode");
+        const resp = await fn({ code: normalized });
+        const data = resp?.data || {};
+        return {
+          ok: true,
+          valid: data.valid === true,
+          code: normalized,
+          message: String(data.message || (data.valid === true ? "Code is valid." : "Code is not active."))
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          valid: false,
+          code: err?.code || "failed",
+          message: normalizeUiErrorMessage(err, "Could not verify invite code right now.")
+        };
+      }
     }
     async function claimCeoFreeSignupCodeCloud(code) {
       const normalized = normalizeCeoFreeInviteCode(code);

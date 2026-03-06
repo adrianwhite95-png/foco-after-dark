@@ -2567,6 +2567,35 @@ exports.revokeCeoFreeSignupCode = functions.https.onCall(async (data, context) =
   return { ok: true, code, revoked: true };
 });
 
+exports.previewCeoFreeSignupCode = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    requireAuth: false,
+    rateLimit: true,
+    publicScope: "previewCeoFreeSignupCode",
+    publicRateLimit: { limit: 30, windowMs: 10 * 60 * 1000 }
+  });
+  const code = normalizeCeoFreeCodeInput(data?.code || "");
+  if (!code) {
+    return { ok: true, valid: false, message: "Enter a valid invite code." };
+  }
+  const ref = db.collection(CEO_FREE_CODE_COLLECTION).doc(code);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    return { ok: true, valid: false, message: "Invite code not found." };
+  }
+  const payload = snap.data() || {};
+  if (payload.revoked === true) {
+    return { ok: true, valid: false, message: "Invite code is no longer active." };
+  }
+  if (payload.consumed === true) {
+    return { ok: true, valid: false, message: "Invite code has already been used." };
+  }
+  if (payload.expiresAt && typeof payload.expiresAt.toMillis === "function" && payload.expiresAt.toMillis() < Date.now()) {
+    return { ok: true, valid: false, message: "Invite code has expired." };
+  }
+  return { ok: true, valid: true, code, message: "Invite code accepted." };
+});
+
 exports.claimCeoFreeSignupCode = functions.https.onCall(async (data, context) => {
   await enforceCallableSecurity(context, {
     rateLimit: { maxPerMin: 12, maxPerDay: 120 }
@@ -3864,12 +3893,9 @@ const STRIPE_PROMOS = {
   },
   CSU50: {
     code: "CSU50",
+    promotionCodeId: "promo_1T4ZHPQ4Ij3ax7maC8xQxnSu",
   },
 };
-const CSU_APPROVED_EMAIL_DOMAINS = Object.freeze([
-  "colostate.edu",
-  "rams.colostate.edu",
-]);
 const stripeWebhookSecrets = { secrets: ["STRIPE_SECRET", "STRIPE_WEBHOOK_SECRET"] };
 
 exports.redeemPoints = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
@@ -4547,23 +4573,13 @@ async function resolveMembershipPromo({
           { reason: "PROMO_MONTHLY_ONLY" }
         );
       }
-      const normalizedAuthEmail = String(authEmail || "").trim().toLowerCase();
-      const emailDomain = normalizedAuthEmail.includes("@") ? normalizedAuthEmail.split("@").pop() : "";
-      const isEduEmail = normalizedAuthEmail.endsWith(".edu");
-      const isApprovedCsuDomain = CSU_APPROVED_EMAIL_DOMAINS.includes(emailDomain);
-      if (!isEduEmail && !isApprovedCsuDomain) {
-        throw new HttpsError(
-          "failed-precondition",
-          "CSU50 is only available for .edu or approved CSU email domains.",
-          { reason: "PROMO_EDU_ONLY" }
-        );
-      }
-      if (!stripe) {
+      const promotionCodeId = String(STRIPE_PROMOS.CSU50.promotionCodeId || "").trim();
+      if (!promotionCodeId && !stripe) {
         throw new HttpsError("failed-precondition", "Promo validation requires Stripe to be configured.");
       }
-      const promotionCodeId = await getStripePromotionCodeIdByCode(stripe, STRIPE_PROMOS.CSU50.code);
+      const resolvedPromotionCodeId = promotionCodeId || await getStripePromotionCodeIdByCode(stripe, STRIPE_PROMOS.CSU50.code);
       return {
-        discount: { promotion_code: promotionCodeId },
+        discount: { promotion_code: resolvedPromotionCodeId },
         promoTag: "csu50",
         promoCode: promoInput,
         firstMonthOnly: true,
