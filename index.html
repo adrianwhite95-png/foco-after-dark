@@ -24419,6 +24419,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.74",
+        date: "2026-03-06",
+        added: [
+          "CEO global +1 gift now sends a push notification broadcast when tokens are granted"
+        ],
+        improved: [
+          "Gift popup now always computes and displays a true 14-day expiration from the drop time"
+        ],
+        fixed: [
+          "Removed stale date text edge-cases where older payload copy could show the wrong expiration day"
+        ]
+      },
+      {
         version: "v0.9.73",
         date: "2026-03-06",
         added: [
@@ -33803,17 +33816,20 @@ let onboardingIndex = 0;
           ? (payload.title || "You just got rewarded +1 voucher token 🎉")
           : "Vouchers added";
       }
+      const createdAt = toDateSafe(payload?.createdAt);
+      const rawExpiresAt = toDateSafe(payload?.expiresAt);
+      const effectiveExpiresAt = rawExpiresAt
+        || (createdAt ? new Date(createdAt.getTime() + (14 * 24 * 60 * 60 * 1000)) : null);
+      const expiresLabel = effectiveExpiresAt
+        ? formatMST(effectiveExpiresAt, { month: "short", day: "numeric" })
+        : "";
       if (voucherGrantBody) {
-        const expiresAt = toDateSafe(payload?.expiresAt);
-        const expiresLabel = expiresAt ? formatMST(expiresAt, { month: "short", day: "numeric" }) : "";
         voucherGrantBody.textContent = fromNotice
-          ? (payload.message || `FoCo After Dark just added +1 voucher token to your balance${expiresLabel ? ` until ${expiresLabel}` : " for 14 days"}.`)
+          ? `FoCo After Dark just added +1 voucher token to your balance${expiresLabel ? ` until ${expiresLabel}` : " for 14 days"}.`
           : `Good news — you received ${amount} voucher token${amount === 1 ? "" : "s"}${expiresLabel ? ` valid until ${expiresLabel}` : " for 14 days"}.`;
       }
       if (voucherGrantHelper) {
-        voucherGrantHelper.textContent = fromNotice
-          ? (payload.helperText || "Valid for 14 days from the drop date.")
-          : "Valid for 14 days from the drop date.";
+        voucherGrantHelper.textContent = "Valid for 14 days from the drop date.";
       }
       activeVoucherRewardNotice = fromNotice ? { id: noticeId } : null;
       voucherGrantModal.classList.add("active");

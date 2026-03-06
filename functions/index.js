@@ -7696,6 +7696,22 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
       skippedCount,
     }, { merge: true });
 
+    // Send one broadcast push just like venue alert-style delivery.
+    let push = null;
+    if (grantedCount > 0) {
+      try {
+        push = await sendPushToAll({
+          title: "FoCo Gift Drop 🎁",
+          body: "You just received a +1 voucher token gift from FoCo After Dark.",
+          link: "/#pass",
+          source: "admin-token-gift",
+          dedupeKey: `admin-token-gift:${campaignId}`,
+        });
+      } catch (pushErr) {
+        console.warn("admin token gift push failed", pushErr?.message || pushErr);
+      }
+    }
+
     return {
       ok: true,
       campaignId,
@@ -7704,6 +7720,7 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
       eligibleCount,
       grantedCount,
       skippedCount,
+      push,
     };
   } catch (err) {
     if (err instanceof HttpsError) throw err;
