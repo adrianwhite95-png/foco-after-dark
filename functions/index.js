@@ -4540,6 +4540,18 @@ async function resolveMembershipPromo({
 }) {
   const promoInput = normalizePromoCodeInput(promoCodeInput);
   const billingInterval = normalizeBillingIntervalKey(interval);
+  const resolveCouponFromPromotionCode = async (promotionCodeId) => {
+    const trimmedId = String(promotionCodeId || "").trim();
+    if (!trimmedId || !stripe) return "";
+    try {
+      const promo = await stripe.promotionCodes.retrieve(trimmedId);
+      const couponId = String(promo?.coupon?.id || "").trim();
+      return couponId;
+    } catch (err) {
+      console.warn("Failed to resolve coupon for promo code", trimmedId, readStripeErrorMessage(err));
+      return "";
+    }
+  };
   if (promoInput) {
     if (promoInput === "FOCOFAM20") {
       return {
@@ -4562,8 +4574,10 @@ async function resolveMembershipPromo({
         throw new HttpsError("failed-precondition", "Promo validation requires Stripe to be configured.");
       }
       const resolvedPromotionCodeId = promotionCodeId || await getStripePromotionCodeIdByCode(stripe, STRIPE_PROMOS.CSU50.code);
+      const resolvedCouponId = await resolveCouponFromPromotionCode(resolvedPromotionCodeId);
       return {
-        discount: { promotion_code: resolvedPromotionCodeId },
+        // Prefer coupon id to avoid Stripe "new customer only" promotion-code restrictions.
+        discount: resolvedCouponId ? { coupon: resolvedCouponId } : { promotion_code: resolvedPromotionCodeId },
         promoTag: "csu50",
         promoCode: promoInput,
         firstMonthOnly: true,

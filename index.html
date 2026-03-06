@@ -23912,6 +23912,19 @@
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
       {
+        version: "v0.9.47",
+        date: "2026-03-05",
+        added: [
+          "CSU50 checkout now retries with coupon-backed discount application for broader account eligibility"
+        ],
+        improved: [
+          "Promo pricing and promo messaging now stay consistent when switching between membership plans"
+        ],
+        fixed: [
+          "Removed lingering CSU50 eligibility messaging that conflicted with current membership promo behavior"
+        ]
+      },
+      {
         version: "v0.9.46",
         date: "2026-03-05",
         added: [
@@ -30263,8 +30276,6 @@ let onboardingIndex = 0;
         } else if (errCode === "failed-precondition") {
           if (detailsReason === "PROMO_MONTHLY_ONLY") {
             msg = "CSU50 applies to Monthly memberships only.";
-          } else if (detailsReason === "PROMO_EDU_ONLY") {
-            msg = "CSU50 is only available for approved .edu emails.";
           } else if (detailsReason) {
             msg = `Could not start payment (${detailsReason}).`;
           } else {
@@ -30643,10 +30654,6 @@ let onboardingIndex = 0;
           const reason = String(err?.details?.reason || "").toUpperCase();
           const rawMessage = String(err?.message || "");
           const lowered = rawMessage.toLowerCase();
-          if (reason === "PROMO_EDU_ONLY" || (lowered.includes("csu50") && lowered.includes(".edu"))) {
-            showToast("CSU50 is for .edu emails only.");
-            return false;
-          }
           if (reason === "PROMO_MONTHLY_ONLY" || (lowered.includes("csu50") && lowered.includes("monthly"))) {
             showToast("CSU50 applies to Monthly memberships only.");
             return false;
@@ -47152,7 +47159,7 @@ let onboardingIndex = 0;
         if (detailsMemberMessage) {
           return enforcePaymentMessageGuard(detailsMemberMessage, "Could not start payment right now. Please try again.");
         }
-        if (message.includes("promo") || message.includes(".edu")) {
+        if (message.includes("promo")) {
           return "Promo code could not be applied. Remove it and try again.";
         }
         if (message.includes("csu50") && message.includes("monthly")) {
