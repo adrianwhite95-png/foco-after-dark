@@ -35161,35 +35161,45 @@ let onboardingIndex = 0;
       const tierKey = normalizeTierKey(currentMembershipTier)
         || normalizeTierKey(memberProfile?.tier)
         || "standard";
-      if (tierKey !== "standard" && tierKey !== "vip") {
+      const isPurchasableTier = (tierKey === "standard" || tierKey === "vip");
+      const isUnlimitedTier = (tierKey === "ceo_free" || tierKey === "ceo" || tierKey === "free");
+      if (!isPurchasableTier && !isUnlimitedTier) {
         voucherOptions.innerHTML = "<p style='color:#94a3b8;'>Token packs are available for active Standard or VIP members.</p>";
         if (voucherPaymentError) voucherPaymentError.textContent = "";
         if (voucherMonthOnlyNote) voucherMonthOnlyNote.textContent = "";
         voucherModal.classList.add("active");
         return;
       }
-      const packs = voucherPacks[tierKey] || [];
+      const packTierKey = isPurchasableTier ? tierKey : "vip";
+      const packs = voucherPacks[packTierKey] || [];
       if (voucherMonthOnlyNote) {
-        const tierLabel = tierKey === "vip" ? "VIP" : "Standard";
-        voucherMonthOnlyNote.textContent = `${tierLabel} pricing shown. Extra voucher tokens apply to your current billing month only.`;
+        if (isPurchasableTier) {
+          const tierLabel = tierKey === "vip" ? "VIP" : "Standard";
+          voucherMonthOnlyNote.textContent = `${tierLabel} pricing shown. Extra voucher tokens apply to your current billing month only.`;
+        } else {
+          voucherMonthOnlyNote.textContent = "Your current plan already includes unlimited redemptions. Token packs are optional.";
+        }
       }
       voucherOptions.innerHTML = packs.map(pack => {
         const suffix = pack.label || (pack.amount === 1 ? "redemption token" : "redemption tokens");
         const label = `+${pack.amount} ${suffix}`;
+        const ctaText = isPurchasableTier ? "Purchase" : "Included";
+        const disabledAttr = isPurchasableTier ? "" : "disabled";
         return `
         <div class="perk-row" style="justify-content:space-between;background:rgba(15,23,42,0.8);padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,0.3);margin-bottom:8px;">
           <div style="text-align:left;">
             <strong style="display:block;font-size:13px;">${label}</strong>
             <div class="voucher-price"><span>${pack.price}</span></div>
           </div>
-          <button class="btn btn-primary" type="button" data-perk="${pack.id}" data-amount="${pack.amount}" data-price="${pack.price}" style="width:auto;padding:6px 12px;font-size:11px;">
-            Purchase
+          <button class="btn btn-primary" type="button" data-perk="${pack.id}" data-amount="${pack.amount}" data-price="${pack.price}" ${disabledAttr} style="width:auto;padding:6px 12px;font-size:11px;${isPurchasableTier ? "" : "opacity:.75;cursor:not-allowed;"}">
+            ${ctaText}
           </button>
         </div>
       `;
       }).join("\n") || "<p style='color:#94a3b8;'>No add-ons available.</p>";
       voucherModal.classList.add("active");
       if (voucherPaymentError) voucherPaymentError.textContent = "";
+      if (!isPurchasableTier) return;
       voucherOptions.querySelectorAll("button[data-perk]").forEach(btn => {
         btn.addEventListener("click", () => {
           const packId = btn.dataset.perk;
