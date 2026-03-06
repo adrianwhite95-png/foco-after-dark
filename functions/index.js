@@ -7516,42 +7516,63 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
       nextPageToken = page.pageToken;
     } while (nextPageToken);
 
-    const memberDocs = [];
-    const memberDocsById = new Map();
+    const uidToAuthUser = new Map(authUsers.map((u) => [u.uid, u]));
+    const emailToAuthUser = new Map(
+      authUsers
+        .map((u) => [String(u.email || "").trim().toLowerCase(), u])
+        .filter(([email]) => !!email)
+    );
+    const resolvedProfiles = new Map(); // uid -> { sourceData, sourceRef, targetRef }
+
+    // Load canonical UID member docs first.
     const memberRefs = authUsers.map((u) => db.collection("members").doc(u.uid));
     for (let i = 0; i < memberRefs.length; i += 250) {
       const chunk = memberRefs.slice(i, i + 250);
       const snaps = await db.getAll(...chunk);
       snaps.forEach((snap) => {
         if (!snap.exists) return;
-        if (memberDocsById.has(snap.id)) return;
-        memberDocsById.set(snap.id, snap);
-        memberDocs.push(snap);
+        const uid = snap.id;
+        if (!uidToAuthUser.has(uid)) return;
+        resolvedProfiles.set(uid, {
+          uid,
+          sourceData: snap.data() || {},
+          sourceRef: snap.ref,
+          targetRef: db.collection("members").doc(uid),
+        });
       });
     }
 
-    // Legacy support: some older member profiles are keyed by non-uid doc ids.
-    // Include email-matched profile docs for auth users missing members/{uid}.
-    const existingUids = new Set(memberDocs.map((snap) => snap.id));
-    const fallbackEmails = authUsers
-      .filter((u) => !existingUids.has(u.uid))
-      .map((u) => String(u.email || "").trim().toLowerCase())
-      .filter(Boolean);
-    const uniqueFallbackEmails = Array.from(new Set(fallbackEmails));
-    for (let i = 0; i < uniqueFallbackEmails.length; i += 10) {
-      const chunk = uniqueFallbackEmails.slice(i, i + 10);
+    // Legacy support: if UID doc missing, resolve by email and still write to UID doc.
+    const missingUsers = authUsers.filter((u) => !resolvedProfiles.has(u.uid));
+    const missingEmails = Array.from(
+      new Set(
+        missingUsers
+          .map((u) => String(u.email || "").trim().toLowerCase())
+          .filter(Boolean)
+      )
+    );
+    for (let i = 0; i < missingEmails.length; i += 10) {
+      const chunk = missingEmails.slice(i, i + 10);
       if (!chunk.length) continue;
       const snap = await db.collection("members").where("email", "in", chunk).get();
       snap.docs.forEach((docSnap) => {
         if (!docSnap.exists) return;
-        if (memberDocsById.has(docSnap.id)) return;
-        memberDocsById.set(docSnap.id, docSnap);
-        memberDocs.push(docSnap);
+        const email = String(docSnap.data()?.email || "").trim().toLowerCase();
+        const authUser = emailToAuthUser.get(email);
+        if (!authUser) return;
+        if (resolvedProfiles.has(authUser.uid)) return;
+        resolvedProfiles.set(authUser.uid, {
+          uid: authUser.uid,
+          sourceData: docSnap.data() || {},
+          sourceRef: docSnap.ref,
+          targetRef: db.collection("members").doc(authUser.uid),
+        });
       });
     }
 
     const now = new Date();
-    const totalMembersScanned = memberDocs.length;
+    const profiles = Array.from(resolvedProfiles.values());
+    const totalMembersScanned = profiles.length;
     let eligibleCount = 0;
     let grantedCount = 0;
     let skippedCount = 0;
@@ -7565,8 +7586,8 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
       pendingWrites = 0;
     };
 
-    for (const docSnap of memberDocs) {
-      const memberData = docSnap.data() || {};
+    for (const profile of profiles) {
+      const memberData = profile.sourceData || {};
       if (!isActiveEligibleForAdminTokenGift(memberData)) {
         skippedCount += 1;
         continue;
@@ -7600,7 +7621,17 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
         },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
-      batch.set(docSnap.ref, update, { merge: true });
+      batch.set(profile.targetRef, {
+        ...(profile.sourceData?.passCode ? { passCode: String(profile.sourceData.passCode).toUpperCase() } : {}),
+        ...(profile.sourceData?.passId ? { passId: String(profile.sourceData.passId).toUpperCase() } : {}),
+        ...(profile.sourceData?.email ? { email: String(profile.sourceData.email).toLowerCase() } : {}),
+        ...update,
+      }, { merge: true });
+      if (profile.sourceRef && profile.sourceRef.path !== profile.targetRef.path) {
+        // Keep legacy profile docs in sync while moving runtime reads/writes to UID docs.
+        batch.set(profile.sourceRef, update, { merge: true });
+        pendingWrites += 1;
+      }
       pendingWrites += 1;
       grantedCount += 1;
       if (pendingWrites >= 400) {
