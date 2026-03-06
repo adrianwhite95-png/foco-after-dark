@@ -5170,6 +5170,92 @@ exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.o
   }
 });
 
+exports.createMembershipCheckoutSession = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
+  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  await assertBillingEnabledOrThrow();
+  const uid = context.auth.uid;
+  const email = (context.auth.token.email || "").toLowerCase();
+  const {
+    tier,
+    interval,
+    priceId
+  } = membershipStripePriceSelection(data?.tier, data?.interval, "createMembershipCheckoutSession");
+  const returnUrlRaw = String(data?.returnUrl || "https://foco-after-dark.web.app").trim();
+  let returnUrl = returnUrlRaw || "https://foco-after-dark.web.app";
+  if (!/^https?:\/\//i.test(returnUrl)) {
+    returnUrl = "https://foco-after-dark.web.app";
+  }
+  if (!returnUrl.includes("{CHECKOUT_SESSION_ID}")) {
+    const glue = returnUrl.includes("?") ? "&" : "?";
+    returnUrl = `${returnUrl}${glue}checkout_session_id={CHECKOUT_SESSION_ID}`;
+  }
+
+  const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
+  assertStripeAllowed(context, memberDocData);
+  const stripe = getStripeClient();
+  const { publishable } = getStripeConfig();
+  if (!publishable) throw new HttpsError("failed-precondition", "Stripe not configured");
+
+  const customerId = await ensureStripeCustomer({
+    stripe,
+    memberRef,
+    memberDocData,
+    uid,
+    email,
+    token: context.auth.token,
+  });
+
+  const environment = String(
+    data?.environment
+    || process.env.FUNCTIONS_EMULATOR && "emulator"
+    || process.env.NODE_ENV
+    || process.env.GCLOUD_PROJECT
+    || "production"
+  ).trim().toLowerCase();
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    ui_mode: "embedded",
+    customer: customerId,
+    line_items: [{ price: priceId, quantity: 1 }],
+    allow_promotion_codes: true,
+    return_url: returnUrl,
+    metadata: {
+      uid,
+      tier,
+      interval,
+      environment,
+    },
+    subscription_data: {
+      metadata: {
+        uid,
+        tier,
+        interval,
+        environment,
+      }
+    }
+  });
+
+  await memberRef.set({
+    requestedTier: tier,
+    requestedBillingInterval: interval,
+    billingProvider: "stripe",
+    stripeCustomerId: customerId,
+    lastStripeCheckoutSessionId: session.id,
+    lastStripeEvent: "checkout.session.created",
+    lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  return {
+    checkoutSessionId: session.id,
+    clientSecret: session.client_secret || null,
+    publishableKey: publishable,
+    tier,
+    interval,
+    priceId,
+  };
+});
+
 exports.confirmMembershipActivation = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
   const uid = context.auth.uid;
@@ -5430,10 +5516,11 @@ exports.stripeWebhook = functions.runWith(stripeWebhookSecrets).https.onRequest(
       const memberCtx = await resolveMemberContextFromStripeObject(intent);
       await applyStripeSubscriptionUpdate(intent, memberCtx, event.type);
     } else if (event.type === "invoice.payment_succeeded"
+      || event.type === "invoice.paid"
       || event.type === "invoice.payment_failed") {
       const memberCtx = await resolveMemberContextFromStripeObject(intent);
       if (memberCtx?.ref && !isStripeExcluded({}, memberCtx.data)) {
-        const paid = event.type === "invoice.payment_succeeded";
+        const paid = event.type === "invoice.payment_succeeded" || event.type === "invoice.paid";
         const periodEnd = intent?.lines?.data?.[0]?.period?.end;
         const periodEndIso = isoFromUnix(periodEnd) || memberCtx.data?.nextRenewal || null;
         const invoiceUpdates = {
@@ -5470,6 +5557,21 @@ exports.stripeWebhook = functions.runWith(stripeWebhookSecrets).https.onRequest(
           lastStripeEvent: "checkout.session.completed:excluded",
           lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
         }, { merge: true });
+      } else if (memberCtx?.ref) {
+        const updates = {
+          lastStripeEvent: "checkout.session.completed",
+          lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastStripeCheckoutSessionId: intent?.id || memberCtx?.data?.lastStripeCheckoutSessionId || null,
+        };
+        if (intent?.customer) updates.stripeCustomerId = intent.customer;
+        await memberCtx.ref.set(updates, { merge: true });
+        const subscriptionId = String(intent?.subscription || "").trim();
+        if (subscriptionId) {
+          const subscription = await retrieveStripeSubscription(stripe, subscriptionId);
+          if (subscription) {
+            await applyStripeSubscriptionUpdate(subscription, memberCtx, "checkout.session.completed");
+          }
+        }
       }
     } else if (
       event.type === "identity.verification_session.processing"

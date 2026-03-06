@@ -15462,28 +15462,16 @@
             <div id="paymentPromoHint" class="payment-promo-hint" style="display:none;"></div>
           </div>
         </div>
-        <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">Secured by Stripe</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">Secured by Stripe Checkout</div>
         <div class="saved-card" id="paymentSavedCard" style="display:none;"></div>
         <form id="paymentForm">
           <div class="field">
-            <label for="cardName">Name on card</label>
-            <input id="cardName" type="text" autocomplete="cc-name" />
-          </div>
-          <div class="field">
-            <label for="membershipPromoCode">Promo code (optional)</label>
-            <div class="membership-promo-row">
-              <input id="membershipPromoCode" type="text" placeholder="" autocomplete="off" />
-              <button type="button" class="btn btn-secondary membership-promo-apply" id="membershipPromoApplyBtn">Try promo code</button>
-            </div>
-            <div id="membershipPromoStatus" class="membership-promo-status"></div>
-          </div>
-          <div class="field">
-            <label>Card & payment method</label>
+            <label>Secure checkout (enter promo code in Stripe)</label>
             <div id="paymentElement"></div>
           </div>
           <div class="error" id="paymentError"></div>
+          <div id="membershipPromoStatus" class="membership-promo-status"></div>
           <div class="payment-actions">
-            <button type="submit" class="btn btn-primary" id="paymentSubmit">Start Membership</button>
             <button type="button" class="btn btn-secondary" id="paymentBackBtn">Back</button>
             <button type="button" class="btn btn-secondary" id="paymentRetrySetupBtn" style="display:none;">Retry setup</button>
           </div>
@@ -18498,7 +18486,6 @@
     let membershipPlanSelectionBusy = false;
     let membershipPaymentPrepInFlight = false;
     let membershipPaymentPrepTimer = null;
-    let lastMembershipPrepKey = "";
     let queuedMembershipPaymentPrep = null;
     function isAuthBusy() {
       return authSubmitInFlight || authTransition || !!screens.auth?.classList.contains("active");
@@ -19603,15 +19590,13 @@
       pendingMembershipInterval = requestedInterval;
       updatePaymentSummary(requestedTier, requestedInterval, { resetPromo: true });
       resetPaymentForm({ keepSummary: true });
-      primeMembershipPromoCodeFromSignup();
       setMembershipPromoStatus("");
-      const prepKey = `${requestedTier}:${requestedInterval}:`;
+      const prepKey = `${requestedTier}:${requestedInterval}:embedded`;
       if (membershipPaymentPrepInFlight) {
         queuedMembershipPaymentPrep = {
           tier: requestedTier,
           interval: requestedInterval,
-          prepKey,
-          promoCode: ""
+          prepKey
         };
         showScreen("payment");
         showToast("Preparing secure checkout...", 1200);
@@ -19635,7 +19620,7 @@
       showToast("Loading secure billing...", 1000);
       membershipPaymentPrepTimer = setTimeout(() => {
         membershipPaymentPrepTimer = null;
-        prepareStripePayment(requestedTier, requestedInterval, prepKey, { promoCode: "" });
+        prepareStripePayment(requestedTier, requestedInterval, prepKey);
       }, 10);
       return true;
     }
@@ -23884,7 +23869,6 @@
     const skipPaymentBtn = document.getElementById("skipPaymentBtn");
     const cardNameInput = document.getElementById("cardName");
     const membershipPromoInput = document.getElementById("membershipPromoCode");
-    const membershipPromoApplyBtn = document.getElementById("membershipPromoApplyBtn");
     const membershipPromoStatus = document.getElementById("membershipPromoStatus");
     const paymentElementContainer = document.getElementById("paymentElement");
     const paymentSubmitBtn = document.getElementById("paymentSubmit");
@@ -23911,6 +23895,32 @@
     const pointsRedeemError = document.getElementById("pointsRedeemError");
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.54",
+        date: "2026-03-05",
+        added: [
+          "Membership billing now always opens a fresh embedded Stripe Checkout session when plan changes"
+        ],
+        improved: [
+          "Final billing flow now relies on Stripe Checkout for promo entry and validation only"
+        ],
+        fixed: [
+          "Removed remaining in-app promo apply logic from the final membership checkout step"
+        ]
+      },
+      {
+        version: "v0.9.53",
+        date: "2026-03-05",
+        added: [
+          "Membership checkout now uses embedded Stripe Checkout with Stripe-native promotion code entry"
+        ],
+        improved: [
+          "Plan changes now create fresh Stripe subscription checkout sessions per selection"
+        ],
+        fixed: [
+          "Removed app-side promo pre-application during final membership billing"
+        ]
+      },
       {
         version: "v0.9.52",
         date: "2026-03-05",
@@ -29844,85 +29854,9 @@ let onboardingIndex = 0;
       });
     }
 
-    if (paymentForm) paymentForm.addEventListener("submit", async (e) => {
+    if (paymentForm) paymentForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      paymentError.textContent = "";
-      paymentSuccess.classList.remove("visible");
-      const attemptedPromoCode = normalizeStudentPromoCode(membershipPromoInput?.value || "");
-      const appliedPromoCode = normalizeStudentPromoCode(membershipAppliedPromoCode || "");
-      if (!pendingMembershipTier) {
-        paymentError.textContent = "Select a membership first.";
-        return;
-      }
-      if (attemptedPromoCode && attemptedPromoCode !== appliedPromoCode) {
-        paymentError.textContent = "Tap Try promo code to apply this code before starting membership.";
-        setMembershipPromoStatus("Promo not applied yet.", "error");
-        return;
-      }
-      if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
-        paymentError.textContent = "Complete signup before billing.";
-        showScreen("membership");
-        return;
-      }
-      if (!stripeInstance || !stripeElements || !stripeClientSecret) {
-        paymentError.textContent = "Payment not ready. Tap Retry setup or choose your plan again.";
-        if (paymentRetrySetupBtn) paymentRetrySetupBtn.style.display = "";
-        return;
-      }
-      const name = cardNameInput?.value?.trim() || undefined;
-      paymentSubmitBtn.disabled = true;
-      const originalText = paymentSubmitBtn.textContent;
-      paymentSubmitBtn.textContent = "Processing…";
-      try {
-        const { error, paymentIntent } = await stripeInstance.confirmPayment({
-          elements: stripeElements,
-          confirmParams: {
-            payment_method_data: {
-              billing_details: {
-                name,
-                email: firebaseAuth.currentUser?.email || undefined
-              }
-            }
-          },
-          redirect: "if_required"
-        });
-        if (error) {
-          paymentError.textContent = formatPaymentError({ code: "payment-error", message: error.message }, "Payment failed. Please try again.");
-          paymentSubmitBtn.disabled = false;
-          paymentSubmitBtn.textContent = originalText;
-          return;
-        }
-        if (paymentIntent && paymentIntent.status === "succeeded") {
-          paymentSuccess.textContent = "Membership Active!";
-          paymentSuccess.classList.add("visible");
-            try {
-              const fn = httpsCallable(functionsClient, "confirmMembershipActivation");
-              await fn({ paymentIntentId: paymentIntent.id });
-            } catch (err) {
-              console.warn("confirmMembershipActivation failed", err);
-            }
-            const tierToActivate = pendingMembershipTier || paymentIntent.metadata?.tier || "standard";
-            const intervalToActivate = pendingMembershipInterval || paymentIntent.metadata?.interval || "month";
-            pendingMembershipTier = null;
-            pendingMembershipInterval = "month";
-            memberProfile = memberProfile || {};
-            memberProfile.billingInterval = normalizeMembershipIntervalSelection(intervalToActivate);
-            if (attemptedPromoCode) {
-              await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
-            }
-            presentReceiptForTier(tierToActivate, "Card", intervalToActivate);
-            completeMembership(tierToActivate, { force: true, interval: intervalToActivate });
-            showScreen("pass");
-          } else {
-            paymentError.textContent = "Payment incomplete. Please try again.";
-        }
-      } catch (err) {
-        console.warn("confirmPayment error", err);
-        paymentError.textContent = normalizeUiErrorMessage(err, "Payment failed. Please try again.");
-      } finally {
-        paymentSubmitBtn.disabled = false;
-        paymentSubmitBtn.textContent = originalText;
-      }
+      paymentError.textContent = "Use the Stripe Checkout panel to complete membership.";
     });
 
     if (skipPaymentBtn) {
@@ -30119,8 +30053,9 @@ let onboardingIndex = 0;
     let stripeElements = null;
     let stripeClientSecret = null;
     let stripePaymentElement = null;
+    let membershipEmbeddedCheckout = null;
+    let membershipCheckoutSessionId = "";
     let membershipPaymentMode = "payment";
-    let membershipAppliedPromoCode = "";
     let membershipPricingPreview = null;
     let membershipPricingPreviewTier = "standard";
     let membershipPricingPreviewInterval = "month";
@@ -30130,19 +30065,15 @@ let onboardingIndex = 0;
     let voucherPaymentComplete = false;
     let voucherHasCardOnFile = false;
 
-    async function prepareStripePayment(tier, interval = "month", prepKey = "", options = {}) {
+    async function prepareStripePayment(tier, interval = "month", prepKey = "") {
       const normalizedTier = normalizeCheckoutTier(tier);
       const normalizedInterval = normalizeMembershipIntervalSelection(interval || "month");
-      const requestedPromoCode = normalizeStudentPromoCode(
-        typeof options?.promoCode === "string" ? options.promoCode : ""
-      );
-      const computedKey = String(prepKey || `${normalizedTier}:${normalizedInterval}:${requestedPromoCode}`);
+      const computedKey = String(prepKey || `${normalizedTier}:${normalizedInterval}:embedded`);
       if (membershipPaymentPrepInFlight) {
         queuedMembershipPaymentPrep = {
           tier: normalizedTier,
           interval: normalizedInterval,
-          prepKey: computedKey,
-          promoCode: requestedPromoCode
+          prepKey: computedKey
         };
         return;
       }
@@ -30170,10 +30101,6 @@ let onboardingIndex = 0;
           await authUser.getIdToken(true);
         } catch (_) {
           paymentError.textContent = "Finalizing secure login... please retry in a moment.";
-          if (paymentSubmitBtn) {
-            paymentSubmitBtn.disabled = true;
-            paymentSubmitBtn.textContent = "Start Membership";
-          }
           if (paymentRetrySetupBtn) {
             paymentRetrySetupBtn.style.display = "";
             paymentRetrySetupBtn.disabled = false;
@@ -30185,14 +30112,6 @@ let onboardingIndex = 0;
           return;
         }
       }
-      if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
-        paymentError.textContent = "Complete signup before billing.";
-        showScreen("membership");
-        setMembershipPromoStatus("", "error");
-        membershipPaymentPrepInFlight = false;
-        queuedMembershipPaymentPrep = null;
-        return;
-      }
       if (isStripeExcludedMember()) {
         showToast("This account does not use Stripe billing.");
         showScreen("pass");
@@ -30201,51 +30120,33 @@ let onboardingIndex = 0;
         queuedMembershipPaymentPrep = null;
         return;
       }
-      if (
-        computedKey
-        && computedKey === lastMembershipPrepKey
-        && stripeClientSecret
-        && paymentElementContainer
-        && paymentElementContainer.childElementCount > 0
-      ) {
-        if (paymentSubmitBtn) {
-          paymentSubmitBtn.disabled = false;
-          paymentSubmitBtn.textContent = "Start Membership";
-        }
-        if (requestedPromoCode) {
-          setMembershipPromoStatus("Promo code already applied.", "success");
-        } else {
-          setMembershipPromoStatus("");
-        }
-        membershipPaymentPrepInFlight = false;
-        queuedMembershipPaymentPrep = null;
-        return;
-      }
       membershipPaymentMode = "payment";
       stripeClientSecret = null;
-      if (paymentElementContainer) paymentElementContainer.innerHTML = "";
-      if (paymentSubmitBtn) {
-        paymentSubmitBtn.disabled = true;
-        paymentSubmitBtn.textContent = "Preparing...";
+      membershipCheckoutSessionId = "";
+      if (membershipEmbeddedCheckout) {
+        try { membershipEmbeddedCheckout.destroy(); } catch (_) {}
+        membershipEmbeddedCheckout = null;
       }
+      if (paymentElementContainer) paymentElementContainer.innerHTML = "";
       if (paymentRetrySetupBtn) {
         paymentRetrySetupBtn.style.display = "none";
         paymentRetrySetupBtn.disabled = false;
         paymentRetrySetupBtn.textContent = "Retry setup";
       }
       if (paymentSavedCard) paymentSavedCard.style.display = "none";
-      if (requestedPromoCode) {
-        setMembershipPromoStatus(`Checking ${requestedPromoCode}...`);
-      } else {
-        setMembershipPromoStatus("");
-      }
+      setMembershipPromoStatus("Loading Stripe Checkout… enter promo code there.", "");
       try {
-        const invokeMembershipIntent = async (promoValue = "") => invokeCallableWithRetry(
-          "createMembershipPaymentIntent",
-          { tier: normalizedTier, interval: normalizedInterval, promoCode: String(promoValue || "").trim() },
+        const invokeMembershipSession = async () => invokeCallableWithRetry(
+          "createMembershipCheckoutSession",
           {
-            actionKey: "createMembershipPaymentIntent",
-            lockKey: `membershipIntent:${firebaseAuth.currentUser?.uid || "anon"}:${normalizedTier}:${normalizedInterval}`,
+            tier: normalizedTier,
+            interval: normalizedInterval,
+            returnUrl: `${window.location.origin}/`,
+            environment: (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "local" : "production"
+          },
+          {
+            actionKey: "createMembershipCheckoutSession",
+            lockKey: `membershipSession:${firebaseAuth.currentUser?.uid || "anon"}:${normalizedTier}:${normalizedInterval}`,
             retries: 3,
             timeoutMs: 18000,
             baseDelayMs: 320,
@@ -30255,7 +30156,7 @@ let onboardingIndex = 0;
         );
         let resp;
         try {
-          resp = await invokeMembershipIntent(requestedPromoCode);
+          resp = await invokeMembershipSession();
         } catch (err) {
           const errCode = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
           const authRetry = errCode === "unauthenticated";
@@ -30263,66 +30164,58 @@ let onboardingIndex = 0;
             try { await firebaseAuth.currentUser?.getIdToken?.(true); } catch (_) {}
           }
           if (authRetry) {
-            resp = await invokeMembershipIntent(requestedPromoCode);
+            resp = await invokeMembershipSession();
           } else {
             throw err;
           }
         }
         const data = resp?.data || {};
-        if (data.alreadyActive) {
-          pendingMembershipTier = null;
-          pendingMembershipInterval = "month";
-          memberProfile = memberProfile || {};
-          memberProfile.billingInterval = normalizeMembershipIntervalSelection(data.interval || interval || "month");
-          membershipAppliedPromoCode = "";
-          membershipPricingPreview = null;
-          setMembershipPromoStatus("");
-          showToast("Membership already active.");
-          showScreen("pass");
-          return;
-        }
         if (!data.publishableKey) {
           throw new Error("Missing Stripe publishable key.");
         }
         if (!data.clientSecret) {
-          throw new Error("Missing client secret or publishable key");
+          throw new Error("Missing Checkout client secret.");
         }
         stripeInstance = Stripe(data.publishableKey);
         stripeClientSecret = data.clientSecret;
-        membershipPaymentMode = "payment";
-        const elementsOptions = {
-          clientSecret: stripeClientSecret,
-          wallets: { applePay: "auto", googlePay: "auto" }
-        };
-        stripeElements = stripeInstance.elements(elementsOptions);
-        const paymentElementOptions = { layout: "tabs", paymentMethodOrder: ["card"] };
-        stripePaymentElement = stripeElements.create("payment", paymentElementOptions);
-        stripePaymentElement.mount("#paymentElement");
-        membershipAppliedPromoCode = normalizeStudentPromoCode(data?.promo?.code || "");
-        membershipPricingPreview = normalizePricingPreview(data?.pricing || null);
+        membershipCheckoutSessionId = String(data.checkoutSessionId || "");
+        membershipPricingPreview = null;
         membershipPricingPreviewTier = normalizedTier;
         membershipPricingPreviewInterval = normalizedInterval;
         renderMembershipPricingPreview(normalizedTier, normalizedInterval, {
-          pricing: membershipPricingPreview,
-          promo: data?.promo || { code: membershipAppliedPromoCode, firstMonthOnly: false }
+          pricing: null,
+          promo: null
         });
-        if (membershipAppliedPromoCode) {
-          if (membershipPromoInput) membershipPromoInput.value = membershipAppliedPromoCode;
-          setMembershipPromoStatus(`${membershipAppliedPromoCode} applied.`, "success");
-        } else if (requestedPromoCode) {
-          setMembershipPromoStatus("Promo not confirmed by billing yet.", "error");
-        } else {
-          setMembershipPromoStatus("");
+        const embeddedCheckout = await stripeInstance.initEmbeddedCheckout({
+          fetchClientSecret: async () => stripeClientSecret,
+          onComplete: async () => {
+            showToast("Payment submitted. Finalizing membership…", 2600);
+            setMembershipPromoStatus("Stripe confirmed checkout. Activating membership…", "success");
+            await refreshMemberProfile(true);
+            const status = String(memberProfile?.membershipStatus || "").toLowerCase();
+            const paymentStatus = String(memberProfile?.paymentStatus || "").toLowerCase();
+            if (status === "active" || paymentStatus === "active") {
+              const completedTier = normalizeTierKey(memberProfile?.tier || normalizedTier);
+              const completedInterval = normalizeMembershipIntervalSelection(memberProfile?.billingInterval || normalizedInterval);
+              pendingMembershipTier = null;
+              pendingMembershipInterval = "month";
+              completeMembership(completedTier, { force: true, interval: completedInterval });
+              showScreen("pass");
+              return;
+            }
+            showToast("Checkout complete. Membership is syncing…", 2600);
+          }
+        });
+        membershipEmbeddedCheckout = embeddedCheckout;
+        if (paymentElementContainer) {
+          paymentElementContainer.innerHTML = "";
+          membershipEmbeddedCheckout.mount("#paymentElement");
         }
-        if (paymentSubmitBtn) {
-          paymentSubmitBtn.disabled = false;
-          paymentSubmitBtn.textContent = "Start Membership";
-        }
-        lastMembershipPrepKey = computedKey;
+        setMembershipPromoStatus("Promo codes are entered and validated in Stripe Checkout.", "");
       } catch (err) {
         const errCode = String(err?.code || "").replace(/^functions\//, "").toLowerCase();
         const detailsReason = String(err?.details?.reason || "").trim().toUpperCase();
-        console.warn("createMembershipPaymentIntent failed", {
+        console.warn("createMembershipCheckoutSession failed", {
           code: errCode || "unknown",
           message: String(err?.message || ""),
           details: err?.details || null,
@@ -30335,15 +30228,9 @@ let onboardingIndex = 0;
         } else if (errCode === "permission-denied" || errCode === "unauthenticated") {
           msg = "Please log in again and retry.";
         } else if (errCode === "invalid-argument") {
-          msg = requestedPromoCode
-            ? "Promo code could not be applied. Check the code and try again."
-            : "Invalid plan selection. Please try again.";
+          msg = "Invalid plan selection. Please try again.";
         } else if (errCode === "failed-precondition") {
-          if (detailsReason === "PROMO_EDU_ONLY") {
-            msg = "CSU50 requires a valid .edu or CSU email address.";
-          } else if (detailsReason === "PROMO_APPLY_FAILED") {
-            msg = "Promo code could not be applied. Please retry promo setup.";
-          } else if (detailsReason) {
+          if (detailsReason) {
             msg = `Could not start payment (${detailsReason}).`;
           } else {
             msg = mapMemberFacingError(err, "payment");
@@ -30352,18 +30239,9 @@ let onboardingIndex = 0;
           msg = mapMemberFacingError(err, "payment");
         }
         paymentError.textContent = enforcePaymentMessageGuard(msg, "Could not start payment right now. Please try again.");
-        if (requestedPromoCode) {
-          setMembershipPromoStatus(paymentError.textContent || "Promo code could not be applied.", "error");
-        } else {
-          setMembershipPromoStatus("", "error");
-        }
-        membershipAppliedPromoCode = "";
+        setMembershipPromoStatus(paymentError.textContent || "Could not load Stripe Checkout.", "error");
         membershipPricingPreview = null;
         renderMembershipPricingPreview(normalizedTier, normalizedInterval, { pricing: null, promo: null });
-        if (paymentSubmitBtn) {
-          paymentSubmitBtn.disabled = true;
-          paymentSubmitBtn.textContent = "Start Membership";
-        }
         if (paymentRetrySetupBtn) {
           paymentRetrySetupBtn.style.display = "";
           paymentRetrySetupBtn.disabled = false;
@@ -30376,9 +30254,7 @@ let onboardingIndex = 0;
           queuedMembershipPaymentPrep = null;
           if (String(nextPrep.prepKey || "") !== String(computedKey || "")) {
             setTimeout(() => {
-              prepareStripePayment(nextPrep.tier, nextPrep.interval, nextPrep.prepKey, {
-                promoCode: normalizeStudentPromoCode(nextPrep.promoCode || "")
-              });
+              prepareStripePayment(nextPrep.tier, nextPrep.interval, nextPrep.prepKey);
             }, 0);
           }
         }
@@ -30649,16 +30525,12 @@ let onboardingIndex = 0;
       }
       try {
         const fn = httpsCallable(functionsClient, "chargeMembershipOnFile");
-        const promoCode = normalizeStudentPromoCode(membershipAppliedPromoCode || membershipPromoInput?.value || "");
-        const hasPromoAttempt = !!promoCode;
         const resp = await fn({
           tier,
           interval,
-          promoCode,
           paymentMethodId: options?.paymentMethodId || ""
         });
         const data = resp?.data || {};
-        const hasPromoOutcome = hasPromoAttempt || !!String(data.membershipPromoTag || "").trim();
         const syncLocalMembershipBilling = () => {
           memberProfile = memberProfile || {};
           memberProfile.tier = tier;
@@ -30675,9 +30547,6 @@ let onboardingIndex = 0;
         if (data.alreadyActive) {
           pendingMembershipTier = null;
           syncLocalMembershipBilling();
-          if (hasPromoOutcome) {
-            await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
-          }
           completeMembership(tier, { force: true, interval: data.interval || interval });
           return true;
         }
@@ -30694,9 +30563,6 @@ let onboardingIndex = 0;
             }
             pendingMembershipTier = null;
             pendingMembershipInterval = "month";
-            if (hasPromoOutcome) {
-              await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
-            }
             presentReceiptForTier(tier, "Card on file", data.interval || interval);
             completeMembership(tier, { force: true, interval: data.interval || interval });
             return true;
@@ -30707,9 +30573,6 @@ let onboardingIndex = 0;
           pendingMembershipTier = null;
           pendingMembershipInterval = "month";
           syncLocalMembershipBilling();
-          if (hasPromoOutcome) {
-            await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
-          }
           presentReceiptForTier(tier, "Card on file", data.interval || interval);
           completeMembership(tier, { force: true, interval: data.interval || interval });
           return true;
@@ -43291,12 +43154,12 @@ let onboardingIndex = 0;
       };
       if (currentScreenName === "payment" || membershipPaymentPrepInFlight || stage === "payment") {
         if (currentScreenName !== "payment") {
-          const prepKey = `${normalizeCheckoutTier(pendingMembershipTier)}:${pendingMembershipInterval}:`;
+          const prepKey = `${normalizeCheckoutTier(pendingMembershipTier)}:${pendingMembershipInterval}:embedded`;
           showScreen("payment");
           if (!stripeClientSecret && !membershipPaymentPrepInFlight) {
             setTimeout(() => {
               if (currentScreenName !== "payment" || membershipPaymentPrepInFlight) return;
-              prepareStripePayment(pendingMembershipTier, pendingMembershipInterval, prepKey, { promoCode: "" });
+              prepareStripePayment(pendingMembershipTier, pendingMembershipInterval, prepKey);
             }, 0);
           }
         }
@@ -44773,91 +44636,8 @@ let onboardingIndex = 0;
         const retryInterval = normalizeMembershipIntervalSelection(
           pendingMembershipInterval || memberProfile?.requestedBillingInterval || memberProfile?.billingInterval || "month"
         );
-        const promoCode = normalizeStudentPromoCode(membershipAppliedPromoCode || "");
-        const prepKey = `${retryTier}:${retryInterval}:${promoCode}`;
-        prepareStripePayment(retryTier, retryInterval, prepKey, { promoCode });
-      });
-    }
-    let promoAutoApplyTimer = null;
-    async function applyMembershipPromoCode(promoCode) {
-      const normalizedPromo = normalizeStudentPromoCode(promoCode || "");
-      if (!normalizedPromo) {
-        setMembershipPromoStatus("Enter a promo code first.", "error");
-        return;
-      }
-      const targetTier = normalizeCheckoutTier(pendingMembershipTier || getRequestedTier(memberProfile));
-      const targetInterval = normalizeMembershipIntervalSelection(
-        pendingMembershipInterval || memberProfile?.requestedBillingInterval || memberProfile?.billingInterval || "month"
-      );
-      const prepKey = `${targetTier}:${targetInterval}:${normalizedPromo}`;
-      if (membershipPromoApplyBtn) {
-        membershipPromoApplyBtn.disabled = true;
-        membershipPromoApplyBtn.textContent = "Applying...";
-      }
-      setMembershipPromoStatus(`Checking ${normalizedPromo}...`);
-      try {
-        await prepareStripePayment(targetTier, targetInterval, prepKey, { promoCode: normalizedPromo });
-      } finally {
-        if (membershipPromoApplyBtn) {
-          membershipPromoApplyBtn.disabled = false;
-          membershipPromoApplyBtn.textContent = "Try promo code";
-        }
-      }
-    }
-    if (membershipPromoInput) {
-      membershipPromoInput.addEventListener("input", () => {
-        const normalized = normalizeStudentPromoCode(membershipPromoInput.value || "");
-        if (membershipPromoInput.value !== normalized) {
-          membershipPromoInput.value = normalized;
-        }
-        if (!normalized) {
-          membershipAppliedPromoCode = "";
-          membershipPricingPreview = null;
-          renderMembershipPricingPreview(
-            normalizeCheckoutTier(pendingMembershipTier || getRequestedTier(memberProfile)),
-            normalizeMembershipIntervalSelection(pendingMembershipInterval || memberProfile?.requestedBillingInterval || memberProfile?.billingInterval || "month"),
-            { pricing: null, promo: null }
-          );
-          setMembershipPromoStatus("");
-          return;
-        }
-        if (normalized !== normalizeStudentPromoCode(membershipAppliedPromoCode || "")) {
-          membershipPricingPreview = null;
-          renderMembershipPricingPreview(
-            normalizeCheckoutTier(pendingMembershipTier || getRequestedTier(memberProfile)),
-            normalizeMembershipIntervalSelection(pendingMembershipInterval || memberProfile?.requestedBillingInterval || memberProfile?.billingInterval || "month"),
-            { pricing: null, promo: null }
-          );
-          setMembershipPromoStatus("Tap Try promo code to apply.", "");
-          if (
-            (normalized === "CSU30" || normalized === "CSU50")
-            && currentScreenName === "payment"
-            && !membershipPaymentPrepInFlight
-          ) {
-            if (promoAutoApplyTimer) {
-              clearTimeout(promoAutoApplyTimer);
-            }
-            promoAutoApplyTimer = setTimeout(() => {
-              promoAutoApplyTimer = null;
-              const stillTyped = normalizeStudentPromoCode(membershipPromoInput?.value || "");
-              if ((stillTyped === "CSU30" || stillTyped === "CSU50") && stillTyped !== normalizeStudentPromoCode(membershipAppliedPromoCode || "")) {
-                applyMembershipPromoCode(stillTyped).catch(() => {});
-              }
-            }, 320);
-          }
-        }
-      });
-      membershipPromoInput.addEventListener("keydown", (evt) => {
-        if (evt.key !== "Enter") return;
-        evt.preventDefault();
-        const promoCode = normalizeStudentPromoCode(membershipPromoInput.value || "");
-        applyMembershipPromoCode(promoCode).catch(() => {});
-      });
-    }
-    if (membershipPromoApplyBtn) {
-      membershipPromoApplyBtn.addEventListener("click", async () => {
-        const promoCode = normalizeStudentPromoCode(membershipPromoInput?.value || "");
-        await applyMembershipPromoCode(promoCode);
+        const prepKey = `${retryTier}:${retryInterval}:embedded`;
+        prepareStripePayment(retryTier, retryInterval, prepKey);
       });
     }
     if (ceoRedemptionBtn) {
@@ -46460,74 +46240,25 @@ let onboardingIndex = 0;
       };
     }
 
-    function getPromoEstimatedPricing(tier, interval = "month", promoCode = "") {
-      const normalizedInterval = normalizeMembershipIntervalSelection(interval);
-      const normalizedTier = normalizeCheckoutTier(tier);
-      const normalizedCode = String(promoCode || "").trim().toUpperCase();
-      if (normalizedCode !== "CSU30" && normalizedCode !== "CSU50") return null;
-      const baseFee = normalizedInterval === "year"
-        ? (normalizedTier === "vip" ? 96 : 50)
-        : (normalizedTier === "vip" ? Number(MEMBERSHIP_FEES.vip) : Number(MEMBERSHIP_FEES.standard));
-      if (!Number.isFinite(baseFee) || baseFee <= 0) return null;
-      const subtotalCents = Math.round(baseFee * 100);
-      const totalCents = Math.max(0, Math.round(subtotalCents * 0.7));
-      return {
-        subtotalCents,
-        totalCents,
-        discountCents: Math.max(0, subtotalCents - totalCents),
-        currency: "usd"
-      };
-    }
-
     function renderMembershipPricingPreview(tier, interval = "month", options = {}) {
       const info = membershipPlanInfo[membershipPlanKey(tier, interval)] || membershipPlanInfo.standard_month;
-      const promo = options.promo && typeof options.promo === "object" ? options.promo : {};
-      const promoCode = String(promo.code || membershipAppliedPromoCode || "").trim().toUpperCase();
-      const pricing = normalizePricingPreview(options.pricing || membershipPricingPreview);
-      const estimatedPricing = getPromoEstimatedPricing(tier, interval, promoCode);
-      const effectivePricing = pricing || estimatedPricing;
-      const firstMonthOnly = promo.firstMonthOnly === true;
-      const hasDiscount = !!effectivePricing
-        && Number(effectivePricing.discountCents || 0) > 0
-        && Number(effectivePricing.totalCents || 0) < Number(effectivePricing.subtotalCents || 0);
+      const hasDiscount = false;
       if (paymentPlanLabel) paymentPlanLabel.textContent = info.label;
-      if (paymentPlanPrice) {
-        paymentPlanPrice.textContent = hasDiscount
-          ? `${formatStripeMoneyCents(effectivePricing.totalCents, effectivePricing.currency)} ${normalizeMembershipIntervalSelection(interval) === "year" ? "/ year" : "/ month"}`
-          : info.price;
-      }
+      if (paymentPlanPrice) paymentPlanPrice.textContent = info.price;
       if (paymentSummaryPrice) paymentSummaryPrice.classList.toggle("is-discounted", hasDiscount);
       if (paymentPromoPriceRow) paymentPromoPriceRow.style.display = hasDiscount ? "inline-flex" : "none";
-      if (paymentPromoPriceOriginal) {
-        paymentPromoPriceOriginal.textContent = hasDiscount
-          ? `${formatStripeMoneyCents(effectivePricing.subtotalCents, effectivePricing.currency)} ${normalizeMembershipIntervalSelection(interval) === "year" ? "/ year" : "/ month"}`
-          : "";
-      }
-      if (paymentPromoPriceDiscounted) {
-        paymentPromoPriceDiscounted.textContent = hasDiscount
-          ? `${formatStripeMoneyCents(effectivePricing.totalCents, effectivePricing.currency)} ${firstMonthOnly ? "first month" : "today"}`
-          : "";
-      }
+      if (paymentPromoPriceOriginal) paymentPromoPriceOriginal.textContent = "";
+      if (paymentPromoPriceDiscounted) paymentPromoPriceDiscounted.textContent = "";
       if (paymentPromoHint) {
-        if (hasDiscount && promoCode) {
-          paymentPromoHint.textContent = (promoCode === "CSU30" || promoCode === "CSU50")
-            ? "CSU50 Applied, you will see 30% discount applied on recurring statements"
-            : `${promoCode} applied${firstMonthOnly ? " · first month only" : ""}`;
-          paymentPromoHint.style.display = "block";
-        } else {
-          paymentPromoHint.textContent = "";
-          paymentPromoHint.style.display = "none";
-        }
+        paymentPromoHint.textContent = "Promo codes are entered and validated in Stripe Checkout.";
+        paymentPromoHint.style.display = "block";
       }
     }
 
     function updatePaymentSummary(tier, interval = "month", options = {}) {
-      const promosEnabled = cfg.on("billing.promos.enabled", true);
       const promoField = membershipPromoInput?.closest(".field");
-      if (promoField) promoField.style.display = promosEnabled ? "" : "none";
-      if (!promosEnabled && membershipPromoInput) membershipPromoInput.value = "";
+      if (promoField) promoField.style.display = "none";
       if (options.resetPromo !== false) {
-        membershipAppliedPromoCode = "";
         membershipPricingPreview = null;
       }
       membershipPricingPreviewTier = normalizeCheckoutTier(tier || "standard");
@@ -46536,9 +46267,6 @@ let onboardingIndex = 0;
       paymentSuccess.classList.remove("visible");
       paymentError.textContent = "";
       if (paymentRetrySetupBtn) paymentRetrySetupBtn.style.display = "none";
-      if (options.skipPrime !== true) {
-        primeMembershipPromoCodeFromSignup();
-      }
     }
 
     function resetPaymentForm(options = {}) {
@@ -46546,12 +46274,16 @@ let onboardingIndex = 0;
       paymentError.textContent = "";
       paymentSuccess.classList.remove("visible");
       if (paymentRetrySetupBtn) paymentRetrySetupBtn.style.display = "none";
-      membershipAppliedPromoCode = "";
       membershipPricingPreview = null;
       setMembershipPromoStatus("");
       stripeClientSecret = null;
       stripeElements = null;
       stripeInstance = null;
+      membershipCheckoutSessionId = "";
+      if (membershipEmbeddedCheckout) {
+        try { membershipEmbeddedCheckout.destroy(); } catch (_) {}
+        membershipEmbeddedCheckout = null;
+      }
       if (paymentElementContainer) paymentElementContainer.innerHTML = "";
       if (options.keepSummary !== true) {
         renderMembershipPricingPreview(membershipPricingPreviewTier || "standard", membershipPricingPreviewInterval || "month");
@@ -47513,7 +47245,9 @@ let onboardingIndex = 0;
         return;
       }
       const interval = normalizeMembershipIntervalSelection(memberProfile?.billingInterval || pendingMembershipInterval || "month");
-      await chargeMembershipOnFile(targetTier, interval);
+      pendingMembershipTier = targetTier;
+      pendingMembershipInterval = interval;
+      openBillingScreenForTier(targetTier, { fallbackScreen: "membership", interval });
     });
 
     function getProfileTierMode(tierRaw) {
