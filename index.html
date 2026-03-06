@@ -13631,6 +13631,98 @@
       color: rgba(171, 198, 222, 0.86);
       letter-spacing: 0.03em;
     }
+    .rewards-compare-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .rewards-plan-card {
+      position: relative;
+      border-radius: 14px;
+      border: 1px solid rgba(129, 156, 188, 0.3);
+      background: linear-gradient(158deg, rgba(4, 10, 24, 0.84), rgba(2, 7, 18, 0.9));
+      padding: 10px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 24px rgba(0, 0, 0, 0.34);
+      overflow: hidden;
+    }
+    .rewards-plan-card::after {
+      content: "";
+      position: absolute;
+      inset: -38% -52%;
+      background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%);
+      transform: translateX(-48%);
+      animation: rewardsSweep 4.2s linear infinite;
+      opacity: 0.26;
+      pointer-events: none;
+    }
+    .rewards-plan-card.boosted {
+      border-color: rgba(255, 47, 184, 0.4);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 18px rgba(255, 47, 184, 0.16), 0 14px 28px rgba(0, 0, 0, 0.42);
+    }
+    .rewards-plan-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 0 0 8px;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #edf6ff;
+      position: relative;
+      z-index: 1;
+    }
+    .rewards-plan-badge {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: 1px solid rgba(34, 211, 238, 0.36);
+      color: #bbf4ff;
+      background: rgba(2, 6, 20, 0.58);
+      white-space: nowrap;
+    }
+    .rewards-plan-card.boosted .rewards-plan-badge {
+      border-color: rgba(255, 47, 184, 0.44);
+      color: #ffd6ee;
+    }
+    .rewards-plan-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 6px;
+      font-size: 11px;
+      color: rgba(220, 234, 248, 0.9);
+      letter-spacing: 0.02em;
+      line-height: 1.35;
+      position: relative;
+      z-index: 1;
+    }
+    .rewards-plan-list strong {
+      color: #f7fbff;
+      font-weight: 800;
+    }
+    .rewards-cycle-note {
+      margin-top: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(2, 6, 23, 0.42);
+      color: rgba(219, 233, 247, 0.95);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 8px 10px;
+    }
+    @media (max-width: 760px) {
+      .rewards-compare-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
     .rewards-footer {
       display: grid;
       gap: 8px;
@@ -13680,6 +13772,7 @@
     @media (prefers-reduced-motion: reduce) {
       .rewards-console::before,
       .rewards-option.ready::after,
+      .rewards-plan-card::after,
       .rewards-token-orb img,
       .rewards-points-value.pulse,
       .rewards-console.celebrate {
@@ -20330,53 +20423,63 @@
     let landingRewardsLastPoints = null;
     function renderLandingRewardsModule() {
       if (!landingRewardsModule || !landingRewardsOptions) return;
-      const loggedInMember = !!(firebaseAuth?.currentUser?.uid || currentPassCode || memberProfile?.uid);
       if (landingRewardsPoints) {
-        landingRewardsPoints.textContent = "500 / 700 / 1000";
+        landingRewardsPoints.textContent = "STANDARD vs VIP";
         landingRewardsPoints.classList.remove("pulse");
       }
       landingRewardsLastPoints = null;
       if (landingRewardsExtraTokens) {
-        landingRewardsExtraTokens.textContent = "+2 · +3 · +5";
+        landingRewardsExtraTokens.textContent = "500→+2 · 700→+3 · 1000→+5";
       }
 
       const tierKey = normalizeTierKey(currentMembershipTier || memberProfile?.tier || "");
       const vipLike = isCeoActive() || isFreeMember() || tierKey === "vip" || tierKey === "ceo_free" || tierKey === "free";
       if (landingRewardsTierBadge) {
-        const badgeText = vipLike ? "VIP BOOST ACTIVE" : "LOYALTY PERKS";
+        const badgeText = vipLike ? "VIP BOOST" : "MEMBERSHIP PERKS";
         landingRewardsTierBadge.textContent = badgeText;
         landingRewardsTierBadge.classList.toggle("boosted", vipLike);
       }
       if (landingTierBoostNote) {
-        landingTierBoostNote.textContent = vipLike
-          ? "VIP point boost active: 1.25x earned points"
-          : "Point rate: Standard 1.0x • VIP 1.25x";
+        landingTierBoostNote.textContent = "Points multiplier: Standard 1.0x • VIP 1.25x";
         landingTierBoostNote.classList.toggle("boosted", vipLike);
       }
       if (landingRenewalBonusNote) {
         landingRenewalBonusNote.textContent = "Monthly renewal bonus: Standard +200 • VIP +300 points";
       }
 
-      landingRewardsOptions.innerHTML = POINTS_TOKEN_REDEMPTIONS.map((option) => {
-        const progressWidth = option.pointsCost === 500 ? 92 : option.pointsCost === 700 ? 76 : 62;
-        return `
-          <article class="rewards-option ready">
-            <div class="rewards-option-head">
-              <span class="rewards-option-label">${option.pointsCost} pts → +${option.tokenAmount} monthly voucher tokens</span>
-              <span class="rewards-option-action">Current cycle only</span>
-            </div>
-            <div class="rewards-progress"><div class="rewards-progress-fill" style="width:${progressWidth}%;"></div></div>
-            <div class="rewards-progress-meta">Redeemed extras expire at cycle end and do not roll over.</div>
+      landingRewardsOptions.innerHTML = `
+        <div class="rewards-compare-grid">
+          <article class="rewards-plan-card">
+            <h4 class="rewards-plan-title">
+              <span>Standard</span>
+              <span class="rewards-plan-badge">$5/mo · $50/yr</span>
+            </h4>
+            <ul class="rewards-plan-list">
+              <li><strong>Points Rate:</strong> 1.0x earning</li>
+              <li><strong>Renewal Bonus:</strong> +200 points</li>
+              <li><strong>Token Packs:</strong> +2 $4.00 · +4 $7.00 · +6 $12.00</li>
+            </ul>
           </article>
-        `;
-      }).join("") + `
-        <article class="rewards-option">
+          <article class="rewards-plan-card boosted">
+            <h4 class="rewards-plan-title">
+              <span>VIP</span>
+              <span class="rewards-plan-badge">$10/mo · $96/yr</span>
+            </h4>
+            <ul class="rewards-plan-list">
+              <li><strong>Points Rate:</strong> 1.25x earning boost</li>
+              <li><strong>Renewal Bonus:</strong> +300 points</li>
+              <li><strong>Token Packs:</strong> +2 $3.50 · +4 $6.00 · +6 $10.50</li>
+            </ul>
+          </article>
+        </div>
+        <article class="rewards-option ready">
           <div class="rewards-option-head">
-            <span class="rewards-option-label">Apply points in your profile rewards panel</span>
-            <button type="button" class="rewards-option-action" data-open-redeem-points>${loggedInMember ? "Open rewards" : "Member login"}</button>
+            <span class="rewards-option-label">Points Redemption Menu</span>
+            <span class="rewards-option-action">How it works</span>
           </div>
           <div class="rewards-progress"><div class="rewards-progress-fill" style="width:100%;"></div></div>
-          <div class="rewards-progress-meta">This panel explains the loyalty system. Your live balances stay on your profile.</div>
+          <div class="rewards-progress-meta">500 pts = +2 monthly tokens · 700 pts = +3 · 1000 pts = +5</div>
+          <div class="rewards-cycle-note">All extra tokens from points apply to the current billing cycle only and do not roll over.</div>
         </article>
       `;
     }
@@ -24172,6 +24275,19 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.64",
+        date: "2026-03-06",
+        added: [
+          "Home loyalty module now presents a clear Standard vs VIP perks comparison with pricing, points rates, renewal bonuses, and token-pack differences"
+        ],
+        improved: [
+          "Rewards panel copy and layout were redesigned as a premium informational feature instead of a personal account dashboard"
+        ],
+        fixed: [
+          "Home-screen rewards rendering no longer leaks personal live balances and now stays stable with iOS/Web navigation"
+        ]
+      },
       {
         version: "v0.9.63",
         date: "2026-03-06",
