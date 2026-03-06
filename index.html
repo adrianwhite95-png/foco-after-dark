@@ -13456,6 +13456,7 @@
       position: relative;
       overflow: hidden;
       gap: 12px;
+      padding: 14px;
     }
     .rewards-console::before {
       content: "";
@@ -13475,8 +13476,8 @@
       margin: 4px 0 0;
       color: rgba(163, 188, 215, 0.88);
       font-size: 12px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      line-height: 1.38;
     }
     .rewards-tier-badge {
       border-radius: 999px;
@@ -13657,10 +13658,25 @@
       transition: transform 0.25s ease, width 0.25s ease;
     }
     .rewards-progress-meta {
-      margin-top: 5px;
+      margin-top: 8px;
       font-size: 11px;
       color: rgba(171, 198, 222, 0.86);
       letter-spacing: 0.03em;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      align-items: center;
+    }
+    .rewards-redemption-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(129, 156, 188, 0.35);
+      background: rgba(2, 8, 22, 0.42);
+      padding: 4px 8px;
+      line-height: 1.2;
+      white-space: nowrap;
     }
     .rewards-compare-grid {
       display: grid;
@@ -13759,8 +13775,57 @@
       padding: 8px 10px;
     }
     @media (max-width: 760px) {
+      .rewards-console {
+        padding: 12px;
+      }
+      .rewards-console-header {
+        gap: 10px;
+      }
+      .rewards-console-header .rewards-subtitle {
+        font-size: 11px;
+        line-height: 1.32;
+      }
+      .rewards-balance-row {
+        padding: 9px 10px;
+      }
+      .rewards-token-summary {
+        padding: 8px 9px;
+      }
+      .rewards-token-summary strong {
+        font-size: 20px;
+      }
       .rewards-compare-grid {
         grid-template-columns: minmax(0, 1fr);
+      }
+      .rewards-plan-card {
+        padding: 9px;
+      }
+      .rewards-plan-title {
+        font-size: 11px;
+      }
+      .rewards-plan-list {
+        font-size: 10px;
+        gap: 5px;
+      }
+      .rewards-redemption-pill {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+      }
+      .rewards-cycle-note {
+        letter-spacing: 0.03em;
+        text-transform: none;
+      }
+    }
+    @media (min-width: 921px) {
+      .rewards-console {
+        padding: 16px;
+      }
+      .rewards-console-header .rewards-subtitle {
+        max-width: 90%;
+      }
+      .rewards-plan-list {
+        gap: 7px;
       }
     }
     .rewards-footer {
@@ -15617,13 +15682,13 @@
                 <header class="landing-live-feed-header rewards-console-header">
                   <div>
                     <span class="launch-live-tag neonLabel">How Rewards Work</span>
-                    <p class="rewards-subtitle">Earn points. Unlock extra vouchers. Keep the night going.</p>
+                    <p class="rewards-subtitle">Earn points, unlock extra vouchers, and keep the night going.</p>
                   </div>
                   <span id="landingRewardsTierBadge" class="rewards-tier-badge">LOYALTY PERKS</span>
                 </header>
                 <div class="rewards-balance-row">
                   <div>
-                    <p class="rewards-label">Point redemptions</p>
+                    <p class="rewards-label">Points redemption options</p>
                     <strong id="landingRewardsPoints" class="rewards-points-value">500 / 700 / 1000</strong>
                   </div>
                   <div class="rewards-token-orb" aria-hidden="true">
@@ -20480,11 +20545,11 @@
         landingRewardsTierBadge.classList.toggle("boosted", vipLike);
       }
       if (landingTierBoostNote) {
-        landingTierBoostNote.textContent = "Points multiplier: Standard 1.0x | VIP 1.25x";
+        landingTierBoostNote.textContent = "Points multiplier: Standard 1.0x, VIP 1.25x.";
         landingTierBoostNote.classList.toggle("boosted", vipLike);
       }
       if (landingRenewalBonusNote) {
-        landingRenewalBonusNote.textContent = "Monthly renewal bonus: Standard +200 | VIP +300 points";
+        landingRenewalBonusNote.textContent = "Monthly renewal bonus: Standard +200 points, VIP +300 points.";
       }
 
       landingRewardsOptions.innerHTML = `
@@ -20495,7 +20560,7 @@
               <span class="rewards-plan-badge">$5/mo / $50/yr</span>
             </h4>
             <ul class="rewards-plan-list">
-              <li><strong>Points Rate:</strong> 1.0x earning</li>
+              <li><strong>Points Rate:</strong> 1.0x point earnings</li>
               <li><strong>Renewal Bonus:</strong> +200 points</li>
               <li><strong>Token Packs:</strong> +2 $4.00 / +4 $7.00 / +6 $12.00</li>
             </ul>
@@ -20506,7 +20571,7 @@
               <span class="rewards-plan-badge">$10/mo / $96/yr</span>
             </h4>
             <ul class="rewards-plan-list">
-              <li><strong>Points Rate:</strong> 1.25x earning boost</li>
+              <li><strong>Points Rate:</strong> 1.25x point earnings</li>
               <li><strong>Renewal Bonus:</strong> +300 points</li>
               <li><strong>Token Packs:</strong> +2 $3.50 / +4 $6.00 / +6 $10.50</li>
             </ul>
@@ -20514,11 +20579,15 @@
         </div>
         <article class="rewards-option ready">
           <div class="rewards-option-head">
-            <span class="rewards-option-label">Points Redemption Menu</span>
-            <span class="rewards-option-action">How it works</span>
+            <span class="rewards-option-label">Points Redemption Options</span>
+            <span class="rewards-option-action">Overview</span>
           </div>
           <div class="rewards-progress"><div class="rewards-progress-fill" style="width:100%;"></div></div>
-          <div class="rewards-progress-meta"><span class="rewards-key-number">500 → +2</span> monthly tokens   <span class="rewards-key-number">700 → +3</span>   <span class="rewards-key-number">1000 → +5</span></div>
+          <div class="rewards-progress-meta">
+            <span class="rewards-redemption-pill"><span class="rewards-key-number">500 → +2</span> monthly tokens</span>
+            <span class="rewards-redemption-pill"><span class="rewards-key-number">700 → +3</span> monthly tokens</span>
+            <span class="rewards-redemption-pill"><span class="rewards-key-number">1000 → +5</span> monthly tokens</span>
+          </div>
           <div class="rewards-cycle-note">All extra tokens from points apply to the current billing cycle only and do not roll over.</div>
         </article>
       `;
@@ -24315,6 +24384,19 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.68",
+        date: "2026-03-06",
+        added: [
+          "Home \"How Rewards Work\" module now uses cleaner redemption chips for each points-to-token option"
+        ],
+        improved: [
+          "Refined spacing, typography, and responsive layout in the rewards module for web and iOS readability"
+        ],
+        fixed: [
+          "Corrected rewards copy grammar and tightened text wrapping/alignment across cards and labels"
+        ]
+      },
       {
         version: "v0.9.67",
         date: "2026-03-06",
