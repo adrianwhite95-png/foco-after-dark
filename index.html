@@ -12611,6 +12611,46 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
+    #redeemModal .modal-field {
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 20%, rgba(148, 163, 184, 0.3));
+      background: linear-gradient(145deg, rgba(6, 14, 30, 0.86), rgba(8, 18, 38, 0.74));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 24px rgba(0, 0, 0, 0.28);
+    }
+    #redeemModal #redeemVenueSelect {
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 44%, rgba(148, 163, 184, 0.46));
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 45%),
+        linear-gradient(145deg, rgba(5, 12, 26, 0.92), rgba(9, 20, 40, 0.84));
+      color: #f8fafc;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 12px 40px 12px 12px;
+      min-height: 46px;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, color-mix(in srgb, var(--accent-primary-live) 85%, #e2e8f0) 50%),
+        linear-gradient(135deg, color-mix(in srgb, var(--accent-primary-live) 85%, #e2e8f0) 50%, transparent 50%);
+      background-position:
+        calc(100% - 18px) calc(50% - 1px),
+        calc(100% - 12px) calc(50% - 1px);
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 22%, transparent),
+        0 0 18px color-mix(in srgb, var(--accent-primary-live) 16%, transparent);
+    }
+    #redeemModal #redeemVenueSelect:focus-visible {
+      outline: none;
+      border-color: color-mix(in srgb, var(--accent-primary-live) 82%, #93c5fd);
+      box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--accent-primary-live) 36%, transparent),
+        0 0 22px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+    }
 
     /* Staff verify flow: high-legibility, fast actions, calmer backlog list */
     #verifyCard .staff-verify-title {
@@ -14932,7 +14972,7 @@
     /* iOS/iPad spacing safety patch: keep cards/controls visibly lower and clear of top overlays */
     @media (max-width: 1366px) {
       body.ios #app .screen {
-        padding-top: max(28px, calc(env(safe-area-inset-top, 0px) + 26px)) !important;
+        padding-top: max(36px, calc(env(safe-area-inset-top, 0px) + 34px)) !important;
         padding-bottom: max(18px, calc(env(safe-area-inset-bottom, 0px) + 18px)) !important;
       }
       body.ios #app .screen .app-title {
@@ -14948,7 +14988,7 @@
       body.ios #passScreen .pass-card,
       body.ios #tonightScreen .card-hd,
       body.ios #venuesScreen .venues-card {
-        margin-top: 14px !important;
+        margin-top: 20px !important;
       }
       body.ios .global-refresh-wrap,
       body.ios #globalRefreshBtn {
@@ -14958,7 +14998,7 @@
 
     @media (max-width: 932px) {
       body.ios #app .screen {
-        padding-top: max(32px, calc(env(safe-area-inset-top, 0px) + 30px)) !important;
+        padding-top: max(42px, calc(env(safe-area-inset-top, 0px) + 40px)) !important;
       }
       body.ios #authScreen .auth-card,
       body.ios #membershipScreen .membership-card,
@@ -14967,7 +15007,7 @@
       body.ios #passScreen .pass-card,
       body.ios #tonightScreen .card-hd,
       body.ios #venuesScreen .venues-card {
-        margin-top: 16px !important;
+        margin-top: 22px !important;
       }
     }
 
