@@ -4864,8 +4864,34 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
   let subscription = await retrieveStripeSubscription(stripe, memberDocData?.stripeSubscriptionId);
   const hasActiveSubscription = subscription && !["canceled", "incomplete_expired"].includes(subscription.status);
   const promoMeta = promoTag ? { promo: promoTag } : {};
+  const createSubscription = async ({ discountInput = discount, promoMetaInput = promoMeta } = {}) => {
+    const createPayload = {
+      customer: customerId,
+      items: [{ price: tierPriceId }],
+      payment_behavior: "default_incomplete",
+      trial_from_plan: false,
+      payment_settings: { save_default_payment_method: "on_subscription" },
+      metadata: { uid, tier: normalizedTier, interval: normalizedInterval, ...promoMetaInput },
+      discounts: discountInput ? [discountInput] : undefined,
+      expand: ["latest_invoice.payment_intent", "items.data.price"],
+    };
+    try {
+      return await stripe.subscriptions.create(createPayload);
+    } catch (err) {
+      if (discountInput && isStripePromoError(err)) {
+        console.warn("Membership promo failed; retrying without discount", readStripeErrorMessage(err));
+        return stripe.subscriptions.create({
+          ...createPayload,
+          metadata: { uid, tier: normalizedTier, interval: normalizedInterval },
+          discounts: undefined,
+        });
+      }
+      throw err;
+    }
+  };
 
   if (hasActiveSubscription) {
+    const subscriptionStatus = String(subscription?.status || "").toLowerCase();
     const currentItem = subscription.items?.data?.[0];
     const currentTier = normalizeTierKey(subscription.metadata?.tier || memberDocData?.tier || normalizedTier);
     const currentInterval = getSubscriptionInterval(subscription, memberDocData?.billingInterval || normalizedInterval);
@@ -4873,7 +4899,15 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
     const planChanged = currentTier !== normalizedTier
       || currentInterval !== normalizedInterval
       || (currentPriceId && currentPriceId !== tierPriceId);
-    if (currentItem && planChanged) {
+    const recreateForPendingSubscription = planChanged && ["incomplete", "past_due", "unpaid"].includes(subscriptionStatus);
+    if (recreateForPendingSubscription) {
+      try {
+        await stripe.subscriptions.cancel(subscription.id, { invoice_now: false, prorate: false });
+      } catch (cancelErr) {
+        console.warn("Failed to cancel pending subscription before recreate", subscription.id, cancelErr?.message || cancelErr);
+      }
+      subscription = await createSubscription();
+    } else if (currentItem && planChanged) {
       subscription = await stripe.subscriptions.update(subscription.id, {
         cancel_at_period_end: false,
         proration_behavior: "create_prorations",
@@ -4892,30 +4926,7 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
       });
     }
   } else {
-    const createPayload = {
-      customer: customerId,
-      items: [{ price: tierPriceId }],
-      payment_behavior: "default_incomplete",
-      trial_from_plan: false,
-      payment_settings: { save_default_payment_method: "on_subscription" },
-      metadata: { uid, tier: normalizedTier, interval: normalizedInterval, ...promoMeta },
-      discounts: discount ? [discount] : undefined,
-      expand: ["latest_invoice.payment_intent", "items.data.price"],
-    };
-    try {
-      subscription = await stripe.subscriptions.create(createPayload);
-    } catch (err) {
-      if (discount && isStripePromoError(err)) {
-        console.warn("Membership promo failed; retrying without discount", readStripeErrorMessage(err));
-        subscription = await stripe.subscriptions.create({
-          ...createPayload,
-          metadata: { uid, tier: normalizedTier, interval: normalizedInterval },
-          discounts: undefined,
-        });
-      } else {
-        throw err;
-      }
-    }
+    subscription = await createSubscription();
   }
 
   const paymentIntent = subscription?.latest_invoice?.payment_intent || null;

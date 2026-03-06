@@ -23735,6 +23735,19 @@
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
       {
+        version: "v0.9.43",
+        date: "2026-03-05",
+        added: [
+          "Checkout now safely recreates pending Stripe setup sessions when switching plan interval"
+        ],
+        improved: [
+          "Membership flow reliability when switching Monthly/Yearly after backing out of payment"
+        ],
+        fixed: [
+          "Intermittent payment setup failure after selecting Monthly, going back, then selecting Yearly"
+        ]
+      },
+      {
         version: "v0.9.42",
         date: "2026-03-05",
         added: [
