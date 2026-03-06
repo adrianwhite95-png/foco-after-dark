@@ -13525,6 +13525,18 @@
         0 0 14px rgba(34, 211, 238, 0.28),
         0 0 26px rgba(143, 91, 255, 0.2);
     }
+    #landingRewardsPoints.rewards-points-value {
+      background: linear-gradient(92deg, #ffd166 0%, #ff7ad9 48%, #7ee7ff 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      text-shadow:
+        0 0 14px rgba(255, 209, 102, 0.28),
+        0 0 24px rgba(255, 122, 217, 0.24),
+        0 0 34px rgba(126, 231, 255, 0.22);
+      letter-spacing: 0.03em;
+    }
     .rewards-points-value.pulse {
       animation: rewardsPointsPulse 0.55s ease;
     }
@@ -15620,7 +15632,7 @@
                 </div>
                 <div class="rewards-token-summary">
                   <span class="rewards-label">Redeem points for extra monthly voucher tokens</span>
-                  <strong id="landingRewardsExtraTokens">+2 / +3 / +5</strong>
+                  <strong id="landingRewardsExtraTokens">+2  +3  +5</strong>
                 </div>
                 <div id="landingRewardsOptions" class="rewards-options-grid"></div>
                 <div class="rewards-footer">
@@ -20457,7 +20469,7 @@
       }
       landingRewardsLastPoints = null;
       if (landingRewardsExtraTokens) {
-        landingRewardsExtraTokens.textContent = "500→+2 / 700→+3 / 1000→+5";
+        landingRewardsExtraTokens.textContent = "500→+2   700→+3   1000→+5";
       }
 
       const tierKey = normalizeTierKey(currentMembershipTier || memberProfile?.tier || "");
@@ -20506,7 +20518,7 @@
             <span class="rewards-option-action">How it works</span>
           </div>
           <div class="rewards-progress"><div class="rewards-progress-fill" style="width:100%;"></div></div>
-          <div class="rewards-progress-meta"><span class="rewards-key-number">500 → +2</span> monthly tokens  <span class="rewards-key-number">700 → +3</span>  <span class="rewards-key-number">1000 → +5</span></div>
+          <div class="rewards-progress-meta"><span class="rewards-key-number">500 → +2</span> monthly tokens   <span class="rewards-key-number">700 → +3</span>   <span class="rewards-key-number">1000 → +5</span></div>
           <div class="rewards-cycle-note">All extra tokens from points apply to the current billing cycle only and do not roll over.</div>
         </article>
       `;
@@ -24303,6 +24315,19 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.67",
+        date: "2026-03-06",
+        added: [
+          "Home rewards heading now uses a distinct premium glow treatment for the STANDARD vs VIP title"
+        ],
+        improved: [
+          "Home rewards point mappings were reformatted to remove slash separators for cleaner readability"
+        ],
+        fixed: [
+          "CEO global +1 token gift now retries duplicate-campaign conflicts up to three times with fresh auto-generated campaign IDs"
+        ]
+      },
       {
         version: "v0.9.66",
         date: "2026-03-06",
@@ -33921,6 +33946,7 @@ let onboardingIndex = 0;
         showCeoGlobalGiftFeedback("CEO access required.", false);
         return;
       }
+      const buildGiftCampaignId = () => `gift_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
       const reason = String(ceoGlobalGiftReason?.value || "").trim();
       const campaignInput = String(ceoGlobalGiftCampaignId?.value || "").trim();
       const userSuppliedCampaign = campaignInput.length > 0;
@@ -33928,28 +33954,28 @@ let onboardingIndex = 0;
       try {
         const fn = httpsCallable(functionsClient, "grantVoucherTokenToAllActiveMembers");
         let resp;
-        try {
-          resp = await fn({
-            tokenAmount: 1,
-            reason,
-            campaignId: campaignInput || undefined
-          });
-        } catch (err) {
-          const code = String(err?.code || "").toLowerCase();
-          // If CEO did not type a custom campaign id, auto-retry once with a fresh id.
-          if (!userSuppliedCampaign && (code.includes("already-exists") || code.includes("409"))) {
-            const fallbackCampaignId = `gift_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        let effectiveCampaignId = userSuppliedCampaign ? campaignInput : buildGiftCampaignId();
+        let attempt = 0;
+        while (attempt < 3) {
+          attempt += 1;
+          try {
             resp = await fn({
               tokenAmount: 1,
               reason,
-              campaignId: fallbackCampaignId
+              campaignId: effectiveCampaignId
             });
-          } else {
-            throw err;
+            break;
+          } catch (err) {
+            const raw = `${String(err?.code || "").toLowerCase()} ${String(err?.message || "").toLowerCase()}`;
+            const duplicate = raw.includes("already-exists") || raw.includes("already exists") || raw.includes("409");
+            if (!duplicate || userSuppliedCampaign || attempt >= 3) {
+              throw err;
+            }
+            effectiveCampaignId = buildGiftCampaignId();
           }
         }
         const data = resp?.data || {};
-        const campaignId = String(data.campaignId || campaignInput || "").trim();
+        const campaignId = String(data.campaignId || effectiveCampaignId || campaignInput || "").trim();
         if (ceoGlobalGiftCampaignId) {
           // Keep custom IDs visible; clear auto-generated IDs to prevent accidental re-use.
           ceoGlobalGiftCampaignId.value = userSuppliedCampaign ? campaignId : "";
