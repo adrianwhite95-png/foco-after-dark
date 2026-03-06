@@ -19032,6 +19032,25 @@
       showToast("Posted, but push dispatch status was empty.", 3000);
     }
 
+    async function readRecentBroadcastResult(maxAgeMs = 45000) {
+      if (!functionsClient || SAFE_MODE) return null;
+      try {
+        const fn = httpsCallable(functionsClient, "getPushDebugStatus");
+        const res = await fn({});
+        const data = res?.data || {};
+        const result = data.lastResult || {};
+        const sent = Number(result.sent || 0);
+        const failed = Number(result.failed || 0);
+        const ts = Number(data.lastSentAt || 0);
+        if (!Number.isFinite(ts) || ts <= 0) return null;
+        if (Date.now() - ts > Math.max(10000, Number(maxAgeMs || 45000))) return null;
+        if (sent <= 0 && failed <= 0) return null;
+        return { sent, failed, ts };
+      } catch (_) {
+        return null;
+      }
+    }
+
     function setCeoBroadcastPushStatus(message = "Ready.", success = true) {
       if (!ceoBroadcastPushStatus) return;
       ceoBroadcastPushStatus.textContent = String(message || "Ready.");
@@ -19079,9 +19098,22 @@
         if (ceoBroadcastPushBody) ceoBroadcastPushBody.value = "";
       } catch (err) {
         console.warn("CEO broadcast push failed", err);
-        const msg = String(err?.message || "Push failed");
-        setCeoBroadcastPushStatus(msg, false);
-        showToast("Could not send push right now.", 2600);
+        const recovered = await readRecentBroadcastResult(60000);
+        if (recovered?.sent > 0) {
+          const sent = Number(recovered.sent || 0);
+          const failed = Number(recovered.failed || 0);
+          setCeoBroadcastPushStatus(`Sent ${sent} · Failed ${failed} (completed with warning)`, failed === 0);
+          showToast(
+            failed > 0
+              ? `Push sent to ${sent} users with ${failed} failures.`
+              : `Push sent to ${sent} users.`,
+            3200
+          );
+        } else {
+          const msg = String(err?.message || "Push failed");
+          setCeoBroadcastPushStatus(msg, false);
+          showToast("Could not send push right now.", 2600);
+        }
       } finally {
         ceoBroadcastPushBtn.disabled = false;
         ceoBroadcastPushBtn.dataset.busy = "";
