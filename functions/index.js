@@ -7467,7 +7467,7 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
   try {
     await enforceCallableSecurity(context, {
       requireAuth: true,
-      rateLimit: { maxPerMin: 8, maxPerDay: 80, burstAllowance: 3 },
+      rateLimit: false,
     });
     requireAdminClaim(context);
     const actor = getAdminActorRef(context);
