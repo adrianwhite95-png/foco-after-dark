@@ -15213,11 +15213,7 @@
         <div class="field">
         <label for="authEmail" id="authEmailLabel"><span class="required-asterisk">*</span> Email</label>
         <input id="authEmail" type="text" required autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" />
-        </div>
-        <div class="field signup-only" id="signupStudentCodeField" style="display:none;">
-          <label for="signupStudentCode">STUDENT CODE (OPTIONAL)</label>
-          <input id="signupStudentCode" type="text" maxlength="20" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="CSU30" />
-          <p class="small" style="margin-top:4px;text-align:left;color:#94a3b8;">.edu only</p>
+        <p class="small signup-only" id="signupStudentPromoHint" style="display:none;margin-top:6px;text-align:left;color:#94a3b8;">Please use promo code CSU30 at checkout for 30% off.</p>
         </div>
         <div class="field">
           <label for="authPassword" id="authPasswordLabel"><span class="required-asterisk">*</span> Password</label>
@@ -15245,14 +15241,6 @@
             <option value="female">Female</option>
             <option value="prefer_not_say">Prefer not to say</option>
           </select>
-        </div>
-        <div class="field signup-only" id="signupInviteCodeField">
-          <label for="signupInviteCode">CEO issued invite code (optional)</label>
-          <div class="membership-promo-row">
-            <input id="signupInviteCode" type="text" maxlength="28" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" />
-            <button type="button" class="btn btn-secondary membership-promo-apply" id="signupInviteCodeTryBtn">Try promo code</button>
-          </div>
-          <div id="signupInviteCodeStatus" class="membership-promo-status"></div>
         </div>
         <div class="field signup-only" id="signupPlanField">
           <label><span class="required-asterisk">*</span> Choose your pass</label>
@@ -18479,8 +18467,6 @@
     let authTransition = false;
     let authSubmitDefaultLabel = "";
     let signupConfirmInFlight = false;
-    let signupInviteCodeVerified = false;
-    let signupInviteCodeVerifiedValue = "";
     let signupAccountSetupInFlight = false;
     let deferredOnboardingMembershipSelection = null;
     let membershipPlanSelectionBusy = false;
@@ -20455,8 +20441,7 @@
     const authEmail = document.getElementById("authEmail");
     const authPasswordLabel = document.getElementById("authPasswordLabel");
     const authPassword = document.getElementById("authPassword");
-    const signupStudentCodeField = document.getElementById("signupStudentCodeField");
-    const signupStudentCodeInput = document.getElementById("signupStudentCode");
+    const signupStudentPromoHint = document.getElementById("signupStudentPromoHint");
     const authEnableNotificationsBtn = document.getElementById("authEnableNotificationsBtn");
     const authNotificationsStatus = document.getElementById("authNotificationsStatus");
     const rememberMe = document.getElementById("rememberMe");
@@ -20465,9 +20450,6 @@
     const usernameInput = document.getElementById("username");
     const birthDateInput = document.getElementById("birthDate");
     const genderSelect = document.getElementById("genderSelect");
-    const signupInviteCodeInput = document.getElementById("signupInviteCode");
-    const signupInviteCodeTryBtn = document.getElementById("signupInviteCodeTryBtn");
-    const signupInviteCodeStatus = document.getElementById("signupInviteCodeStatus");
     const signupPlanGrid = document.getElementById("signupPlanGrid");
     const signupConfirmTierNote = document.getElementById("signupConfirmTierNote");
     const signupOnlyFields = document.querySelectorAll(".signup-only");
@@ -20553,12 +20535,6 @@
         });
         if (rememberRow) rememberRow.style.display = "none";
         if (forgotWrap) forgotWrap.style.display = "none";
-        const inviteCode = normalizeCeoFreeInviteCode(signupInviteCodeInput?.value || "");
-        if (inviteCode) {
-          setSignupInviteCodeStatus("Tap Try promo code to validate.", "");
-        } else {
-          setSignupInviteCodeStatus("");
-        }
       } else {
         authModeText.textContent = "Log in to access your Nightlife Pass.";
         if (authModeSubline) authModeSubline.textContent = "Welcome back — your FoCo After Dark pass is ready.";
@@ -20572,9 +20548,6 @@
         });
         if (rememberRow) rememberRow.style.display = "";
         if (forgotWrap) forgotWrap.style.display = "";
-        signupInviteCodeVerified = false;
-        signupInviteCodeVerifiedValue = "";
-        setSignupInviteCodeStatus("");
       }
       updateSignupStudentCodeVisibility();
       if (skipLoginBetaLink) {
@@ -20588,12 +20561,6 @@
       });
       applyRememberedEmailToForm();
     }
-    function normalizeStudentPromoCode(value = "") {
-      return String(value || "")
-        .toUpperCase()
-        .replace(/[^A-Z0-9-]/g, "")
-        .slice(0, 20);
-    }
     function emailEligibleForStudentCode(rawEmail = "") {
       const email = String(rawEmail || "").trim().toLowerCase();
       if (!email || !email.includes("@")) return false;
@@ -20601,50 +20568,9 @@
       return email.endsWith(".edu") || APPROVED_STUDENT_EMAIL_DOMAINS.has(domain);
     }
     function updateSignupStudentCodeVisibility() {
-      if (!signupStudentCodeField) return;
+      if (!signupStudentPromoHint) return;
       const visible = authMode === "signup" && emailEligibleForStudentCode(authEmail?.value || "");
-      signupStudentCodeField.style.display = visible ? "block" : "none";
-      if (!visible && signupStudentCodeInput) {
-        signupStudentCodeInput.value = "";
-      }
-    }
-    function resolvePendingStudentPromoCode() {
-      const pending = normalizeStudentPromoCode(pendingSignupData?.studentPromoCode || "");
-      if (pending) return pending;
-      const profileCode = normalizeStudentPromoCode(memberProfile?.pendingStudentPromoCode || "");
-      return profileCode;
-    }
-    function primeMembershipPromoCodeFromSignup() {
-      if (!membershipPromoInput) return;
-      const current = String(membershipPromoInput.value || "").trim();
-      if (current) return;
-      const pendingCode = resolvePendingStudentPromoCode();
-      if (pendingCode) {
-        membershipPromoInput.value = pendingCode;
-      }
-    }
-    async function clearPendingStudentPromoState(options = {}) {
-      const persist = options?.persist === true;
-      const clearPromoInput = options?.clearPromoInput === true;
-      if (pendingSignupData && typeof pendingSignupData === "object" && pendingSignupData.studentPromoCode) {
-        pendingSignupData = { ...pendingSignupData, studentPromoCode: "" };
-      }
-      if (memberProfile && typeof memberProfile === "object" && memberProfile.pendingStudentPromoCode) {
-        memberProfile = { ...memberProfile, pendingStudentPromoCode: "" };
-      }
-      if (signupStudentCodeInput) {
-        signupStudentCodeInput.value = "";
-      }
-      if (clearPromoInput && membershipPromoInput) {
-        membershipPromoInput.value = "";
-      }
-      if (persist && firebaseAuth?.currentUser && memberDocRef && db) {
-        try {
-          await updateMemberProfile({ pendingStudentPromoCode: null });
-        } catch (err) {
-          console.warn("clearPendingStudentPromoState persist failed", err);
-        }
-      }
+      signupStudentPromoHint.style.display = visible ? "block" : "none";
     }
     function refreshAuthNotificationStatusLine() {
       if (!authNotificationsStatus) return;
@@ -20705,57 +20631,6 @@
         if (!btn) return;
         event.preventDefault();
         setSignupTierSelection(btn.dataset.signupTier);
-      });
-    }
-    if (signupInviteCodeInput) {
-      signupInviteCodeInput.addEventListener("input", () => {
-        const normalized = normalizeCeoFreeInviteCode(signupInviteCodeInput.value || "");
-        if (signupInviteCodeInput.value !== normalized) {
-          signupInviteCodeInput.value = normalized;
-        }
-        signupInviteCodeVerified = false;
-        signupInviteCodeVerifiedValue = "";
-        if (!normalized) {
-          setSignupInviteCodeStatus("");
-        } else {
-          setSignupInviteCodeStatus("Tap Try promo code to validate.", "");
-        }
-      });
-    }
-    if (signupInviteCodeTryBtn) {
-      signupInviteCodeTryBtn.addEventListener("click", async () => {
-        const code = normalizeCeoFreeInviteCode(signupInviteCodeInput?.value || "");
-        signupInviteCodeVerified = false;
-        signupInviteCodeVerifiedValue = "";
-        if (!code) {
-          setSignupInviteCodeStatus("Enter an invite code first.", "error");
-          return;
-        }
-        const original = signupInviteCodeTryBtn.textContent;
-        signupInviteCodeTryBtn.disabled = true;
-        signupInviteCodeTryBtn.textContent = "Checking...";
-        setSignupInviteCodeStatus("Checking invite code...");
-        try {
-          const result = await previewCeoFreeSignupCodeCloud(code);
-          if (result.ok && result.valid) {
-            signupInviteCodeVerified = true;
-            signupInviteCodeVerifiedValue = code;
-            setSignupInviteCodeStatus("CEO invite code accepted. Stripe will be skipped after signup.", "success");
-          } else {
-            setSignupInviteCodeStatus(result.message || "Invite code is invalid or inactive.", "error");
-          }
-        } finally {
-          signupInviteCodeTryBtn.disabled = false;
-          signupInviteCodeTryBtn.textContent = original;
-        }
-      });
-    }
-    if (signupStudentCodeInput) {
-      signupStudentCodeInput.addEventListener("input", () => {
-        const normalized = normalizeStudentPromoCode(signupStudentCodeInput.value || "");
-        if (signupStudentCodeInput.value !== normalized) {
-          signupStudentCodeInput.value = normalized;
-        }
       });
     }
     if (authEmail) {
@@ -21699,7 +21574,6 @@
       const username = usernameInput?.value.trim();
       const birthDateValue = birthDateInput?.value;
       const genderValue = genderSelect?.value;
-      const signupInviteCodeRaw = signupInviteCodeInput?.value || "";
       let fullName = "";
       let birthDateISO = "";
 
@@ -21780,21 +21654,6 @@
           if (typeof showToast === "function") showToast(msg, 2200);
           return;
         }
-        const inviteCode = normalizeCeoFreeInviteCode(signupInviteCodeRaw);
-        const studentPromoCode = normalizeStudentPromoCode(signupStudentCodeInput?.value || "");
-        if (signupInviteCodeRaw.trim() && inviteCode.length < 6) {
-          const msg = "Invite code format is invalid. Use at least 6 characters.";
-          authError.textContent = msg;
-          if (typeof showToast === "function") showToast(msg, 2200);
-          return;
-        }
-        if (inviteCode && (!signupInviteCodeVerified || signupInviteCodeVerifiedValue !== inviteCode)) {
-          const msg = "Tap Try promo code to validate your CEO invite code.";
-          authError.textContent = msg;
-          setSignupInviteCodeStatus(msg, "error");
-          if (typeof showToast === "function") showToast(msg, 2400);
-          return;
-        }
         const birthDate = new Date(`${birthDateValue}T00:00:00`);
         if (!isTwentyOneOrOlder(birthDate)) {
           const msg = "FoCo After Dark is 21+. Please enter a valid 21+ birthdate.";
@@ -21812,8 +21671,6 @@
           birthDateISO,
           gender: genderValue,
           username: usernameAvailability.username || usernameCheck.value,
-          ceoFreeInviteCode: inviteCode || "",
-          studentPromoCode: emailEligibleForStudentCode(email) ? studentPromoCode : "",
           tier: signupTier
         };
         if (signupConfirmTierNote) {
@@ -21962,8 +21819,6 @@
         birthDateISO,
         gender,
         username,
-        ceoFreeInviteCode,
-        studentPromoCode,
         tier
       } = data || {};
       if (!email || !password) {
@@ -21971,7 +21826,6 @@
         return;
       }
       const requestedTier = normalizeMembershipTierSelection(tier || "standard");
-      let signupAppliedFreeInvite = false;
       let createdUser = null;
       let completedPostAuthBootstrap = false;
       try {
@@ -21991,7 +21845,6 @@
           if (fullName) profilePayload.legalName = fullName;
           if (gender) profilePayload.gender = gender;
           profilePayload.requestedTier = requestedTier;
-          if (studentPromoCode) profilePayload.pendingStudentPromoCode = normalizeStudentPromoCode(studentPromoCode);
           profilePayload.ageVerificationRequired = false;
           profilePayload.ageVerificationStatus = "self_attested_21";
           profilePayload.ageVerified21 = true;
@@ -22026,28 +21879,12 @@
               localStorage.setItem(`memberMeta_${cred.user.uid}`, JSON.stringify(profilePayload));
             }
           }
-	      if (ceoFreeInviteCode) {
-	        const inviteResult = await claimCeoFreeSignupCodeCloud(ceoFreeInviteCode);
-	        if (inviteResult.ok && (inviteResult.applied || inviteResult.alreadyFree)) {
-	          signupAppliedFreeInvite = true;
-          showToast("CEO ISSUED membership activated.");
-        } else {
-          const inviteMessage = inviteResult?.message || "Invite code not valid. Only CEO generated codes work.";
-          showToast(inviteMessage, 3200);
-        }
-      }
 	      if (onboardingMembershipFlow) {
 	        localStorage.setItem(PENDING_MEMBERSHIP_STORAGE_KEY, cred.user.uid);
           pendingMembershipTier = requestedTier;
 	      }
 	      await handleAuthenticatedUser(cred.user);
       completedPostAuthBootstrap = true;
-      if (studentPromoCode) {
-        memberProfile = {
-          ...(memberProfile || {}),
-          pendingStudentPromoCode: normalizeStudentPromoCode(studentPromoCode),
-        };
-      }
       if (!finalizedUsername && username) {
         const retry = await reserveUsernameCloud(username);
         if (retry.ok) {
@@ -22058,17 +21895,6 @@
       }
       forceShowLogin = false;
       clearLoginHash();
-	      if (signupAppliedFreeInvite && memberProfile) {
-          memberProfile = {
-            ...memberProfile,
-            freeMembership: true,
-            membershipOverride: "CEO_FREE",
-            tier: "ceo_free",
-            membershipTier: "ceo_free",
-            requestedTier: "ceo_free",
-            validUntil: "never"
-          };
-        }
 	      if (onboardingMembershipFlow) {
             memberProfile = {
               ...(memberProfile || {}),
@@ -23895,6 +23721,19 @@
     const pointsRedeemError = document.getElementById("pointsRedeemError");
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.56",
+        date: "2026-03-05",
+        added: [
+          "Signup now shows a CSU/.edu email hint to use CSU30 directly inside Stripe Checkout"
+        ],
+        improved: [
+          "Removed signup promo-code fields so discounts are fully handled by Stripe at checkout"
+        ],
+        fixed: [
+          "Patch Notes rendering now includes this deploy update in the About / Legal modal list"
+        ]
+      },
       {
         version: "v0.9.55",
         date: "2026-03-05",
@@ -28577,7 +28416,6 @@ let onboardingIndex = 0;
       const currentUid = firebaseAuth.currentUser?.uid;
       forceShowLogin = false;
       clearLoginHash();
-      await clearPendingStudentPromoState({ persist: true, clearPromoInput: true });
       try {
         await signOut(firebaseAuth);
       } catch (err) {
@@ -29291,66 +29129,6 @@ let onboardingIndex = 0;
         .toUpperCase()
         .replace(/[^A-Z0-9-]/g, "")
         .slice(0, 28);
-    }
-    function setSignupInviteCodeStatus(text = "", state = "") {
-      if (!signupInviteCodeStatus) return;
-      signupInviteCodeStatus.textContent = String(text || "");
-      signupInviteCodeStatus.classList.remove("error", "success");
-      if (!text) return;
-      if (state === "error") signupInviteCodeStatus.classList.add("error");
-      if (state === "success") signupInviteCodeStatus.classList.add("success");
-    }
-    async function previewCeoFreeSignupCodeCloud(code) {
-      const normalized = normalizeCeoFreeInviteCode(code);
-      if (!normalized) {
-        return { ok: false, valid: false, code: "invalid-argument", message: "Enter an invite code first." };
-      }
-      if (!functionsClient) {
-        return { ok: false, valid: false, code: "unavailable", message: "Invite check unavailable right now." };
-      }
-      try {
-        const fn = httpsCallable(functionsClient, "previewCeoFreeSignupCode");
-        const resp = await fn({ code: normalized });
-        const data = resp?.data || {};
-        return {
-          ok: true,
-          valid: data.valid === true,
-          code: normalized,
-          message: String(data.message || (data.valid === true ? "Code is valid." : "Code is not active."))
-        };
-      } catch (err) {
-        return {
-          ok: false,
-          valid: false,
-          code: err?.code || "failed",
-          message: normalizeUiErrorMessage(err, "Could not verify invite code right now.")
-        };
-      }
-    }
-    async function claimCeoFreeSignupCodeCloud(code) {
-      const normalized = normalizeCeoFreeInviteCode(code);
-      if (!normalized || !functionsClient || !firebaseAuth?.currentUser) {
-        return { ok: false, applied: false, code: "unavailable", message: "Invite unavailable" };
-      }
-      try {
-        const fn = httpsCallable(functionsClient, "claimCeoFreeSignupCode");
-        const resp = await fn({ code: normalized });
-        const data = resp?.data || {};
-        return {
-          ok: true,
-          applied: data.applied === true,
-          alreadyFree: data.alreadyFree === true,
-          passCode: String(data.passCode || "").toUpperCase(),
-          code: normalized
-        };
-      } catch (err) {
-        return {
-          ok: false,
-          applied: false,
-          code: err?.code || "failed",
-          message: normalizeUiErrorMessage(err, "Could not apply invite code")
-        };
-      }
     }
     const BANNED_USER_WORDS = ["hate","kill","murder","bomb","terror","racist","nazi","kkk","lynch","violence","threat","harm","attack","shoot","slur"];
     function loadUsernameMap() {
