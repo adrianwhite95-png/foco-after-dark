@@ -23912,6 +23912,19 @@
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
       {
+        version: "v0.9.46",
+        date: "2026-03-05",
+        added: [
+          "CSU50 now auto-applies in checkout as soon as the full code is entered on payment screen"
+        ],
+        improved: [
+          "Promo pricing preview now refreshes immediately for existing and new membership accounts"
+        ],
+        fixed: [
+          "Removed new-membership-only blocking so valid promo codes can be applied during membership changes"
+        ]
+      },
+      {
         version: "v0.9.45",
         date: "2026-03-05",
         added: [
@@ -30252,8 +30265,6 @@ let onboardingIndex = 0;
             msg = "CSU50 applies to Monthly memberships only.";
           } else if (detailsReason === "PROMO_EDU_ONLY") {
             msg = "CSU50 is only available for approved .edu emails.";
-          } else if (detailsReason === "PROMO_NEW_MEMBERS_ONLY") {
-            msg = "Promo codes are only available for new memberships.";
           } else if (detailsReason) {
             msg = `Could not start payment (${detailsReason}).`;
           } else {
@@ -30638,10 +30649,6 @@ let onboardingIndex = 0;
           }
           if (reason === "PROMO_MONTHLY_ONLY" || (lowered.includes("csu50") && lowered.includes("monthly"))) {
             showToast("CSU50 applies to Monthly memberships only.");
-            return false;
-          }
-          if (reason === "PROMO_NEW_MEMBERS_ONLY") {
-            showToast("Promo codes are only for new memberships.");
             return false;
           }
           showToast("Add a card to continue.");
@@ -44693,6 +44700,32 @@ let onboardingIndex = 0;
         prepareStripePayment(retryTier, retryInterval, prepKey, { promoCode });
       });
     }
+    let promoAutoApplyTimer = null;
+    async function applyMembershipPromoCode(promoCode) {
+      const normalizedPromo = normalizeStudentPromoCode(promoCode || "");
+      if (!normalizedPromo) {
+        setMembershipPromoStatus("Enter a promo code first.", "error");
+        return;
+      }
+      const targetTier = normalizeCheckoutTier(pendingMembershipTier || getRequestedTier(memberProfile));
+      const targetInterval = normalizeMembershipIntervalSelection(
+        pendingMembershipInterval || memberProfile?.requestedBillingInterval || memberProfile?.billingInterval || "month"
+      );
+      const prepKey = `${targetTier}:${targetInterval}:${normalizedPromo}`;
+      if (membershipPromoApplyBtn) {
+        membershipPromoApplyBtn.disabled = true;
+        membershipPromoApplyBtn.textContent = "Applying...";
+      }
+      setMembershipPromoStatus(`Checking ${normalizedPromo}...`);
+      try {
+        await prepareStripePayment(targetTier, targetInterval, prepKey, { promoCode: normalizedPromo });
+      } finally {
+        if (membershipPromoApplyBtn) {
+          membershipPromoApplyBtn.disabled = false;
+          membershipPromoApplyBtn.textContent = "Try promo code";
+        }
+      }
+    }
     if (membershipPromoInput) {
       membershipPromoInput.addEventListener("input", () => {
         const normalized = normalizeStudentPromoCode(membershipPromoInput.value || "");
@@ -44718,31 +44751,35 @@ let onboardingIndex = 0;
             { pricing: null, promo: null }
           );
           setMembershipPromoStatus("Tap Try promo code to apply.", "");
+          if (
+            normalized === "CSU50"
+            && currentScreenName === "payment"
+            && !membershipPaymentPrepInFlight
+          ) {
+            if (promoAutoApplyTimer) {
+              clearTimeout(promoAutoApplyTimer);
+            }
+            promoAutoApplyTimer = setTimeout(() => {
+              promoAutoApplyTimer = null;
+              const stillTyped = normalizeStudentPromoCode(membershipPromoInput?.value || "");
+              if (stillTyped === "CSU50" && stillTyped !== normalizeStudentPromoCode(membershipAppliedPromoCode || "")) {
+                applyMembershipPromoCode(stillTyped).catch(() => {});
+              }
+            }, 320);
+          }
         }
+      });
+      membershipPromoInput.addEventListener("keydown", (evt) => {
+        if (evt.key !== "Enter") return;
+        evt.preventDefault();
+        const promoCode = normalizeStudentPromoCode(membershipPromoInput.value || "");
+        applyMembershipPromoCode(promoCode).catch(() => {});
       });
     }
     if (membershipPromoApplyBtn) {
       membershipPromoApplyBtn.addEventListener("click", async () => {
         const promoCode = normalizeStudentPromoCode(membershipPromoInput?.value || "");
-        if (!promoCode) {
-          setMembershipPromoStatus("Enter a promo code first.", "error");
-          return;
-        }
-        const targetTier = normalizeCheckoutTier(pendingMembershipTier || getRequestedTier(memberProfile));
-        const targetInterval = normalizeMembershipIntervalSelection(
-          pendingMembershipInterval || memberProfile?.requestedBillingInterval || memberProfile?.billingInterval || "month"
-        );
-        const prepKey = `${targetTier}:${targetInterval}:${promoCode}`;
-        const originalText = membershipPromoApplyBtn.textContent;
-        membershipPromoApplyBtn.disabled = true;
-        membershipPromoApplyBtn.textContent = "Applying...";
-        setMembershipPromoStatus(`Checking ${promoCode}...`);
-        try {
-          await prepareStripePayment(targetTier, targetInterval, prepKey, { promoCode });
-        } finally {
-          membershipPromoApplyBtn.disabled = false;
-          membershipPromoApplyBtn.textContent = originalText;
-        }
+        await applyMembershipPromoCode(promoCode);
       });
     }
     if (ceoRedemptionBtn) {

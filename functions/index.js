@@ -4530,14 +4530,6 @@ async function ensureMemberProfileForCeoFree(uid = "", email = "") {
   return { memberRef, memberData, passCode };
 }
 
-function isNewMembership(memberDocData = {}) {
-  return !(
-    memberDocData?.membershipActivatedAt
-    || memberDocData?.stripeSubscriptionId
-    || memberDocData?.lastCharge
-  );
-}
-
 async function resolveMembershipPromo({
   uid,
   memberDocData,
@@ -4548,14 +4540,6 @@ async function resolveMembershipPromo({
 }) {
   const promoInput = normalizePromoCodeInput(promoCodeInput);
   const billingInterval = normalizeBillingIntervalKey(interval);
-  const isNew = isNewMembership(memberDocData);
-  if (!isNew && promoInput) {
-    throw new HttpsError(
-      "failed-precondition",
-      "Promo codes are only available for new memberships.",
-      { reason: "PROMO_NEW_MEMBERS_ONLY" }
-    );
-  }
   if (promoInput) {
     if (promoInput === "FOCOFAM20") {
       return {
