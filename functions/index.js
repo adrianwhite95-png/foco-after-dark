@@ -4218,7 +4218,8 @@ function isActiveEligibleForAdminTokenGift(memberData = {}) {
   if (tier === "ceo_free") {
     // CEO-issued/free accounts stay eligible even if legacy paid statuses are stale.
     const override = String(memberData?.membershipOverride || memberData?.override || "").toUpperCase();
-    return memberData?.freeMembership === true || override === "CEO_FREE" || isActive;
+    const rawTier = normalizeTierKey(memberData?.tier || memberData?.membershipTier || "");
+    return memberData?.freeMembership === true || override === "CEO_FREE" || rawTier === "ceo_free" || rawTier === "free" || isActive;
   }
   return false;
 }
