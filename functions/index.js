@@ -7517,12 +7517,36 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
     } while (nextPageToken);
 
     const memberDocs = [];
+    const memberDocsById = new Map();
     const memberRefs = authUsers.map((u) => db.collection("members").doc(u.uid));
     for (let i = 0; i < memberRefs.length; i += 250) {
       const chunk = memberRefs.slice(i, i + 250);
       const snaps = await db.getAll(...chunk);
       snaps.forEach((snap) => {
-        if (snap.exists) memberDocs.push(snap);
+        if (!snap.exists) return;
+        if (memberDocsById.has(snap.id)) return;
+        memberDocsById.set(snap.id, snap);
+        memberDocs.push(snap);
+      });
+    }
+
+    // Legacy support: some older member profiles are keyed by non-uid doc ids.
+    // Include email-matched profile docs for auth users missing members/{uid}.
+    const existingUids = new Set(memberDocs.map((snap) => snap.id));
+    const fallbackEmails = authUsers
+      .filter((u) => !existingUids.has(u.uid))
+      .map((u) => String(u.email || "").trim().toLowerCase())
+      .filter(Boolean);
+    const uniqueFallbackEmails = Array.from(new Set(fallbackEmails));
+    for (let i = 0; i < uniqueFallbackEmails.length; i += 10) {
+      const chunk = uniqueFallbackEmails.slice(i, i + 10);
+      if (!chunk.length) continue;
+      const snap = await db.collection("members").where("email", "in", chunk).get();
+      snap.docs.forEach((docSnap) => {
+        if (!docSnap.exists) return;
+        if (memberDocsById.has(docSnap.id)) return;
+        memberDocsById.set(docSnap.id, docSnap);
+        memberDocs.push(docSnap);
       });
     }
 
