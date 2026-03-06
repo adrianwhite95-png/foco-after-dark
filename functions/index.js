@@ -3891,9 +3891,9 @@ const STRIPE_PROMOS = {
   FOCOFAM20: {
     promotionCodeId: "promo_1Sz1GSQ4Ij3ax7macXklpdje",
   },
-  CSU50: {
-    code: "CSU50",
-    promotionCodeId: "promo_1T4ZHPQ4Ij3ax7maC8xQxnSu",
+  CSU30: {
+    code: "CSU30",
+    promotionCodeId: "promo_1T7pq1Q4Ij3ax7maqhmQn3wn",
   },
 };
 const stripeWebhookSecrets = { secrets: ["STRIPE_SECRET", "STRIPE_WEBHOOK_SECRET"] };
@@ -4538,6 +4538,12 @@ async function resolveMembershipPromo({
   stripe = null,
   interval = "month"
 }) {
+  const isEduEligibleEmail = (rawEmail = "") => {
+    const email = String(rawEmail || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) return false;
+    const domain = email.split("@").pop() || "";
+    return email.endsWith(".edu") || domain.includes("colostate.edu") || domain.includes("csu.edu");
+  };
   const promoInput = normalizePromoCodeInput(promoCodeInput);
   const billingInterval = normalizeBillingIntervalKey(interval);
   const resolveCouponFromPromotionCode = async (promotionCodeId) => {
@@ -4561,26 +4567,26 @@ async function resolveMembershipPromo({
         firstMonthOnly: billingInterval === "month",
       };
     }
-    if (promoInput === STRIPE_PROMOS.CSU50.code) {
-      if (billingInterval !== "month") {
+    if (promoInput === STRIPE_PROMOS.CSU30.code) {
+      if (!isEduEligibleEmail(authEmail)) {
         throw new HttpsError(
           "failed-precondition",
-          "CSU50 applies to Monthly memberships only.",
-          { reason: "PROMO_MONTHLY_ONLY" }
+          "CSU30 is only available for approved .edu or CSU email addresses.",
+          { reason: "PROMO_EDU_ONLY" }
         );
       }
-      const promotionCodeId = String(STRIPE_PROMOS.CSU50.promotionCodeId || "").trim();
+      const promotionCodeId = String(STRIPE_PROMOS.CSU30.promotionCodeId || "").trim();
       if (!promotionCodeId && !stripe) {
         throw new HttpsError("failed-precondition", "Promo validation requires Stripe to be configured.");
       }
-      const resolvedPromotionCodeId = promotionCodeId || await getStripePromotionCodeIdByCode(stripe, STRIPE_PROMOS.CSU50.code);
+      const resolvedPromotionCodeId = promotionCodeId || await getStripePromotionCodeIdByCode(stripe, STRIPE_PROMOS.CSU30.code);
       const resolvedCouponId = await resolveCouponFromPromotionCode(resolvedPromotionCodeId);
       return {
         // Prefer coupon id to avoid Stripe "new customer only" promotion-code restrictions.
         discount: resolvedCouponId ? { coupon: resolvedCouponId } : { promotion_code: resolvedPromotionCodeId },
-        promoTag: "csu50",
+        promoTag: "csu30",
         promoCode: promoInput,
-        firstMonthOnly: true,
+        firstMonthOnly: false,
       };
     }
     throw new HttpsError("invalid-argument", "Invalid promo code.");

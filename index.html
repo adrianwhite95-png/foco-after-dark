@@ -15216,7 +15216,7 @@
         </div>
         <div class="field signup-only" id="signupStudentCodeField" style="display:none;">
           <label for="signupStudentCode">STUDENT CODE (OPTIONAL)</label>
-          <input id="signupStudentCode" type="text" maxlength="20" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="CSU50" />
+          <input id="signupStudentCode" type="text" maxlength="20" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="CSU30" />
           <p class="small" style="margin-top:4px;text-align:left;color:#94a3b8;">.edu only</p>
         </div>
         <div class="field">
@@ -23912,6 +23912,19 @@
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
       {
+        version: "v0.9.49",
+        date: "2026-03-05",
+        added: [
+          "Student promo moved to CSU30 with full Monthly and Yearly eligibility across Standard and VIP plans"
+        ],
+        improved: [
+          "Checkout now previews crossed-out and discounted pricing for CSU30 across all plan intervals"
+        ],
+        fixed: [
+          "Promo validation now consistently enforces .edu/CSU email eligibility before applying discount"
+        ]
+      },
+      {
         version: "v0.9.48",
         date: "2026-03-05",
         added: [
@@ -30252,7 +30265,7 @@ let onboardingIndex = 0;
         membershipPricingPreviewInterval = normalizedInterval;
         renderMembershipPricingPreview(normalizedTier, normalizedInterval, {
           pricing: membershipPricingPreview,
-          promo: data?.promo || { code: membershipAppliedPromoCode, firstMonthOnly: membershipAppliedPromoCode === "CSU50" }
+          promo: data?.promo || { code: membershipAppliedPromoCode, firstMonthOnly: false }
         });
         if (membershipAppliedPromoCode) {
           if (membershipPromoInput) membershipPromoInput.value = membershipAppliedPromoCode;
@@ -30287,8 +30300,8 @@ let onboardingIndex = 0;
             ? "Promo code could not be applied. Check the code and try again."
             : "Invalid plan selection. Please try again.";
         } else if (errCode === "failed-precondition") {
-          if (detailsReason === "PROMO_MONTHLY_ONLY") {
-            msg = "CSU50 applies to Monthly memberships only.";
+          if (detailsReason === "PROMO_EDU_ONLY") {
+            msg = "CSU30 requires a valid .edu or CSU email address.";
           } else if (detailsReason) {
             msg = `Could not start payment (${detailsReason}).`;
           } else {
@@ -30667,8 +30680,8 @@ let onboardingIndex = 0;
           const reason = String(err?.details?.reason || "").toUpperCase();
           const rawMessage = String(err?.message || "");
           const lowered = rawMessage.toLowerCase();
-          if (reason === "PROMO_MONTHLY_ONLY" || (lowered.includes("csu50") && lowered.includes("monthly"))) {
-            showToast("CSU50 applies to Monthly memberships only.");
+          if (reason === "PROMO_EDU_ONLY" || (lowered.includes("csu30") && lowered.includes(".edu"))) {
+            showToast("CSU30 requires a valid .edu or CSU email.");
             return false;
           }
           showToast("Add a card to continue.");
@@ -44772,7 +44785,7 @@ let onboardingIndex = 0;
           );
           setMembershipPromoStatus("Tap Try promo code to apply.", "");
           if (
-            normalized === "CSU50"
+            normalized === "CSU30"
             && currentScreenName === "payment"
             && !membershipPaymentPrepInFlight
           ) {
@@ -44782,7 +44795,7 @@ let onboardingIndex = 0;
             promoAutoApplyTimer = setTimeout(() => {
               promoAutoApplyTimer = null;
               const stillTyped = normalizeStudentPromoCode(membershipPromoInput?.value || "");
-              if (stillTyped === "CSU50" && stillTyped !== normalizeStudentPromoCode(membershipAppliedPromoCode || "")) {
+              if (stillTyped === "CSU30" && stillTyped !== normalizeStudentPromoCode(membershipAppliedPromoCode || "")) {
                 applyMembershipPromoCode(stillTyped).catch(() => {});
               }
             }, 320);
@@ -46406,11 +46419,13 @@ let onboardingIndex = 0;
       const normalizedInterval = normalizeMembershipIntervalSelection(interval);
       const normalizedTier = normalizeCheckoutTier(tier);
       const normalizedCode = String(promoCode || "").trim().toUpperCase();
-      if (normalizedCode !== "CSU50" || normalizedInterval !== "month") return null;
-      const baseFee = normalizedTier === "vip" ? Number(MEMBERSHIP_FEES.vip) : Number(MEMBERSHIP_FEES.standard);
+      if (normalizedCode !== "CSU30") return null;
+      const baseFee = normalizedInterval === "year"
+        ? (normalizedTier === "vip" ? 96 : 50)
+        : (normalizedTier === "vip" ? Number(MEMBERSHIP_FEES.vip) : Number(MEMBERSHIP_FEES.standard));
       if (!Number.isFinite(baseFee) || baseFee <= 0) return null;
       const subtotalCents = Math.round(baseFee * 100);
-      const totalCents = Math.max(0, Math.round(subtotalCents * 0.5));
+      const totalCents = Math.max(0, Math.round(subtotalCents * 0.7));
       return {
         subtotalCents,
         totalCents,
@@ -47196,8 +47211,8 @@ let onboardingIndex = 0;
         if (message.includes("promo")) {
           return "Promo code could not be applied. Remove it and try again.";
         }
-        if (message.includes("csu50") && message.includes("monthly")) {
-          return "CSU50 applies to Monthly memberships only.";
+        if (message.includes("csu30") && (message.includes(".edu") || message.includes("csu email"))) {
+          return "CSU30 requires a valid .edu or CSU email address.";
         }
         if (code === "permission-denied" || code === "unauthenticated") {
           return "Please sign in again and try payment once more.";
