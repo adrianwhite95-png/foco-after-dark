@@ -24419,6 +24419,21 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.72",
+        date: "2026-03-06",
+        added: [
+          "CEO global +1 token gift now auto-retries with a fresh campaign ID if a duplicate ID is detected"
+        ],
+        improved: [
+          "Global token gifts now target only truly active paid members plus active CEO FREE accounts",
+          "CEO gift send button now hard-locks while request is in flight to prevent multi-click duplicates"
+        ],
+        fixed: [
+          "Resolved inflated member targeting that could over-count recipients during CEO global token gifts",
+          "Improved duplicate-campaign handling feedback in CEO HQ gift flow"
+        ]
+      },
+      {
         version: "v0.9.71",
         date: "2026-03-06",
         added: [
@@ -34131,7 +34146,7 @@ let onboardingIndex = 0;
           } catch (err) {
             const raw = `${String(err?.code || "").toLowerCase()} ${String(err?.message || "").toLowerCase()}`;
             const duplicate = raw.includes("already-exists") || raw.includes("already exists") || raw.includes("409");
-            if (!duplicate || userSuppliedCampaign || attempt >= 3) {
+            if (!duplicate || attempt >= 3) {
               throw err;
             }
             effectiveCampaignId = buildGiftCampaignId();
@@ -34159,7 +34174,7 @@ let onboardingIndex = 0;
         console.warn("grantVoucherTokenToAllActiveMembers failed", err);
         const code = String(err?.code || "").toLowerCase();
         const msg = (code.includes("already-exists") || code.includes("409"))
-          ? "This campaign ID was already used. Enter a new one or leave it blank."
+          ? "Campaign ID already used. A fresh campaign ID is required."
           : mapMemberFacingError(err, "message");
         showCeoGlobalGiftFeedback(msg, false);
       } finally {

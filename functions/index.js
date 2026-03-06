@@ -4206,15 +4206,19 @@ function isActiveEligibleForAdminTokenGift(memberData = {}) {
   const membershipStatus = String(memberData?.membershipStatus || "").toLowerCase();
   const status = (paymentStatus || membershipStatus || "").toLowerCase();
   const inactiveStatuses = new Set(["inactive", "canceled", "cancelled", "canceling", "paused", "revoked", "past_due", "unpaid", "expired"]);
-  if (inactiveStatuses.has(status) || inactiveStatuses.has(paymentStatus) || inactiveStatuses.has(membershipStatus)) return false;
+  if (tier !== "ceo_free" && (inactiveStatuses.has(status) || inactiveStatuses.has(paymentStatus) || inactiveStatuses.has(membershipStatus))) return false;
   const isActive = paymentStatus === "active" || membershipStatus === "active" || status === "active";
   if (tier === "standard" || tier === "vip") {
-    return isActive;
+    if (!isActive) return false;
+    const hasStripeSub = String(memberData?.stripeSubscriptionId || "").trim().length > 0;
+    if (!hasStripeSub) return false;
+    const billing = (memberData?.billing && typeof memberData.billing === "object") ? memberData.billing : {};
+    return hasSuccessfulPaymentThisCycleForWallet(tier, billing, memberData, new Date());
   }
   if (tier === "ceo_free") {
-    // CEO-issued/free accounts can be valid via explicit free flags even when payment status is blank.
+    // CEO-issued/free accounts stay eligible even if legacy paid statuses are stale.
     const override = String(memberData?.membershipOverride || memberData?.override || "").toUpperCase();
-    return isActive || memberData?.freeMembership === true || override === "CEO_FREE";
+    return memberData?.freeMembership === true || override === "CEO_FREE" || isActive;
   }
   return false;
 }
