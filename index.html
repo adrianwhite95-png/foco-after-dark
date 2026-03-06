@@ -18401,6 +18401,7 @@
     let authSubmitInFlight = false;
     let authTransition = false;
     let authSubmitDefaultLabel = "";
+    let signupConfirmInFlight = false;
     let signupAccountSetupInFlight = false;
     let deferredOnboardingMembershipSelection = null;
     let membershipPlanSelectionBusy = false;
@@ -21052,8 +21053,16 @@
     }
     if (signupConfirmBtn) {
       signupConfirmBtn.addEventListener("click", async () => {
+        if (signupConfirmInFlight) return;
+        signupConfirmInFlight = true;
+        const originalLabel = signupConfirmBtn.textContent;
+        signupConfirmBtn.disabled = true;
+        signupConfirmBtn.textContent = "Creating...";
         if (!pendingSignupData) {
           hideSignupConfirmModal();
+          signupConfirmBtn.textContent = originalLabel;
+          signupConfirmBtn.disabled = false;
+          signupConfirmInFlight = false;
           return;
         }
         hideSignupConfirmModal();
@@ -21072,6 +21081,9 @@
           console.error("Signup confirmation failed:", err);
         } finally {
           signupAccountSetupInFlight = false;
+          signupConfirmBtn.textContent = originalLabel;
+          signupConfirmBtn.disabled = false;
+          signupConfirmInFlight = false;
         }
       });
     }
@@ -23722,6 +23734,19 @@
     const pointsRedeemError = document.getElementById("pointsRedeemError");
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.41",
+        date: "2026-03-05",
+        added: [
+          "Signup confirmation now uses a single-submit lock with explicit Creating status"
+        ],
+        improved: [
+          "Membership selection waits for account creation to finish before routing"
+        ],
+        fixed: [
+          "Signup flow no longer bounces back to Login during plan selection races"
+        ]
+      },
       {
         version: "v0.9.40",
         date: "2026-03-05",
@@ -46779,6 +46804,11 @@ let onboardingIndex = 0;
         }
         const user = firebaseAuth.currentUser;
         if (!user && !betaPassMode) {
+          deferredOnboardingMembershipSelection = { tier, interval };
+          if (onboardingMembershipFlow || signupAccountSetupInFlight || pendingSignupData) {
+            showToast("Finishing account setup...", 1800);
+            return;
+          }
           setMembershipPlanSelectionBusy(false);
           refreshMembershipChoices();
           showScreen("auth");
