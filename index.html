@@ -4160,14 +4160,19 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
-      color: #fde68a;
+      font-size: 16px;
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(250, 204, 21, 0.92);
+      text-shadow: 0 0 8px rgba(250, 204, 21, 0.16);
       cursor: pointer;
-      transition: background 0.15s ease;
+      transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
     }
     .review-star.filled {
       background: radial-gradient(circle, rgba(250, 204, 21, 0.85), rgba(202, 138, 4, 0.7));
       color: #0f172a;
+      -webkit-text-stroke: 0;
+      text-shadow: none;
+      box-shadow: 0 0 10px rgba(250, 204, 21, 0.35);
     }
     .review-list {
       max-height: 300px;
@@ -5237,13 +5242,21 @@
     .venue-stars button {
       border: 1px solid rgba(148, 163, 184, 0.4);
       background: rgba(15, 23, 42, 0.85);
-      color: #fcd34d;
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(250, 204, 21, 0.9);
       border-radius: 6px;
       width: 26px;
       height: 22px;
       font-size: 12px;
       cursor: pointer;
       transition: transform 0.15s ease, box-shadow 0.15s ease, border 0.15s ease;
+    }
+    .venue-stars button.filled {
+      color: #fcd34d;
+      -webkit-text-stroke: 0;
+      box-shadow: 0 0 12px rgba(250, 204, 21, 0.32);
+      border-color: rgba(250, 204, 21, 0.72);
+      background: rgba(15, 23, 42, 0.98);
     }
     .venue-stars button:hover {
       transform: translateY(-1px);
@@ -7122,22 +7135,39 @@
       align-self: stretch;
     }
     .tagline-edit-hint {
-      font-size: 10px;
-      letter-spacing: 0.14em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      width: fit-content;
+      max-width: 100%;
+      font-size: 11px;
+      line-height: 1.15;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--muted);
-      opacity: 0.7;
-      text-align: center;
-      align-self: stretch;
-      border: 0;
-      background: transparent;
-      padding: 2px 0;
-      margin: 0;
+      opacity: 0.9;
+      text-align: center !important;
+      align-self: center;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 32%, var(--border));
+      background: linear-gradient(150deg, rgba(10, 16, 30, 0.9), rgba(8, 13, 24, 0.95));
+      border-radius: 999px;
+      padding: 7px 14px;
+      margin: 4px auto 0;
       cursor: pointer;
+      white-space: normal;
+      word-break: break-word;
+      box-shadow:
+        0 8px 24px rgba(2, 8, 20, 0.45),
+        0 0 16px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     .tagline-edit-hint:hover {
-      opacity: 0.95;
+      opacity: 1;
       color: color-mix(in srgb, var(--accent-primary-live) 78%, white);
+      transform: translateY(-1px);
+      border-color: color-mix(in srgb, var(--accent-primary-live) 52%, var(--border));
     }
     .avatar-tools {
       display: flex;
@@ -8706,8 +8736,10 @@
         0 0 34px color-mix(in srgb, var(--accent-secondary-live) 18%, transparent);
     }
     .profile-summary .tagline-edit-hint {
-      letter-spacing: 0.16em;
+      letter-spacing: 0.12em;
       color: color-mix(in srgb, var(--accent-primary-live) 60%, #94a3b8);
+      margin-inline: auto;
+      text-align: center !important;
     }
     .profile-summary .avatar-tools {
       margin-top: 10px;
@@ -9503,8 +9535,24 @@
     .tagline-edit-hint {
       margin-top: 2px;
       color: var(--muted);
-      opacity: 0.68;
-      letter-spacing: 0.14em;
+      opacity: 0.88;
+      letter-spacing: 0.12em;
+    }
+    button,
+    .btn,
+    .accent-chip,
+    .perk-option,
+    .nav-btn,
+    .menu-btn {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    @media (hover: none) and (pointer: coarse) {
+      .btn:active,
+      button:active,
+      .perk-option:active {
+        transform: scale(0.985);
+      }
     }
     .alerts-card {
       height: 100%;
@@ -24133,6 +24181,19 @@
     const landingTierBoostNote = document.getElementById("landingTierBoostNote");
     const landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.62",
+        date: "2026-03-06",
+        added: [
+          "Venue star rating controls now use hollow stars that fill on selection for clearer app and venue feedback"
+        ],
+        improved: [
+          "Profile tagline edit button alignment and tap behavior were refined for cleaner iOS and web layout"
+        ],
+        fixed: [
+          "CEO global +1 token gift now includes active CEO FREE accounts and avoids false 403 blocks for already-admin callers"
+        ]
+      },
       {
         version: "v0.9.61",
         date: "2026-03-06",
@@ -40084,6 +40145,13 @@ let onboardingIndex = 0;
     function getUserRatingKey() {
       return firebaseAuth.currentUser?.uid || (currentPassCode || "").toUpperCase();
     }
+    function updateVenueStarSelection(stars = 0) {
+      if (!venueStars) return;
+      venueStars.querySelectorAll("button[data-star]").forEach((btn) => {
+        const value = Number.parseInt(btn.dataset.star, 10) || 0;
+        btn.classList.toggle("filled", value > 0 && value <= stars);
+      });
+    }
     function getVenueAverage(venueId) {
       if (!venueId) return null;
       const ratings = loadVenueRatings();
@@ -40132,6 +40200,7 @@ let onboardingIndex = 0;
       userRatings[userKey][venueId] = stars;
       saveVenueRatings(ratings);
       saveUserVenueRatings(userRatings);
+      updateVenueStarSelection(stars);
       renderVenueButtons();
       renderFeaturedVenuesGrid();
       renderPassFeaturedGrid();
@@ -45029,6 +45098,13 @@ let onboardingIndex = 0;
         venueDetailPerks.style.display = "";
       }
       venueDetailModal.dataset.venueId = venueId;
+      const userRatings = loadUserVenueRatings();
+      const selectedStars = Number(
+        userRatings[getUserRatingKey()]?.[venueId]
+        || userRatings[(currentPassCode || "").toUpperCase()]?.[venueId]
+        || 0
+      );
+      updateVenueStarSelection(selectedStars);
       const avg = getVenueAverage(venueId);
       if (venueDetailRating) {
         if (avg) {
@@ -45084,6 +45160,7 @@ let onboardingIndex = 0;
 
     function closeVenueDetail() {
       if (venueDetailModal) venueDetailModal.classList.remove("active");
+      updateVenueStarSelection(0);
       venueButtons.forEach(btn => btn.classList.remove("active"));
     }
 

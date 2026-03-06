@@ -4203,7 +4203,12 @@ function isActiveEligibleForAdminTokenGift(memberData = {}) {
   const status = String(memberData?.paymentStatus || memberData?.membershipStatus || "active").toLowerCase();
   const inactiveStatuses = new Set(["inactive", "canceled", "cancelled", "canceling", "paused", "revoked", "past_due", "unpaid", "expired"]);
   if (inactiveStatuses.has(status)) return false;
-  return status === "active";
+  if (status === "active") return true;
+  if (tier === "ceo_free") {
+    // CEO-issued/free accounts can have non-standard status strings but still be active.
+    return status === "" || status === "ceo" || status === "free" || status === "comped" || status === "granted";
+  }
+  return false;
 }
 
 function normalizeNameInput(value = "", maxLen = 60) {
@@ -6880,10 +6885,14 @@ exports.getCeoLoginToken = functions.runWith(ceoLoginRunConfig).https.onCall(asy
       publicScope: "ceoLogin",
       publicRateLimit: { limit: 15, windowMs: 10 * 60 * 1000 }
     });
-    const expected = readRequiredSecret(process.env.CEO_LOGIN_CODE, "CEO_LOGIN_CODE").toLowerCase();
-    const supplied = (data?.code || "").toString().trim().toLowerCase();
-    if (!supplied || supplied !== expected) {
-      throw new HttpsError('permission-denied', 'Invalid CEO access code');
+    const callerClaims = context?.auth?.token || {};
+    const callerIsAdmin = callerClaims?.admin === true || callerClaims?.ceo === true;
+    if (!callerIsAdmin) {
+      const expected = readRequiredSecret(process.env.CEO_LOGIN_CODE, "CEO_LOGIN_CODE").toLowerCase();
+      const supplied = (data?.code || "").toString().trim().toLowerCase();
+      if (!supplied || supplied !== expected) {
+        throw new HttpsError('permission-denied', 'Invalid CEO access code');
+      }
     }
 
     let userRecord = null;
