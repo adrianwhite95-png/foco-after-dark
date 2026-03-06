@@ -4813,6 +4813,68 @@
       color: #e2e8f0;
       font-weight: 600;
     }
+    .voucher-grant-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(34, 211, 238, 0.28);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+        0 24px 74px rgba(2, 6, 23, 0.68),
+        0 0 26px rgba(34, 211, 238, 0.22),
+        0 0 32px rgba(255, 47, 184, 0.16);
+      animation: voucherGrantCardIn 380ms cubic-bezier(.2,.9,.25,1) both;
+    }
+    .voucher-grant-hero-wrap {
+      display: grid;
+      place-items: center;
+      padding-top: 8px;
+    }
+    .voucher-grant-hero {
+      width: 118px;
+      height: 118px;
+      object-fit: cover;
+      border-radius: 999px;
+      filter:
+        drop-shadow(0 0 14px rgba(34, 211, 238, 0.42))
+        drop-shadow(0 0 20px rgba(255, 47, 184, 0.24));
+      animation:
+        voucherTokenSpin 10s linear infinite,
+        voucherTokenFloat 3.8s ease-in-out infinite,
+        voucherTokenGlow 4.2s ease-in-out infinite;
+      transform-origin: center;
+      will-change: transform, filter, opacity;
+    }
+    @keyframes voucherGrantCardIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes voucherTokenSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes voucherTokenFloat {
+      0%, 100% { translate: 0 0; }
+      50% { translate: 0 -6px; }
+    }
+    @keyframes voucherTokenGlow {
+      0%, 100% {
+        filter:
+          drop-shadow(0 0 14px rgba(34, 211, 238, 0.36))
+          drop-shadow(0 0 20px rgba(255, 47, 184, 0.20));
+      }
+      50% {
+        filter:
+          drop-shadow(0 0 20px rgba(34, 211, 238, 0.56))
+          drop-shadow(0 0 28px rgba(255, 47, 184, 0.34));
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .voucher-grant-card { animation: none !important; }
+      .voucher-grant-hero {
+        animation: none !important;
+        transform: none !important;
+      }
+    }
     .vibe-menu {
       display: flex;
       flex-direction: column;
@@ -15291,7 +15353,7 @@
               <span class="plan-save">Save $10 yearly</span>
               <span class="plan-copy">5 monthly tokens</span>
               <span class="plan-copy">2 Night Wheel spins per month</span>
-              <span class="plan-copy">Earn redemption points toward monthly pass savings</span>
+              <span class="plan-copy">Earn 1.0x points toward extra monthly voucher tokens</span>
               <span class="plan-selected-indicator" aria-hidden="true">Selected</span>
             </button>
             <button type="button" class="signup-plan-card" data-signup-tier="vip" aria-pressed="false">
@@ -15302,7 +15364,7 @@
               <span class="plan-copy">10 monthly tokens</span>
               <span class="plan-copy">4 Night Wheel spins per month</span>
               <span class="plan-copy">VIP venue perks + better in-app token pricing</span>
-              <span class="plan-copy">Earn redemption points toward monthly pass savings</span>
+              <span class="plan-copy">Earn 1.25x points toward extra monthly voucher tokens</span>
               <span class="plan-selected-indicator" aria-hidden="true">Selected</span>
             </button>
             <button type="button" class="signup-plan-card" data-signup-tier="explorer" aria-pressed="false">
@@ -15437,7 +15499,7 @@
         <ul class="membership-perks">
           <li>Monthly perks set by venues</li>
           <li>Up to 5 monthly voucher redemptions</li>
-          <li>Redemption points lower your monthly pass price</li>
+          <li>Redeem points for extra voucher tokens this billing cycle</li>
           <li>Perks refresh on your billing date</li>
         </ul>
         <button class="btn btn-primary select-membership" data-tier="standard" data-interval="month">
@@ -15455,7 +15517,7 @@
           <li>Up to 10 monthly voucher redemptions</li>
           <li>VIP-only drops & alerts</li>
           <li>Discounted in-app token bundle pricing</li>
-          <li>Redemption points lower your monthly pass price</li>
+          <li>Redeem points for extra voucher tokens this billing cycle</li>
           <li>Perks refresh on your billing date</li>
         </ul>
         <button class="btn btn-primary select-membership" data-tier="vip" data-interval="month">
@@ -16842,6 +16904,26 @@
                 <button type="button" class="btn btn-secondary" id="ceoTokenGrantBtn">Grant monthly tokens</button>
               </div>
               <p class="support-success" id="ceoTokenGrantStatus" style="display:none;margin-top:8px;">Updated.</p>
+              <div class="ceo-subpanel" style="margin-top:10px;">
+                <div class="ceo-subpanel-header">
+                  <strong>Gift +1 voucher token to all active members</strong>
+                </div>
+                <p class="small" style="color:#cbd5f5;margin-top:4px;">
+                  Sends +1 for this billing cycle to active Standard, VIP, and CEO FREE accounts only.
+                </p>
+                <div class="field">
+                  <label for="ceoGlobalGiftReason">Reason (optional)</label>
+                  <input id="ceoGlobalGiftReason" type="text" maxlength="180" placeholder="e.g. Friday night drop" />
+                </div>
+                <div class="field">
+                  <label for="ceoGlobalGiftCampaignId">Campaign ID (optional)</label>
+                  <input id="ceoGlobalGiftCampaignId" type="text" maxlength="80" placeholder="auto-generated if blank" />
+                </div>
+                <div class="ceo-panel-actions">
+                  <button type="button" class="btn btn-secondary" id="ceoGlobalGiftBtn">Gift +1 token to all active members</button>
+                </div>
+                <p class="support-success" id="ceoGlobalGiftStatus" style="display:none;margin-top:8px;">Updated.</p>
+              </div>
             </section>
 
             <section class="ceo-panel">
@@ -17420,12 +17502,16 @@
     </div>
   </div>
   <div class="modal-backdrop" id="voucherGrantModal">
-    <div class="modal-card" style="max-width:420px;">
+    <div class="modal-card voucher-grant-card" style="max-width:440px;">
+      <div class="voucher-grant-hero-wrap">
+        <img src="foco-logo.png" alt="FoCo token" class="voucher-grant-hero" id="voucherGrantHeroToken" />
+      </div>
       <div class="modal-header">
-        <div class="modal-title">Vouchers added</div>
+        <div class="modal-title" id="voucherGrantTitle">Vouchers added</div>
         <button class="modal-close" id="voucherGrantClose" type="button">Close</button>
       </div>
       <p id="voucherGrantBody" style="color:#e2e8f0;line-height:1.5;margin:10px 0 16px;"></p>
+      <p id="voucherGrantHelper" class="small" style="margin:0 0 12px;color:#94a3b8;">Applies to your current billing cycle only.</p>
       <button class="btn btn-primary" id="voucherGrantAcknowledge" type="button" style="width:100%;">Got it</button>
     </div>
   </div>
@@ -17610,7 +17696,7 @@
         <li><strong>500 points</strong> = +2 voucher tokens</li>
         <li><strong>700 points</strong> = +3 voucher tokens</li>
         <li><strong>1000 points</strong> = +5 voucher tokens</li>
-        <li>Only active Standard/VIP members can redeem points.</li>
+        <li>Only active Standard/VIP members can apply points (CEO FREE can view but remains unlimited).</li>
         <li>Redeemed voucher tokens expire at the end of this billing cycle and do not roll over.</li>
       </ul>
       <div class="error" id="pointsRedeemError" style="margin-top:8px;"></div>
@@ -23417,6 +23503,10 @@
     const ceoTokenGrantAmount = document.getElementById("ceoTokenGrantAmount");
     const ceoTokenGrantBtn = document.getElementById("ceoTokenGrantBtn");
     const ceoTokenGrantStatus = document.getElementById("ceoTokenGrantStatus");
+    const ceoGlobalGiftReason = document.getElementById("ceoGlobalGiftReason");
+    const ceoGlobalGiftCampaignId = document.getElementById("ceoGlobalGiftCampaignId");
+    const ceoGlobalGiftBtn = document.getElementById("ceoGlobalGiftBtn");
+    const ceoGlobalGiftStatus = document.getElementById("ceoGlobalGiftStatus");
     const freePassIdInput = document.getElementById("freePassIdInput");
     const grantFreeBtn = document.getElementById("grantFreeBtn");
     const revokeFreeBtn = document.getElementById("revokeFreeBtn");
@@ -23518,7 +23608,9 @@
     const memberNoticeClose = document.getElementById("memberNoticeClose");
     const memberNoticeAcknowledge = document.getElementById("memberNoticeAcknowledge");
     const voucherGrantModal = document.getElementById("voucherGrantModal");
+    const voucherGrantTitle = document.getElementById("voucherGrantTitle");
     const voucherGrantBody = document.getElementById("voucherGrantBody");
+    const voucherGrantHelper = document.getElementById("voucherGrantHelper");
     const voucherGrantClose = document.getElementById("voucherGrantClose");
     const voucherGrantAcknowledge = document.getElementById("voucherGrantAcknowledge");
     const ceoResetCard = document.getElementById("ceoResetCard");
@@ -23730,6 +23822,19 @@
     const pointsRedeemPreview = document.getElementById("pointsRedeemPreview");
     const pointsRedeemError = document.getElementById("pointsRedeemError");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.59",
+        date: "2026-03-06",
+        added: [
+          "CEO Control Center now includes a one-click +1 voucher token gift for all active Standard, VIP, and CEO FREE members"
+        ],
+        improved: [
+          "Points earning now uses tier multipliers (VIP and CEO FREE earn 1.25x)"
+        ],
+        fixed: [
+          "Gifted tokens now post to the current billing-cycle bucket with one-time reward notices and no rollover behavior"
+        ]
+      },
       {
         version: "v0.9.58",
         date: "2026-03-06",
@@ -25244,7 +25349,11 @@
       if (rewardsDisabled) {
         if (rewardsProgressFill) rewardsProgressFill.style.width = "100%";
         if (rewardsProgressText) rewardsProgressText.textContent = isExplorerMember() ? "Explorer preview mode" : "Unlimited vouchers on this account";
-        if (rewardsNextText) rewardsNextText.textContent = isExplorerMember() ? "Upgrade to Standard or VIP to unlock points redemptions." : "CEO / CEO_FREE already have unlimited vouchers, so points redemptions are disabled.";
+        if (rewardsNextText) {
+          rewardsNextText.textContent = isExplorerMember()
+            ? "Upgrade to Standard or VIP to unlock points redemptions."
+            : "CEO / CEO_FREE earns 1.25x points with unlimited vouchers. Points redemption stays disabled on this tier.";
+        }
         if (rewardsRedeemBtn) rewardsRedeemBtn.disabled = true;
         if (rewardsError) rewardsError.textContent = "";
         if (rewardsTrigger) {
@@ -25264,7 +25373,8 @@
         rewardsProgressText.textContent = `${availablePoints} points available`;
       }
       if (rewardsNextText) {
-        rewardsNextText.textContent = "Use Redeem points to convert points into voucher tokens for this billing cycle.";
+        const multiplier = getPointsMultiplierForTier(currentMembershipTier || memberProfile?.tier || "", memberProfile);
+        rewardsNextText.textContent = `Use Redeem points to convert points into voucher tokens for this billing cycle. Current earn rate: ${multiplier.toFixed(2)}x.`;
       }
       if (rewardsRedeemBtn) rewardsRedeemBtn.disabled = false;
       if (rewardsError) rewardsError.textContent = "";
@@ -25568,12 +25678,12 @@
       } else {
         const extras = getCurrentCycleExtraTokenBreakdown(memberProfile);
         if (voucherBalanceNote) {
-          voucherBalanceNote.textContent = "Extra purchased and points-redeemed tokens apply to this billing cycle only and do not roll over.";
+          voucherBalanceNote.textContent = "Extra purchased, points-redeemed, and CEO gifted tokens apply to this billing cycle only and do not roll over.";
         }
         if (redeemVoucherBalance) {
           const included = Number(balance.includedTokens || 0);
           const extra = Number(balance.extraTokens || 0);
-          redeemVoucherBalance.textContent = `Included monthly: ${included} · Purchased this cycle: ${extras.purchased} · Points redeemed this cycle: ${extras.points} · Extra total this cycle: ${extra} · Available now: ${balance.remaining}.`;
+          redeemVoucherBalance.textContent = `Included monthly: ${included} · Purchased this cycle: ${extras.purchased} · Points redeemed this cycle: ${extras.points} · CEO gifts this cycle: ${extras.gifted} · Extra total this cycle: ${extra} · Available now: ${balance.remaining}.`;
         }
       }
     }
@@ -26023,9 +26133,7 @@
         addPoints(loginBonus, "Daily login bonus", { awardKey: loginAwardKey || `daily_login:${todayKey}` });
       }
       updateLastCheckinUI();
-      if (memberProfile?.pendingVoucherGrant) {
-        showVoucherGrantNotice(memberProfile.pendingVoucherGrant);
-      }
+      maybeShowVoucherGrantNotice(memberProfile);
       maybeCelebrateAllAchievements();
     }
 
@@ -29457,6 +29565,7 @@ let onboardingIndex = 0;
         memberSince: memberProfile.memberSince,
       });
       cachePassProfile(memberProfile.passCode, memberProfile, user.uid);
+      maybeShowVoucherGrantNotice(memberProfile);
       return memberProfile;
     }
 
@@ -30002,6 +30111,7 @@ let onboardingIndex = 0;
       const bucket = (buckets[key] && typeof buckets[key] === "object") ? buckets[key] : {};
       const purchases = (bucket.purchases && typeof bucket.purchases === "object") ? bucket.purchases : {};
       const pointRedemptions = (bucket.pointRedemptions && typeof bucket.pointRedemptions === "object") ? bucket.pointRedemptions : {};
+      const adminGrants = (bucket.adminGrants && typeof bucket.adminGrants === "object") ? bucket.adminGrants : {};
       const purchased = Object.values(purchases).reduce((sum, entry) => {
         const value = Number(entry?.tokenAmount || 0);
         return sum + (Number.isFinite(value) ? Math.max(0, value) : 0);
@@ -30010,12 +30120,17 @@ let onboardingIndex = 0;
         const value = Number(entry?.tokenAmount || 0);
         return sum + (Number.isFinite(value) ? Math.max(0, value) : 0);
       }, 0);
+      const gifted = Object.values(adminGrants).reduce((sum, entry) => {
+        const value = Number(entry?.tokenAmount || 0);
+        return sum + (Number.isFinite(value) ? Math.max(0, value) : 0);
+      }, 0);
       const total = getCurrentCyclePurchasedTokenTotal(profile);
       return {
         billingMonthKey: key,
         purchased,
         points,
-        total: Math.max(total, purchased + points)
+        gifted,
+        total: Math.max(total, purchased + points + gifted)
       };
     }
 
@@ -32245,6 +32360,20 @@ let onboardingIndex = 0;
       if (t === "ceo") return "CEO";
       return "Member";
     }
+    function getPointsMultiplierForTier(tier = "", profile = memberProfile) {
+      const normalizedTier = normalizeTierKey(tier || profile?.tier || profile?.membershipTier || "");
+      const override = String(profile?.membershipOverride || profile?.override || "").toUpperCase();
+      if (
+        normalizedTier === "vip"
+        || normalizedTier === "ceo_free"
+        || normalizedTier === "free"
+        || profile?.freeMembership === true
+        || override === "CEO_FREE"
+      ) {
+        return 1.25;
+      }
+      return 1.0;
+    }
     function setPointsForPass(passId, points, opts = {}) {
       if (!passId) return;
       if (useCloudProfile()) {
@@ -32295,6 +32424,11 @@ let onboardingIndex = 0;
     async function addPoints(points, reason = "", meta = {}) {
       const code = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
       if (!code || !Number.isFinite(points) || points <= 0) return;
+      const basePoints = Math.floor(Number(points) || 0);
+      if (!Number.isFinite(basePoints) || basePoints <= 0) return;
+      const pointsMultiplier = getPointsMultiplierForTier(currentMembershipTier || memberProfile?.tier || "", memberProfile);
+      const effectivePoints = Math.max(0, Math.floor(basePoints * pointsMultiplier));
+      if (effectivePoints <= 0) return;
       if (isPointsLockedForCurrentMember()) {
         memberProfile = { ...(memberProfile || {}), points: 0 };
         if (!useCloudProfile()) {
@@ -32315,9 +32449,12 @@ let onboardingIndex = 0;
       if (awardKey) inFlightPointAwardKeys.add(awardKey);
       try {
         if (useCloudProfile()) {
-          const serverResult = await awardPointsCloud(points, reason, { ...meta, awardKey });
+          const serverResult = await awardPointsCloud(basePoints, reason, { ...meta, awardKey });
           if (serverResult && Number.isFinite(serverResult.points)) {
             const awarded = serverResult.awarded !== false;
+            const awardedPoints = Number.isFinite(Number(serverResult.awardedPoints))
+              ? Number(serverResult.awardedPoints)
+              : effectivePoints;
             memberProfile = memberProfile || {};
             memberProfile.points = serverResult.points;
             if (serverResult.venuesVisited) {
@@ -32330,7 +32467,7 @@ let onboardingIndex = 0;
             }
             updatePointsUI();
             if (awarded && reason) {
-              showToast(`+${points} pts · ${reason}`);
+              showToast(`+${awardedPoints} pts · ${reason}`);
             }
             return serverResult;
           }
@@ -32345,7 +32482,7 @@ let onboardingIndex = 0;
         if (awardKey && entry.pointAwardKeys[awardKey]) {
           return { success: true, awarded: false, skipped: true };
         }
-        entry.points += points;
+        entry.points += effectivePoints;
         if (meta.venue) {
           entry.venues = entry.venues || {};
           entry.venues[meta.venue.toLowerCase()] = true;
@@ -32363,7 +32500,7 @@ let onboardingIndex = 0;
         persistMemberState({ tier: entry.tier });
         updatePointsUI();
         if (reason) {
-          showToast(`+${points} pts · ${reason}`);
+          showToast(`+${effectivePoints} pts · ${reason}`);
         }
         return { success: true, awarded: true, skipped: false, points: entry.points };
       } finally {
@@ -32784,26 +32921,96 @@ let onboardingIndex = 0;
       lastCheckinText.textContent = "Just joined";
     }
     const VOUCHER_GRANT_SEEN_PREFIX = "voucherGrantSeen_";
-    function closeVoucherGrantModal() {
-      if (voucherGrantModal) voucherGrantModal.classList.remove("active");
+    let activeVoucherRewardNotice = null;
+    function getVoucherGrantSeenKey(uid = "", noticeId = "") {
+      return `${VOUCHER_GRANT_SEEN_PREFIX}${uid}_${noticeId}`;
     }
-    function showVoucherGrantNotice(pending) {
-      if (!pending || !pending.amount) return;
-      const uid = firebaseAuth.currentUser?.uid || "anon";
-      const grantId = pending.id || pending.createdAt || `${pending.amount}-${pending.monthKey || ""}`;
-      const seenKey = `${VOUCHER_GRANT_SEEN_PREFIX}${uid}_${grantId}`;
+    function markVoucherGrantSeenLocal(uid = "", noticeId = "") {
+      const key = getVoucherGrantSeenKey(uid, noticeId);
+      if (!key) return;
+      try { sessionStorage.setItem(key, "1"); } catch (_) {}
+    }
+    function wasVoucherGrantSeenLocal(uid = "", noticeId = "") {
+      const key = getVoucherGrantSeenKey(uid, noticeId);
+      if (!key) return false;
+      try { return sessionStorage.getItem(key) === "1"; } catch (_) { return false; }
+    }
+    function getUnreadRewardNoticeEntries(profile = memberProfile) {
+      const notices = profile?.unreadRewardNotices;
+      if (!notices || typeof notices !== "object") return [];
+      return Object.entries(notices)
+        .map(([id, payload]) => ({ id: String(id || "").trim(), ...(payload || {}) }))
+        .filter((entry) => entry.id && entry.type === "admin_token_gift" && entry.seen !== true)
+        .sort((a, b) => toMillisSafe(b.createdAt) - toMillisSafe(a.createdAt));
+    }
+    async function markRewardNoticeSeen(notice = null) {
+      if (!notice?.id || !memberDocRef || !db) return;
+      const uid = firebaseAuth.currentUser?.uid || "";
+      markVoucherGrantSeenLocal(uid, notice.id);
+      if (memberProfile?.unreadRewardNotices?.[notice.id]) {
+        memberProfile.unreadRewardNotices[notice.id].seen = true;
+      }
       try {
-        if (sessionStorage.getItem(seenKey) === "1") return;
-        sessionStorage.setItem(seenKey, "1");
-      } catch (_) {}
+        await setDoc(memberDocRef, {
+          [`unreadRewardNotices.${notice.id}.seen`]: true,
+          [`unreadRewardNotices.${notice.id}.seenAt`]: serverTimestamp()
+        }, { merge: true });
+      } catch (err) {
+        console.warn("Failed to mark reward notice seen", err);
+      }
+    }
+    async function closeVoucherGrantModal() {
+      if (voucherGrantModal) voucherGrantModal.classList.remove("active");
+      if (activeVoucherRewardNotice) {
+        const notice = activeVoucherRewardNotice;
+        activeVoucherRewardNotice = null;
+        await markRewardNoticeSeen(notice);
+      }
+    }
+    function showVoucherGrantNotice(payload, opts = {}) {
+      const amount = Number(payload?.tokenAmount ?? payload?.amount ?? 0) || 0;
+      if (!payload || amount <= 0) return;
       if (!voucherGrantModal || !voucherGrantBody) return;
+      const uid = firebaseAuth.currentUser?.uid || "anon";
+      const noticeId = String(opts.noticeId || payload.id || payload.createdAt || `${amount}-${payload.monthKey || payload.billingMonthKey || ""}`).trim();
+      if (noticeId && wasVoucherGrantSeenLocal(uid, noticeId)) return;
+      if (noticeId) markVoucherGrantSeenLocal(uid, noticeId);
+      const fromNotice = opts.fromNotice === true;
       const cycle = getVoucherCycleWindow(memberProfile?.billing || {})?.current;
       const endLabel = cycle?.end ? formatMST(cycle.end, { year: "numeric" }) : "end of this billing cycle";
-      const amount = Number(pending.amount) || 0;
-      voucherGrantBody.textContent = `Good news — you received ${amount} voucher token${amount === 1 ? "" : "s"} for this billing cycle. They expire ${cycle?.end ? `on ${endLabel}` : "at the end of the billing cycle"}.`;
+      if (voucherGrantTitle) {
+        voucherGrantTitle.textContent = fromNotice
+          ? (payload.title || "You just got rewarded +1 voucher token 🎉")
+          : "Vouchers added";
+      }
+      if (voucherGrantBody) {
+        voucherGrantBody.textContent = fromNotice
+          ? (payload.message || "FoCo After Dark just added +1 voucher token to your balance for this billing cycle.")
+          : `Good news — you received ${amount} voucher token${amount === 1 ? "" : "s"} for this billing cycle. They expire ${cycle?.end ? `on ${endLabel}` : "at the end of the billing cycle"}.`;
+      }
+      if (voucherGrantHelper) {
+        voucherGrantHelper.textContent = fromNotice
+          ? (payload.helperText || "Applies to your current billing cycle only.")
+          : "Applies to your current billing cycle only.";
+      }
+      activeVoucherRewardNotice = fromNotice ? { id: noticeId } : null;
       voucherGrantModal.classList.add("active");
-      memberProfile.pendingVoucherGrant = null;
-      updateMemberProfile({ pendingVoucherGrant: null });
+      if (!fromNotice) {
+        memberProfile.pendingVoucherGrant = null;
+        updateMemberProfile({ pendingVoucherGrant: null });
+      }
+    }
+    function maybeShowVoucherGrantNotice(profile = memberProfile) {
+      if (!profile) return;
+      const uid = firebaseAuth.currentUser?.uid || "anon";
+      const unread = getUnreadRewardNoticeEntries(profile).find((entry) => !wasVoucherGrantSeenLocal(uid, entry.id));
+      if (unread) {
+        showVoucherGrantNotice(unread, { fromNotice: true, noticeId: unread.id });
+        return;
+      }
+      if (profile.pendingVoucherGrant) {
+        showVoucherGrantNotice(profile.pendingVoucherGrant, { fromNotice: false });
+      }
     }
     function ensurePointsEntry() {
       const code = (currentPassCode || "").toUpperCase();
@@ -33044,6 +33251,16 @@ let onboardingIndex = 0;
       }, 3600);
     }
 
+    function showCeoGlobalGiftFeedback(message, success = true) {
+      if (!ceoGlobalGiftStatus) return;
+      ceoGlobalGiftStatus.textContent = message;
+      ceoGlobalGiftStatus.style.color = success ? "#a7f3d0" : "#f97373";
+      ceoGlobalGiftStatus.style.display = "block";
+      window.setTimeout(() => {
+        if (ceoGlobalGiftStatus) ceoGlobalGiftStatus.style.display = "none";
+      }, 4200);
+    }
+
     async function grantCeoMonthlyTokens() {
       if (!isCeoAccount || !db) {
         showCeoTokenGrantFeedback("CEO access required.", false);
@@ -33104,6 +33321,37 @@ let onboardingIndex = 0;
         showCeoTokenGrantFeedback("Could not grant tokens. Try again.", false);
       } finally {
         if (ceoTokenGrantBtn) ceoTokenGrantBtn.disabled = false;
+      }
+    }
+
+    async function grantVoucherTokenToAllActiveMembers() {
+      if (!isCeoAccount || !functionsClient) {
+        showCeoGlobalGiftFeedback("CEO access required.", false);
+        return;
+      }
+      const reason = String(ceoGlobalGiftReason?.value || "").trim();
+      const campaignInput = String(ceoGlobalGiftCampaignId?.value || "").trim();
+      if (ceoGlobalGiftBtn) ceoGlobalGiftBtn.disabled = true;
+      try {
+        const fn = httpsCallable(functionsClient, "grantVoucherTokenToAllActiveMembers");
+        const resp = await fn({
+          tokenAmount: 1,
+          reason,
+          campaignId: campaignInput || undefined
+        });
+        const data = resp?.data || {};
+        const campaignId = String(data.campaignId || campaignInput || "").trim();
+        if (ceoGlobalGiftCampaignId) ceoGlobalGiftCampaignId.value = campaignId;
+        showCeoGlobalGiftFeedback(
+          `Gift sent: ${Number(data.grantedCount || 0)} granted, ${Number(data.skippedCount || 0)} skipped.`,
+          true
+        );
+        showToast(`Campaign ${campaignId || "gift"} sent to ${Number(data.grantedCount || 0)} active members.`, 3000);
+      } catch (err) {
+        console.warn("grantVoucherTokenToAllActiveMembers failed", err);
+        showCeoGlobalGiftFeedback(mapMemberFacingError(err, "message"), false);
+      } finally {
+        if (ceoGlobalGiftBtn) ceoGlobalGiftBtn.disabled = false;
       }
     }
 
@@ -41960,6 +42208,9 @@ let onboardingIndex = 0;
     }
     if (ceoTokenGrantBtn) {
       ceoTokenGrantBtn.addEventListener("click", grantCeoMonthlyTokens);
+    }
+    if (ceoGlobalGiftBtn) {
+      ceoGlobalGiftBtn.addEventListener("click", grantVoucherTokenToAllActiveMembers);
     }
     if (grantFreeBtn) {
       grantFreeBtn.addEventListener("click", () => {

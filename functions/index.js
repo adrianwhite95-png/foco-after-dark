@@ -2813,23 +2813,47 @@ function isPointsLockedMember(member = {}) {
   );
 }
 
+function getPointsMultiplierForTier(tier = "", member = {}) {
+  const normalizedTier = normalizeTierKey(tier || member?.tier || member?.membershipTier || "");
+  const override = String(member?.membershipOverride || member?.override || "").toUpperCase();
+  if (
+    normalizedTier === "vip"
+    || normalizedTier === "ceo_free"
+    || normalizedTier === "free"
+    || member?.freeMembership === true
+    || override === "CEO_FREE"
+  ) {
+    return 1.25;
+  }
+  return 1.0;
+}
+
 // Server-side points adjust with idempotency support for one-time awards.
 exports.awardPoints = functions.https.onCall(async (data, context) => {
   await enforceCallableSecurity(context, {
     rateLimit: { maxPerMin: 20, maxPerDay: 600 }
   });
-  const points = Math.floor(Number(data?.points || 0));
+  const basePoints = Math.floor(Number(data?.points || 0));
   const reason = (data?.reason || 'adjustment').toString().slice(0, 120);
   const venue = String(data?.venue || "").trim().toLowerCase();
   const awardKey = normalizePointAwardKey(data?.awardKey || "");
   const achievementId = extractAchievementIdFromAwardKey(awardKey);
-  if (!Number.isFinite(points) || points <= 0 || points > 2000) {
+  if (!Number.isFinite(basePoints) || basePoints <= 0 || basePoints > 2000) {
     throw new HttpsError('invalid-argument', 'points must be between 1 and 2000');
   }
 
   const uid = context.auth.uid;
   const memberRef = db.collection('members').doc(uid);
-  let result = { success: true, awarded: false, skipped: true, points: 0, venuesVisited: {} };
+  let result = {
+    success: true,
+    awarded: false,
+    skipped: true,
+    points: 0,
+    venuesVisited: {},
+    awardedPoints: 0,
+    pointsMultiplier: 1.0,
+    basePoints
+  };
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(memberRef);
@@ -2859,6 +2883,9 @@ exports.awardPoints = functions.https.onCall(async (data, context) => {
     if (venue) {
       venuesVisited[venue] = true;
     }
+    const tierForPoints = normalizeTierKey(member?.tier || member?.membershipTier || "standard");
+    const pointsMultiplier = getPointsMultiplierForTier(tierForPoints, member);
+    const awardedPoints = Math.max(0, Math.floor(basePoints * pointsMultiplier));
 
     const alreadyAwarded = awardKey ? Boolean(member.pointAwardKeys?.[awardKey]) : false;
     const achievementAlreadyAwarded = achievementId
@@ -2866,10 +2893,11 @@ exports.awardPoints = functions.https.onCall(async (data, context) => {
       : false;
     const wasAwarded = alreadyAwarded || achievementAlreadyAwarded;
     const awarded = !wasAwarded;
-    const next = awarded ? (current + points) : current;
+    const next = awarded ? (current + awardedPoints) : current;
     const updates = {
       points: next,
-      pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
+      pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastPointsMultiplier: pointsMultiplier
     };
     if (venue) {
       updates[`venuesVisited.${venue}`] = true;
@@ -2884,7 +2912,17 @@ exports.awardPoints = functions.https.onCall(async (data, context) => {
       updates.lastPointsReason = reason || null;
     }
     tx.set(memberRef, updates, { merge: true });
-    result = { success: true, awarded, skipped: !awarded, points: next, venuesVisited, awardKey: awardKey || null };
+    result = {
+      success: true,
+      awarded,
+      skipped: !awarded,
+      points: next,
+      venuesVisited,
+      awardKey: awardKey || null,
+      awardedPoints: awarded ? awardedPoints : 0,
+      pointsMultiplier,
+      basePoints
+    };
   });
 
   if (result.awarded) {
@@ -2892,7 +2930,9 @@ exports.awardPoints = functions.https.onCall(async (data, context) => {
       await db.collection('auditLogs').add({
         action: 'awardPoints',
         uid,
-        delta: points,
+        delta: Number(result.awardedPoints || 0),
+        basePoints,
+        pointsMultiplier: Number(result.pointsMultiplier || 1),
         reason,
         awardKey: awardKey || null,
         createdAt: admin.firestore.FieldValue.serverTimestamp()
@@ -2982,11 +3022,15 @@ exports.spinNightWheel = functions.https.onCall(async (data, context) => {
     const drink = pick(specials);
     const challenge = pick(challenges);
     state[passCode] = { week: weekToken, spins: nextSpins };
-    const points = pointsLocked ? 0 : Math.max(0, Number(member.points || 0) + 20);
+    const wheelBasePoints = 20;
+    const pointsMultiplier = getPointsMultiplierForTier(tier, member);
+    const pointsAwarded = pointsLocked ? 0 : Math.max(0, Math.floor(wheelBasePoints * pointsMultiplier));
+    const points = pointsLocked ? 0 : Math.max(0, Number(member.points || 0) + pointsAwarded);
     tx.set(memberRef, {
       nightWheel: state,
       points,
-      pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
+      pointsUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastPointsMultiplier: pointsMultiplier
     }, { merge: true });
     tx.set(db.collection('auditLogs').doc(), {
       action: 'spinNightWheel',
@@ -2994,11 +3038,21 @@ exports.spinNightWheel = functions.https.onCall(async (data, context) => {
       passCode,
       week: weekToken,
       spins: nextSpins,
-      pointsAwarded: pointsLocked ? 0 : 20,
+      pointsAwarded,
+      pointsMultiplier,
+      basePoints: wheelBasePoints,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       result: { bar, drink, challenge }
     });
-    return { bar, drink, challenge, remaining: allowance === Infinity ? Infinity : allowance - nextSpins, points };
+    return {
+      bar,
+      drink,
+      challenge,
+      remaining: allowance === Infinity ? Infinity : allowance - nextSpins,
+      points,
+      pointsAwarded,
+      pointsMultiplier
+    };
   });
 });
 
@@ -4044,6 +4098,27 @@ function requireAdminClaim(context) {
   if (!isCeoContext(context)) {
     throw new HttpsError("permission-denied", "Admin claim required");
   }
+}
+
+function normalizeTierForAdminTokenGift(memberData = {}) {
+  const override = String(memberData?.membershipOverride || memberData?.override || "").toUpperCase();
+  const tier = normalizeTierKey(memberData?.tier || memberData?.membershipTier || "");
+  if (override === "CEO_FREE" || memberData?.freeMembership === true || tier === "ceo_free" || tier === "free") {
+    return "ceo_free";
+  }
+  if (tier === "vip") return "vip";
+  if (tier === "standard") return "standard";
+  return "";
+}
+
+function isActiveEligibleForAdminTokenGift(memberData = {}) {
+  const tier = normalizeTierForAdminTokenGift(memberData);
+  if (!tier) return false;
+  if (memberData?.revoked === true || memberData?.paused === true) return false;
+  const status = String(memberData?.paymentStatus || memberData?.membershipStatus || "active").toLowerCase();
+  const inactiveStatuses = new Set(["inactive", "canceled", "cancelled", "canceling", "paused", "revoked", "past_due", "unpaid", "expired"]);
+  if (inactiveStatuses.has(status)) return false;
+  return status === "active";
 }
 
 function normalizeNameInput(value = "", maxLen = 60) {
@@ -7252,6 +7327,127 @@ exports.adminUpdateGlobalConfig = functions.https.onCall(async (data, context) =
     if (err instanceof HttpsError) throw err;
     console.warn("adminUpdateGlobalConfig failed", err);
     throw new HttpsError("internal", err?.message || "Could not update global config");
+  }
+});
+
+exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data, context) => {
+  try {
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      rateLimit: { maxPerMin: 8, maxPerDay: 80, burstAllowance: 3 },
+    });
+    requireAdminClaim(context);
+    const actor = getAdminActorRef(context);
+    const tokenAmount = Math.max(1, Math.min(10, Math.round(Number(data?.tokenAmount || 1) || 1)));
+    if (tokenAmount !== 1) {
+      throw new HttpsError("invalid-argument", "Only +1 token campaigns are supported.");
+    }
+    const reason = String(data?.reason || "").trim().slice(0, 180) || "FoCo token drop";
+    const campaignIdInput = String(data?.campaignId || "").trim().toLowerCase();
+    const campaignId = (campaignIdInput || `gift_${Date.now()}`)
+      .replace(/[^a-z0-9_-]/g, "_")
+      .slice(0, 80);
+    if (!campaignId) {
+      throw new HttpsError("invalid-argument", "campaignId required");
+    }
+
+    const campaignRef = db.collection("adminVoucherTokenCampaigns").doc(campaignId);
+    try {
+      await campaignRef.create({
+        campaignId,
+        tokenAmount,
+        reason,
+        status: "running",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdBy: actor.uid,
+        createdByEmail: actor.email || null,
+      });
+    } catch (err) {
+      if (err?.code === 6 || err?.code === "already-exists") {
+        throw new HttpsError("already-exists", "Campaign already processed. Use a new campaign ID.");
+      }
+      throw err;
+    }
+
+    const snap = await db.collection("members").get();
+    const now = new Date();
+    let eligibleCount = 0;
+    let grantedCount = 0;
+    let skippedCount = 0;
+    let batch = db.batch();
+    let pendingWrites = 0;
+
+    const flush = async () => {
+      if (pendingWrites <= 0) return;
+      await batch.commit();
+      batch = db.batch();
+      pendingWrites = 0;
+    };
+
+    for (const docSnap of snap.docs) {
+      const memberData = docSnap.data() || {};
+      if (!isActiveEligibleForAdminTokenGift(memberData)) {
+        skippedCount += 1;
+        continue;
+      }
+      eligibleCount += 1;
+      const billingMonthKey = getCurrentVoucherBillingMonthKeyForWallet(memberData, now);
+      const existingGrant = memberData?.extraVoucherBuckets?.[billingMonthKey]?.adminGrants?.[campaignId];
+      if (existingGrant) {
+        skippedCount += 1;
+        continue;
+      }
+      const update = {
+        [`extraVoucherBuckets.${billingMonthKey}.redemptionTokens`]: admin.firestore.FieldValue.increment(tokenAmount),
+        [`extraVoucherBuckets.${billingMonthKey}.updatedAt`]: admin.firestore.FieldValue.serverTimestamp(),
+        [`extraVoucherBuckets.${billingMonthKey}.adminGrants.${campaignId}`]: {
+          tokenAmount,
+          grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+          grantedBy: actor.uid,
+          reason,
+        },
+        [`unreadRewardNotices.${campaignId}`]: {
+          type: "admin_token_gift",
+          campaignId,
+          tokenAmount,
+          billingMonthKey,
+          title: "You just got rewarded +1 voucher token 🎉",
+          message: "FoCo After Dark just added +1 voucher token to your balance for this billing cycle.",
+          helperText: "Applies to your current billing cycle only.",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          seen: false,
+        },
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      batch.set(docSnap.ref, update, { merge: true });
+      pendingWrites += 1;
+      grantedCount += 1;
+      if (pendingWrites >= 400) {
+        await flush();
+      }
+    }
+
+    await flush();
+    await campaignRef.set({
+      status: "completed",
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      eligibleCount,
+      grantedCount,
+      skippedCount,
+    }, { merge: true });
+
+    return {
+      ok: true,
+      campaignId,
+      tokenAmount,
+      eligibleCount,
+      grantedCount,
+      skippedCount,
+    };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.warn("grantVoucherTokenToAllActiveMembers failed", err);
+    throw new HttpsError("internal", err?.message || "Could not grant voucher tokens");
   }
 });
 
