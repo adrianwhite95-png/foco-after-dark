@@ -3256,8 +3256,7 @@
       color: #cbd5e1;
       font-size: 13px;
     }
-    #paymentElement,
-    #voucherPaymentElement {
+    #paymentElement {
       background: rgba(15,23,42,0.85);
       border: 1px solid rgba(148,163,184,0.35);
       border-radius: 14px;
@@ -17002,28 +17001,13 @@
   <div class="tier-modal" id="voucherModal">
     <div class="tier-card" id="voucherStepPacks">
       <h4>Buy redemption tokens</h4>
-      <p>Choose an instant add-on pack. Purchases refresh your bonus balance immediately.</p>
+      <p>Choose an add-on pack for this billing month only.</p>
+      <p class="small" id="voucherMonthOnlyNote">Extra voucher tokens apply to your current billing month only.</p>
       <div id="voucherOptions"></div>
+      <div class="error" id="voucherPaymentError"></div>
       <div class="payment-actions" style="margin-top:8px;">
         <button class="btn btn-secondary back-btn" id="voucherCancel">Cancel</button>
       </div>
-    </div>
-    <div class="tier-card" id="voucherStepPayment" style="display:none;">
-      <h4 id="voucherPaymentTitle">Confirm purchase</h4>
-      <p id="voucherPaymentCopy">Secure checkout powered by Stripe.</p>
-      <div class="saved-card" id="voucherSavedCard" style="display:none;"></div>
-      <form id="voucherPaymentForm">
-        <div class="field">
-          <label>Card & payment method</label>
-          <div id="voucherPaymentElement"></div>
-        </div>
-        <div class="meta-note" id="voucherStripeNote" style="margin-top:8px;">Secured by Stripe.</div>
-        <div class="error" id="voucherPaymentError"></div>
-        <div class="payment-actions" style="margin-top:8px;">
-          <button type="button" class="btn btn-primary" id="voucherChargeOnFile">Continue</button>
-          <button type="button" class="btn btn-secondary" id="voucherBackBtn">Back</button>
-        </div>
-      </form>
     </div>
   </div>
 
@@ -23459,16 +23443,8 @@
     const voucherModal = document.getElementById("voucherModal");
     const voucherOptions = document.getElementById("voucherOptions");
     const voucherCancel = document.getElementById("voucherCancel");
-    const voucherStepPacks = document.getElementById("voucherStepPacks");
-    const voucherStepPayment = document.getElementById("voucherStepPayment");
-    const voucherPaymentTitle = document.getElementById("voucherPaymentTitle");
-    const voucherPaymentCopy = document.getElementById("voucherPaymentCopy");
-    const voucherPaymentForm = document.getElementById("voucherPaymentForm");
-    const voucherPaymentElement = document.getElementById("voucherPaymentElement");
     const voucherPaymentError = document.getElementById("voucherPaymentError");
-    const voucherChargeOnFile = document.getElementById("voucherChargeOnFile");
-    const voucherBackBtn = document.getElementById("voucherBackBtn");
-    const voucherSavedCard = document.getElementById("voucherSavedCard");
+    const voucherMonthOnlyNote = document.getElementById("voucherMonthOnlyNote");
     const ceoCardModal = document.getElementById("ceoCardModal");
     const ceoCardClose = document.getElementById("ceoCardClose");
     const ceoCardCode = document.getElementById("ceoCardCode");
@@ -23721,6 +23697,19 @@
     const pointsRedeemError = document.getElementById("pointsRedeemError");
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.57",
+        date: "2026-03-06",
+        added: [
+          "Buy redemption tokens now opens Stripe Checkout pack purchases for the current billing month"
+        ],
+        improved: [
+          "Voucher balances now clearly show included monthly tokens, extra purchased this month, and total available"
+        ],
+        fixed: [
+          "Removed the legacy in-app voucher payment flow and switched token credits to webhook-confirmed monthly buckets"
+        ]
+      },
       {
         version: "v0.9.56",
         date: "2026-03-05",
@@ -25452,15 +25441,6 @@
       return paidAt >= cycle.start && paidAt <= cycle.end;
     }
 
-    function getPurchasedTokenTotal() {
-      const profile = memberProfile || {};
-      const entry = allowLocalCache() && currentPassCode
-        ? (loadMemberDirectory()[currentPassCode.toUpperCase()] || {})
-        : {};
-      const value = Number(profile.extraRedemptionTokens ?? entry.extraRedemptionTokens ?? 0);
-      return Number.isFinite(value) ? value : 0;
-    }
-
     function getCeoMonthlyTokenGrantTotal(profile = memberProfile) {
       const grants = profile?.ceoMonthlyTokenGrants;
       if (!grants || typeof grants !== "object") return 0;
@@ -25477,15 +25457,6 @@
       return Number.isFinite(value) ? Math.max(0, value) : 0;
     }
 
-    function setPurchasedTokenTotal(tokens) {
-      const next = Math.max(0, Number(tokens) || 0);
-      if (!memberProfile) memberProfile = {};
-      memberProfile.extraRedemptionTokens = next;
-      if (currentPassCode) {
-        setMemberDirectoryEntry(currentPassCode, { extraRedemptionTokens: next });
-      }
-    }
-
     function getVoucherBalanceForTier(tierKey) {
       const tier = normalizeTierKey(tierKey) || getVoucherTier();
       const limit = getVoucherLimitForTier(tier);
@@ -25496,7 +25467,7 @@
       const uid = firebaseAuth.currentUser?.uid;
       const billing = uid ? loadBilling(uid) : {};
       const monthlyGrant = getCeoMonthlyTokenGrantTotal() + getPointsMonthlyTokenGrantTotal();
-      const purchasedTotal = getPurchasedTokenTotal();
+      const purchasedTotal = getCurrentCyclePurchasedTokenTotal(memberProfile);
       const paymentOk = hasSuccessfulPaymentThisCycle(tier, billing, memberProfile);
       if (!paymentOk && monthlyGrant <= 0 && purchasedTotal <= 0) {
         return {
@@ -25510,47 +25481,32 @@
           paymentRequired: true
         };
       }
-      const startIso = resolveBillingStart(billing) || memberProfile?.memberSince || null;
-      let startDate = startIso ? new Date(startIso) : null;
-      if (!startDate || Number.isNaN(startDate.getTime())) {
-        startDate = new Date();
-        startDate.setDate(1);
-        startDate.setHours(0, 0, 0, 0);
-      }
-      const cycles = countBillingCycles(startDate.toISOString(), new Date());
+      const windows = getVoucherCycleWindow(billing);
+      const currentWindow = windows?.current;
+      const prevWindow = windows?.previous;
       const effectiveLimit = paymentOk ? limit : 0;
-      let purchasedRemaining = Math.max(0, purchasedTotal);
-      let carryover = 0;
-      let result = { unlimited: false, remaining: 0, limit, carryover: 0, usedCurrent: 0, total: 0, extraTokens: 0 };
-      for (let i = 0; i < cycles; i += 1) {
-        const cycleStart = shiftMonth(startDate, i);
-        const cycleEnd = oneMonthFrom(cycleStart);
-        const isCurrent = i === cycles - 1;
-        const cycleUsed = countRedemptionsInWindow(entries, { start: cycleStart, end: cycleEnd }, { includePending: false });
-        const regularAllowance = effectiveLimit + carryover;
-        const regularAllowanceWithGrant = regularAllowance + (isCurrent ? monthlyGrant : 0);
-        const consumedTokens = Math.max(0, cycleUsed - regularAllowanceWithGrant);
-        const purchasedAfter = Math.max(0, purchasedRemaining - consumedTokens);
-        const regularUnused = Math.max(0, regularAllowance - cycleUsed);
-        const nextCarryover = purchasedAfter > 0 ? 0 : Math.min(MAX_VOUCHER_CARRYOVER, regularUnused);
-        if (isCurrent) {
-          const remainingRegular = Math.max(0, regularAllowanceWithGrant - cycleUsed);
-          const remaining = remainingRegular + purchasedAfter;
-          result = {
-            unlimited: false,
-            remaining,
-            limit,
-            carryover,
-            usedCurrent: cycleUsed,
-            total: regularAllowanceWithGrant + purchasedRemaining,
-            extraTokens: purchasedAfter,
-            paymentRequired: !paymentOk
-          };
-        }
-        purchasedRemaining = purchasedAfter;
-        carryover = nextCarryover;
-      }
-      return result;
+      const prevUsed = prevWindow
+        ? countRedemptionsInWindow(entries, prevWindow, { includePending: false })
+        : 0;
+      const carryover = Math.max(0, Math.min(MAX_VOUCHER_CARRYOVER, effectiveLimit - prevUsed));
+      const cycleUsed = currentWindow
+        ? countRedemptionsInWindow(entries, currentWindow, { includePending: false })
+        : 0;
+      const includedAllowance = effectiveLimit + carryover + monthlyGrant;
+      const consumedPaidTokens = Math.max(0, cycleUsed - includedAllowance);
+      const extraTokens = Math.max(0, purchasedTotal - consumedPaidTokens);
+      const remainingRegular = Math.max(0, includedAllowance - cycleUsed);
+      return {
+        unlimited: false,
+        remaining: remainingRegular + extraTokens,
+        limit,
+        carryover,
+        usedCurrent: cycleUsed,
+        total: includedAllowance + purchasedTotal,
+        extraTokens,
+        includedTokens: includedAllowance,
+        paymentRequired: !paymentOk
+      };
     }
 
     function updateVoucherBalanceUI() {
@@ -25578,19 +25534,12 @@
         if (redeemVoucherBalance) redeemVoucherBalance.textContent = blockedMsg;
       } else {
         if (voucherBalanceNote) {
-          if (balance.extraTokens) {
-            const label = balance.extraTokens === 1 ? "token" : "tokens";
-            voucherBalanceNote.textContent = `${balance.extraTokens} purchased ${label} carry over.`;
-          } else {
-            voucherBalanceNote.textContent = "";
-          }
+          voucherBalanceNote.textContent = "Extra purchased tokens apply to this billing month only and do not roll over.";
         }
         if (redeemVoucherBalance) {
-          const carry = balance.carryover ? ` (incl. ${balance.carryover} carryover)` : "";
-          const tokens = balance.extraTokens
-            ? ` (incl. ${balance.extraTokens} purchased token${balance.extraTokens === 1 ? "" : "s"} carryover)`
-            : "";
-          redeemVoucherBalance.textContent = `Vouchers left this cycle: ${balance.remaining}${carry}${tokens}.`;
+          const included = Number(balance.includedTokens || 0);
+          const extra = Number(balance.extraTokens || 0);
+          redeemVoucherBalance.textContent = `Included monthly: ${included} · Extra this month: ${extra} · Available now: ${balance.remaining}.`;
         }
       }
     }
@@ -28888,8 +28837,8 @@ let onboardingIndex = 0;
           if (rewardsError) rewardsError.textContent = "Keep redeeming to unlock rewards.";
           return;
         }
-        const current = getPurchasedTokenTotal();
-        setPurchasedTokenTotal(current + 1);
+        const current = getCurrentCyclePurchasedTokenTotal(memberProfile);
+        setCurrentCyclePurchasedTokenTotal(current + 1);
         updateVoucherBalanceUI();
         renderRedemptionOptions();
         showNeonSuccess(rewardsSuccess, "Reward claimed: +1 redemption token.", 3200);
@@ -29850,11 +29799,8 @@ let onboardingIndex = 0;
     let membershipPricingPreview = null;
     let membershipPricingPreviewTier = "standard";
     let membershipPricingPreviewInterval = "month";
-    let voucherStripeInstance = null;
-    let voucherElements = null;
-    let voucherClientSecret = null;
-    let voucherPaymentComplete = false;
-    let voucherHasCardOnFile = false;
+    let voucherCheckoutInFlight = false;
+    let voucherCheckoutReturnHandled = false;
 
     async function prepareStripePayment(tier, interval = "month", prepKey = "") {
       const normalizedTier = normalizeCheckoutTier(tier);
@@ -30064,21 +30010,6 @@ let onboardingIndex = 0;
       }
     }
 
-    function resetVoucherPaymentState() {
-      if (voucherPaymentError) voucherPaymentError.textContent = "";
-      voucherClientSecret = null;
-      voucherStripeInstance = null;
-      voucherElements = null;
-      voucherPaymentComplete = false;
-      voucherHasCardOnFile = false;
-      if (voucherPaymentElement) voucherPaymentElement.innerHTML = "";
-      if (voucherChargeOnFile) {
-        voucherChargeOnFile.disabled = false;
-        voucherChargeOnFile.textContent = "Continue";
-      }
-      if (voucherSavedCard) voucherSavedCard.style.display = "none";
-    }
-
     function formatPaymentError(err, fallback) {
       const code = (err?.code || "").toString().toLowerCase();
       if (code === "internal") return enforcePaymentMessageGuard(fallback, fallback);
@@ -30086,7 +30017,46 @@ let onboardingIndex = 0;
       return enforcePaymentMessageGuard(mapMemberFacingError(err, "payment"), fallback);
     }
 
-    async function prepareVoucherPayment(pack) {
+    function getCurrentVoucherBillingMonthKey(profile = memberProfile) {
+      const uid = firebaseAuth.currentUser?.uid;
+      const billing = uid ? loadBilling(uid) : {};
+      const cycle = getVoucherCycleWindow(billing)?.current;
+      const anchor = cycle?.start || new Date();
+      return getMonthTokenFromDate(anchor);
+    }
+
+    function getCurrentCyclePurchasedTokenTotal(profile = memberProfile) {
+      const key = getCurrentVoucherBillingMonthKey(profile);
+      const buckets = profile?.extraVoucherBuckets && typeof profile.extraVoucherBuckets === "object"
+        ? profile.extraVoucherBuckets
+        : {};
+      const value = Number(buckets?.[key]?.redemptionTokens || 0);
+      return Number.isFinite(value) ? Math.max(0, value) : 0;
+    }
+
+    function setCurrentCyclePurchasedTokenTotal(tokens, billingMonthKey = getCurrentVoucherBillingMonthKey(memberProfile)) {
+      const normalizedKey = String(billingMonthKey || "").trim() || getCurrentVoucherBillingMonthKey(memberProfile);
+      const next = Math.max(0, Number(tokens) || 0);
+      if (!memberProfile) memberProfile = {};
+      const nextBuckets = {
+        ...(memberProfile.extraVoucherBuckets && typeof memberProfile.extraVoucherBuckets === "object"
+          ? memberProfile.extraVoucherBuckets
+          : {})
+      };
+      const currentBucket = {
+        ...(nextBuckets[normalizedKey] && typeof nextBuckets[normalizedKey] === "object" ? nextBuckets[normalizedKey] : {})
+      };
+      currentBucket.redemptionTokens = next;
+      nextBuckets[normalizedKey] = currentBucket;
+      memberProfile.extraVoucherBuckets = nextBuckets;
+      if (currentPassCode) {
+        setMemberDirectoryEntry(currentPassCode, {
+          extraVoucherBuckets: nextBuckets
+        });
+      }
+    }
+
+    async function startVoucherTokenCheckout(pack) {
       if (!functionsClient) {
         if (voucherPaymentError) voucherPaymentError.textContent = "Payments unavailable right now.";
         return;
@@ -30100,211 +30070,78 @@ let onboardingIndex = 0;
         showToast("Voucher purchases are disabled for this account.");
         return;
       }
-      resetVoucherPaymentState();
-      if (voucherChargeOnFile) voucherChargeOnFile.disabled = true;
-      try {
-        const fn = httpsCallable(functionsClient, "createVoucherPaymentIntent");
-        const resp = await fn({ packId: pack.id });
-        const data = resp?.data || {};
-        if (!data.clientSecret || !data.publishableKey) {
-          throw new Error("Payment could not start.");
-        }
-        if (pendingVoucherPack && data.pack?.priceLabel) {
-          pendingVoucherPack.priceLabel = data.pack.priceLabel;
-          pendingVoucherPack.price = data.pack.priceLabel;
-        }
-        voucherStripeInstance = Stripe(data.publishableKey);
-        voucherClientSecret = data.clientSecret;
-        const elementsOptions = {
-          clientSecret: voucherClientSecret,
-          wallets: { applePay: "auto", googlePay: "auto" }
-        };
-        voucherElements = voucherStripeInstance.elements(elementsOptions);
-        const paymentElementOptions = { layout: "tabs", paymentMethodOrder: ["card"] };
-        const element = voucherElements.create("payment", paymentElementOptions);
-        element.on("change", (event) => {
-          voucherPaymentComplete = !!event.complete;
-        });
-        element.mount("#voucherPaymentElement");
-        if (voucherChargeOnFile) {
-          voucherHasCardOnFile = !!memberProfile?.defaultPaymentMethodId;
-          voucherChargeOnFile.style.display = "";
-          voucherChargeOnFile.disabled = false;
-          voucherChargeOnFile.textContent = "Continue";
-        }
-        if (voucherSavedCard) {
-          if (voucherHasCardOnFile) {
-            voucherSavedCard.textContent = "Card on file ready. Enter a new card below to use a different one.";
-            voucherSavedCard.style.display = "block";
-          } else {
-            voucherSavedCard.style.display = "none";
-          }
-        }
-      } catch (err) {
-        console.warn("prepareVoucherPayment failed", err);
-        if (voucherPaymentError) {
-          voucherPaymentError.textContent = formatPaymentError(err, "Could not start payment. Please try again.");
-        }
-        if (voucherChargeOnFile) {
-          voucherChargeOnFile.disabled = false;
-          voucherChargeOnFile.textContent = "Continue";
-        }
-      }
-    }
-
-    async function confirmVoucherPurchaseIntent(paymentIntentId, methodLabel) {
-      if (!functionsClient) {
-        if (voucherPaymentError) voucherPaymentError.textContent = "Payments unavailable right now.";
+      if (!pack || !Number.isFinite(Number(pack.id))) {
+        if (voucherPaymentError) voucherPaymentError.textContent = "Select a token pack first.";
         return;
       }
-      if (!paymentIntentId) {
-        if (voucherPaymentError) voucherPaymentError.textContent = "Payment failed. Please try again.";
+      if (voucherCheckoutInFlight) {
+        showToast("Opening secure checkout...", 1400);
         return;
       }
-      try {
-        const fn = httpsCallable(functionsClient, "confirmVoucherPurchase");
-        const resp = await fn({ paymentIntentId });
-        const data = resp?.data || {};
-        if (!data.ok) throw new Error("Payment incomplete.");
-        const pack = data.pack || pendingVoucherPack;
-        if (Number.isFinite(Number(data.extraRedemptionTokens))) {
-          setPurchasedTokenTotal(Number(data.extraRedemptionTokens));
-        } else if (data.extraVouchers) {
-          extraVouchers = sanitizeExtraVouchers(data.extraVouchers, { allowUnlimited: isCeoActive() });
-          if (memberProfile) memberProfile.extraVouchers = { ...extraVouchers };
-        } else if (pack) {
-          if ((pack.perk || "").toLowerCase() === "tokens") {
-            const current = getPurchasedTokenTotal();
-            setPurchasedTokenTotal(current + (pack.amount || 0));
-          } else {
-            adjustExtraVouchers(pack.perk || pack.id, pack.amount);
-          }
-        }
-        renderRedemptionOptions();
-        if (creditInfo && pack) {
-          const label = (pack.perk || "").toLowerCase() === "tokens"
-            ? "redemption tokens"
-            : `${pack.label || pack.perk} vouchers`;
-          creditInfo.textContent = `${pack.amount} ${label} added.`;
-        }
-        voucherModal.classList.remove("active");
-        const orderId = `FO-${Date.now().toString().slice(-6)}`;
-        if (pack) {
-          const purchaseTier = normalizeTierKey(pack.tier)
-            || normalizeTierKey(currentMembershipTier)
-            || normalizeTierKey(memberProfile?.tier)
-            || "standard";
-          showReceipt([
-            { label: "Order #", value: orderId },
-            { label: "Processed", value: formatMST(new Date()) },
-            { label: "Pack", value: `+${pack.amount} ${pack.label || pack.perk}` },
-            { label: "Method", value: methodLabel },
-            { label: "Total", value: pack.priceLabel || pack.price || "" }
-          ], `Charged via ${methodLabel}.`, {
-            type: "voucher",
-            tier: purchaseTier,
-            pack: pack.id,
-            amount: pack.amount,
-            method: methodLabel,
-            title: (pack.perk || "").toLowerCase() === "tokens"
-              ? "Redemption tokens"
-              : `Voucher add-on (${pack.label || pack.perk})`,
-            detail: pack.priceLabel || pack.price || "",
-            total: pack.priceLabel || pack.price || "",
-            orderId
-          });
-        }
-        pendingVoucherPack = null;
-      } catch (err) {
-        console.warn("confirmVoucherPurchase failed", err);
-        if (voucherPaymentError) voucherPaymentError.textContent = formatPaymentError(err, "Payment failed. Please try again.");
-      }
-    }
-
-    async function chargeVoucherOnFile(pack) {
-      if (!functionsClient) {
-        if (voucherPaymentError) voucherPaymentError.textContent = "Payments unavailable right now.";
-        return;
-      }
-      if (!firebaseAuth.currentUser) {
-        if (voucherPaymentError) voucherPaymentError.textContent = "Please sign in first.";
-        return;
-      }
-      if (!pack) return;
-      const original = voucherChargeOnFile?.textContent || "Continue";
-      if (voucherChargeOnFile) {
-        voucherChargeOnFile.disabled = true;
-        voucherChargeOnFile.textContent = "Charging…";
-      }
+      voucherCheckoutInFlight = true;
       if (voucherPaymentError) voucherPaymentError.textContent = "";
       try {
-        const fn = httpsCallable(functionsClient, "chargeVoucherOnFile");
-        const resp = await fn({ packId: pack.id });
+        const fn = httpsCallable(functionsClient, "createVoucherTokenCheckoutSession");
+        const resp = await fn({
+          packId: Number(pack.id),
+          returnUrl: `${window.location.origin}${window.location.pathname}`,
+          environment: (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "local" : "production"
+        });
         const data = resp?.data || {};
-        if (data.requiresAction && data.clientSecret) {
-          const stripe = voucherStripeInstance || Stripe(data.publishableKey);
-          const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret);
-          if (error) throw error;
-          if (!paymentIntent || paymentIntent.status !== "succeeded") {
-            throw new Error("Payment incomplete.");
-          }
-          await confirmVoucherPurchaseIntent(paymentIntent.id, "Card on file");
-          return;
+        if (!data.url) {
+          throw new Error("Checkout session did not return a redirect URL.");
         }
-        if (data.paymentIntentId) {
-          await confirmVoucherPurchaseIntent(data.paymentIntentId, "Card on file");
-          return;
-        }
-        throw new Error("Payment failed. Please try again.");
+        window.location.assign(String(data.url));
       } catch (err) {
-        console.warn("chargeVoucherOnFile failed", err);
+        console.warn("createVoucherTokenCheckoutSession failed", err);
         if (voucherPaymentError) {
-          voucherPaymentError.textContent = err?.code === "failed-precondition"
-            ? "No card on file. Enter a card below to continue."
-            : formatPaymentError(err, "Payment failed. Please try again.");
+          voucherPaymentError.textContent = formatPaymentError(err, "Could not open checkout right now. Please try again.");
         }
       } finally {
-        if (voucherChargeOnFile) {
-          voucherChargeOnFile.disabled = false;
-          voucherChargeOnFile.textContent = original;
-        }
+        voucherCheckoutInFlight = false;
       }
     }
 
-    async function chargeVoucherWithElement(pack) {
-      if (!voucherStripeInstance || !voucherElements || !voucherClientSecret) {
-        if (voucherPaymentError) voucherPaymentError.textContent = "Payment not ready. Try again.";
-        return;
-      }
-      const originalText = voucherChargeOnFile?.textContent || "Continue";
-      if (voucherChargeOnFile) {
-        voucherChargeOnFile.disabled = true;
-        voucherChargeOnFile.textContent = "Processing…";
-      }
-      try {
-        const { error, paymentIntent } = await voucherStripeInstance.confirmPayment({
-          elements: voucherElements,
-          confirmParams: { return_url: window.location.href },
-          redirect: "if_required"
-        });
-        if (error) {
-          if (voucherPaymentError) voucherPaymentError.textContent = formatPaymentError({ code: "payment-error", message: error.message }, "Payment failed. Try again.");
-          return;
+    async function processVoucherCheckoutReturn() {
+      if (voucherCheckoutReturnHandled) return;
+      const params = new URLSearchParams(window.location.search || "");
+      const isVoucherReturn = params.get("voucher_checkout") === "1";
+      if (!isVoucherReturn || !firebaseAuth.currentUser) return;
+      voucherCheckoutReturnHandled = true;
+      const sessionId = String(params.get("voucher_session_id") || "").trim();
+      const removeVoucherParams = () => {
+        try {
+          const url = new URL(window.location.href);
+          ["voucher_checkout", "voucher_status", "voucher_session_id"].forEach((key) => url.searchParams.delete(key));
+          const query = url.searchParams.toString();
+          window.history.replaceState({}, document.title, url.pathname + (query ? `?${query}` : "") + url.hash);
+        } catch (_) {}
+      };
+      showToast("Finalizing voucher token purchase…", 2200);
+      let applied = false;
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await refreshMemberProfile(true);
+        const billingMonthKey = getCurrentVoucherBillingMonthKey(memberProfile);
+        const purchases = memberProfile?.extraVoucherBuckets?.[billingMonthKey]?.purchases || {};
+        if (sessionId && purchases[sessionId]) {
+          applied = true;
+          break;
         }
-        if (paymentIntent?.status === "succeeded") {
-          await confirmVoucherPurchaseIntent(paymentIntent.id, "Card");
-          return;
+        if (!sessionId) {
+          applied = true;
+          break;
         }
-        if (voucherPaymentError) voucherPaymentError.textContent = "Payment incomplete. Please try again.";
-      } catch (err) {
-        console.warn("Voucher element payment failed", err);
-        if (voucherPaymentError) voucherPaymentError.textContent = "Payment failed. Please try again.";
-      } finally {
-        if (voucherChargeOnFile) {
-          voucherChargeOnFile.disabled = false;
-          voucherChargeOnFile.textContent = originalText;
-        }
+        // Wait for webhook -> profile sync
+        await new Promise((resolve) => setTimeout(resolve, 900));
       }
+      updateVoucherBalanceUI();
+      renderRedemptionOptions();
+      if (applied) {
+        showToast("Your extra voucher tokens have been added for this billing month.", 3200);
+      } else {
+        showToast("Payment received. Tokens may take a moment to sync.", 2600);
+      }
+      removeVoucherParams();
     }
 
     const venuesInfo = {
@@ -33692,25 +33529,14 @@ let onboardingIndex = 0;
 
     const voucherPacks = {
       standard: [
-        { id: "tokens_1", perk: "tokens", amount: 1, price: "$3.00", label: "redemption token" },
-        { id: "tokens_2", perk: "tokens", amount: 2, price: "$6.00", label: "redemption tokens" },
-        { id: "tokens_3", perk: "tokens", amount: 3, price: "$9.00", label: "redemption tokens" },
-        { id: "tokens_4", perk: "tokens", amount: 4, price: "$12.00", label: "redemption tokens" },
-        { id: "tokens_5", perk: "tokens", amount: 5, price: "$15.00", label: "redemption tokens" },
+        { id: 2, amount: 2, price: "$6.00", label: "redemption tokens" },
+        { id: 4, amount: 4, price: "$12.00", label: "redemption tokens" },
+        { id: 6, amount: 6, price: "$18.00", label: "redemption tokens" },
       ],
       vip: [
-        { id: "tokens_1", perk: "tokens", amount: 1, price: "$2.50", originalPrice: "$3.00", label: "redemption token" },
-        { id: "tokens_2", perk: "tokens", amount: 2, price: "$5.00", originalPrice: "$6.00", label: "redemption tokens" },
-        { id: "tokens_3", perk: "tokens", amount: 3, price: "$7.50", originalPrice: "$9.00", label: "redemption tokens" },
-        { id: "tokens_4", perk: "tokens", amount: 4, price: "$10.00", originalPrice: "$12.00", label: "redemption tokens" },
-        { id: "tokens_5", perk: "tokens", amount: 5, price: "$12.50", originalPrice: "$15.00", label: "redemption tokens" },
-      ],
-      default: [
-        { id: "tokens_1", perk: "tokens", amount: 1, price: "$3.00", label: "redemption token" },
-        { id: "tokens_2", perk: "tokens", amount: 2, price: "$6.00", label: "redemption tokens" },
-        { id: "tokens_3", perk: "tokens", amount: 3, price: "$9.00", label: "redemption tokens" },
-        { id: "tokens_4", perk: "tokens", amount: 4, price: "$12.00", label: "redemption tokens" },
-        { id: "tokens_5", perk: "tokens", amount: 5, price: "$15.00", label: "redemption tokens" },
+        { id: 2, amount: 2, price: "$5.00", label: "redemption tokens" },
+        { id: 4, amount: 4, price: "$10.00", label: "redemption tokens" },
+        { id: 6, amount: 6, price: "$15.00", label: "redemption tokens" },
       ]
     };
     let currentPendingRedemptions = {};
@@ -35332,55 +35158,52 @@ let onboardingIndex = 0;
     function openVoucherModal() {
       if (!voucherModal || !voucherOptions) return;
       pendingVoucherPack = null;
-      if (voucherPaymentForm) voucherPaymentForm.reset();
-      resetVoucherPaymentState();
-      voucherStepPayment.style.display = "none";
-      voucherStepPacks.style.display = "block";
       const tierKey = normalizeTierKey(currentMembershipTier)
         || normalizeTierKey(memberProfile?.tier)
         || "standard";
-      const packs = voucherPacks[tierKey] || voucherPacks.default || [];
+      if (tierKey !== "standard" && tierKey !== "vip") {
+        voucherOptions.innerHTML = "<p style='color:#94a3b8;'>Token packs are available for active Standard or VIP members.</p>";
+        if (voucherPaymentError) voucherPaymentError.textContent = "";
+        if (voucherMonthOnlyNote) voucherMonthOnlyNote.textContent = "";
+        voucherModal.classList.add("active");
+        return;
+      }
+      const packs = voucherPacks[tierKey] || [];
+      if (voucherMonthOnlyNote) {
+        const tierLabel = tierKey === "vip" ? "VIP" : "Standard";
+        voucherMonthOnlyNote.textContent = `${tierLabel} pricing shown. Extra voucher tokens apply to your current billing month only.`;
+      }
       voucherOptions.innerHTML = packs.map(pack => {
         const suffix = pack.label || (pack.amount === 1 ? "redemption token" : "redemption tokens");
         const label = `+${pack.amount} ${suffix}`;
-        const priceMarkup = pack.originalPrice
-          ? `<span class="price-strike">${pack.originalPrice}</span><span class="price-vip">${pack.price}</span>`
-          : `<span>${pack.price}</span>`;
         return `
         <div class="perk-row" style="justify-content:space-between;background:rgba(15,23,42,0.8);padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,0.3);margin-bottom:8px;">
           <div style="text-align:left;">
             <strong style="display:block;font-size:13px;">${label}</strong>
-            <div class="voucher-price">${priceMarkup}</div>
+            <div class="voucher-price"><span>${pack.price}</span></div>
           </div>
-          <button class="btn btn-primary" type="button" data-perk="${pack.id}" data-amount="${pack.amount}" data-price="${pack.price}" data-original-price="${pack.originalPrice || ""}" style="width:auto;padding:6px 12px;font-size:11px;">
+          <button class="btn btn-primary" type="button" data-perk="${pack.id}" data-amount="${pack.amount}" data-price="${pack.price}" style="width:auto;padding:6px 12px;font-size:11px;">
             Purchase
           </button>
         </div>
       `;
       }).join("\n") || "<p style='color:#94a3b8;'>No add-ons available.</p>";
       voucherModal.classList.add("active");
+      if (voucherPaymentError) voucherPaymentError.textContent = "";
       voucherOptions.querySelectorAll("button[data-perk]").forEach(btn => {
         btn.addEventListener("click", () => {
           const packId = btn.dataset.perk;
-          const packMeta = packs.find(p => p.id === packId) || {};
+          const packMeta = packs.find(p => String(p.id) === String(packId)) || {};
           pendingVoucherPack = {
             id: packId,
             perk: packMeta.perk || packId,
             amount: parseInt(btn.dataset.amount, 10),
             price: btn.dataset.price,
-            originalPrice: btn.dataset.originalPrice || null,
             priceLabel: btn.dataset.price,
             label: packMeta.label || "redemption tokens",
             tier: tierKey
           };
-          const packLabel = pendingVoucherPack.amount === 1
-            ? "redemption token"
-            : (pendingVoucherPack.label || "redemption tokens");
-          voucherPaymentTitle.textContent = `Buy ${pendingVoucherPack.amount} ${packLabel}`;
-          voucherPaymentCopy.textContent = `We'll charge ${pendingVoucherPack.price}. Securely handled by Stripe.`;
-          voucherStepPacks.style.display = "none";
-          voucherStepPayment.style.display = "block";
-          prepareVoucherPayment(pendingVoucherPack);
+          startVoucherTokenCheckout(pendingVoucherPack);
         });
       });
     }
@@ -41013,7 +40836,7 @@ let onboardingIndex = 0;
     if (voucherCancel) {
       voucherCancel.addEventListener("click", () => {
         pendingVoucherPack = null;
-        resetVoucherPaymentState();
+        if (voucherPaymentError) voucherPaymentError.textContent = "";
         voucherModal.classList.remove("active");
       });
     }
@@ -41021,17 +40844,9 @@ let onboardingIndex = 0;
       voucherModal.addEventListener("click", (e) => {
         if (e.target === voucherModal) {
           pendingVoucherPack = null;
-          resetVoucherPaymentState();
+          if (voucherPaymentError) voucherPaymentError.textContent = "";
           voucherModal.classList.remove("active");
         }
-      });
-    }
-    if (voucherBackBtn) {
-      voucherBackBtn.addEventListener("click", () => {
-        pendingVoucherPack = null;
-        resetVoucherPaymentState();
-        voucherStepPayment.style.display = "none";
-        voucherStepPacks.style.display = "block";
       });
     }
     function enterCeoPortal() {
@@ -42995,6 +42810,7 @@ let onboardingIndex = 0;
           return;
         }
         await handleAuthenticatedUser(user);
+        await processVoucherCheckoutReturn();
         if (maybeResumeOnboardingAfterAuth(user)) {
           updateRefreshButtonsVisibility();
           attachRealtimeForCurrentContext("auth-change");
@@ -44524,23 +44340,6 @@ let onboardingIndex = 0;
       if (passIdTop) passIdTop.textContent = `Pass ID: ${ensureCeoCardCode()}`;
       updateCeoPassUI();
       showScreen("pass");
-    }
-
-    if (voucherChargeOnFile) {
-      voucherChargeOnFile.addEventListener("click", async () => {
-        if (!pendingVoucherPack) {
-          if (voucherPaymentError) voucherPaymentError.textContent = "Select a voucher pack first.";
-          return;
-        }
-        if (voucherHasCardOnFile && !voucherPaymentComplete) {
-          await chargeVoucherOnFile(pendingVoucherPack);
-        } else {
-          await chargeVoucherWithElement(pendingVoucherPack);
-        }
-      });
-    }
-    if (voucherPaymentForm) {
-      voucherPaymentForm.addEventListener("submit", (e) => e.preventDefault());
     }
 
     function showVenueDetail(venueId) {

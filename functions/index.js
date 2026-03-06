@@ -901,6 +901,22 @@ function getMonthTokenFromDate(date = new Date()) {
   return `${parsed.getFullYear()}-${m}`;
 }
 
+function getCurrentVoucherBillingMonthKeyForWallet(memberData = {}, now = new Date()) {
+  const billing = (memberData?.billing && typeof memberData.billing === "object") ? memberData.billing : {};
+  const cycle = getVoucherCycleWindowForWallet(memberData, billing, now)?.current;
+  const anchor = cycle?.start || now;
+  return getMonthTokenFromDate(anchor);
+}
+
+function getCurrentCyclePurchasedTokenTotalForWallet(memberData = {}, now = new Date()) {
+  const billingMonthKey = getCurrentVoucherBillingMonthKeyForWallet(memberData, now);
+  const buckets = memberData?.extraVoucherBuckets;
+  if (!buckets || typeof buckets !== "object") return 0;
+  const bucket = buckets[billingMonthKey];
+  const value = Number(bucket?.redemptionTokens || 0);
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
 function getVoucherLimitForTierForWallet(tier) {
   if (!tier) return 0;
   if (tier === "ceo" || tier === "free") return Infinity;
@@ -1050,7 +1066,7 @@ function computeVoucherBalanceForWallet(memberData = {}, entries = [], now = new
     startDate.setHours(0, 0, 0, 0);
   }
   const cycles = countBillingCycles(startDate.toISOString(), now);
-  const purchasedTotal = Math.max(0, Number(memberData?.extraRedemptionTokens || 0));
+  const purchasedTotal = getCurrentCyclePurchasedTokenTotalForWallet(memberData, now);
   const grantKey = getMonthTokenFromDate(now);
   const monthlyGrantRaw = memberData?.ceoMonthlyTokenGrants && typeof memberData.ceoMonthlyTokenGrants === "object"
     ? memberData.ceoMonthlyTokenGrants[grantKey]
@@ -1058,7 +1074,6 @@ function computeVoucherBalanceForWallet(memberData = {}, entries = [], now = new
   const ceoMonthlyGrant = Math.max(0, Number(monthlyGrantRaw || 0));
   const pointsMonthlyGrant = getPointsMonthlyTokenGrantTotal(memberData, now);
   const monthlyGrant = ceoMonthlyGrant + pointsMonthlyGrant;
-  let purchasedRemaining = purchasedTotal;
   let carryover = 0;
   let result = {
     unlimited: false,
@@ -1081,11 +1096,11 @@ function computeVoucherBalanceForWallet(memberData = {}, entries = [], now = new
     );
     const regularAllowance = limit + carryover;
     const regularAllowanceWithGrant = regularAllowance + (isCurrent ? monthlyGrant : 0);
-    const consumedTokens = Math.max(0, cycleUsed - regularAllowanceWithGrant);
-    const purchasedAfter = Math.max(0, purchasedRemaining - consumedTokens);
     const regularUnused = Math.max(0, regularAllowance - cycleUsed);
-    const nextCarryover = purchasedAfter > 0 ? 0 : Math.min(MAX_VOUCHER_CARRYOVER, regularUnused);
+    const nextCarryover = Math.min(MAX_VOUCHER_CARRYOVER, regularUnused);
     if (isCurrent) {
+      const consumedTokens = Math.max(0, cycleUsed - regularAllowanceWithGrant);
+      const purchasedAfter = Math.max(0, purchasedTotal - consumedTokens);
       const remainingRegular = Math.max(0, regularAllowanceWithGrant - cycleUsed);
       const remaining = remainingRegular + purchasedAfter;
       result = {
@@ -1094,12 +1109,11 @@ function computeVoucherBalanceForWallet(memberData = {}, entries = [], now = new
         limit,
         carryover,
         usedCurrent: cycleUsed,
-        total: regularAllowanceWithGrant + purchasedRemaining,
+        total: regularAllowanceWithGrant + purchasedTotal,
         extraTokens: purchasedAfter,
         paymentRequired: false
       };
     }
-    purchasedRemaining = purchasedAfter;
     carryover = nextCarryover;
   }
   return result;
@@ -3801,77 +3815,104 @@ exports.weeklyCleanup = functions.pubsub.schedule('0 5 * * 0').timeZone('America
 });
 
 // --- Payments & Billing (Stripe) ---
-function priceForTier(tier = 'standard') {
-  const map = {
-    standard: 500, // $5.00
-    vip: 1000      // $10.00
-  };
-  return map[tier] || map.standard;
+const VOUCHER_TOKEN_PRICE_MAP = Object.freeze({
+  standard: Object.freeze({
+    2: "price_1T7sK8Q4Ij3ax7mavvWYm7mu",
+    4: "price_1T7sLJQ4Ij3ax7maJBKbLXG6",
+    6: "price_1T7sMIQ4Ij3ax7ma0blEmPhU",
+  }),
+  vip: Object.freeze({
+    2: "price_1T7sP8Q4Ij3ax7maYl93Rw4J",
+    4: "price_1T7sPuQ4Ij3ax7maztQ2rOm4",
+    6: "price_1T7sRnQ4Ij3ax7maPPntTxP5",
+  }),
+});
+
+const VOUCHER_TOKEN_PACK_DETAILS = Object.freeze({
+  standard: Object.freeze({
+    2: { tokenAmount: 2, priceCents: 600, priceLabel: "$6.00" },
+    4: { tokenAmount: 4, priceCents: 1200, priceLabel: "$12.00" },
+    6: { tokenAmount: 6, priceCents: 1800, priceLabel: "$18.00" },
+  }),
+  vip: Object.freeze({
+    2: { tokenAmount: 2, priceCents: 500, priceLabel: "$5.00" },
+    4: { tokenAmount: 4, priceCents: 1000, priceLabel: "$10.00" },
+    6: { tokenAmount: 6, priceCents: 1500, priceLabel: "$15.00" },
+  }),
+});
+
+function normalizeVoucherTokenPackId(rawPackId) {
+  const parsed = Number(rawPackId);
+  if (!Number.isFinite(parsed)) return 0;
+  const amount = Math.trunc(parsed);
+  if (amount !== 2 && amount !== 4 && amount !== 6) return 0;
+  return amount;
 }
 
-const TOKEN_PACKS_STANDARD = {
-  tokens_1: { perk: "tokens", amount: 1, priceCents: 300, priceLabel: "$3.00", label: "Redemption token" },
-  tokens_2: { perk: "tokens", amount: 2, priceCents: 600, priceLabel: "$6.00", label: "Redemption tokens" },
-  tokens_3: { perk: "tokens", amount: 3, priceCents: 900, priceLabel: "$9.00", label: "Redemption tokens" },
-  tokens_4: { perk: "tokens", amount: 4, priceCents: 1200, priceLabel: "$12.00", label: "Redemption tokens" },
-  tokens_5: { perk: "tokens", amount: 5, priceCents: 1500, priceLabel: "$15.00", label: "Redemption tokens" },
-};
-
-const TOKEN_PACKS_VIP = {
-  tokens_1: { perk: "tokens", amount: 1, priceCents: 250, priceLabel: "$2.50", label: "Redemption token" },
-  tokens_2: { perk: "tokens", amount: 2, priceCents: 500, priceLabel: "$5.00", label: "Redemption tokens" },
-  tokens_3: { perk: "tokens", amount: 3, priceCents: 750, priceLabel: "$7.50", label: "Redemption tokens" },
-  tokens_4: { perk: "tokens", amount: 4, priceCents: 1000, priceLabel: "$10.00", label: "Redemption tokens" },
-  tokens_5: { perk: "tokens", amount: 5, priceCents: 1250, priceLabel: "$12.50", label: "Redemption tokens" },
-};
-
-const VOUCHER_PACKS = {
-  standard: {
-    drink: { perk: "drink", amount: 2, priceCents: 600, priceLabel: "$6.00", label: "$3 drink voucher" },
-    shot: { perk: "shot", amount: 4, priceCents: 500, priceLabel: "$5.00", label: "$1 shot voucher" },
-    cover: { perk: "cover", amount: 3, priceCents: 2000, priceLabel: "$20.00", label: "Skip Line + No Cover Charge" },
-    ...TOKEN_PACKS_STANDARD,
-  },
-  vip: {
-    drink: { perk: "drink", amount: 4, priceCents: 1000, priceLabel: "$10.00", label: "$3 drink voucher" },
-    shot: { perk: "shot", amount: 4, priceCents: 500, priceLabel: "$5.00", label: "$1 shot voucher" },
-    cover: { perk: "cover", amount: 3, priceCents: 1500, priceLabel: "$15.00", label: "Skip Line + No Cover Charge" },
-    ...TOKEN_PACKS_VIP,
-  },
-};
-
-function resolveVoucherPack(tier, packId) {
-  const t = (tier || "standard").toLowerCase();
-  const key = (packId || "").toLowerCase();
-  const pack = (VOUCHER_PACKS[t] && VOUCHER_PACKS[t][key]) || (VOUCHER_PACKS.standard && VOUCHER_PACKS.standard[key]) || null;
-  if (!pack) return null;
-  return { id: key, tier: t, ...pack };
+function resolveVoucherTokenPackForTier(tierInput = "standard", rawPackId = 0) {
+  const tier = normalizeTierKey(tierInput);
+  if (tier !== "standard" && tier !== "vip") return null;
+  const packId = normalizeVoucherTokenPackId(rawPackId);
+  if (!packId) return null;
+  const priceId = VOUCHER_TOKEN_PRICE_MAP[tier]?.[packId] || null;
+  if (!priceId) return null;
+  const details = VOUCHER_TOKEN_PACK_DETAILS[tier]?.[packId] || {};
+  return {
+    tier,
+    packId,
+    tokenAmount: Number(details.tokenAmount || packId),
+    priceId,
+    priceCents: Number(details.priceCents || 0),
+    priceLabel: String(details.priceLabel || ""),
+  };
 }
 
-async function applyVoucherPack(uid, pack) {
-  const ref = db.collection("members").doc(uid);
-  if (pack.perk === "tokens") {
-    let nextCount = pack.amount;
-    await db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      const data = snap.exists ? snap.data() : {};
-      const current = Number(data.extraRedemptionTokens || 0);
-      nextCount = current + pack.amount;
-      tx.set(ref, {
-        extraRedemptionTokens: nextCount,
-        lastVoucherPurchase: admin.firestore.FieldValue.serverTimestamp(),
-      }, { merge: true });
-    });
-    return { extraRedemptionTokens: nextCount };
-  }
-  const updates = {
-    [`extraVouchers.${pack.perk}`]: admin.firestore.FieldValue.increment(pack.amount),
-    lastVoucherPurchase: admin.firestore.FieldValue.serverTimestamp(),
-  };
-  await ref.set(updates, { merge: true });
-  const snap = await ref.get();
-  const data = snap.exists ? snap.data() : {};
-  return { extraVouchers: data.extraVouchers || {} };
+async function applyVoucherTokenCheckoutGrant(session, eventType = "checkout.session.completed") {
+  const sessionId = String(session?.id || "").trim();
+  if (!sessionId) return { applied: false, reason: "missing_session_id" };
+  const metadata = session?.metadata || {};
+  const uid = String(metadata.uid || "").trim();
+  if (!uid) return { applied: false, reason: "missing_uid" };
+
+  const { ref: memberRef } = await getMemberContext(uid);
+  return db.runTransaction(async (tx) => {
+    const memberSnap = await tx.get(memberRef);
+    const memberData = memberSnap.exists ? (memberSnap.data() || {}) : {};
+    const memberTier = normalizeTierKey(memberData?.tier || memberData?.membershipTier || "standard");
+    if (memberTier !== "standard" && memberTier !== "vip") {
+      return { applied: false, reason: "tier_not_eligible", memberTier };
+    }
+    const pack = resolveVoucherTokenPackForTier(memberTier, metadata.packId || metadata.tokenAmount);
+    if (!pack) {
+      return { applied: false, reason: "pack_not_allowed", memberTier };
+    }
+    const requestedBillingMonthKey = String(metadata.billingMonthKey || "").trim();
+    const billingMonthKey = /^\d{4}-\d{2}$/.test(requestedBillingMonthKey)
+      ? requestedBillingMonthKey
+      : getCurrentVoucherBillingMonthKeyForWallet(memberData, new Date());
+    const existingPurchase = memberData?.extraVoucherBuckets?.[billingMonthKey]?.purchases?.[sessionId];
+    if (existingPurchase) {
+      return { applied: false, reason: "already_applied", billingMonthKey, tokenAmount: pack.tokenAmount };
+    }
+    const paymentIntentId = String(session?.payment_intent || "").trim() || null;
+    const purchasePath = `extraVoucherBuckets.${billingMonthKey}.purchases.${sessionId}`;
+    const updates = {
+      [`extraVoucherBuckets.${billingMonthKey}.redemptionTokens`]: admin.firestore.FieldValue.increment(pack.tokenAmount),
+      [`extraVoucherBuckets.${billingMonthKey}.updatedAt`]: admin.firestore.FieldValue.serverTimestamp(),
+      [purchasePath]: {
+        tokenAmount: pack.tokenAmount,
+        packId: String(pack.packId),
+        stripeSessionId: sessionId,
+        stripePaymentIntentId: paymentIntentId,
+        purchasedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      lastVoucherPurchase: admin.firestore.FieldValue.serverTimestamp(),
+      lastStripeEvent: eventType,
+      lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    tx.set(memberRef, updates, { merge: true });
+    return { applied: true, billingMonthKey, tokenAmount: pack.tokenAmount };
+  });
 }
 
 const stripeSecrets = {
@@ -5437,7 +5478,18 @@ exports.stripeWebhook = functions.runWith(stripeWebhookSecrets).https.onRequest(
     } else if (event.type === "checkout.session.completed") {
       const memberCtx = await resolveMemberContextFromStripeObject(intent);
       logStripeWebhookAudit(event, intent, memberCtx);
-      if (memberCtx?.ref && isStripeExcluded({}, memberCtx.data)) {
+      const purchaseType = String(intent?.metadata?.purchaseType || "").toLowerCase();
+      if (purchaseType === "voucher_tokens") {
+        const grantResult = await applyVoucherTokenCheckoutGrant(intent, "checkout.session.completed");
+        console.info("voucher_token_checkout_grant", {
+          sessionId: intent?.id || null,
+          applied: grantResult?.applied === true,
+          reason: grantResult?.reason || null,
+          billingMonthKey: grantResult?.billingMonthKey || null,
+          tokenAmount: grantResult?.tokenAmount || null,
+          livemode: !!event?.livemode,
+        });
+      } else if (memberCtx?.ref && isStripeExcluded({}, memberCtx.data)) {
         await memberCtx.ref.set({
           billingProvider: "none",
           membershipStatus: "active",
@@ -5528,128 +5580,97 @@ exports.createBillingPortalSession = functions.runWith(stripeSecrets).https.onCa
   return { url: session.url };
 });
 
-exports.createVoucherPaymentIntent = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
+exports.createVoucherTokenCheckoutSession = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
+  await assertBillingEnabledOrThrow();
+
   const uid = context.auth.uid;
-  const email = (context.auth.token.email || '').toLowerCase();
-  const packId = (data?.packId || '').toString().toLowerCase();
-  const { ref: memberRef, data: profile } = await getMemberContext(uid);
-  assertStripeAllowed(context, profile);
+  const email = (context.auth.token.email || "").toLowerCase();
+  const requestedPackId = normalizeVoucherTokenPackId(data?.packId);
+  if (!requestedPackId) {
+    throw new HttpsError("invalid-argument", "Invalid voucher token pack.");
+  }
+
+  const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
+  assertStripeAllowed(context, memberDocData);
+  const memberTier = normalizeTierKey(memberDocData?.tier || memberDocData?.membershipTier || "standard");
+  if (memberTier !== "standard" && memberTier !== "vip") {
+    throw new HttpsError("failed-precondition", "Voucher token purchases require an active Standard or VIP membership.");
+  }
+
+  const pack = resolveVoucherTokenPackForTier(memberTier, requestedPackId);
+  if (!pack) {
+    throw new HttpsError("permission-denied", "This token pack is not available for your membership.");
+  }
+
   const stripe = getStripeClient();
-  const { publishable } = getStripeConfig();
-  if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
-  const tier = (profile.tier || 'standard').toString();
-  const pack = resolveVoucherPack(tier, packId);
-  if (!pack) throw new HttpsError('invalid-argument', 'Unknown voucher pack');
   const customerId = await ensureStripeCustomer({
     stripe,
     memberRef,
-    memberDocData: profile,
+    memberDocData,
     uid,
     email,
     token: context.auth.token,
   });
-  const intent = await stripe.paymentIntents.create({
-    amount: pack.priceCents,
-    currency: 'usd',
+
+  const billingMonthKey = getCurrentVoucherBillingMonthKeyForWallet(memberDocData, new Date());
+  const environment = String(
+    data?.environment
+    || process.env.FUNCTIONS_EMULATOR && "emulator"
+    || process.env.NODE_ENV
+    || process.env.GCLOUD_PROJECT
+    || "production"
+  ).trim().toLowerCase();
+  const returnUrlRaw = String(data?.returnUrl || "https://foco-after-dark.web.app").trim();
+  const fallbackReturnUrl = "https://foco-after-dark.web.app/";
+  const baseReturnUrl = /^https?:\/\//i.test(returnUrlRaw) ? returnUrlRaw : fallbackReturnUrl;
+  const separator = baseReturnUrl.includes("?") ? "&" : "?";
+  const returnUrl = `${baseReturnUrl}${separator}voucher_checkout=1&voucher_status=success&voucher_session_id={CHECKOUT_SESSION_ID}`;
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
     customer: customerId,
-    payment_method_types: ['card'],
-    setup_future_usage: 'off_session',
-    metadata: { uid, packId: pack.id, tier, perk: pack.perk }
+    line_items: [{ price: pack.priceId, quantity: 1 }],
+    return_url: returnUrl,
+    metadata: {
+      uid,
+      membershipTier: memberTier,
+      packId: String(pack.packId),
+      tokenAmount: String(pack.tokenAmount),
+      billingMonthKey,
+      purchaseType: "voucher_tokens",
+      environment,
+    },
+    payment_intent_data: {
+      metadata: {
+        uid,
+        membershipTier: memberTier,
+        packId: String(pack.packId),
+        tokenAmount: String(pack.tokenAmount),
+        billingMonthKey,
+        purchaseType: "voucher_tokens",
+        environment,
+      },
+    },
   });
-  return {
-    clientSecret: intent.client_secret,
-    publishableKey: publishable,
-    pack: { id: pack.id, amount: pack.amount, perk: pack.perk, priceLabel: pack.priceLabel, label: pack.label }
-  };
-});
 
-exports.chargeVoucherOnFile = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
-  const uid = context.auth.uid;
-  const email = (context.auth.token.email || '').toLowerCase();
-  const packId = (data?.packId || '').toString().toLowerCase();
-  const { ref: memberRef, data: profile } = await getMemberContext(uid);
-  assertStripeAllowed(context, profile);
-  const stripe = getStripeClient();
-  const { publishable } = getStripeConfig();
-  if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
-  const tier = (profile.tier || 'standard').toString();
-  const pack = resolveVoucherPack(tier, packId);
-  if (!pack) throw new HttpsError('invalid-argument', 'Unknown voucher pack');
-  const customerId = await ensureStripeCustomer({
-    stripe,
-    memberRef,
-    memberDocData: profile,
-    uid,
-    email,
-    token: context.auth.token,
-  });
-  let defaultPm = profile.defaultPaymentMethodId || null;
-  if (!defaultPm) {
-    const customer = await stripe.customers.retrieve(customerId);
-    defaultPm = customer?.invoice_settings?.default_payment_method || null;
-    if (defaultPm) {
-      await memberRef.set({ defaultPaymentMethodId: defaultPm }, { merge: true });
-    }
-  }
-  if (!defaultPm) throw new HttpsError('failed-precondition', 'No card on file');
-  const intent = await stripe.paymentIntents.create({
-    amount: pack.priceCents,
-    currency: 'usd',
-    customer: customerId,
-    payment_method: defaultPm,
-    confirm: true,
-    off_session: false,
-    payment_method_types: ['card'],
-    setup_future_usage: 'off_session',
-    metadata: { uid, packId: pack.id, tier, perk: pack.perk }
-  });
-  if (intent.status === 'requires_action' && intent.client_secret) {
-    return {
-      requiresAction: true,
-      clientSecret: intent.client_secret,
-      publishableKey: publishable,
-      paymentIntentId: intent.id,
-      pack: { id: pack.id, amount: pack.amount, perk: pack.perk, priceLabel: pack.priceLabel, label: pack.label }
-    };
-  }
-  if (intent.status !== 'succeeded') {
-    throw new HttpsError('failed-precondition', 'Payment did not complete');
-  }
-  return {
-    paymentIntentId: intent.id,
-    publishableKey: publishable,
-    pack: { id: pack.id, amount: pack.amount, perk: pack.perk, priceLabel: pack.priceLabel, label: pack.label }
-  };
-});
+  await memberRef.set({
+    billingProvider: "stripe",
+    stripeCustomerId: customerId,
+    lastStripeCheckoutSessionId: session.id,
+    lastStripeEvent: "voucher.checkout.session.created",
+    lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
 
-exports.confirmVoucherPurchase = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
-  const uid = context.auth.uid;
-  const paymentIntentId = (data?.paymentIntentId || '').toString();
-  if (!paymentIntentId) throw new HttpsError('invalid-argument', 'paymentIntentId required');
-  const memberCtx = await getMemberContext(uid);
-  assertStripeAllowed(context, memberCtx.data);
-  const stripe = getStripeClient();
-  const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
-  if (intent.status !== 'succeeded') throw new HttpsError('failed-precondition', 'Payment not successful');
-  const metaUid = (intent.metadata?.uid || '').toString();
-  if (metaUid && metaUid !== uid) throw new HttpsError('permission-denied', 'Payment does not belong to current user');
-  const tier = (intent.metadata?.tier || 'standard').toString();
-  const packId = (intent.metadata?.packId || '').toString();
-  const pack = resolveVoucherPack(tier, packId) || resolveVoucherPack('standard', packId);
-  if (!pack) throw new HttpsError('failed-precondition', 'Pack missing');
-
-  const packResult = await applyVoucherPack(uid, pack);
-  const memberRef = db.collection('members').doc(uid);
-  if (intent.payment_method) {
-    await memberRef.set({ defaultPaymentMethodId: intent.payment_method }, { merge: true });
-  }
   return {
-    ok: true,
-    pack: { id: pack.id, amount: pack.amount, perk: pack.perk, priceLabel: pack.priceLabel, label: pack.label },
-    ...packResult
+    checkoutSessionId: session.id,
+    url: session.url || null,
+    mode: "hosted",
+    packId: pack.packId,
+    tokenAmount: pack.tokenAmount,
+    priceLabel: pack.priceLabel,
+    membershipTier: memberTier,
+    billingMonthKey,
   };
 });
 
@@ -6885,6 +6906,7 @@ exports.resetBetaData = functions.https.onCall(async (data, context) => {
           redemptions: 0,
           extraVouchers: {},
           extraRedemptionTokens: 0,
+          extraVoucherBuckets: {},
           nightWheel: { spinsLeft: 1, lastSpin: null },
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
