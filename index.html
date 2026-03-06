@@ -14046,6 +14046,15 @@
       text-underline-offset: 4px;
       text-decoration-color: rgba(34, 211, 238, 0.9);
     }
+    button,
+    .btn,
+    [role="button"],
+    .accent-chip,
+    .nav-item,
+    .quick-action-item {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
     /* ========== LANDING: SOCIAL PROOF (MAKE IT POP) ========== */
     #landingScreen .launch-social-proof {
       max-width: 860px;
@@ -24385,6 +24394,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.69",
+        date: "2026-03-06",
+        added: [
+          "CEO global token gift now reports scanned, eligible, granted, and skipped member counts in HQ feedback"
+        ],
+        improved: [
+          "Reward notice modal now checks unread CEO gift notices during live member profile sync for more reliable next-login display"
+        ],
+        fixed: [
+          "Tightened global gift eligibility filtering to exclude inactive or invalid member records and reduce incorrect grant totals"
+        ]
+      },
+      {
         version: "v0.9.68",
         date: "2026-03-06",
         added: [
@@ -27946,6 +27968,7 @@
 	            updateExpiryDisplay();
 	            updateVoucherBalanceUI();
 	            updateLastCheckinUI();
+              maybeShowVoucherGrantNotice(memberProfile);
               if (currentScreenName === "ageVerify") {
                 if (
                   isAgeVerifiedClient(memberProfile)
@@ -34058,6 +34081,10 @@ let onboardingIndex = 0;
         }
         const data = resp?.data || {};
         const campaignId = String(data.campaignId || effectiveCampaignId || campaignInput || "").trim();
+        const scannedCount = Number(data.totalMembersScanned || 0);
+        const eligibleCount = Number(data.eligibleCount || 0);
+        const grantedCount = Number(data.grantedCount || 0);
+        const skippedCount = Number(data.skippedCount || 0);
         if (ceoGlobalGiftCampaignId) {
           // Keep custom IDs visible; clear auto-generated IDs to prevent accidental re-use.
           ceoGlobalGiftCampaignId.value = userSuppliedCampaign ? campaignId : "";
@@ -34066,10 +34093,10 @@ let onboardingIndex = 0;
           }
         }
         showCeoGlobalGiftFeedback(
-          `Gift sent: ${Number(data.grantedCount || 0)} granted, ${Number(data.skippedCount || 0)} skipped.`,
+          `Gift sent: ${grantedCount} granted, ${skippedCount} skipped (${eligibleCount} eligible of ${scannedCount} members scanned).`,
           true
         );
-        showToast(`Campaign ${campaignId || "gift"} sent to ${Number(data.grantedCount || 0)} active members.`, 3000);
+        showToast(`Campaign ${campaignId || "gift"} sent to ${grantedCount} active members.`, 3000);
       } catch (err) {
         console.warn("grantVoucherTokenToAllActiveMembers failed", err);
         const code = String(err?.code || "").toLowerCase();

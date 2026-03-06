@@ -4200,13 +4200,21 @@ function isActiveEligibleForAdminTokenGift(memberData = {}) {
   const tier = normalizeTierForAdminTokenGift(memberData);
   if (!tier) return false;
   if (memberData?.revoked === true || memberData?.paused === true) return false;
-  const status = String(memberData?.paymentStatus || memberData?.membershipStatus || "active").toLowerCase();
+  const passCode = String(memberData?.passCode || "").trim();
+  if (!passCode) return false;
+  const paymentStatus = String(memberData?.paymentStatus || "").toLowerCase();
+  const membershipStatus = String(memberData?.membershipStatus || "").toLowerCase();
+  const status = (paymentStatus || membershipStatus || "").toLowerCase();
   const inactiveStatuses = new Set(["inactive", "canceled", "cancelled", "canceling", "paused", "revoked", "past_due", "unpaid", "expired"]);
-  if (inactiveStatuses.has(status)) return false;
-  if (status === "active") return true;
+  if (inactiveStatuses.has(status) || inactiveStatuses.has(paymentStatus) || inactiveStatuses.has(membershipStatus)) return false;
+  const isActive = paymentStatus === "active" || membershipStatus === "active" || status === "active";
+  if (tier === "standard" || tier === "vip") {
+    return isActive;
+  }
   if (tier === "ceo_free") {
-    // CEO-issued/free accounts can have non-standard status strings but still be active.
-    return status === "" || status === "ceo" || status === "free" || status === "comped" || status === "granted";
+    // CEO-issued/free accounts can be valid via explicit free flags even when payment status is blank.
+    const override = String(memberData?.membershipOverride || memberData?.override || "").toUpperCase();
+    return isActive || memberData?.freeMembership === true || override === "CEO_FREE";
   }
   return false;
 }
@@ -7491,6 +7499,7 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
 
     const snap = await db.collection("members").get();
     const now = new Date();
+    const totalMembersScanned = snap.size;
     let eligibleCount = 0;
     let grantedCount = 0;
     let skippedCount = 0;
@@ -7551,6 +7560,7 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
     await campaignRef.set({
       status: "completed",
       completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      totalMembersScanned,
       eligibleCount,
       grantedCount,
       skippedCount,
@@ -7560,6 +7570,7 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
       ok: true,
       campaignId,
       tokenAmount,
+      totalMembersScanned,
       eligibleCount,
       grantedCount,
       skippedCount,
