@@ -17331,16 +17331,16 @@
         <div class="modal-title">Voucher rewards</div>
         <button class="modal-close" id="rewardsClose" type="button">Close</button>
       </div>
-      <p style="font-size:13px;color:#cbd5f5;">Redeem 5 vouchers to unlock a free redemption token.</p>
+      <p style="font-size:13px;color:#cbd5f5;">Use your points to unlock extra voucher tokens for this billing cycle.</p>
       <div class="progress-bar" style="margin:10px 0 6px;">
         <div class="progress-fill" id="rewardsProgressFill"></div>
       </div>
-      <p id="rewardsProgressText" style="font-size:12px;color:#e2e8f0;margin:0 0 10px;">0 / 5 redemptions</p>
-      <p id="rewardsNextText" style="font-size:13px;color:#facc15;font-weight:700;margin:0 0 12px;">Next: +1 redemption token</p>
+      <p id="rewardsProgressText" style="font-size:12px;color:#e2e8f0;margin:0 0 10px;">0 points available</p>
+      <p id="rewardsNextText" style="font-size:13px;color:#facc15;font-weight:700;margin:0 0 12px;">Redeemed tokens apply to this billing cycle only.</p>
       <div class="error" id="rewardsError"></div>
       <div class="payment-actions" style="margin-top:6px;display:flex;gap:8px;justify-content:flex-end;">
         <button type="button" class="btn btn-secondary" id="rewardsCloseBtn">Close</button>
-        <button type="button" class="btn btn-primary" id="rewardsRedeemBtn" disabled>Redeem reward</button>
+        <button type="button" class="btn btn-primary" id="rewardsRedeemBtn">Redeem points</button>
       </div>
     </div>
   </div>
@@ -17601,30 +17601,20 @@
     <div class="modal-card">
       <div class="modal-title">Redeem points</div>
       <p style="font-size:12px;color:#cbd5f5;line-height:1.5;">
-        Trade points for voucher tokens or a discount on next month's membership.
+        Redeem points for extra voucher tokens that apply to this billing cycle only.
       </p>
-      <div class="field">
-        <label for="pointsRedeemType">Redeem for</label>
-        <select id="pointsRedeemType">
-          <option value="tokens">Voucher tokens (this month only)</option>
-          <option value="discount">Membership discount (next invoice)</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="pointsRedeemAmount">Points to use</label>
-        <select id="pointsRedeemAmount"></select>
-      </div>
+      <div id="pointsRedemptionList" class="perk-grid" style="margin-top:10px;"></div>
       <div class="small" id="pointsRedeemBalance" style="color:#94a3b8;margin-top:6px;"></div>
       <div class="small" id="pointsRedeemPreview" style="color:#e2e8f0;margin-top:4px;"></div>
       <ul class="points-redeem-rules">
-        <li><strong>Voucher tokens:</strong> 500 pts = +2 tokens. Tokens expire at the end of your current billing cycle.</li>
-        <li><strong>Membership discount:</strong> 500 pts = $0.50 off next invoice. Max $2 (2000 pts).</li>
-        <li>Points can be redeemed in 500-point increments.</li>
+        <li><strong>500 points</strong> = +2 voucher tokens</li>
+        <li><strong>700 points</strong> = +3 voucher tokens</li>
+        <li><strong>1000 points</strong> = +5 voucher tokens</li>
         <li>Only active Standard/VIP members can redeem points.</li>
+        <li>Redeemed voucher tokens expire at the end of this billing cycle and do not roll over.</li>
       </ul>
       <div class="error" id="pointsRedeemError" style="margin-top:8px;"></div>
       <div class="payment-actions" style="margin-top:14px;">
-        <button type="button" class="btn btn-primary" id="pointsRedeemConfirm">Redeem</button>
         <button type="button" class="btn btn-secondary" id="pointsRedeemCancel">Cancel</button>
       </div>
     </div>
@@ -18683,6 +18673,11 @@
       }
     } catch (_) {}
     const REWARDS_KEY = "rewardsProgress";
+    const POINTS_TOKEN_REDEMPTIONS = Object.freeze([
+      Object.freeze({ id: "pts_500_2", pointsCost: 500, tokenAmount: 2 }),
+      Object.freeze({ id: "pts_700_3", pointsCost: 700, tokenAmount: 3 }),
+      Object.freeze({ id: "pts_1000_5", pointsCost: 1000, tokenAmount: 5 })
+    ]);
     const BADGES_KEY = "foco_badges_v1";
     const MEMBER_HQ_FEED_SEEN_KEY = "memberHqFeedSeen_v1";
     const DEAL_CODES_KEY = "dealCodesCache";
@@ -23730,13 +23725,24 @@
     const redeemVoucherBalance = document.getElementById("redeemVoucherBalance");
     const redeemPointsBtn = document.getElementById("redeemPointsBtn");
     const pointsRedeemModal = document.getElementById("pointsRedeemModal");
-    const pointsRedeemType = document.getElementById("pointsRedeemType");
-    const pointsRedeemAmount = document.getElementById("pointsRedeemAmount");
+    const pointsRedemptionList = document.getElementById("pointsRedemptionList");
     const pointsRedeemBalance = document.getElementById("pointsRedeemBalance");
     const pointsRedeemPreview = document.getElementById("pointsRedeemPreview");
     const pointsRedeemError = document.getElementById("pointsRedeemError");
-    const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.58",
+        date: "2026-03-06",
+        added: [
+          "Points redemption menu now supports direct Apply Points options for +2, +3, or +5 current-cycle voucher tokens"
+        ],
+        improved: [
+          "Voucher balance now shows purchased extras and points-redeemed extras separately for the active billing cycle"
+        ],
+        fixed: [
+          "Removed points-to-billing-discount redemption path so points now apply only to voucher tokens"
+        ]
+      },
       {
         version: "v0.9.57",
         date: "2026-03-06",
@@ -25238,7 +25244,7 @@
       if (rewardsDisabled) {
         if (rewardsProgressFill) rewardsProgressFill.style.width = "100%";
         if (rewardsProgressText) rewardsProgressText.textContent = isExplorerMember() ? "Explorer preview mode" : "Unlimited vouchers on this account";
-        if (rewardsNextText) rewardsNextText.textContent = isExplorerMember() ? "Upgrade to Standard or VIP to unlock voucher rewards." : "Voucher rewards are not needed for CEO / CEO_FREE accounts.";
+        if (rewardsNextText) rewardsNextText.textContent = isExplorerMember() ? "Upgrade to Standard or VIP to unlock points redemptions." : "CEO / CEO_FREE already have unlimited vouchers, so points redemptions are disabled.";
         if (rewardsRedeemBtn) rewardsRedeemBtn.disabled = true;
         if (rewardsError) rewardsError.textContent = "";
         if (rewardsTrigger) {
@@ -25251,34 +25257,24 @@
         }
         return;
       }
-      const nextTarget = 5;
-      const progressCount = rewardsProgress.available ? nextTarget : rewardsProgress.count;
-      const pct = rewardsProgress.available ? 100 : Math.min(100, Math.floor((progressCount / nextTarget) * 100));
+      const availablePoints = getAvailablePoints();
+      const pct = Math.min(100, Math.floor((availablePoints / 1000) * 100));
       if (rewardsProgressFill) rewardsProgressFill.style.width = `${pct}%`;
       if (rewardsProgressText) {
-        if (rewardsProgress.available) {
-          rewardsProgressText.textContent = "Reward ready: +1 redemption token";
-        } else {
-          rewardsProgressText.textContent = `${progressCount} / ${nextTarget} redemptions`;
-        }
+        rewardsProgressText.textContent = `${availablePoints} points available`;
       }
       if (rewardsNextText) {
-        if (rewardsProgress.available) {
-          rewardsNextText.textContent = "Tap Redeem reward to claim your token.";
-        } else {
-          const remaining = nextTarget - progressCount;
-          rewardsNextText.textContent = `${remaining} to go · Next: +1 redemption token`;
-        }
+        rewardsNextText.textContent = "Use Redeem points to convert points into voucher tokens for this billing cycle.";
       }
-      if (rewardsRedeemBtn) rewardsRedeemBtn.disabled = !rewardsProgress.available;
+      if (rewardsRedeemBtn) rewardsRedeemBtn.disabled = false;
       if (rewardsError) rewardsError.textContent = "";
       if (rewardsTrigger) {
-        rewardsTrigger.textContent = rewardsProgress.available ? "Voucher rewards (ready)" : "Voucher rewards";
-        rewardsTrigger.classList.toggle("reward-ready", rewardsProgress.available);
+        rewardsTrigger.textContent = "Voucher rewards";
+        rewardsTrigger.classList.remove("reward-ready");
       }
       if (navRewardsItem) {
-        navRewardsItem.textContent = rewardsProgress.available ? "Voucher rewards (ready)" : "Voucher rewards";
-        navRewardsItem.classList.toggle("reward-ready", rewardsProgress.available);
+        navRewardsItem.textContent = "Voucher rewards";
+        navRewardsItem.classList.remove("reward-ready");
       }
       evaluateAchievements();
     }
@@ -25490,11 +25486,8 @@
     }
 
     function getPointsMonthlyTokenGrantTotal(profile = memberProfile) {
-      const grants = profile?.pointsMonthlyTokenGrants;
-      if (!grants || typeof grants !== "object") return 0;
-      const key = getMonthTokenFromDate(new Date());
-      const value = Number(grants[key] || 0);
-      return Number.isFinite(value) ? Math.max(0, value) : 0;
+      void profile;
+      return 0;
     }
 
     function getVoucherBalanceForTier(tierKey) {
@@ -25573,13 +25566,14 @@
         if (voucherBalanceNote) voucherBalanceNote.textContent = blockedMsg;
         if (redeemVoucherBalance) redeemVoucherBalance.textContent = blockedMsg;
       } else {
+        const extras = getCurrentCycleExtraTokenBreakdown(memberProfile);
         if (voucherBalanceNote) {
-          voucherBalanceNote.textContent = "Extra purchased tokens apply to this billing month only and do not roll over.";
+          voucherBalanceNote.textContent = "Extra purchased and points-redeemed tokens apply to this billing cycle only and do not roll over.";
         }
         if (redeemVoucherBalance) {
           const included = Number(balance.includedTokens || 0);
           const extra = Number(balance.extraTokens || 0);
-          redeemVoucherBalance.textContent = `Included monthly: ${included} · Extra this month: ${extra} · Available now: ${balance.remaining}.`;
+          redeemVoucherBalance.textContent = `Included monthly: ${included} · Purchased this cycle: ${extras.purchased} · Points redeemed this cycle: ${extras.points} · Extra total this cycle: ${extra} · Available now: ${balance.remaining}.`;
         }
       }
     }
@@ -28868,27 +28862,8 @@ let onboardingIndex = 0;
     });
     if (rewardsRedeemBtn) {
       rewardsRedeemBtn.addEventListener("click", () => {
-        syncRewardsCycle();
-        if (isCeoActive() || isFreeMember() || isExplorerMember() || memberProfile?.ceo === true) {
-          if (rewardsError) rewardsError.textContent = isExplorerMember() ? "Explorer mode is preview-only. Upgrade to earn voucher rewards." : "This account has unlimited vouchers.";
-          return;
-        }
-        if (!rewardsProgress.available) {
-          if (rewardsError) rewardsError.textContent = "Keep redeeming to unlock rewards.";
-          return;
-        }
-        const current = getCurrentCyclePurchasedTokenTotal(memberProfile);
-        setCurrentCyclePurchasedTokenTotal(current + 1);
-        updateVoucherBalanceUI();
-        renderRedemptionOptions();
-        showNeonSuccess(rewardsSuccess, "Reward claimed: +1 redemption token.", 3200);
-        rewardsProgress.available = false;
-        rewardsProgress.rewardType = "token";
-        rewardsProgress.count = 0;
-        rewardsProgress.claimed = (Number(rewardsProgress.claimed) || 0) + 1;
-        saveRewardsProgress(rewardsProgress);
-        updateRewardsUI();
         if (rewardsModal) rewardsModal.classList.remove("active");
+        openPointsRedeemModal();
       });
     }
 
@@ -29758,68 +29733,13 @@ let onboardingIndex = 0;
         if (e.target === achievementsCompleteModal) closeAchievementsCompleteModal();
       });
     }
-    if (pointsRedeemType) {
-      pointsRedeemType.addEventListener("change", () => {
-        buildPointsRedeemOptions();
-        updatePointsRedeemPreview();
-      });
-    }
-    if (pointsRedeemAmount) {
-      pointsRedeemAmount.addEventListener("change", updatePointsRedeemPreview);
-    }
-    if (pointsRedeemConfirm) {
-      pointsRedeemConfirm.addEventListener("click", async () => {
-        if (!functionsClient) {
-          if (pointsRedeemError) pointsRedeemError.textContent = "Points redemption unavailable.";
-          return;
-        }
-        const type = pointsRedeemType?.value || "tokens";
-        const amount = Number(pointsRedeemAmount?.value || 0);
-        if (!amount || amount < 500) {
-          if (pointsRedeemError) pointsRedeemError.textContent = "Select a valid point amount.";
-          return;
-        }
-        if (pointsRedeemError) pointsRedeemError.textContent = "";
-        const originalLabel = pointsRedeemConfirm.textContent;
-        pointsRedeemConfirm.disabled = true;
-        pointsRedeemConfirm.textContent = "Processing…";
-        try {
-          const fn = httpsCallable(functionsClient, "redeemPoints");
-          const resp = await fn({ type, points: amount });
-          const data = resp?.data || {};
-          if (Number.isFinite(Number(data.points))) {
-            memberProfile = memberProfile || {};
-            memberProfile.points = Number(data.points);
-            updatePointsUI();
-          }
-          if (type === "tokens") {
-            const monthKey = data.monthKey;
-            const tokenGrant = Number(data.tokenGrant || 0);
-            if (monthKey && tokenGrant) {
-              memberProfile.pointsMonthlyTokenGrants = memberProfile.pointsMonthlyTokenGrants || {};
-              const current = Number(memberProfile.pointsMonthlyTokenGrants[monthKey] || 0);
-              memberProfile.pointsMonthlyTokenGrants[monthKey] = current + tokenGrant;
-              updateVoucherBalanceUI();
-              renderRedemptionOptions();
-            }
-            showToast(`+${tokenGrant} voucher tokens added.`, 2400);
-          } else {
-            const credit = Number(data.creditCents || 0);
-            if (credit) {
-              showToast(`$${(credit / 100).toFixed(2)} off next month applied.`, 2600);
-            } else {
-              showToast("Discount applied to next month.", 2400);
-            }
-          }
-          closePointsRedeemModal();
-        } catch (err) {
-          if (pointsRedeemError) {
-            pointsRedeemError.textContent = mapMemberFacingError(err, "points");
-          }
-        } finally {
-          pointsRedeemConfirm.disabled = false;
-          pointsRedeemConfirm.textContent = originalLabel;
-        }
+    if (pointsRedemptionList) {
+      pointsRedemptionList.addEventListener("click", (event) => {
+        const button = event.target?.closest?.("button[data-points-redemption-id]");
+        if (!button) return;
+        const redemptionId = String(button.dataset.pointsRedemptionId || "").trim();
+        if (!redemptionId) return;
+        applyPointsRedemptionOption(redemptionId);
       });
     }
 
@@ -30072,6 +29992,31 @@ let onboardingIndex = 0;
         : {};
       const value = Number(buckets?.[key]?.redemptionTokens || 0);
       return Number.isFinite(value) ? Math.max(0, value) : 0;
+    }
+
+    function getCurrentCycleExtraTokenBreakdown(profile = memberProfile) {
+      const key = getCurrentVoucherBillingMonthKey(profile);
+      const buckets = profile?.extraVoucherBuckets && typeof profile.extraVoucherBuckets === "object"
+        ? profile.extraVoucherBuckets
+        : {};
+      const bucket = (buckets[key] && typeof buckets[key] === "object") ? buckets[key] : {};
+      const purchases = (bucket.purchases && typeof bucket.purchases === "object") ? bucket.purchases : {};
+      const pointRedemptions = (bucket.pointRedemptions && typeof bucket.pointRedemptions === "object") ? bucket.pointRedemptions : {};
+      const purchased = Object.values(purchases).reduce((sum, entry) => {
+        const value = Number(entry?.tokenAmount || 0);
+        return sum + (Number.isFinite(value) ? Math.max(0, value) : 0);
+      }, 0);
+      const points = Object.values(pointRedemptions).reduce((sum, entry) => {
+        const value = Number(entry?.tokenAmount || 0);
+        return sum + (Number.isFinite(value) ? Math.max(0, value) : 0);
+      }, 0);
+      const total = getCurrentCyclePurchasedTokenTotal(profile);
+      return {
+        billingMonthKey: key,
+        purchased,
+        points,
+        total: Math.max(total, purchased + points)
+      };
     }
 
     function setCurrentCyclePurchasedTokenTotal(tokens, billingMonthKey = getCurrentVoucherBillingMonthKey(memberProfile)) {
@@ -31205,14 +31150,6 @@ let onboardingIndex = 0;
     resetLegacyPurchaseReceipts();
     let vipDealsCache = loadVipDealsFromStorage();
     function incrementRewardsProgress() {
-      syncRewardsCycle();
-      rewardsProgress.count += 1;
-      if (rewardsProgress.count >= 5) {
-        rewardsProgress.available = true;
-        rewardsProgress.rewardType = "token";
-        rewardsProgress.count = 0;
-      }
-      saveRewardsProgress(rewardsProgress);
       updateRewardsUI();
     }
     function getCurrentBillingWindow() {
@@ -31231,17 +31168,7 @@ let onboardingIndex = 0;
       return { start: cycleStart, end: cycleEnd };
     }
     function syncRewardsFromEntries(entries = []) {
-      syncRewardsCycle();
-      const threshold = rewardsProgress.threshold || 5;
-      const claimed = Number(rewardsProgress.claimed) || 0;
-      const window = getCurrentBillingWindow();
-      const verifiedCount = countRedemptionsInWindow(entries, window, { includePending: false });
-      const eligible = Math.max(0, verifiedCount - (claimed * threshold));
-      const available = eligible >= threshold;
-      rewardsProgress.count = available ? 0 : eligible;
-      rewardsProgress.available = available;
-      rewardsProgress.rewardType = "token";
-      saveRewardsProgress(rewardsProgress);
+      void entries;
       updateRewardsUI();
     }
     function pruneExpiredVipDeals() {
@@ -32489,6 +32416,13 @@ let onboardingIndex = 0;
       updateQuickStrip();
     }
 
+    function canViewPointsRedemptions() {
+      if (isExplorerMember()) return false;
+      if (isCeoActive() || isFreeMember() || memberProfile?.ceo === true) return true;
+      const tier = normalizeTierKey(currentMembershipTier || memberProfile?.tier || "");
+      return ["standard", "vip"].includes(tier);
+    }
+
     function canRedeemPoints() {
       if (isCeoActive() || isFreeMember()) return false;
       const tier = normalizeTierKey(currentMembershipTier || memberProfile?.tier || "");
@@ -32500,68 +32434,123 @@ let onboardingIndex = 0;
 
     function refreshPointsRedeemAvailability() {
       if (!redeemPointsBtn) return;
-      redeemPointsBtn.style.display = canRedeemPoints() ? "inline-flex" : "none";
+      redeemPointsBtn.style.display = canViewPointsRedemptions() ? "inline-flex" : "none";
     }
 
     function getAvailablePoints() {
       return Math.max(0, Number(memberProfile?.points || 0));
     }
+    let pointsRedemptionInFlight = false;
 
-    function buildPointsRedeemOptions() {
-      if (!pointsRedeemAmount) return;
+    function renderPointsRedemptionOptions() {
+      if (!pointsRedemptionList) return;
       const available = getAvailablePoints();
-      const type = (pointsRedeemType?.value || "tokens").toLowerCase();
-      const max = type === "discount"
-        ? Math.min(2000, Math.floor(available / 500) * 500)
-        : Math.floor(available / 500) * 500;
-      pointsRedeemAmount.innerHTML = "";
-      if (max < 500) {
-        const opt = document.createElement("option");
-        opt.value = "0";
-        opt.textContent = "Not enough points";
-        pointsRedeemAmount.appendChild(opt);
-        return;
-      }
-      for (let pts = 500; pts <= max; pts += 500) {
-        const opt = document.createElement("option");
-        opt.value = String(pts);
-        opt.textContent = `${pts} pts`;
-        pointsRedeemAmount.appendChild(opt);
-      }
-    }
-
-    function updatePointsRedeemPreview() {
-      if (!pointsRedeemPreview || !pointsRedeemAmount || !pointsRedeemType) return;
-      const available = getAvailablePoints();
-      const amount = Number(pointsRedeemAmount.value || 0);
-      const type = pointsRedeemType.value;
       if (pointsRedeemBalance) {
         pointsRedeemBalance.textContent = `Available: ${available} pts`;
       }
-      if (!amount || amount < 500) {
-        pointsRedeemPreview.textContent = "You need at least 500 points.";
-        if (pointsRedeemConfirm) pointsRedeemConfirm.disabled = true;
+      if (pointsRedeemPreview) {
+        pointsRedeemPreview.textContent = "Redeemed voucher tokens apply to this billing cycle only and expire at cycle end.";
+      }
+      if (!canRedeemPoints()) {
+        if (isCeoActive() || isFreeMember() || memberProfile?.ceo === true) {
+          pointsRedemptionList.innerHTML = POINTS_TOKEN_REDEMPTIONS.map((option) => `
+            <div class="perk-option" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;opacity:.72;">
+              <div>
+                <strong style="display:block;font-size:13px;">${option.pointsCost} pts → +${option.tokenAmount} monthly voucher tokens</strong>
+                <span class="small" style="color:#94a3b8;">Not needed on unlimited accounts</span>
+              </div>
+              <button type="button" class="btn btn-primary" disabled style="width:auto;min-width:128px;padding:8px 12px;font-size:11px;opacity:.72;">Included</button>
+            </div>
+          `).join("");
+          if (pointsRedeemPreview) {
+            pointsRedeemPreview.textContent = "This account already has unlimited vouchers. Points redemption is disabled.";
+          }
+        } else {
+          pointsRedemptionList.innerHTML = "<p style='color:#94a3b8;'>Points redemptions are available for active Standard and VIP memberships.</p>";
+        }
         return;
       }
-      if (type === "tokens") {
-        const tokens = (amount / 500) * 2;
-        pointsRedeemPreview.textContent = `${amount} pts → +${tokens} voucher tokens (this month only).`;
-      } else {
-        const creditCents = Math.round(amount / 10);
-        pointsRedeemPreview.textContent = `${amount} pts → $${(creditCents / 100).toFixed(2)} off next month (max $2).`;
+      pointsRedemptionList.innerHTML = POINTS_TOKEN_REDEMPTIONS.map((option) => {
+        const canApply = available >= option.pointsCost;
+        return `
+          <div class="perk-option" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;">
+            <div>
+              <strong style="display:block;font-size:13px;">${option.pointsCost} pts → +${option.tokenAmount} monthly voucher tokens</strong>
+              <span class="small" style="color:#94a3b8;">Current billing cycle only</span>
+            </div>
+            <button
+              type="button"
+              class="btn btn-primary"
+              data-points-redemption-id="${option.id}"
+              ${canApply ? "" : "disabled"}
+              style="width:auto;min-width:128px;padding:8px 12px;font-size:11px;"
+            >
+              Apply Points
+            </button>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function applyPointsRedemptionOption(redemptionId) {
+      if (pointsRedemptionInFlight) return;
+      if (!functionsClient) {
+        if (pointsRedeemError) pointsRedeemError.textContent = "Points redemption unavailable.";
+        return;
       }
-      if (pointsRedeemConfirm) pointsRedeemConfirm.disabled = false;
+      const option = POINTS_TOKEN_REDEMPTIONS.find((entry) => entry.id === redemptionId);
+      if (!option) {
+        if (pointsRedeemError) pointsRedeemError.textContent = "Invalid redemption option.";
+        return;
+      }
+      if (getAvailablePoints() < option.pointsCost) {
+        if (pointsRedeemError) pointsRedeemError.textContent = "Not enough points for this option.";
+        return;
+      }
+      if (pointsRedeemError) pointsRedeemError.textContent = "";
+      const targetBtn = pointsRedemptionList?.querySelector(`button[data-points-redemption-id="${redemptionId}"]`);
+      const originalLabel = targetBtn?.textContent || "Apply Points";
+      if (targetBtn) {
+        targetBtn.disabled = true;
+        targetBtn.textContent = "Applying...";
+      }
+      pointsRedemptionInFlight = true;
+      try {
+        const fn = httpsCallable(functionsClient, "redeemPoints");
+        const operationId = `op_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        const resp = await fn({ redemptionId, operationId });
+        const data = resp?.data || {};
+        if (!memberProfile) memberProfile = {};
+        if (Number.isFinite(Number(data.points))) {
+          memberProfile.points = Number(data.points);
+        }
+        if (data.billingMonthKey && Number.isFinite(Number(data.currentCycleTokens))) {
+          setCurrentCyclePurchasedTokenTotal(Number(data.currentCycleTokens), data.billingMonthKey);
+        }
+        updatePointsUI();
+        updateVoucherBalanceUI();
+        renderRedemptionOptions();
+        renderPointsRedemptionOptions();
+        showToast(`Points applied — ${option.tokenAmount} voucher tokens added for this billing cycle.`, 2800);
+      } catch (err) {
+        if (pointsRedeemError) pointsRedeemError.textContent = mapMemberFacingError(err, "points");
+      } finally {
+        pointsRedemptionInFlight = false;
+        if (targetBtn) {
+          targetBtn.disabled = getAvailablePoints() < option.pointsCost;
+          targetBtn.textContent = originalLabel;
+        }
+      }
     }
 
     function openPointsRedeemModal() {
       if (!pointsRedeemModal) return;
-      if (!canRedeemPoints()) {
-        showToast("Points are only available for active Standard/VIP members.", 2600);
+      if (!canViewPointsRedemptions()) {
+        showToast("Points redemptions are not available on this account.", 2600);
         return;
       }
       if (pointsRedeemError) pointsRedeemError.textContent = "";
-      buildPointsRedeemOptions();
-      updatePointsRedeemPreview();
+      renderPointsRedemptionOptions();
       pointsRedeemModal.classList.add("active");
     }
 
