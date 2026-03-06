@@ -16,7 +16,7 @@
   <meta name="twitter:title" content="FoCo After Dark — Nightlife Pass" />
   <meta name="twitter:description" content="Redeem perks at local bars, track your nights out, and keep your FoCo After Dark pass ready on your phone." />
   <meta name="twitter:image" content="https://foco-after-dark.web.app/foco-logo.png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <link rel="manifest" href="manifest.json" />
   <meta name="application-name" content="Foco After Dark" />
   <meta name="apple-mobile-web-app-title" content="Foco After Dark" />
@@ -13587,6 +13587,9 @@
       font-weight: 700;
       color: #e9f5ff;
       letter-spacing: 0.02em;
+      line-height: 1.34;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .rewards-option-action {
       min-width: 120px;
@@ -13599,6 +13602,8 @@
       background: rgba(2, 6, 23, 0.34);
       color: rgba(236, 246, 255, 0.95);
       box-shadow: 0 0 16px rgba(34, 211, 238, 0.14);
+      white-space: normal;
+      text-align: center;
     }
     .rewards-option-action[disabled] {
       opacity: 0.55;
@@ -15478,28 +15483,28 @@
               <section id="landingRewardsModule" class="landing-live-feed landing-live-feed-premium rewards-console glassBox photo-glass premiumGlass" aria-label="Tonight's rewards">
                 <header class="landing-live-feed-header rewards-console-header">
                   <div>
-                    <span class="launch-live-tag neonLabel">Tonight's Rewards</span>
-                    <p class="rewards-subtitle">Live loyalty console</p>
+                    <span class="launch-live-tag neonLabel">How Rewards Work</span>
+                    <p class="rewards-subtitle">Earn points. Unlock extra vouchers. Keep the night going.</p>
                   </div>
-                  <span id="landingRewardsTierBadge" class="rewards-tier-badge">STANDARD</span>
+                  <span id="landingRewardsTierBadge" class="rewards-tier-badge">LOYALTY PERKS</span>
                 </header>
                 <div class="rewards-balance-row">
                   <div>
-                    <p class="rewards-label">Current points</p>
-                    <strong id="landingRewardsPoints" class="rewards-points-value">0</strong>
+                    <p class="rewards-label">Point redemptions</p>
+                    <strong id="landingRewardsPoints" class="rewards-points-value">500 / 700 / 1000</strong>
                   </div>
                   <div class="rewards-token-orb" aria-hidden="true">
                     <img src="media/foco-redemption-token.png" alt="" />
                   </div>
                 </div>
                 <div class="rewards-token-summary">
-                  <span class="rewards-label">Extra tokens this billing cycle</span>
-                  <strong id="landingRewardsExtraTokens">0</strong>
+                  <span class="rewards-label">Redeem points for extra monthly voucher tokens</span>
+                  <strong id="landingRewardsExtraTokens">+2 · +3 · +5</strong>
                 </div>
                 <div id="landingRewardsOptions" class="rewards-options-grid"></div>
                 <div class="rewards-footer">
-                  <div id="landingRenewalBonusNote" class="rewards-footer-pill">Renewal bonus: +200 points each successful cycle</div>
-                  <div id="landingTierBoostNote" class="rewards-footer-pill">Standard earns 1.0x points</div>
+                  <div id="landingRenewalBonusNote" class="rewards-footer-pill">Renewal bonus: Standard +200 • VIP +300 points</div>
+                  <div id="landingTierBoostNote" class="rewards-footer-pill">Point rate: Standard 1.0x • VIP 1.25x</div>
                 </div>
               </section>
             </div>
@@ -20323,82 +20328,57 @@
       applyLandingWeeklySavings();
     }
     let landingRewardsLastPoints = null;
-    function getLoyaltyRenewalBonusForCurrentMember() {
-      const tier = normalizeTierKey(currentMembershipTier || memberProfile?.tier || "");
-      if (isCeoActive() || isFreeMember() || memberProfile?.freeMembership === true || tier === "vip" || tier === "ceo_free" || tier === "free") {
-        return 300;
-      }
-      return 200;
-    }
     function renderLandingRewardsModule() {
       if (!landingRewardsModule || !landingRewardsOptions) return;
       const loggedInMember = !!(firebaseAuth?.currentUser?.uid || currentPassCode || memberProfile?.uid);
-      const points = loggedInMember ? getAvailablePoints() : 0;
       if (landingRewardsPoints) {
-        landingRewardsPoints.textContent = `${points}`;
-        if (landingRewardsLastPoints !== null && landingRewardsLastPoints !== points) {
-          landingRewardsPoints.classList.remove("pulse");
-          void landingRewardsPoints.offsetWidth;
-          landingRewardsPoints.classList.add("pulse");
-        }
+        landingRewardsPoints.textContent = "500 / 700 / 1000";
+        landingRewardsPoints.classList.remove("pulse");
       }
-      landingRewardsLastPoints = points;
-      const extras = getCurrentCycleExtraTokenBreakdown(memberProfile);
-      const currentCycleExtras = Math.max(0, Number(extras.total || 0));
+      landingRewardsLastPoints = null;
       if (landingRewardsExtraTokens) {
-        landingRewardsExtraTokens.textContent = String(currentCycleExtras);
+        landingRewardsExtraTokens.textContent = "+2 · +3 · +5";
       }
 
       const tierKey = normalizeTierKey(currentMembershipTier || memberProfile?.tier || "");
       const vipLike = isCeoActive() || isFreeMember() || tierKey === "vip" || tierKey === "ceo_free" || tierKey === "free";
       if (landingRewardsTierBadge) {
-        const badgeText = vipLike ? "VIP BOOST 1.25x" : "STANDARD 1.0x";
+        const badgeText = vipLike ? "VIP BOOST ACTIVE" : "LOYALTY PERKS";
         landingRewardsTierBadge.textContent = badgeText;
         landingRewardsTierBadge.classList.toggle("boosted", vipLike);
       }
       if (landingTierBoostNote) {
         landingTierBoostNote.textContent = vipLike
-          ? "VIP / CEO FREE boost: earn 25% more loyalty points"
-          : "Standard rate: earn points every night and redeem in-cycle";
+          ? "VIP point boost active: 1.25x earned points"
+          : "Point rate: Standard 1.0x • VIP 1.25x";
         landingTierBoostNote.classList.toggle("boosted", vipLike);
       }
       if (landingRenewalBonusNote) {
-        landingRenewalBonusNote.textContent = `Monthly renewal bonus: +${getLoyaltyRenewalBonusForCurrentMember()} points (one-time per cycle)`;
+        landingRenewalBonusNote.textContent = "Monthly renewal bonus: Standard +200 • VIP +300 points";
       }
 
-      if (!loggedInMember) {
-        landingRewardsOptions.innerHTML = `
-          <div class="rewards-option">
-            <div class="rewards-option-head">
-              <div class="rewards-option-label">Sign in to unlock loyalty rewards</div>
-              <button type="button" class="rewards-option-action" data-open-member-login>Member Login</button>
-            </div>
-            <div class="rewards-progress"><div class="rewards-progress-fill" style="width:12%;"></div></div>
-            <div class="rewards-progress-meta">Track points, claim voucher tokens, and see renewal bonuses live.</div>
-          </div>
-        `;
-        return;
-      }
-
-      const canApplyPoints = canRedeemPoints();
-      const isUnlimited = isCeoActive() || isFreeMember() || memberProfile?.ceo === true;
       landingRewardsOptions.innerHTML = POINTS_TOKEN_REDEMPTIONS.map((option) => {
-        const pct = Math.max(4, Math.min(100, Math.round((points / option.pointsCost) * 100)));
-        const ready = canApplyPoints && points >= option.pointsCost;
-        const statusLabel = ready ? "Ready to redeem" : `${Math.max(0, option.pointsCost - points)} pts to go`;
-        const buttonLabel = isUnlimited ? "Included" : (ready ? "Apply Points" : "Locked");
-        const disabled = isUnlimited || !ready;
+        const progressWidth = option.pointsCost === 500 ? 92 : option.pointsCost === 700 ? 76 : 62;
         return `
-          <article class="rewards-option ${ready ? "ready" : ""}">
+          <article class="rewards-option ready">
             <div class="rewards-option-head">
-              <span class="rewards-option-label">${option.pointsCost} pts → +${option.tokenAmount} voucher tokens</span>
-              <button type="button" class="rewards-option-action" ${disabled ? "disabled" : ""} data-points-redemption-id="${option.id}">${buttonLabel}</button>
+              <span class="rewards-option-label">${option.pointsCost} pts → +${option.tokenAmount} monthly voucher tokens</span>
+              <span class="rewards-option-action">Current cycle only</span>
             </div>
-            <div class="rewards-progress"><div class="rewards-progress-fill" style="width:${pct}%;"></div></div>
-            <div class="rewards-progress-meta">${isUnlimited ? "Unlimited account · no points redemption needed" : statusLabel}</div>
+            <div class="rewards-progress"><div class="rewards-progress-fill" style="width:${progressWidth}%;"></div></div>
+            <div class="rewards-progress-meta">Redeemed extras expire at cycle end and do not roll over.</div>
           </article>
         `;
-      }).join("");
+      }).join("") + `
+        <article class="rewards-option">
+          <div class="rewards-option-head">
+            <span class="rewards-option-label">Apply points in your profile rewards panel</span>
+            <button type="button" class="rewards-option-action" data-open-redeem-points>${loggedInMember ? "Open rewards" : "Member login"}</button>
+          </div>
+          <div class="rewards-progress"><div class="rewards-progress-fill" style="width:100%;"></div></div>
+          <div class="rewards-progress-meta">This panel explains the loyalty system. Your live balances stay on your profile.</div>
+        </article>
+      `;
     }
     function celebrateLandingRewards() {
       if (!landingRewardsModule) return;
@@ -20425,6 +20405,17 @@
     window.addEventListener("resize", requestGlassBGUpdate, { passive: true });
     window.addEventListener("scroll", requestGlassBGUpdate, { passive: true });
     window.addEventListener("load", requestGlassBGUpdate);
+    const preventPinchZoomCrash = (event) => {
+      if (event?.cancelable) event.preventDefault();
+    };
+    document.addEventListener("gesturestart", preventPinchZoomCrash, { passive: false });
+    document.addEventListener("gesturechange", preventPinchZoomCrash, { passive: false });
+    document.addEventListener("gestureend", preventPinchZoomCrash, { passive: false });
+    document.addEventListener("touchmove", (event) => {
+      if (event.touches && event.touches.length > 1 && event.cancelable) {
+        event.preventDefault();
+      }
+    }, { passive: false });
 
     function showScreen(name) {
       const previousScreenName = currentScreenName;
@@ -24173,14 +24164,27 @@
     const pointsRedeemBalance = document.getElementById("pointsRedeemBalance");
     const pointsRedeemPreview = document.getElementById("pointsRedeemPreview");
     const pointsRedeemError = document.getElementById("pointsRedeemError");
-    const landingRewardsModule = document.getElementById("landingRewardsModule");
-    const landingRewardsPoints = document.getElementById("landingRewardsPoints");
-    const landingRewardsOptions = document.getElementById("landingRewardsOptions");
-    const landingRewardsExtraTokens = document.getElementById("landingRewardsExtraTokens");
-    const landingRewardsTierBadge = document.getElementById("landingRewardsTierBadge");
-    const landingTierBoostNote = document.getElementById("landingTierBoostNote");
-    const landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
+    var landingRewardsModule = document.getElementById("landingRewardsModule");
+    var landingRewardsPoints = document.getElementById("landingRewardsPoints");
+    var landingRewardsOptions = document.getElementById("landingRewardsOptions");
+    var landingRewardsExtraTokens = document.getElementById("landingRewardsExtraTokens");
+    var landingRewardsTierBadge = document.getElementById("landingRewardsTierBadge");
+    var landingTierBoostNote = document.getElementById("landingTierBoostNote");
+    var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.63",
+        date: "2026-03-06",
+        added: [
+          "Home loyalty card is now an animated informational 'How Rewards Work' panel with perk mapping and cycle-only guidance"
+        ],
+        improved: [
+          "Landing rewards copy now explains renewal bonuses and VIP boost without exposing personal live balances on the home screen"
+        ],
+        fixed: [
+          "Resolved landing button lockup from early rewards render crash and added iOS pinch-zoom protection to prevent app shutdowns"
+        ]
+      },
       {
         version: "v0.9.62",
         date: "2026-03-06",
@@ -30254,16 +30258,14 @@ let onboardingIndex = 0;
     }
     if (landingRewardsOptions) {
       landingRewardsOptions.addEventListener("click", (event) => {
-        const loginBtn = event.target?.closest?.("button[data-open-member-login]");
-        if (loginBtn) {
+        const rewardsBtn = event.target?.closest?.("button[data-open-redeem-points]");
+        if (!rewardsBtn) return;
+        const loggedInMember = !!(firebaseAuth?.currentUser?.uid || currentPassCode || memberProfile?.uid);
+        if (!loggedInMember) {
           showScreen("auth");
           return;
         }
-        const button = event.target?.closest?.("button[data-points-redemption-id]");
-        if (!button) return;
-        const redemptionId = String(button.dataset.pointsRedemptionId || "").trim();
-        if (!redemptionId || button.disabled) return;
-        applyPointsRedemptionOption(redemptionId);
+        openPointsRedeemModal();
       });
     }
 
