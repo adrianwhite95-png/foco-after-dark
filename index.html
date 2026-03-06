@@ -23896,6 +23896,19 @@
     const pointsRedeemConfirm = document.getElementById("pointsRedeemConfirm");
     const PATCH_NOTES = [
       {
+        version: "v0.9.55",
+        date: "2026-03-05",
+        added: [
+          "Stripe webhook test-mode audit logging for checkout and subscription events"
+        ],
+        improved: [
+          "Embedded checkout setup now logs session creation diagnostics without exposing secrets"
+        ],
+        fixed: [
+          "Removed legacy membership fallback payment code paths outside embedded Stripe Checkout"
+        ]
+      },
+      {
         version: "v0.9.54",
         date: "2026-03-05",
         added: [
@@ -30154,6 +30167,11 @@ let onboardingIndex = 0;
             maxBurst: 8
           }
         );
+        console.info("[billing] requesting embedded checkout session", {
+          tier: normalizedTier,
+          interval: normalizedInterval,
+          freshSessionRequested: true,
+        });
         let resp;
         try {
           resp = await invokeMembershipSession();
@@ -30170,6 +30188,13 @@ let onboardingIndex = 0;
           }
         }
         const data = resp?.data || {};
+        console.info("[billing] embedded checkout session response", {
+          tier: normalizedTier,
+          interval: normalizedInterval,
+          checkoutSessionIdPresent: !!data.checkoutSessionId,
+          clientSecretPresent: !!data.clientSecret,
+          publishableKeyPresent: !!data.publishableKey,
+        });
         if (!data.publishableKey) {
           throw new Error("Missing Stripe publishable key.");
         }
@@ -30501,105 +30526,6 @@ let onboardingIndex = 0;
           voucherChargeOnFile.disabled = false;
           voucherChargeOnFile.textContent = originalText;
         }
-      }
-    }
-
-    async function chargeMembershipOnFile(tier, interval = "month", options = {}) {
-      if (!functionsClient) {
-        showToast("Payments unavailable right now.");
-        return false;
-      }
-      if (!firebaseAuth.currentUser) {
-        showScreen("auth");
-        return false;
-      }
-      if (requiresAgeVerificationClient(memberProfile, firebaseAuth.currentUser)) {
-        showToast("Complete signup before billing.");
-        showScreen("membership");
-        return false;
-      }
-      if (isStripeExcludedMember()) {
-        showToast("This account does not use Stripe billing.");
-        pendingMembershipTier = null;
-        return true;
-      }
-      try {
-        const fn = httpsCallable(functionsClient, "chargeMembershipOnFile");
-        const resp = await fn({
-          tier,
-          interval,
-          paymentMethodId: options?.paymentMethodId || ""
-        });
-        const data = resp?.data || {};
-        const syncLocalMembershipBilling = () => {
-          memberProfile = memberProfile || {};
-          memberProfile.tier = tier;
-          memberProfile.billingInterval = normalizeMembershipIntervalSelection(data.interval || interval || "month");
-          memberProfile.membershipStatus = String(data.membershipStatus || memberProfile.membershipStatus || "active").toLowerCase();
-          memberProfile.paymentStatus = String(data.paymentStatus || memberProfile.paymentStatus || "active").toLowerCase();
-          if (data.membershipPromoTag) memberProfile.membershipPromoTag = data.membershipPromoTag;
-          if (data.currentPeriodEnd) memberProfile.currentPeriodEnd = data.currentPeriodEnd;
-          updateMembershipStatusUI({ status: memberProfile.paymentStatus, paused: memberProfile?.paused });
-          updateExpiryDisplay();
-          updateVoucherBalanceUI();
-          renderRedemptionOptions();
-        };
-        if (data.alreadyActive) {
-          pendingMembershipTier = null;
-          syncLocalMembershipBilling();
-          completeMembership(tier, { force: true, interval: data.interval || interval });
-          return true;
-        }
-        if (data.requiresAction && data.clientSecret) {
-          const stripe = Stripe(data.publishableKey);
-          const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret);
-          if (error) throw error;
-          if (paymentIntent && paymentIntent.status === "succeeded") {
-            try {
-              const confirmFn = httpsCallable(functionsClient, "confirmMembershipActivation");
-              await confirmFn({ paymentIntentId: paymentIntent.id });
-            } catch (err) {
-              console.warn("confirmMembershipActivation failed", err);
-            }
-            pendingMembershipTier = null;
-            pendingMembershipInterval = "month";
-            presentReceiptForTier(tier, "Card on file", data.interval || interval);
-            completeMembership(tier, { force: true, interval: data.interval || interval });
-            return true;
-          }
-          throw new Error("Payment incomplete.");
-        }
-        if (data.ok) {
-          pendingMembershipTier = null;
-          pendingMembershipInterval = "month";
-          syncLocalMembershipBilling();
-          presentReceiptForTier(tier, "Card on file", data.interval || interval);
-          completeMembership(tier, { force: true, interval: data.interval || interval });
-          return true;
-        }
-        throw new Error("Payment failed. Please try again.");
-      } catch (err) {
-        console.warn("chargeMembershipOnFile failed", err);
-        if (err?.code === "failed-precondition") {
-          const reason = String(err?.details?.reason || "").toUpperCase();
-          const rawMessage = String(err?.message || "");
-          const lowered = rawMessage.toLowerCase();
-          if (reason === "PROMO_EDU_ONLY" || lowered.includes("csu")) {
-            showToast("CSU50 requires a valid .edu or CSU email.");
-            return false;
-          }
-          if (reason === "PROMO_APPLY_FAILED") {
-            showToast("Promo code was not applied. No discounted charge was made.");
-            return false;
-          }
-          showToast("Add a card to continue.");
-          pendingMembershipTier = tier;
-          pendingMembershipInterval = normalizeMembershipIntervalSelection(interval);
-          openBillingScreenForTier(tier, { fallbackScreen: "membership", interval });
-          return false;
-        }
-        showToast("Membership update failed.");
-        return false;
       }
     }
 

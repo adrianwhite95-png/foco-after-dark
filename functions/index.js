@@ -5062,114 +5062,6 @@ async function upsertMembershipSubscription({ stripe, memberRef, memberDocData, 
   return { subscription, paymentIntent, billingInterval };
 }
 
-exports.createMembershipPaymentIntent = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  try {
-    if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
-    await assertBillingEnabledOrThrow();
-    const uid = context.auth.uid;
-    const email = (context.auth.token.email || '').toLowerCase();
-    const { tier, interval, priceId } = membershipStripePriceSelection(
-      data?.tier,
-      data?.interval,
-      "createMembershipPaymentIntent"
-    );
-    const promoCodeInput = (data?.promoCode || "").toString();
-    const promoCodeRaw = String(data?.promoCode || "");
-    const promoCodeNormalized = normalizePromoCodeInput(promoCodeRaw);
-    const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
-    assertStripeAllowed(context, memberDocData);
-    const stripe = getStripeClient();
-    const { publishable } = getStripeConfig();
-    if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
-
-    const promoContext = await resolveMembershipPromo({
-      uid,
-      memberDocData,
-      promoCodeInput,
-      authEmail: email,
-      stripe,
-      interval,
-    });
-
-    const { subscription, paymentIntent, billingInterval } = await upsertMembershipSubscription({
-      stripe,
-      memberRef,
-      memberDocData,
-      uid,
-      email,
-      tier,
-      interval,
-      token: context.auth.token,
-      discount: promoContext.discount,
-      promoTag: promoContext.promoTag,
-    });
-
-    const pricing = buildMembershipPricingPreview(subscription, paymentIntent);
-    const promoAttached = subscriptionHasAnyDiscount(subscription) || pricing.discountCents > 0;
-    if (promoCodeNormalized && !promoAttached) {
-      throw new HttpsError("failed-precondition", "Promo code could not be applied.", { reason: "PROMO_APPLY_FAILED" });
-    }
-    const promo = {
-      code: promoContext.promoCode || "",
-      tag: promoContext.promoTag || "",
-      firstMonthOnly: promoContext.firstMonthOnly === true,
-    };
-    console.info("membership_intent_promo_audit", {
-      uid,
-      tier,
-      interval: billingInterval,
-      promoRaw: promoCodeRaw,
-      promoNormalized: promoCodeNormalized,
-      promoResolvedCode: promo.code || "",
-      promoTag: promo.tag || "",
-      promoCouponId: promoContext.couponId || "",
-      promoPromotionCodeId: promoContext.promotionCodeId || "",
-      discountRequest: promoContext.discount || null,
-      discountAttached: promoAttached,
-      subscriptionId: subscription?.id || null,
-      paymentIntentId: paymentIntent?.id || null,
-      subtotalCents: pricing.subtotalCents,
-      totalCents: pricing.totalCents,
-      discountCents: pricing.discountCents,
-    });
-    if (!paymentIntent?.client_secret) {
-      return {
-        publishableKey: publishable,
-        subscriptionId: subscription?.id || null,
-        tier,
-        interval: billingInterval,
-        priceId,
-        pricing,
-        promo,
-        alreadyActive: true,
-      };
-    }
-    return {
-      clientSecret: paymentIntent.client_secret,
-      publishableKey: publishable,
-      subscriptionId: subscription?.id || null,
-      tier,
-      interval: billingInterval,
-      priceId,
-      pricing,
-      promo,
-    };
-  } catch (err) {
-    if (err instanceof HttpsError) throw err;
-    const uid = context?.auth?.uid || "unknown";
-    const msg = readStripeErrorMessage(err);
-    const code = String(err?.code || err?.raw?.code || "").trim();
-    console.error("createMembershipPaymentIntent failed", { uid, code, message: msg || String(err || "") });
-    if (isStripePromoError(err)) {
-      throw new HttpsError("failed-precondition", "Promo code is unavailable right now. Leave promo code blank and try again.");
-    }
-    if (msg) {
-      throw new HttpsError("failed-precondition", `Could not start payment. ${msg}`);
-    }
-    throw new HttpsError("internal", "Could not start payment right now.");
-  }
-});
-
 exports.createMembershipCheckoutSession = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
   if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
   await assertBillingEnabledOrThrow();
@@ -5256,60 +5148,6 @@ exports.createMembershipCheckoutSession = functions.runWith(stripeSecrets).https
   };
 });
 
-exports.confirmMembershipActivation = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
-  const uid = context.auth.uid;
-  const paymentIntentId = (data?.paymentIntentId || '').toString();
-  if (!paymentIntentId) throw new HttpsError('invalid-argument', 'paymentIntentId required');
-  const { ref: memberRef, data: memberDocData } = await getMemberContext(uid);
-  assertStripeAllowed(context, memberDocData);
-  const stripe = getStripeClient();
-  const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
-  if (intent.status !== 'succeeded') throw new HttpsError('failed-precondition', 'Payment not successful');
-  const invoiceId = intent.invoice;
-  let subscription = intent.subscription ? await retrieveStripeSubscription(stripe, intent.subscription) : null;
-  if (!subscription && invoiceId) {
-    const invoice = await stripe.invoices.retrieve(invoiceId);
-    if (invoice?.subscription) {
-      subscription = await retrieveStripeSubscription(stripe, invoice.subscription);
-    }
-  }
-  const tier = normalizeTierKey(intent.metadata?.tier || memberDocData?.tier || 'standard');
-  const billingInterval = getSubscriptionInterval(subscription, intent.metadata?.interval || memberDocData?.billingInterval || "month");
-  const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
-  const promoTag = (subscription?.metadata?.promo || intent.metadata?.promo || "").toString().toLowerCase();
-  const updates = {
-    tier,
-    membershipTier: membershipTierLabel(tier),
-    billingInterval,
-    billingProvider: "stripe",
-    membershipStatus: subscription?.status || "active",
-    paymentStatus: stripeStatusToPaymentStatus(subscription?.status || "active"),
-    stripeCustomerId: intent.customer || subscription?.customer || memberDocData?.stripeCustomerId || null,
-    stripeSubscriptionId: subscription?.id || memberDocData?.stripeSubscriptionId || null,
-    defaultPaymentMethodId: intent.payment_method || memberDocData?.defaultPaymentMethodId || null,
-    membershipPromoTag: promoTag || null,
-    membershipTrialDays: admin.firestore.FieldValue.delete(),
-    membershipTrialEndsAt: admin.firestore.FieldValue.delete(),
-    lastCharge: new Date().toISOString(),
-    membershipActivatedAt: memberDocData?.membershipActivatedAt || new Date().toISOString(),
-    currentPeriodEnd: currentPeriodEndIso,
-    nextRenewal: currentPeriodEndIso,
-    accountDeleteAt: admin.firestore.FieldValue.delete(),
-    accountDeleteReason: admin.firestore.FieldValue.delete(),
-    accountDeleteScheduledAt: admin.firestore.FieldValue.delete(),
-    lastStripeEvent: "membership_confirmed",
-    lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
-  };
-  await memberRef.set(updates, { merge: true });
-  await queueMembershipConfirmationEmail({
-    to: context.auth.token?.email || memberDocData?.email || "",
-    tier,
-    nextRenewalIso: currentPeriodEndIso,
-  });
-  return { ok: true, tier, interval: billingInterval, subscriptionId: updates.stripeSubscriptionId };
-});
-
 function nextRenewalISOForInterval(interval = "month", fromDate = new Date()) {
   const next = new Date(fromDate);
   if (normalizeBillingIntervalKey(interval) === "year") {
@@ -5344,6 +5182,51 @@ async function resolveMemberContextFromStripeObject(obj = {}) {
   }
   const customerId = (obj?.customer || "").toString();
   return findMemberByStripeCustomerId(customerId);
+}
+
+function computeStripeDiscountPresence(obj = {}) {
+  const hasSessionDiscount = Number(obj?.total_details?.amount_discount || 0) > 0;
+  const hasInvoiceDiscount = Array.isArray(obj?.total_discount_amounts) && obj.total_discount_amounts.length > 0;
+  const hasSubDiscount = !!obj?.discount || (Array.isArray(obj?.discounts) && obj.discounts.length > 0);
+  return hasSessionDiscount || hasInvoiceDiscount || hasSubDiscount;
+}
+
+function logStripeWebhookAudit(event = {}, obj = {}, memberCtx = null) {
+  if (event?.livemode === true) return;
+  const metadata = obj?.metadata || {};
+  const uid = String(memberCtx?.uid || metadata?.uid || "").trim() || null;
+  const subscriptionId = String(
+    obj?.subscription
+      || obj?.id?.startsWith("sub_") && obj?.id
+      || ""
+  ).trim() || null;
+  const invoiceId = String(
+    obj?.invoice
+      || obj?.id?.startsWith("in_") && obj?.id
+      || ""
+  ).trim() || null;
+  const checkoutSessionId = String(
+    obj?.id?.startsWith("cs_") && obj?.id
+      || obj?.checkout_session
+      || ""
+  ).trim() || null;
+  const customerId = String(obj?.customer || "").trim() || null;
+  const tier = String(metadata?.tier || memberCtx?.data?.tier || "").trim().toLowerCase() || null;
+  const interval = String(metadata?.interval || memberCtx?.data?.billingInterval || "").trim().toLowerCase() || null;
+  const promoCode = String(metadata?.promo || "").trim() || null;
+  console.info("stripe_webhook_audit_test", {
+    eventType: event?.type || null,
+    livemode: !!event?.livemode,
+    checkoutSessionId,
+    subscriptionId,
+    invoiceId,
+    customerId,
+    uid,
+    tier,
+    interval,
+    promoCode,
+    discountPresent: computeStripeDiscountPresence(obj),
+  });
 }
 
 async function retrieveSubscriptionFromIntent(stripe, intent) {
@@ -5494,12 +5377,16 @@ exports.stripeWebhook = functions.runWith(stripeWebhookSecrets).https.onRequest(
   try {
     const intent = event?.data?.object;
     if (event.type === "payment_intent.succeeded") {
+      logStripeWebhookAudit(event, intent, null);
       await applyStripePaymentIntentUpdate(intent, "succeeded");
     } else if (event.type === "payment_intent.payment_failed") {
+      logStripeWebhookAudit(event, intent, null);
       await applyStripePaymentIntentUpdate(intent, "failed");
     } else if (event.type === "payment_intent.canceled") {
+      logStripeWebhookAudit(event, intent, null);
       await applyStripePaymentIntentUpdate(intent, "canceled");
     } else if (event.type === "setup_intent.succeeded") {
+      logStripeWebhookAudit(event, intent, null);
       const uid = (intent?.metadata?.uid || "").toString();
       if (uid) {
         const updates = {
@@ -5514,11 +5401,13 @@ exports.stripeWebhook = functions.runWith(stripeWebhookSecrets).https.onRequest(
       || event.type === "customer.subscription.updated"
       || event.type === "customer.subscription.deleted") {
       const memberCtx = await resolveMemberContextFromStripeObject(intent);
+      logStripeWebhookAudit(event, intent, memberCtx);
       await applyStripeSubscriptionUpdate(intent, memberCtx, event.type);
     } else if (event.type === "invoice.payment_succeeded"
       || event.type === "invoice.paid"
       || event.type === "invoice.payment_failed") {
       const memberCtx = await resolveMemberContextFromStripeObject(intent);
+      logStripeWebhookAudit(event, intent, memberCtx);
       if (memberCtx?.ref && !isStripeExcluded({}, memberCtx.data)) {
         const paid = event.type === "invoice.payment_succeeded" || event.type === "invoice.paid";
         const periodEnd = intent?.lines?.data?.[0]?.period?.end;
@@ -5547,6 +5436,7 @@ exports.stripeWebhook = functions.runWith(stripeWebhookSecrets).https.onRequest(
       }
     } else if (event.type === "checkout.session.completed") {
       const memberCtx = await resolveMemberContextFromStripeObject(intent);
+      logStripeWebhookAudit(event, intent, memberCtx);
       if (memberCtx?.ref && isStripeExcluded({}, memberCtx.data)) {
         await memberCtx.ref.set({
           billingProvider: "none",
@@ -5636,290 +5526,6 @@ exports.createBillingPortalSession = functions.runWith(stripeSecrets).https.onCa
     return_url: returnUrl
   });
   return { url: session.url };
-});
-
-exports.chargeMembershipOnFile = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
-  if (!context.auth) throw new HttpsError("unauthenticated", "Auth required");
-  await assertBillingEnabledOrThrow();
-  const uid = context.auth.uid;
-  const email = (context.auth.token.email || '').toLowerCase();
-  const {
-    tier,
-    interval,
-    priceId: tierPriceId
-  } = membershipStripePriceSelection(data?.tier, data?.interval, "chargeMembershipOnFile");
-  const promoCodeInput = (data?.promoCode || "").toString();
-  const promoCodeRaw = String(data?.promoCode || "");
-  const promoCodeNormalized = normalizePromoCodeInput(promoCodeRaw);
-  const providedPaymentMethodId = String(data?.paymentMethodId || "").trim();
-
-  const { ref: memberRef, data: profile } = await getMemberContext(uid);
-  assertStripeAllowed(context, profile);
-  const stripe = getStripeClient();
-  const { publishable } = getStripeConfig();
-  if (!publishable) throw new HttpsError('failed-precondition', 'Stripe not configured');
-
-  const promoContext = await resolveMembershipPromo({
-    uid,
-    memberDocData: profile,
-    promoCodeInput,
-    authEmail: email,
-    stripe,
-    interval,
-  });
-  const promoMeta = promoContext.promoTag ? { promo: promoContext.promoTag } : {};
-  console.info("charge_membership_promo_input", {
-    uid,
-    tier,
-    interval,
-    promoRaw: promoCodeRaw,
-    promoNormalized: promoCodeNormalized,
-    promoResolvedCode: promoContext.promoCode || "",
-    promoTag: promoContext.promoTag || "",
-    promoCouponId: promoContext.couponId || "",
-    promoPromotionCodeId: promoContext.promotionCodeId || "",
-    discountRequest: promoContext.discount || null,
-  });
-
-  const customerId = await ensureStripeCustomer({
-    stripe,
-    memberRef,
-    memberDocData: profile,
-    uid,
-    email,
-    token: context.auth.token,
-  });
-  let defaultPm = profile.defaultPaymentMethodId || null;
-  if (!defaultPm && providedPaymentMethodId) {
-    try {
-      await stripe.paymentMethods.attach(providedPaymentMethodId, { customer: customerId });
-    } catch (err) {
-      const msg = readStripeErrorMessage(err).toLowerCase();
-      if (!msg.includes("already")) {
-        console.warn("chargeMembershipOnFile paymentMethods.attach failed", err?.message || err);
-      }
-    }
-    try {
-      await stripe.customers.update(customerId, {
-        invoice_settings: { default_payment_method: providedPaymentMethodId }
-      });
-      defaultPm = providedPaymentMethodId;
-      await memberRef.set({ defaultPaymentMethodId: defaultPm }, { merge: true });
-    } catch (err) {
-      console.warn("chargeMembershipOnFile default payment method update failed", err?.message || err);
-    }
-  }
-  if (!defaultPm) {
-    const customer = await stripe.customers.retrieve(customerId);
-    defaultPm = customer?.invoice_settings?.default_payment_method || null;
-    if (defaultPm) {
-      await memberRef.set({ defaultPaymentMethodId: defaultPm }, { merge: true });
-    }
-  }
-  if (!defaultPm) {
-    throw new HttpsError('failed-precondition', 'No card on file');
-  }
-
-  let subscription = await retrieveStripeSubscription(stripe, profile?.stripeSubscriptionId);
-  const hasActiveSubscription = subscription && !["canceled", "incomplete_expired"].includes(subscription.status);
-  if (hasActiveSubscription) {
-    const currentTier = normalizeTierKey(subscription.metadata?.tier || profile?.tier || tier);
-    const currentInterval = getSubscriptionInterval(subscription, profile?.billingInterval || interval);
-    const currentPriceId = String(subscription?.items?.data?.[0]?.price?.id || "").trim();
-    const samePlanActive = currentTier === tier
-      && currentInterval === interval
-      && currentPriceId === tierPriceId
-      && subscription.status === "active"
-      && subscription.cancel_at_period_end !== true;
-    const billingInterval = currentInterval;
-    if (samePlanActive) {
-      if (promoContext.discount) {
-        try {
-          subscription = await stripe.subscriptions.update(subscription.id, {
-            cancel_at_period_end: false,
-            default_payment_method: defaultPm,
-            metadata: { uid, tier, interval, ...promoMeta },
-            discounts: [promoContext.discount],
-            proration_behavior: "none",
-            expand: ["latest_invoice.payment_intent", "items.data.price", "discount", "discounts"],
-          });
-        } catch (err) {
-          if (isStripePromoError(err)) {
-            const promoErr = readStripeErrorMessage(err) || "Promo code could not be applied.";
-            throw new HttpsError("failed-precondition", promoErr, { reason: "PROMO_APPLY_FAILED" });
-          }
-          throw err;
-        }
-      }
-      const activePromoTag = String(subscription?.metadata?.promo || "").toLowerCase();
-      const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
-      await memberRef.set({
-        tier,
-        membershipTier: membershipTierLabel(tier),
-        billingInterval,
-        billingProvider: "stripe",
-        membershipStatus: subscription.status || "active",
-        paymentStatus: stripeStatusToPaymentStatus(subscription.status || "active"),
-        stripeCustomerId: subscription.customer || customerId,
-        stripeSubscriptionId: subscription.id,
-        membershipPromoTag: activePromoTag || null,
-        membershipTrialDays: admin.firestore.FieldValue.delete(),
-        membershipTrialEndsAt: admin.firestore.FieldValue.delete(),
-        currentPeriodEnd: currentPeriodEndIso,
-        nextRenewal: currentPeriodEndIso,
-        cancelAtPeriodEnd: false,
-        accountDeleteAt: admin.firestore.FieldValue.delete(),
-        accountDeleteReason: admin.firestore.FieldValue.delete(),
-        accountDeleteScheduledAt: admin.firestore.FieldValue.delete(),
-        lastStripeEvent: "chargeMembershipOnFile:already_active",
-        lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
-      }, { merge: true });
-      return {
-        ok: true,
-        tier,
-        interval: billingInterval,
-        subscriptionId: subscription.id,
-        alreadyActive: true,
-        membershipStatus: subscription.status || "active",
-        paymentStatus: stripeStatusToPaymentStatus(subscription.status || "active"),
-        currentPeriodEnd: currentPeriodEndIso,
-        membershipPromoTag: activePromoTag || null,
-      };
-    }
-    const currentItem = subscription.items?.data?.[0];
-    if (currentItem) {
-      try {
-        subscription = await stripe.subscriptions.update(subscription.id, {
-          cancel_at_period_end: false,
-          proration_behavior: "create_prorations",
-          billing_cycle_anchor: "unchanged",
-          default_payment_method: defaultPm,
-          metadata: { uid, tier, interval, ...promoMeta },
-          items: [{
-            id: currentItem.id,
-            price: tierPriceId,
-          }],
-          discounts: promoContext.discount ? [promoContext.discount] : undefined,
-          expand: ["latest_invoice.payment_intent", "items.data.price", "discount", "discounts"],
-        });
-      } catch (err) {
-        if (promoContext.discount && isStripePromoError(err)) {
-          const promoErr = readStripeErrorMessage(err) || "Promo code could not be applied.";
-          throw new HttpsError("failed-precondition", promoErr, { reason: "PROMO_APPLY_FAILED" });
-        }
-        throw err;
-      }
-    } else if (promoContext.discount) {
-      try {
-        subscription = await stripe.subscriptions.update(subscription.id, {
-          cancel_at_period_end: false,
-          default_payment_method: defaultPm,
-          metadata: { uid, tier, interval, ...promoMeta },
-          discounts: [promoContext.discount],
-          proration_behavior: "none",
-          expand: ["latest_invoice.payment_intent", "items.data.price", "discount", "discounts"],
-        });
-      } catch (err) {
-        if (isStripePromoError(err)) {
-          const promoErr = readStripeErrorMessage(err) || "Promo code could not be applied.";
-          throw new HttpsError("failed-precondition", promoErr, { reason: "PROMO_APPLY_FAILED" });
-        }
-        throw err;
-      }
-    }
-  } else {
-    subscription = await stripe.subscriptions.create({
-      customer: customerId,
-      default_payment_method: defaultPm,
-      items: [{ price: tierPriceId }],
-      payment_behavior: "default_incomplete",
-      trial_from_plan: false,
-      payment_settings: { save_default_payment_method: "on_subscription" },
-      metadata: { uid, tier, interval, ...promoMeta },
-      discounts: promoContext.discount ? [promoContext.discount] : undefined,
-      expand: ["latest_invoice.payment_intent", "items.data.price", "discount", "discounts"],
-    });
-  }
-
-  const pricingPreview = buildMembershipPricingPreview(subscription, subscription?.latest_invoice?.payment_intent || null);
-  const promoAttached = subscriptionHasAnyDiscount(subscription) || pricingPreview.discountCents > 0;
-  if (promoCodeNormalized && !promoAttached) {
-    throw new HttpsError("failed-precondition", "Promo code could not be applied.", { reason: "PROMO_APPLY_FAILED" });
-  }
-  console.info("charge_membership_promo_result", {
-    uid,
-    tier,
-    interval,
-    promoRaw: promoCodeRaw,
-    promoNormalized: promoCodeNormalized,
-    promoResolvedCode: promoContext.promoCode || "",
-    promoTag: promoContext.promoTag || "",
-    promoCouponId: promoContext.couponId || "",
-    promoPromotionCodeId: promoContext.promotionCodeId || "",
-    promoAttached,
-    subscriptionId: subscription?.id || null,
-    subtotalCents: pricingPreview.subtotalCents,
-    totalCents: pricingPreview.totalCents,
-    discountCents: pricingPreview.discountCents,
-  });
-
-  const paymentIntent = subscription?.latest_invoice?.payment_intent || null;
-  if (paymentIntent?.status === "requires_action" && paymentIntent.client_secret) {
-    return {
-      requiresAction: true,
-      clientSecret: paymentIntent.client_secret,
-      publishableKey: publishable,
-      paymentIntentId: paymentIntent.id,
-      subscriptionId: subscription.id,
-      tier,
-      interval,
-    };
-  }
-  if (paymentIntent && paymentIntent.status !== "succeeded") {
-    throw new HttpsError("failed-precondition", "Payment did not complete");
-  }
-
-  const currentPeriodEndIso = isoFromUnix(subscription?.current_period_end);
-  const billingInterval = getSubscriptionInterval(subscription, interval);
-  const finalPromoTag = String(subscription?.metadata?.promo || promoContext.promoTag || "").toLowerCase();
-  await memberRef.set({
-    tier,
-    membershipTier: membershipTierLabel(tier),
-    billingInterval,
-    billingProvider: "stripe",
-    membershipStatus: subscription?.status || "active",
-    paymentStatus: stripeStatusToPaymentStatus(subscription?.status || "active"),
-    stripeCustomerId: customerId,
-    stripeSubscriptionId: subscription?.id || profile?.stripeSubscriptionId || null,
-    membershipPromoTag: finalPromoTag || null,
-    membershipTrialDays: admin.firestore.FieldValue.delete(),
-    membershipTrialEndsAt: admin.firestore.FieldValue.delete(),
-    defaultPaymentMethodId: defaultPm || paymentIntent?.payment_method || null,
-    currentPeriodEnd: currentPeriodEndIso,
-    nextRenewal: currentPeriodEndIso,
-    accountDeleteAt: admin.firestore.FieldValue.delete(),
-    accountDeleteReason: admin.firestore.FieldValue.delete(),
-    accountDeleteScheduledAt: admin.firestore.FieldValue.delete(),
-    lastCharge: paymentIntent ? new Date().toISOString() : (profile?.lastCharge || null),
-    membershipActivatedAt: profile?.membershipActivatedAt || new Date().toISOString(),
-    lastStripeEvent: "chargeMembershipOnFile",
-    lastStripeEventAt: admin.firestore.FieldValue.serverTimestamp(),
-  }, { merge: true });
-  await queueMembershipConfirmationEmail({
-    to: context.auth.token?.email || profile?.email || "",
-    tier,
-    nextRenewalIso: currentPeriodEndIso,
-  });
-  return {
-    ok: true,
-    tier,
-    interval: billingInterval,
-    subscriptionId: subscription?.id || null,
-    membershipStatus: subscription?.status || "active",
-    paymentStatus: stripeStatusToPaymentStatus(subscription?.status || "active"),
-    currentPeriodEnd: currentPeriodEndIso,
-    membershipPromoTag: finalPromoTag || null,
-  };
 });
 
 exports.createVoucherPaymentIntent = functions.runWith(stripeSecrets).https.onCall(async (data, context) => {
