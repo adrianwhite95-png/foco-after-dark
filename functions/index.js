@@ -908,13 +908,41 @@ function getCurrentVoucherBillingMonthKeyForWallet(memberData = {}, now = new Da
   return getMonthTokenFromDate(anchor);
 }
 
+function toMillisSafe(value) {
+  if (!value) return 0;
+  if (typeof value?.toMillis === "function") return Number(value.toMillis()) || 0;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.getTime() : 0;
+}
+
+function getActiveAdminGiftCarryoverForWallet(memberData = {}, now = new Date(), currentKey = "") {
+  const buckets = memberData?.extraVoucherBuckets;
+  if (!buckets || typeof buckets !== "object") return 0;
+  const nowMs = Number(now?.getTime?.() || Date.now());
+  return Object.entries(buckets).reduce((sum, [key, bucket]) => {
+    if (!bucket || typeof bucket !== "object") return sum;
+    if (String(key || "") === String(currentKey || "")) return sum;
+    const grants = bucket.adminGrants;
+    if (!grants || typeof grants !== "object") return sum;
+    const carry = Object.values(grants).reduce((inner, grant) => {
+      const amount = Math.max(0, Number(grant?.tokenAmount || 0) || 0);
+      if (!amount) return inner;
+      const expiresMs = toMillisSafe(grant?.expiresAt);
+      if (expiresMs <= 0 || expiresMs <= nowMs) return inner;
+      return inner + amount;
+    }, 0);
+    return sum + carry;
+  }, 0);
+}
+
 function getCurrentCyclePurchasedTokenTotalForWallet(memberData = {}, now = new Date()) {
   const billingMonthKey = getCurrentVoucherBillingMonthKeyForWallet(memberData, now);
   const buckets = memberData?.extraVoucherBuckets;
-  if (!buckets || typeof buckets !== "object") return 0;
-  const bucket = buckets[billingMonthKey];
-  const value = Number(bucket?.redemptionTokens || 0);
-  return Number.isFinite(value) ? Math.max(0, value) : 0;
+  const bucket = (buckets && typeof buckets === "object") ? buckets[billingMonthKey] : null;
+  const currentValue = Number(bucket?.redemptionTokens || 0);
+  const currentTokens = Number.isFinite(currentValue) ? Math.max(0, currentValue) : 0;
+  const carryoverTokens = getActiveAdminGiftCarryoverForWallet(memberData, now, billingMonthKey);
+  return currentTokens + carryoverTokens;
 }
 
 function getVoucherLimitForTierForWallet(tier) {
@@ -4187,12 +4215,19 @@ function requireAdminClaim(context) {
 
 function normalizeTierForAdminTokenGift(memberData = {}) {
   const override = String(memberData?.membershipOverride || memberData?.override || "").toUpperCase();
-  const tier = normalizeTierKey(memberData?.tier || memberData?.membershipTier || "");
-  if (override === "CEO_FREE" || memberData?.freeMembership === true || tier === "ceo_free" || tier === "free") {
+  const rawTier = String(memberData?.tier || memberData?.membershipTier || memberData?.requestedTier || "").trim().toLowerCase();
+  const membershipStatus = String(memberData?.membershipStatus || "").trim().toLowerCase();
+  if (
+    override === "CEO_FREE"
+    || memberData?.freeMembership === true
+    || rawTier === "ceo_free"
+    || rawTier === "free"
+    || membershipStatus === "ceo_free"
+  ) {
     return "ceo_free";
   }
-  if (tier === "vip") return "vip";
-  if (tier === "standard") return "standard";
+  if (rawTier === "vip" || membershipStatus === "vip") return "vip";
+  if (rawTier === "standard" || membershipStatus === "standard") return "standard";
   return "";
 }
 
@@ -7502,7 +7537,7 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
         .map((u) => [String(u.email || "").trim().toLowerCase(), u])
         .filter(([email]) => !!email)
     );
-    const resolvedProfiles = new Map(); // uid -> { sourceData, sourceRef, targetRef }
+    const resolvedProfiles = new Map(); // uid -> { uid, sourceData, sourceRef, targetRef }
 
     // Load canonical UID member docs first.
     const memberRefs = authUsers.map((u) => db.collection("members").doc(u.uid));
@@ -7522,7 +7557,7 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
       });
     }
 
-    // Legacy support: if UID doc missing, resolve by email and still write to UID doc.
+    // Legacy support: resolve missing auth users by email.
     const missingUsers = authUsers.filter((u) => !resolvedProfiles.has(u.uid));
     const missingEmails = Array.from(
       new Set(
@@ -7549,8 +7584,28 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
         });
       });
     }
+    // Final fallback: include auth users even if profile is sparse/missing.
+    for (const authUser of authUsers) {
+      if (resolvedProfiles.has(authUser.uid)) continue;
+      const claimTierRaw = String(authUser.customClaims?.tier || authUser.customClaims?.membershipTier || "").trim().toLowerCase();
+      const claimTier = ["standard", "vip", "ceo_free", "explorer"].includes(claimTierRaw) ? claimTierRaw : "";
+      const fallbackTier = claimTier
+        || (authUser.customClaims?.ceo_free === true || authUser.customClaims?.freeMembership === true ? "ceo_free" : "standard");
+      resolvedProfiles.set(authUser.uid, {
+        uid: authUser.uid,
+        sourceData: {
+          uid: authUser.uid,
+          email: String(authUser.email || "").trim().toLowerCase(),
+          tier: fallbackTier,
+          membershipTier: fallbackTier,
+        },
+        sourceRef: null,
+        targetRef: db.collection("members").doc(authUser.uid),
+      });
+    }
 
     const now = new Date();
+    const expiresAt = Timestamp.fromDate(new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000)));
     const profiles = Array.from(resolvedProfiles.values());
     const totalMembersScanned = profiles.length;
     let eligibleCount = 0;
@@ -7585,6 +7640,7 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
         [`extraVoucherBuckets.${billingMonthKey}.adminGrants.${campaignId}`]: {
           tokenAmount,
           grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt,
           grantedBy: actor.uid,
           reason,
         },
@@ -7594,10 +7650,21 @@ exports.grantVoucherTokenToAllActiveMembers = functions.https.onCall(async (data
           tokenAmount,
           billingMonthKey,
           title: "You just got rewarded +1 voucher token 🎉",
-          message: "FoCo After Dark just added +1 voucher token to your balance for this billing cycle.",
-          helperText: "Applies to your current billing cycle only.",
+          message: "FoCo After Dark just added +1 voucher token to your balance for the next 14 days.",
+          helperText: "Valid for 14 days from the drop date.",
+          expiresAt,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           seen: false,
+        },
+        pendingVoucherGrant: {
+          amount: tokenAmount,
+          tokenAmount,
+          monthKey: billingMonthKey,
+          campaignId,
+          message: "FoCo After Dark just added +1 voucher token to your balance for the next 14 days.",
+          helperText: "Valid for 14 days from the drop date.",
+          expiresAt,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };

@@ -24419,6 +24419,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.73",
+        date: "2026-03-06",
+        added: [
+          "CEO +1 token gifts now include a 14-day validity window from the exact drop time"
+        ],
+        improved: [
+          "Voucher balances now count active unexpired CEO gift tokens even if the billing month key has rolled over"
+        ],
+        fixed: [
+          "Reward popup messaging now consistently shows 14-day gift validity instead of cycle-end copy"
+        ]
+      },
+      {
         version: "v0.9.72",
         date: "2026-03-06",
         added: [
@@ -26447,7 +26460,7 @@
       } else {
         const extras = getCurrentCycleExtraTokenBreakdown(memberProfile);
         if (voucherBalanceNote) {
-          voucherBalanceNote.textContent = "Extra purchased, points-redeemed, and CEO gifted tokens apply to this billing cycle only and do not roll over.";
+          voucherBalanceNote.textContent = "Purchased + points tokens apply to this billing cycle. CEO gifted tokens stay valid for 14 days from the drop.";
         }
         if (redeemVoucherBalance) {
           const included = Number(balance.includedTokens || 0);
@@ -30883,7 +30896,22 @@ let onboardingIndex = 0;
         ? profile.extraVoucherBuckets
         : {};
       const value = Number(buckets?.[key]?.redemptionTokens || 0);
-      return Number.isFinite(value) ? Math.max(0, value) : 0;
+      const currentCycleTokens = Number.isFinite(value) ? Math.max(0, value) : 0;
+      const nowMs = Date.now();
+      const carryoverGiftTokens = Object.entries(buckets).reduce((sum, [bucketKey, bucketVal]) => {
+        if (!bucketVal || typeof bucketVal !== "object") return sum;
+        if (String(bucketKey || "") === String(key || "")) return sum;
+        const grants = (bucketVal.adminGrants && typeof bucketVal.adminGrants === "object") ? bucketVal.adminGrants : {};
+        const active = Object.values(grants).reduce((inner, grant) => {
+          const amount = Math.max(0, Number(grant?.tokenAmount || 0) || 0);
+          if (!amount) return inner;
+          const expiresAt = toDateSafe(grant?.expiresAt);
+          if (!expiresAt || expiresAt.getTime() <= nowMs) return inner;
+          return inner + amount;
+        }, 0);
+        return sum + active;
+      }, 0);
+      return currentCycleTokens + carryoverGiftTokens;
     }
 
     function getCurrentCycleExtraTokenBreakdown(profile = memberProfile) {
@@ -30905,7 +30933,11 @@ let onboardingIndex = 0;
       }, 0);
       const gifted = Object.values(adminGrants).reduce((sum, entry) => {
         const value = Number(entry?.tokenAmount || 0);
-        return sum + (Number.isFinite(value) ? Math.max(0, value) : 0);
+        const amount = Number.isFinite(value) ? Math.max(0, value) : 0;
+        if (!amount) return sum;
+        const expiresAt = toDateSafe(entry?.expiresAt);
+        if (expiresAt && expiresAt.getTime() <= Date.now()) return sum;
+        return sum + amount;
       }, 0);
       const total = getCurrentCyclePurchasedTokenTotal(profile);
       return {
@@ -33766,22 +33798,22 @@ let onboardingIndex = 0;
       // Avoid local pre-suppression so users do not miss unread reward popups.
       if (!fromNotice && noticeId && wasVoucherGrantSeenLocal(uid, noticeId)) return;
       if (!fromNotice && noticeId) markVoucherGrantSeenLocal(uid, noticeId);
-      const cycle = getVoucherCycleWindow(memberProfile?.billing || {})?.current;
-      const endLabel = cycle?.end ? formatMST(cycle.end, { year: "numeric" }) : "end of this billing cycle";
       if (voucherGrantTitle) {
         voucherGrantTitle.textContent = fromNotice
           ? (payload.title || "You just got rewarded +1 voucher token 🎉")
           : "Vouchers added";
       }
       if (voucherGrantBody) {
+        const expiresAt = toDateSafe(payload?.expiresAt);
+        const expiresLabel = expiresAt ? formatMST(expiresAt, { month: "short", day: "numeric" }) : "";
         voucherGrantBody.textContent = fromNotice
-          ? (payload.message || "FoCo After Dark just added +1 voucher token to your balance for this billing cycle.")
-          : `Good news — you received ${amount} voucher token${amount === 1 ? "" : "s"} for this billing cycle. They expire ${cycle?.end ? `on ${endLabel}` : "at the end of the billing cycle"}.`;
+          ? (payload.message || `FoCo After Dark just added +1 voucher token to your balance${expiresLabel ? ` until ${expiresLabel}` : " for 14 days"}.`)
+          : `Good news — you received ${amount} voucher token${amount === 1 ? "" : "s"}${expiresLabel ? ` valid until ${expiresLabel}` : " for 14 days"}.`;
       }
       if (voucherGrantHelper) {
         voucherGrantHelper.textContent = fromNotice
-          ? (payload.helperText || "Applies to your current billing cycle only.")
-          : "Applies to your current billing cycle only.";
+          ? (payload.helperText || "Valid for 14 days from the drop date.")
+          : "Valid for 14 days from the drop date.";
       }
       activeVoucherRewardNotice = fromNotice ? { id: noticeId } : null;
       voucherGrantModal.classList.add("active");
@@ -34130,7 +34162,7 @@ let onboardingIndex = 0;
         ceoGlobalGiftBtn.dataset.busy = "1";
         ceoGlobalGiftBtn.textContent = "Sending...";
       }
-      showToast("Sending +1 token gift to active members...", 1400);
+      showToast("Sending +1 token gift to eligible members...", 1400);
       try {
         const fn = httpsCallable(functionsClient, "grantVoucherTokenToAllActiveMembers");
         let resp;
@@ -34171,7 +34203,7 @@ let onboardingIndex = 0;
           `Gift sent: ${grantedCount} granted, ${skippedCount} skipped (${eligibleCount} eligible of ${scannedCount} members scanned).`,
           true
         );
-        showToast(`Campaign ${campaignId || "gift"} sent to ${grantedCount} active members.`, 3000);
+        showToast(`Campaign ${campaignId || "gift"} sent to ${grantedCount} eligible members.`, 3000);
       } catch (err) {
         console.warn("grantVoucherTokenToAllActiveMembers failed", err);
         const code = String(err?.code || "").toLowerCase();
