@@ -16206,32 +16206,6 @@
         linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.975)) !important;
       box-shadow: inset 0 0 300px rgba(0, 0, 0, 0.92) !important;
     }
-    body.screen-landing .landing-wrapper::after {
-      background:
-        linear-gradient(var(--landing-laser-angle-a, 112deg),
-          transparent 0 43%,
-          rgba(57, 255, 20, var(--landing-laser-alpha-a, 0.44)) 48%,
-          transparent 53%),
-        linear-gradient(var(--landing-laser-angle-b, 248deg),
-          transparent 0 45%,
-          rgba(153, 255, 98, var(--landing-laser-alpha-b, 0.34)) 50%,
-          transparent 55%),
-        radial-gradient(circle at var(--landing-flash-x, 76%) var(--landing-flash-y, 24%), rgba(57, 255, 20, 0.22), transparent 24%),
-        linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.46)) !important;
-      opacity: 0.78 !important;
-      filter: blur(0.22px);
-      mix-blend-mode: screen;
-      animation: landingLaserFlash 1.9s steps(2, end) infinite;
-    }
-    body.screen-landing .landing-wrapper .landing-strobe {
-      background:
-        linear-gradient(var(--landing-strobe-angle-a, 108deg), transparent 18%, rgba(57, 255, 20, 0.34) 43%, transparent 58%),
-        linear-gradient(var(--landing-strobe-angle-b, 262deg), transparent 34%, rgba(153, 255, 98, 0.24) 64%, transparent 78%);
-      opacity: 0.7;
-      filter: blur(4.5px) saturate(1.2);
-      mix-blend-mode: screen;
-      animation: landingStrobeFlicker 2.2s steps(3, end) infinite;
-    }
     @keyframes landingLaserFlash {
       0%, 100% { opacity: 0.56; }
       22% { opacity: 0.88; }
@@ -21807,13 +21781,11 @@
       landingLaserPulseTimer = setInterval(() => randomizeLandingLaserFrame(false), 820);
       queueLandingLaserBurst();
     }
-    let landingRewardsLastPoints = null;
     function renderLandingRewardsModule() {
       if (!landingRewardsModule || !landingRewardsOptions) return;
       const rewardsPointsRow = landingRewardsPoints?.closest?.(".rewards-balance-row");
       if (rewardsPointsRow) rewardsPointsRow.style.display = "none";
       if (landingRewardsPoints) landingRewardsPoints.classList.remove("pulse");
-      landingRewardsLastPoints = null;
       const rewardsTokensRow = landingRewardsExtraTokens?.closest?.(".rewards-token-summary");
       if (rewardsTokensRow) rewardsTokensRow.style.display = "none";
 
@@ -25855,6 +25827,18 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.104",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Patch Notes rendering is now deterministic by real date + version order, so newest releases appear reliably in About / Legal",
+          "Home visual layers were cleaned to remove redundant overlap rules while preserving existing behavior and improving render efficiency"
+        ],
+        fixed: [
+          "Removed auto-generated build note injection that could make Patch Notes appear inconsistent or random"
+        ]
+      },
+      {
         version: "v0.9.103",
         date: "2026-03-07",
         added: [],
@@ -26757,23 +26741,60 @@
       }
     ];
     let aboutPatchNotesExpanded = false;
-    let latestVersionStamp = "";
 
-    function injectLatestDeployPatchNote() {
-      const version = String(latestVersionStamp || "").trim();
-      if (!version) return;
-      const base = Array.isArray(PATCH_NOTES) ? PATCH_NOTES : [];
-      const autoVersion = `build-${version}`;
-      if (base.some((entry) => String(entry?.version || "").trim() === autoVersion)) return;
-      const match = version.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
-      const isoDate = match ? `${match[1]}-${match[2]}-${match[3]}` : new Date().toISOString().slice(0, 10);
-      base.unshift({
-        version: autoVersion,
-        date: isoDate,
-        added: ["Latest production build deployed."],
-        improved: ["General stability and UX polish updates."],
-        fixed: ["Minor bugs and quality improvements."]
+    function parsePatchVersionParts(version = "") {
+      const raw = String(version || "").trim().toLowerCase();
+      const semver = raw.match(/^v?(\d+)\.(\d+)\.(\d+)$/);
+      if (semver) {
+        return { rank: 3, parts: semver.slice(1).map((n) => Number(n) || 0) };
+      }
+      const build = raw.match(/^build-(\d{4})\.(\d{2})\.(\d{2})(?:\.deploy-(\d+))?/);
+      if (build) {
+        return { rank: 2, parts: build.slice(1).map((n) => Number(n) || 0) };
+      }
+      const digits = raw.match(/(\d+)/g);
+      if (digits?.length) {
+        return { rank: 1, parts: digits.map((n) => Number(n) || 0) };
+      }
+      return { rank: 0, parts: [0] };
+    }
+
+    function comparePatchVersionsDesc(aVersion = "", bVersion = "") {
+      const a = parsePatchVersionParts(aVersion);
+      const b = parsePatchVersionParts(bVersion);
+      if (a.rank !== b.rank) return b.rank - a.rank;
+      const maxLen = Math.max(a.parts.length, b.parts.length);
+      for (let i = 0; i < maxLen; i += 1) {
+        const aPart = Number(a.parts[i] || 0);
+        const bPart = Number(b.parts[i] || 0);
+        if (aPart !== bPart) return bPart - aPart;
+      }
+      return String(bVersion || "").localeCompare(String(aVersion || ""));
+    }
+
+    function getSortedPatchNotes() {
+      const source = Array.isArray(PATCH_NOTES) ? PATCH_NOTES : [];
+      const seenVersions = new Set();
+      const normalized = [];
+      source.forEach((entry, index) => {
+        if (!entry || typeof entry !== "object") return;
+        const version = String(entry.version || "").trim() || `entry-${index + 1}`;
+        if (seenVersions.has(version)) return;
+        seenVersions.add(version);
+        normalized.push({
+          ...entry,
+          version,
+          __index: index,
+          __dateStamp: Number.isFinite(Date.parse(entry.date)) ? Date.parse(entry.date) : 0
+        });
       });
+      normalized.sort((a, b) => {
+        if (a.__dateStamp !== b.__dateStamp) return b.__dateStamp - a.__dateStamp;
+        const versionCmp = comparePatchVersionsDesc(a.version, b.version);
+        if (versionCmp !== 0) return versionCmp;
+        return a.__index - b.__index;
+      });
+      return normalized;
     }
 
     function formatPatchNoteDate(value) {
@@ -26789,10 +26810,9 @@
 
     function renderPatchNotes() {
       if (!aboutPatchNotesList) return;
-      injectLatestDeployPatchNote();
-      const list = Array.isArray(PATCH_NOTES) ? PATCH_NOTES.slice() : [];
-      list.sort((a, b) => String(b?.date || "").localeCompare(String(a?.date || "")));
-      const visible = aboutPatchNotesExpanded ? list : list.slice(0, 10);
+      const list = getSortedPatchNotes();
+      const defaultVisibleCount = 14;
+      const visible = aboutPatchNotesExpanded ? list : list.slice(0, defaultVisibleCount);
       aboutPatchNotesList.textContent = "";
 
       visible.forEach((entry) => {
@@ -26835,7 +26855,7 @@
       });
 
       if (aboutPatchNotesToggle) {
-        const hasOlder = list.length > 10;
+        const hasOlder = list.length > defaultVisibleCount;
         aboutPatchNotesToggle.style.display = hasOlder ? "inline-flex" : "none";
         aboutPatchNotesToggle.textContent = aboutPatchNotesExpanded ? "Show newer" : "View older";
       }
@@ -26850,8 +26870,6 @@
         const data = await resp.json();
         const version = String(data?.version || "").trim();
         if (version) {
-          latestVersionStamp = version;
-          injectLatestDeployPatchNote();
           renderPatchNotes();
         }
         const match = version.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
