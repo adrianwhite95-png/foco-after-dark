@@ -10769,72 +10769,91 @@
       border-radius: inherit;
       pointer-events: none;
       background:
-        linear-gradient(122deg,
-          transparent 44%,
-          color-mix(in srgb, var(--accent-primary-live) 88%, transparent) 48%,
-          transparent 52%),
-        linear-gradient(238deg,
-          transparent 40%,
-          color-mix(in srgb, var(--accent-secondary-live) 86%, transparent) 44%,
-          transparent 48%),
-        radial-gradient(110% 80% at 10% 8%, color-mix(in srgb, var(--accent-primary-live) 24%, transparent), transparent 62%),
-        radial-gradient(90% 70% at 92% 88%, color-mix(in srgb, var(--accent-secondary-live) 24%, transparent), transparent 60%);
-      background-size: 220% 220%, 220% 220%, 100% 100%, 100% 100%;
-      background-position: 0% 0%, 100% 100%, center, center;
+        linear-gradient(115deg,
+          transparent 45%,
+          color-mix(in srgb, var(--accent-primary-live) 94%, transparent) 48%,
+          transparent 51%),
+        linear-gradient(244deg,
+          transparent 43%,
+          color-mix(in srgb, var(--accent-secondary-live) 92%, transparent) 46%,
+          transparent 49%),
+        linear-gradient(176deg,
+          transparent 46%,
+          color-mix(in srgb, var(--accent-primary-live) 74%, transparent) 48%,
+          transparent 50%),
+        radial-gradient(130% 90% at 12% 8%, color-mix(in srgb, var(--accent-primary-live) 22%, transparent), transparent 62%),
+        radial-gradient(110% 84% at 88% 92%, color-mix(in srgb, var(--accent-secondary-live) 24%, transparent), transparent 64%);
+      background-size: 180% 180%, 190% 190%, 170% 170%, 100% 100%, 100% 100%;
+      background-position: 0% 2%, 100% 98%, 50% 0%, center, center;
       mix-blend-mode: screen;
-      opacity: 0.72 !important;
-      filter: blur(6px) saturate(1.5);
+      opacity: 0.78 !important;
+      filter: blur(3px) saturate(1.42) contrast(1.06);
       z-index: 1;
-      animation: passLaserSweep 8.8s linear infinite, passLaserPulse 2.8s ease-in-out infinite;
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      will-change: transform, opacity, background-position;
+      animation: passLaserSweep 7.4s linear infinite, passLaserPulse 2.1s ease-in-out infinite, passLaserFlash 2.6s steps(4, end) infinite;
     }
     #passScreen .pass-card::after {
-      opacity: 0.34 !important;
+      opacity: 0.38 !important;
       background:
-        repeating-linear-gradient(120deg,
-          transparent 0 26px,
-          color-mix(in srgb, var(--accent-primary-live) 42%, transparent) 27px 28px,
-          transparent 29px 58px),
-        repeating-linear-gradient(62deg,
-          transparent 0 32px,
-          color-mix(in srgb, var(--accent-secondary-live) 34%, transparent) 33px 34px,
-          transparent 35px 64px),
-        radial-gradient(120% 120% at 50% 115%, color-mix(in srgb, var(--accent-secondary-live) 16%, transparent), transparent 62%);
-      background-size: 180% 180%, 180% 180%, 100% 100%;
+        repeating-linear-gradient(122deg,
+          transparent 0 34px,
+          color-mix(in srgb, var(--accent-primary-live) 36%, transparent) 35px 36px,
+          transparent 37px 74px),
+        repeating-linear-gradient(56deg,
+          transparent 0 42px,
+          color-mix(in srgb, var(--accent-secondary-live) 32%, transparent) 43px 44px,
+          transparent 45px 84px),
+        radial-gradient(100% 74% at 50% 115%, color-mix(in srgb, var(--accent-secondary-live) 18%, transparent), transparent 66%);
+      background-size: 160% 160%, 170% 170%, 100% 100%;
       background-position: 0% 0%, 100% 100%, center;
-      filter: blur(1.4px) saturate(1.35);
-      animation: passLaserGridShift 6.6s linear infinite;
+      filter: blur(1px) saturate(1.25);
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      will-change: transform, opacity, background-position;
+      animation: passLaserGridShift 5.6s linear infinite, passLaserFlash 3.2s steps(5, end) infinite reverse;
     }
     @keyframes passLaserSweep {
       0% {
-        background-position: 0% 4%, 100% 96%, center, center;
-        transform: translate3d(-1.5%, 0, 0);
+        background-position: 0% 4%, 100% 96%, 50% 0%, center, center;
+        transform: translate3d(-1.2%, 0, 0);
       }
       50% {
-        background-position: 100% 12%, 0% 88%, center, center;
-        transform: translate3d(1.5%, 0.5%, 0);
+        background-position: 100% 10%, 0% 90%, 52% 100%, center, center;
+        transform: translate3d(1.4%, 0.45%, 0);
       }
       100% {
-        background-position: 0% 4%, 100% 96%, center, center;
-        transform: translate3d(-1.5%, 0, 0);
+        background-position: 0% 4%, 100% 96%, 50% 0%, center, center;
+        transform: translate3d(-1.2%, 0, 0);
       }
     }
     @keyframes passLaserPulse {
-      0%, 100% { opacity: 0.58; }
-      35% { opacity: 0.78; }
-      70% { opacity: 0.68; }
+      0%, 100% { opacity: 0.62; }
+      30% { opacity: 0.84; }
+      70% { opacity: 0.72; }
+    }
+    @keyframes passLaserFlash {
+      0%, 18%, 100% { opacity: 0.64; }
+      20% { opacity: 0.86; }
+      45% { opacity: 0.7; }
+      62% { opacity: 0.9; }
+      78% { opacity: 0.68; }
     }
     @keyframes passLaserGridShift {
       0% {
         background-position: 0% 0%, 100% 100%, center;
-        opacity: 0.28;
+        opacity: 0.3;
       }
       50% {
         background-position: 100% 0%, 0% 100%, center;
-        opacity: 0.4;
+        opacity: 0.45;
       }
       100% {
         background-position: 0% 0%, 100% 100%, center;
-        opacity: 0.28;
+        opacity: 0.3;
       }
     }
     #passScreen .profile-summary {
@@ -11373,12 +11392,12 @@
       filter: blur(12px) saturate(1.05) !important;
     }
     body.user-motion-reduced #passScreen .pass-card::before {
-      animation-duration: 20s, 8.5s !important;
-      opacity: 0.56 !important;
+      animation-duration: 14.5s, 5.8s, 7.2s !important;
+      opacity: 0.52 !important;
     }
     body.user-motion-reduced #passScreen .pass-card::after {
-      animation-duration: 13s !important;
-      opacity: 0.24 !important;
+      animation-duration: 10.8s, 8.6s !important;
+      opacity: 0.22 !important;
     }
     /* Force a clean animation restart when toggling back to full motion (Safari/iOS-safe). */
     body.motion-refresh #passScreen::before,
@@ -12444,6 +12463,45 @@
       --ui-motion-fast: 140ms;
       --ui-motion-med: 220ms;
       --ui-ease: cubic-bezier(0.2, 0.88, 0.26, 1);
+    }
+    /* Global HD clarity pass (iOS + web): keep edges/text crisp while preserving glow. */
+    html,
+    body {
+      text-rendering: geometricPrecision;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    #app,
+    .screen,
+    .pass-card,
+    .member-hero,
+    .profile-summary,
+    .alerts-card,
+    .staff-form,
+    .ceo-hq-panel,
+    .modal-card {
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+    img,
+    svg,
+    canvas,
+    video {
+      image-rendering: auto;
+      transform: translateZ(0);
+    }
+    @media (min-resolution: 2dppx) {
+      .app-title,
+      .section-title,
+      .hero-highlight,
+      .btn,
+      .chip,
+      .field label,
+      .status-pill {
+        text-rendering: geometricPrecision;
+        -webkit-font-smoothing: antialiased;
+      }
     }
 
     .app-title {
@@ -26156,6 +26214,19 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.111",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Member pass lasers were retuned to match the home-screen nightlife look with cleaner, sharper beam sweeps and lower-jitter animation",
+          "Reduced Motion still shows pass laser ambiance, now with calmer strobe cadence and softened intensity",
+          "Applied a global HD clarity pass for iOS and web to keep UI edges, typography, and media rendering sharper on high-density displays"
+        ],
+        fixed: [
+          "Reduced pass laser blur/overdraw that could make profile visuals feel laggy on some devices"
+        ]
+      },
       {
         version: "v0.9.110",
         date: "2026-03-07",
