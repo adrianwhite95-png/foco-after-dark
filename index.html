@@ -10769,15 +10769,73 @@
       border-radius: inherit;
       pointer-events: none;
       background:
+        linear-gradient(122deg,
+          transparent 44%,
+          color-mix(in srgb, var(--accent-primary-live) 88%, transparent) 48%,
+          transparent 52%),
+        linear-gradient(238deg,
+          transparent 40%,
+          color-mix(in srgb, var(--accent-secondary-live) 86%, transparent) 44%,
+          transparent 48%),
         radial-gradient(110% 80% at 10% 8%, color-mix(in srgb, var(--accent-primary-live) 24%, transparent), transparent 62%),
         radial-gradient(90% 70% at 92% 88%, color-mix(in srgb, var(--accent-secondary-live) 24%, transparent), transparent 60%);
+      background-size: 220% 220%, 220% 220%, 100% 100%, 100% 100%;
+      background-position: 0% 0%, 100% 100%, center, center;
       mix-blend-mode: screen;
-      opacity: 0.62 !important;
-      filter: blur(8px) saturate(1.45);
+      opacity: 0.72 !important;
+      filter: blur(6px) saturate(1.5);
       z-index: 1;
+      animation: passLaserSweep 8.8s linear infinite, passLaserPulse 2.8s ease-in-out infinite;
     }
     #passScreen .pass-card::after {
-      opacity: 0.28 !important;
+      opacity: 0.34 !important;
+      background:
+        repeating-linear-gradient(120deg,
+          transparent 0 26px,
+          color-mix(in srgb, var(--accent-primary-live) 42%, transparent) 27px 28px,
+          transparent 29px 58px),
+        repeating-linear-gradient(62deg,
+          transparent 0 32px,
+          color-mix(in srgb, var(--accent-secondary-live) 34%, transparent) 33px 34px,
+          transparent 35px 64px),
+        radial-gradient(120% 120% at 50% 115%, color-mix(in srgb, var(--accent-secondary-live) 16%, transparent), transparent 62%);
+      background-size: 180% 180%, 180% 180%, 100% 100%;
+      background-position: 0% 0%, 100% 100%, center;
+      filter: blur(1.4px) saturate(1.35);
+      animation: passLaserGridShift 6.6s linear infinite;
+    }
+    @keyframes passLaserSweep {
+      0% {
+        background-position: 0% 4%, 100% 96%, center, center;
+        transform: translate3d(-1.5%, 0, 0);
+      }
+      50% {
+        background-position: 100% 12%, 0% 88%, center, center;
+        transform: translate3d(1.5%, 0.5%, 0);
+      }
+      100% {
+        background-position: 0% 4%, 100% 96%, center, center;
+        transform: translate3d(-1.5%, 0, 0);
+      }
+    }
+    @keyframes passLaserPulse {
+      0%, 100% { opacity: 0.58; }
+      35% { opacity: 0.78; }
+      70% { opacity: 0.68; }
+    }
+    @keyframes passLaserGridShift {
+      0% {
+        background-position: 0% 0%, 100% 100%, center;
+        opacity: 0.28;
+      }
+      50% {
+        background-position: 100% 0%, 0% 100%, center;
+        opacity: 0.4;
+      }
+      100% {
+        background-position: 0% 0%, 100% 100%, center;
+        opacity: 0.28;
+      }
     }
     #passScreen .profile-summary {
       background: color-mix(in srgb, var(--accent-primary-live) 9%, rgba(8, 14, 28, 0.66)) !important;
@@ -11299,7 +11357,6 @@
     }
     body.user-motion-reduced #passScreen::before,
     body.user-motion-reduced #passScreen::after,
-    body.user-motion-reduced #passScreen .pass-card::after,
     body.user-motion-reduced #passScreen .pulse-band::after,
     body.user-motion-reduced #passScreen .pulse-thread span,
     body.user-motion-reduced #passScreen .pulse-sparks span,
@@ -11314,6 +11371,14 @@
     body.user-motion-reduced #passScreen::after {
       opacity: 0.16 !important;
       filter: blur(12px) saturate(1.05) !important;
+    }
+    body.user-motion-reduced #passScreen .pass-card::before {
+      animation-duration: 20s, 8.5s !important;
+      opacity: 0.56 !important;
+    }
+    body.user-motion-reduced #passScreen .pass-card::after {
+      animation-duration: 13s !important;
+      opacity: 0.24 !important;
     }
 
     #passScreen .profile-summary::before {
@@ -26076,6 +26141,18 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.109",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Member pass now has a stronger accent-driven laser layer directly under pass text/content for a more alive look",
+          "Reduced Motion now keeps pass lasers active with slower/softer animation instead of fully removing pass motion"
+        ],
+        fixed: [
+          "Pass visuals no longer drop to a mostly static look when reduced motion is enabled"
+        ]
+      },
       {
         version: "v0.9.108",
         date: "2026-03-07",
