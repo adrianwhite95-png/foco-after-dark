@@ -384,6 +384,16 @@ service cloud.firestore {
       allow create, update, delete: if isSignedIn() && canWriteApp() && (isAdmin() || isCeo());
     }
 
+    // Staff check-ins for tonight alerts (staff/CEO/admin read only; server writes only)
+    match /venueAlertCheckins/{id} {
+      allow read: if isSignedIn() && (
+        isAdmin()
+        || isCeo()
+        || staffVenueMatches(resource.data.venueId)
+      );
+      allow create, update, delete: if false;
+    }
+
     // Shared deals (staff posts, everyone reads)
     match /deals/{id} {
       allow read: if true;

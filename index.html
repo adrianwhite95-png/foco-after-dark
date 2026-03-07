@@ -20545,6 +20545,9 @@
     let staffRedemptionsVenue = null;
     let staffAlertCheckinsCache = [];
     let staffAlertCheckinsTimer = null;
+    let staffAlertCheckinsRealtimeUnsub = null;
+    let staffAlertCheckinsLastVenue = "";
+    let staffAlertCheckinsLiveMode = "idle";
     let staffAlertCheckinsInFlight = false;
     if (betaPassMode) {
       localStorage.removeItem("betaSkipActive");
@@ -21369,6 +21372,8 @@
           waitlistListenersSuspended = false;
           if (authReady && firebaseAuth?.currentUser) {
             attachRealtimeForCurrentContext("waitlist-mode-disabled");
+          } else {
+            attachGlobalRealtime();
           }
         }
         waitlistPreGateScreen = "landing";
@@ -21444,7 +21449,7 @@
         localDegradeTimer = null;
         localDegradeMode = false;
         localDegradeUntil = 0;
-        if (authReady && firebaseAuth?.currentUser && !isWaitlistModeEnabled()) {
+        if (!isWaitlistModeEnabled()) {
           attachGlobalRealtime();
         }
       }, remaining);
@@ -21456,7 +21461,7 @@
         localDegradeMode = false;
         localDegradeUntil = 0;
         scheduleLocalDegradeReset();
-        if (authReady && firebaseAuth?.currentUser && !isWaitlistModeEnabled()) {
+        if (!isWaitlistModeEnabled()) {
           attachGlobalRealtime();
         }
         return;
@@ -21464,7 +21469,7 @@
       localDegradeMode = true;
       localDegradeUntil = Date.now() + Math.max(1000, Number(durationMs) || (10 * 60 * 1000));
       scheduleLocalDegradeReset();
-      if (authReady && firebaseAuth?.currentUser && !isWaitlistModeEnabled()) {
+      if (!isWaitlistModeEnabled()) {
         attachGlobalRealtime();
       }
     }
@@ -21495,7 +21500,7 @@
 
     function applyPerformanceConfigPayload(payload = {}) {
       performanceConfigState = sanitizePerformanceConfig(payload);
-      if (authReady && firebaseAuth?.currentUser && !isWaitlistModeEnabled()) {
+      if (!isWaitlistModeEnabled()) {
         attachGlobalRealtime();
       }
       if (ceoPerfDegradeToggleBtn) {
@@ -21530,7 +21535,7 @@
         applyConfigPayload({}, { ready: false });
       }
       const ref = doc(db, "appConfig", "public");
-      appConfigUnsub = subscribeSnapshot("publicConfig", ref, { includeMetadataChanges: true }, (snap) => {
+      appConfigUnsub = subscribeSnapshot("publicConfig", ref, { includeMetadataChanges: true, allowAnonymous: true }, (snap) => {
         if (!snap.exists()) {
           applyConfigPayload({}, { ready: true });
           return;
@@ -26258,6 +26263,20 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.114",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Staff check-in activity now prefers true Firestore snapshot updates (live stream) with automatic fallback to polling only when claims/rules block snapshot access",
+          "Global deals, alerts, venue perks, open-now status, and appConfig public document listeners now support anonymous realtime mode so landing/home data updates without waiting for auth",
+          "CEO Free members list in HQ now stays live with realtime snapshot updates instead of manual refresh-only updates"
+        ],
+        fixed: [
+          "Reduced stale UI windows where public home data could lag behind until sign-in",
+          "Improved waitlist-exit and signed-out landing listener re-attach behavior so global realtime resumes immediately"
+        ]
+      },
+      {
         version: "v0.9.113",
         date: "2026-03-07",
         added: [],
@@ -29749,6 +29768,7 @@
     try { stopCeoMessagesListener(); } catch (_) {}
     try { stopCeoLiveAnalyticsWatch(); } catch (_) {}
     try { stopCloseOutReportsListener(); } catch (_) {}
+    try { stopFreeMembersRealtime(); } catch (_) {}
     try { clearCeoReviewsRealtime(); } catch (_) {}
     try { stopHealthWatch(); } catch (_) {}
     if (settingsUnsub) { try { settingsUnsub(); } catch (_) {} settingsUnsub = null; }
@@ -29812,6 +29832,7 @@
     }
     if (user.isAnonymous) {
       setRealtimeRequiredSources(["settingsApp"]);
+      attachGlobalRealtime();
       return;
     }
     const onboardingBlocked = onboardingMembershipFlow
@@ -29905,6 +29926,7 @@
     "ceoReviews",
     "ceoMessages",
     "ceoMembers",
+    "ceoFreeMembers",
     "ceoHealth",
     "closeOutReports"
   ]);
@@ -30019,7 +30041,10 @@
     scheduleRealtimeStatusRender();
   }
   function subscribeSnapshot(label, target, options, onNext, onError) {
-    if (!authReady || !firebaseAuth.currentUser) return null;
+    const rawOptions = (options && typeof options === "object") ? options : {};
+    const allowAnonymous = rawOptions.allowAnonymous === true;
+    const requireAuth = rawOptions.requireAuth !== false && !allowAnonymous;
+    if (requireAuth && (!authReady || !firebaseAuth.currentUser)) return null;
     if (Date.now() < realtimeAttachDelayUntil) {
       logRealtime("attachSkipped", `${label}:reload-guard`);
       return null;
@@ -30035,7 +30060,9 @@
     }
     try {
       logRealtime("attach", label);
-      let effectiveOptions = options || {};
+      let effectiveOptions = { ...rawOptions };
+      if ("allowAnonymous" in effectiveOptions) delete effectiveOptions.allowAnonymous;
+      if ("requireAuth" in effectiveOptions) delete effectiveOptions.requireAuth;
       if (pillHeartbeatLabels.has(label)) {
         effectiveOptions = { ...effectiveOptions, includeMetadataChanges: true };
       } else if (effectiveOptions.includeMetadataChanges) {
@@ -30259,7 +30286,7 @@
   }
   const OPEN_NOW_LISTENER_CAP = 40;
   async function pollGlobalHeavySourcesOnce() {
-    if (!db || !firebaseAuth?.currentUser) return;
+    if (!db) return;
     const now = Date.now() - ALERT_EXPIRY_SKEW_MS;
     try {
       vipDealsMap.clear();
@@ -30338,7 +30365,7 @@
     } else {
       try {
         const dealsQuery = query(collection(db, "deals"), orderBy("createdAt", "desc"), limit(80));
-        const unsub = subscribeSnapshot("globalDeals", dealsQuery, null, (snap) => {
+        const unsub = subscribeSnapshot("globalDeals", dealsQuery, { allowAnonymous: true }, (snap) => {
           applyVipDealsSnapshot(snap);
         });
         if (unsub) globalRealtimeUnsubs.push(unsub);
@@ -30347,7 +30374,7 @@
       }
       try {
         const vipDealsQuery = query(collection(db, "vipDeals"), orderBy("createdAt", "desc"), limit(80));
-        const unsub = subscribeSnapshot("globalVipDeals", vipDealsQuery, null, (snap) => {
+        const unsub = subscribeSnapshot("globalVipDeals", vipDealsQuery, { allowAnonymous: true }, (snap) => {
           applyVipDealsSnapshot(snap);
         });
         if (unsub) globalRealtimeUnsubs.push(unsub);
@@ -30361,7 +30388,7 @@
           orderBy("expiresAt", "asc"),
           limit(120)
         );
-        const unsub = subscribeSnapshot("globalAlerts", alertsQuery, null, (snap) => {
+        const unsub = subscribeSnapshot("globalAlerts", alertsQuery, { allowAnonymous: true }, (snap) => {
           applyAlertsSnapshot(snap);
         });
         if (unsub) globalRealtimeUnsubs.push(unsub);
@@ -30369,7 +30396,7 @@
         console.warn("Global alerts listener failed (falling back):", err);
         try {
           const fallbackQuery = query(collection(db, "alerts"), orderBy("createdAt", "desc"), limit(120));
-          const fallbackUnsub = subscribeSnapshot("globalAlertsFallback", fallbackQuery, null, (snap) => {
+          const fallbackUnsub = subscribeSnapshot("globalAlertsFallback", fallbackQuery, { allowAnonymous: true }, (snap) => {
             applyAlertsSnapshot(snap);
           });
           if (fallbackUnsub) globalRealtimeUnsubs.push(fallbackUnsub);
@@ -30386,7 +30413,7 @@
           orderBy("updatedAt", "desc"),
           limit(30)
         );
-        const perksUnsub = subscribeSnapshot(`globalPerks:${venueId}`, perksQuery, null, (snap) => {
+        const perksUnsub = subscribeSnapshot(`globalPerks:${venueId}`, perksQuery, { allowAnonymous: true }, (snap) => {
           applyVenuePerksSnapshot(snap);
         });
         if (perksUnsub) globalRealtimeUnsubs.push(perksUnsub);
@@ -30395,7 +30422,7 @@
       }
       try {
         const shiftRef = doc(db, "venues", venueId, "shiftState", "current");
-        const shiftUnsub = subscribeSnapshot(`venueOpenNow:${venueId}`, shiftRef, null, (snap) => {
+        const shiftUnsub = subscribeSnapshot(`venueOpenNow:${venueId}`, shiftRef, { allowAnonymous: true }, (snap) => {
           applyVenueOpenNowSnapshot(venueId, snap);
         });
         if (shiftUnsub) globalRealtimeUnsubs.push(shiftUnsub);
@@ -34496,6 +34523,7 @@ let onboardingIndex = 0;
       upgradeVip: 100
     };
     let freeMembersCache = [];
+    let freeMembersRealtimeUnsub = null;
     let ceoFreeSignupCodesCache = [];
     const localFreeMembers = () => {
       if (!allowLocalCache()) return [];
@@ -36456,19 +36484,71 @@ let onboardingIndex = 0;
       });
     }
 
+    function stopFreeMembersRealtime() {
+      if (freeMembersRealtimeUnsub) {
+        try { freeMembersRealtimeUnsub(); } catch (_) {}
+        freeMembersRealtimeUnsub = null;
+      }
+    }
+
+    function applyFreeMembersList(list = []) {
+      // Merge with local persistent cache (beta/local only)
+      if (allowLocalCache()) {
+        const locals = loadLocalFreeMembers();
+        const mergedMap = {};
+        [...list, ...locals].forEach(item => {
+          if (!item?.passCode) return;
+          const key = String(item.passCode || "").toUpperCase();
+          if (!key) return;
+          mergedMap[key] = mergedMap[key] || { ...item, passCode: key };
+        });
+        const merged = Object.values(mergedMap);
+        saveLocalFreeMembers(merged);
+        freeMembersCache = merged;
+        renderFreeMembersList(merged);
+        return;
+      }
+      freeMembersCache = list;
+      renderFreeMembersList(list);
+    }
+
+    function startFreeMembersRealtime() {
+      if (!db || !freeMembersList || !isCeoAccount) return false;
+      if (freeMembersRealtimeUnsub) return true;
+      const q = query(collection(db, "members"), where("freeMembership", "==", true));
+      freeMembersRealtimeUnsub = subscribeSnapshot("ceoFreeMembers", q, null, (snap) => {
+        const list = [];
+        snap.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          list.push({
+            passCode: (data.passCode || docSnap.id || "").toUpperCase(),
+            name: data.name || data.legalName || "Member",
+            freeGrantedAt: data.freeGrantedAt?.toMillis ? data.freeGrantedAt.toMillis() : data.freeGrantedAt
+          });
+        });
+        applyFreeMembersList(list);
+      }, (err) => {
+        console.warn("Free members realtime failed", err);
+        stopFreeMembersRealtime();
+      });
+      return !!freeMembersRealtimeUnsub;
+    }
+
     async function refreshFreeMembersList() {
       if (!freeMembersList) return;
       if (!isCeoAccount) {
+        stopFreeMembersRealtime();
         freeMembersList.innerHTML = '<p style="color:#94a3b8;font-size:12px;">CEO only.</p>';
         return;
       }
       freeMembersList.innerHTML = '<p style="color:#94a3b8;font-size:12px;">Loading…</p>';
+      if (startFreeMembersRealtime()) return;
       let list = [];
       if (db) {
         try {
           await ensureFirebaseUser();
           const snap = await getDocs(query(collection(db, "members"), where("freeMembership", "==", true)));
-          snap.forEach(docSnap => {
+          snap.forEach((docSnap) => {
             const data = docSnap.data() || {};
             list.push({
               passCode: (data.passCode || docSnap.id || "").toUpperCase(),
@@ -36483,29 +36563,14 @@ let onboardingIndex = 0;
       if (!list.length && allowLocalCache()) {
         const directory = loadMemberDirectory();
         list = Object.values(directory)
-          .filter(entry => entry.freeMembership)
-          .map(entry => ({
+          .filter((entry) => entry.freeMembership)
+          .map((entry) => ({
             passCode: (entry.passCode || "").toUpperCase(),
             name: entry.name || "Member",
             freeGrantedAt: entry.freeGrantedAt
           }));
       }
-      // Merge with local persistent cache (beta/local only)
-      if (allowLocalCache()) {
-        const locals = loadLocalFreeMembers();
-        const mergedMap = {};
-        [...list, ...locals].forEach(item => {
-          if (!item.passCode) return;
-          mergedMap[item.passCode] = mergedMap[item.passCode] || item;
-        });
-        const merged = Object.values(mergedMap);
-        saveLocalFreeMembers(merged);
-        freeMembersCache = merged;
-        renderFreeMembersList(merged);
-        return;
-      }
-      freeMembersCache = list;
-      renderFreeMembersList(list);
+      applyFreeMembersList(list);
     }
 
     function showCeoFreeCodeStatus(message, success = true) {
@@ -37562,10 +37627,16 @@ let onboardingIndex = 0;
     }
 
     function stopStaffAlertCheckinsPolling() {
+      if (staffAlertCheckinsRealtimeUnsub) {
+        try { staffAlertCheckinsRealtimeUnsub(); } catch (_) {}
+        staffAlertCheckinsRealtimeUnsub = null;
+      }
       if (staffAlertCheckinsTimer) {
         clearInterval(staffAlertCheckinsTimer);
         staffAlertCheckinsTimer = null;
       }
+      staffAlertCheckinsLiveMode = "idle";
+      staffAlertCheckinsLastVenue = "";
       staffAlertCheckinsInFlight = false;
       staffAlertCheckinsCache = [];
       if (staffCheckinsList) {
@@ -37630,6 +37701,25 @@ let onboardingIndex = 0;
       }).join("");
     }
 
+    function applyStaffAlertCheckinsItems(items = []) {
+      const alertTitleMap = new Map(
+        (tonightAlerts || [])
+          .filter((alert) => String(alert?.venueId || "").trim().toLowerCase() === String(staffSession?.venue || "").trim().toLowerCase())
+          .map((alert) => [String(alert?.id || "").trim(), String(alert?.title || alert?.detail || "Tonight alert").trim()])
+      );
+      staffAlertCheckinsCache = (Array.isArray(items) ? items : [])
+        .map((item) => ({
+          ...item,
+          passCode: String(item?.passCode || "").trim().toUpperCase(),
+          checkedInAt: Number(item?.checkedInAt || 0) || Date.now(),
+          alertTitle: alertTitleMap.get(String(item?.alertId || "").trim()) || "Tonight alert"
+        }))
+        .sort((a, b) => Number(b.checkedInAt || 0) - Number(a.checkedInAt || 0));
+      renderStaffCheckinsFilterOptions();
+      renderStaffAlertCheckins();
+      if (staffCheckinsStatus) staffCheckinsStatus.textContent = "";
+    }
+
     async function refreshStaffAlertCheckins(options = {}) {
       if (!staffSession?.venue || !functionsClient || SAFE_MODE) return;
       if (staffAlertCheckinsInFlight && !options.force) return;
@@ -37643,22 +37733,8 @@ let onboardingIndex = 0;
         });
         const data = resp?.data || {};
         const items = Array.isArray(data.checkins) ? data.checkins : [];
-        const alertTitleMap = new Map(
-          (tonightAlerts || [])
-            .filter((alert) => String(alert?.venueId || "").trim().toLowerCase() === String(staffSession.venue || "").trim().toLowerCase())
-            .map((alert) => [String(alert?.id || "").trim(), String(alert?.title || alert?.detail || "Tonight alert").trim()])
-        );
-        staffAlertCheckinsCache = items
-          .map((item) => ({
-            ...item,
-            passCode: String(item?.passCode || "").trim().toUpperCase(),
-            checkedInAt: Number(item?.checkedInAt || 0) || Date.now(),
-            alertTitle: alertTitleMap.get(String(item?.alertId || "").trim()) || "Tonight alert"
-          }))
-          .sort((a, b) => Number(b.checkedInAt || 0) - Number(a.checkedInAt || 0));
-        renderStaffCheckinsFilterOptions();
-        renderStaffAlertCheckins();
-        if (staffCheckinsStatus) staffCheckinsStatus.textContent = "";
+        applyStaffAlertCheckinsItems(items);
+        staffAlertCheckinsLiveMode = "poll";
       } catch (err) {
         console.warn("Failed to load venue check-ins", err);
         if (staffCheckinsStatus) staffCheckinsStatus.textContent = "";
@@ -37667,11 +37743,87 @@ let onboardingIndex = 0;
       }
     }
 
-    function ensureStaffAlertCheckinsPolling() {
+    function startStaffAlertCheckinsRealtime() {
+      if (!db || !staffSession?.venue) return false;
+      const venueId = String(staffSession.venue || "").trim().toLowerCase();
+      if (!venueId) return false;
+      if (
+        staffAlertCheckinsLiveMode === "snapshot"
+        && staffAlertCheckinsRealtimeUnsub
+        && staffAlertCheckinsLastVenue === venueId
+      ) {
+        return true;
+      }
+      if (staffAlertCheckinsRealtimeUnsub) {
+        try { staffAlertCheckinsRealtimeUnsub(); } catch (_) {}
+        staffAlertCheckinsRealtimeUnsub = null;
+      }
+      const lookbackStart = Timestamp.fromMillis(Date.now() - (18 * 60 * 60 * 1000));
+      try {
+        const q = query(
+          collection(db, "venueAlertCheckins"),
+          where("venueId", "==", venueId),
+          where("checkedInAt", ">=", lookbackStart),
+          orderBy("checkedInAt", "desc"),
+          limit(180)
+        );
+        const label = `staffAlertCheckins:${venueId}`;
+        const unsub = subscribeSnapshot(label, q, null, (snap) => {
+          const items = [];
+          snap.forEach((docSnap) => {
+            const row = docSnap.data() || {};
+            items.push({
+              id: docSnap.id,
+              alertId: String(row.alertId || "").trim(),
+              passCode: String(row.passCode || "").trim().toUpperCase() || null,
+              uid: String(row.uid || "").trim() || null,
+              venueId: String(row.venueId || venueId).trim().toLowerCase(),
+              venueName: String(row.venueName || "").trim() || null,
+              checkedInAt: row.checkedInAt?.toMillis ? row.checkedInAt.toMillis() : Number(row.checkedInAt || 0),
+              expiresAt: row.expiresAt?.toMillis ? row.expiresAt.toMillis() : Number(row.expiresAt || 0)
+            });
+          });
+          applyStaffAlertCheckinsItems(items);
+          staffAlertCheckinsLiveMode = "snapshot";
+          if (staffAlertCheckinsTimer) {
+            clearInterval(staffAlertCheckinsTimer);
+            staffAlertCheckinsTimer = null;
+          }
+        }, (err) => {
+          const code = String(err?.code || "").toLowerCase();
+          if (code.includes("permission-denied") || code.includes("unauthenticated")) {
+            ensureStaffAlertCheckinsPolling(true);
+          }
+        });
+        if (!unsub) return false;
+        staffAlertCheckinsRealtimeUnsub = unsub;
+        staffAlertCheckinsLastVenue = venueId;
+        staffAlertCheckinsLiveMode = "snapshot";
+        if (staffAlertCheckinsTimer) {
+          clearInterval(staffAlertCheckinsTimer);
+          staffAlertCheckinsTimer = null;
+        }
+        return true;
+      } catch (err) {
+        console.warn("Staff check-ins realtime attach failed", err);
+        staffAlertCheckinsLiveMode = "idle";
+        return false;
+      }
+    }
+
+    function ensureStaffAlertCheckinsPolling(forcePolling = false) {
       if (!staffSession?.venue) {
         stopStaffAlertCheckinsPolling();
         return;
       }
+      if (!forcePolling && startStaffAlertCheckinsRealtime()) {
+        return;
+      }
+      if (staffAlertCheckinsRealtimeUnsub) {
+        try { staffAlertCheckinsRealtimeUnsub(); } catch (_) {}
+        staffAlertCheckinsRealtimeUnsub = null;
+      }
+      staffAlertCheckinsLiveMode = "poll";
       if (!staffAlertCheckinsTimer) {
         staffAlertCheckinsTimer = setInterval(() => {
           if (currentScreenName !== "staffPortal") return;
@@ -46711,6 +46863,9 @@ let onboardingIndex = 0;
           } else {
             showScreen("landing");
             suppressLandingRedirectOnce = false;
+          }
+          if (!isWaitlistModeEnabled()) {
+            attachGlobalRealtime();
           }
           updateRefreshButtonsVisibility();
           updateDebugNotificationControls();
