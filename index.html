@@ -24260,7 +24260,20 @@
         clearPassLoading();
         return;
       }
-      if (shouldForceExplorerTier(memberProfile)) {
+      const requestedTierKey = normalizeTierKey(memberProfile?.requestedTier || "");
+      const membershipStatusKeyNow = String(memberProfile?.membershipStatus || "").toLowerCase();
+      const explorerDetected = shouldForceExplorerTier(memberProfile)
+        || requestedTierKey === "explorer"
+        || membershipStatusKeyNow === "explorer";
+      if (explorerDetected) {
+        onboardingMembershipFlow = false;
+        forceMembershipScreen = false;
+        pendingMembershipTier = null;
+        clearOnboardingResume();
+        clearPendingMembershipFlagForUser(user.uid);
+        if (allowLocalCache() && user.uid) {
+          localStorage.setItem(`membership_${user.uid}`, "explorer");
+        }
         memberProfile = {
           ...(memberProfile || {}),
           tier: "explorer",
@@ -25408,6 +25421,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.94",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Explorer login now aggressively normalizes account tier state before routing to prevent stale onboarding flags"
+        ],
+        fixed: [
+          "Explorer members are no longer prompted to choose paid membership again when signing in"
+        ]
+      },
       {
         version: "v0.9.93",
         date: "2026-03-07",
