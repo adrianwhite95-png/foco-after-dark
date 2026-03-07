@@ -21546,7 +21546,7 @@
     function startVenueAdminListener() {
       if (!db || venueAdminUnsub) return;
       const ref = query(collection(db, "venues"), limit(300));
-      venueAdminUnsub = subscribeSnapshot("venueAdminState", ref, null, (snap) => {
+      venueAdminUnsub = onSnapshot(ref, (snap) => {
         const next = new Map();
         snap.docs.forEach((docSnap) => {
           const data = docSnap.data() || {};
@@ -21561,17 +21561,41 @@
         });
         venueAdminStateMap.clear();
         next.forEach((value, key) => venueAdminStateMap.set(String(key || "").toLowerCase(), value));
+
+        if (activeMapVenueId && !isVenueVisibleToMembers(activeMapVenueId)) {
+          const fallbackVenueId = getSortedVenueIds({ includeInactive: false })[0] || "";
+          if (fallbackVenueId) {
+            setActiveMapVenue(fallbackVenueId);
+          } else {
+            activeMapVenueId = "";
+            if (venueMapFrame) venueMapFrame.removeAttribute("src");
+          }
+        }
+        if (selectedRedeemVenue && !isVenueVisibleToMembers(selectedRedeemVenue)) {
+          selectedRedeemVenue = "";
+          if (redeemVenueSelect) redeemVenueSelect.value = "";
+          if (redeemVenueHint) redeemVenueHint.style.display = "none";
+          if (redeemModal?.classList.contains("active")) {
+            closeRedeemModal();
+            showToast("This venue is currently hidden.");
+          }
+        }
+
         refreshFeaturedVenuesData();
         populateRedeemVenueOptions();
         initCeoVenueFilter();
         applyLandingFeedVenueConfig();
         renderVenueButtons();
+        renderAlertsList();
         if (venueDetailModal?.classList.contains("active")) {
           const activeVenueId = String(venueDetailModal.dataset.venueId || "");
           if (activeVenueId && !isVenueVisibleToMembers(activeVenueId)) {
             closeVenueDetail();
           }
         }
+      }, (err) => {
+        console.warn("venue admin listener failed", err);
+        recordStress("venue-admin-state", err?.code || "");
       });
     }
 
@@ -26233,6 +26257,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.113",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Venue visibility now syncs in realtime for both logged-in and logged-out app sessions, so CEO hide/show changes propagate immediately"
+        ],
+        fixed: [
+          "Hidden venues are now immediately removed from map focus, redeem venue selection, and active alert rendering without waiting for a manual refresh"
+        ]
+      },
       {
         version: "v0.9.112",
         date: "2026-03-07",
