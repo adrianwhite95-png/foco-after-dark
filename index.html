@@ -15699,7 +15699,7 @@
     }
     #passScreen .alerts-card .alert-future-topline {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 8px;
       position: relative;
@@ -15716,8 +15716,14 @@
       z-index: 1;
       text-shadow: 0 0 18px rgba(34, 211, 238, 0.15);
     }
+    #passScreen .alerts-card .alert-future-content {
+      margin-top: 2px;
+      display: grid;
+      gap: 4px;
+      position: relative;
+      z-index: 1;
+    }
     #passScreen .alerts-card .alert-future-detail {
-      margin-top: 6px;
       color: rgba(226, 232, 240, 0.92);
       line-height: 1.35;
       font-size: 13px;
@@ -15755,38 +15761,71 @@
       z-index: 1;
     }
     #passScreen .alerts-card .alert-future-timer {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 47, 184, 0.4);
-      background: linear-gradient(135deg, rgba(58, 11, 41, 0.68), rgba(42, 12, 68, 0.56));
-      box-shadow: 0 0 16px rgba(255, 47, 184, 0.14), inset 0 0 8px rgba(255, 47, 184, 0.1);
-      padding: 4px 8px;
-      white-space: nowrap;
+      display: grid;
+      gap: 4px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 47, 184, 0.42);
+      background: linear-gradient(135deg, rgba(45, 10, 34, 0.8), rgba(24, 8, 48, 0.74));
+      box-shadow: 0 0 18px rgba(255, 47, 184, 0.18), inset 0 0 10px rgba(255, 47, 184, 0.12);
+      padding: 6px 8px;
       position: relative;
       z-index: 1;
+      animation: alertTimerPulse 2.6s ease-in-out infinite;
     }
     #passScreen .alerts-card .alert-future-timer-label {
-      font-size: 9px;
+      font-size: 8px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: rgba(250, 204, 255, 0.9);
       font-weight: 700;
+      text-align: center;
     }
-    #passScreen .alerts-card .alert-future-timer-value {
-      font-size: 12px;
+    #passScreen .alerts-card .alert-future-timer-stack {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      justify-content: center;
+      min-width: 144px;
+    }
+    #passScreen .alerts-card .alert-future-time-box {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 38px;
+      padding: 4px 5px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: linear-gradient(180deg, rgba(9, 24, 50, 0.9), rgba(12, 34, 66, 0.7));
+      color: #f8fbff;
+      font-size: 14px;
       font-weight: 900;
       letter-spacing: 0.06em;
-      color: #fff;
+      line-height: 1;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    #passScreen .alerts-card .alert-future-time-box small {
+      margin-top: 3px;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      color: rgba(186, 230, 253, 0.86);
+      font-weight: 700;
+    }
+    #passScreen .alerts-card .alert-future-time-colon {
+      color: rgba(244, 114, 182, 0.92);
+      font-weight: 900;
+      font-size: 15px;
+      transform: translateY(-5px);
     }
     #passScreen .alerts-card .alert-future-rush {
-      font-size: 9px;
-      letter-spacing: 0.11em;
+      font-size: 8px;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       color: rgba(253, 224, 252, 0.9);
-      padding-left: 6px;
-      border-left: 1px solid rgba(255, 255, 255, 0.18);
+      text-align: center;
+      white-space: nowrap;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      padding-top: 4px;
     }
     #passScreen .alerts-card .alert-future-actions {
       margin-top: 10px;
@@ -15794,6 +15833,13 @@
       flex-wrap: wrap;
       align-items: center;
       gap: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    #passScreen .alerts-card .alert-future-footer {
+      margin-top: 8px;
+      display: grid;
+      gap: 6px;
       position: relative;
       z-index: 1;
     }
@@ -15828,6 +15874,34 @@
     #passScreen .alerts-card .alert-checkin-count {
       color: rgba(186, 230, 253, 0.88);
     }
+    @keyframes alertTimerPulse {
+      0%, 100% { box-shadow: 0 0 18px rgba(255, 47, 184, 0.16), inset 0 0 10px rgba(255, 47, 184, 0.12); }
+      50% { box-shadow: 0 0 24px rgba(255, 47, 184, 0.24), inset 0 0 14px rgba(255, 47, 184, 0.16); }
+    }
+    @keyframes alertTimerSweep {
+      0% { transform: translateX(-120%); opacity: 0; }
+      35% { opacity: 0.35; }
+      100% { transform: translateX(120%); opacity: 0; }
+    }
+    #passScreen .alerts-card .alert-future-timer::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(100deg, transparent 28%, rgba(255, 255, 255, 0.2) 50%, transparent 72%);
+      pointer-events: none;
+      animation: alertTimerSweep 3.4s ease-in-out infinite;
+    }
+    #passScreen .alerts-card .alert-future-time-box {
+      font-variant-numeric: tabular-nums;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #passScreen .alerts-card .alert-future-timer {
+        animation: none !important;
+      }
+      #passScreen .alerts-card .alert-future-timer::after {
+        animation: none !important;
+      }
+    }
 
     #tonightScreen #tonightAlertsCard {
       border-color: rgba(34, 211, 238, 0.28);
@@ -15838,6 +15912,293 @@
       border-radius: 12px;
       padding: 10px 12px;
       background: linear-gradient(145deg, rgba(2, 10, 24, 0.62), rgba(10, 20, 40, 0.48));
+    }
+
+    /* Home screen redesign: dashboard hierarchy (not landing-page stack) */
+    #landingScreen .launch-header-actions {
+      max-width: 860px;
+      margin: 8px auto 0;
+      display: flex;
+      justify-content: center;
+    }
+    #landingScreen #landingGetPassBtn {
+      width: 100% !important;
+      min-height: 48px !important;
+      border-radius: 14px !important;
+      font-size: clamp(14px, 2vw, 17px) !important;
+      letter-spacing: 0.055em !important;
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.2), 0 10px 24px rgba(2, 6, 18, 0.48) !important;
+    }
+    #landingScreen .home-dashboard-grid {
+      max-width: 860px;
+      margin: 10px auto 0;
+      display: grid;
+      gap: 10px;
+    }
+    #landingScreen .home-tonight-module {
+      padding: 14px 16px;
+      border-radius: 20px;
+      animation: none;
+      background: linear-gradient(162deg, rgba(6, 12, 18, 0.78), rgba(5, 10, 16, 0.72));
+      box-shadow: 0 14px 32px rgba(2, 6, 23, 0.44), 0 0 18px rgba(34, 211, 238, 0.12);
+    }
+    #landingScreen .home-support-stack {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    #landingScreen .launch-billboard {
+      padding: 13px 15px 12px;
+      border-radius: 18px;
+      animation: none;
+    }
+    #landingScreen .billboard-pill-row {
+      margin-bottom: 8px;
+      padding: 5px 10px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+    }
+    #landingScreen .launch-billboard .launch-hero-title {
+      margin: 0 0 5px;
+      font-size: clamp(28px, 5vw, 46px);
+      line-height: 1.08;
+    }
+    #landingScreen .launch-billboard .launch-hero-copy {
+      font-size: clamp(13px, 1.8vw, 16px);
+      line-height: 1.34;
+      max-width: 640px;
+    }
+    #landingScreen .home-tonight-points {
+      margin-top: 10px;
+      display: grid;
+      gap: 6px;
+    }
+    #landingScreen .home-tonight-points span {
+      display: block;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      background: rgba(2, 6, 23, 0.42);
+      padding: 7px 10px;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      color: rgba(220, 235, 249, 0.92);
+      text-transform: uppercase;
+    }
+    #landingScreen .landing-live-feed-premium {
+      min-height: unset;
+      padding: 11px;
+      border-radius: 18px;
+    }
+    .rewards-console {
+      gap: 9px;
+      padding: 11px;
+    }
+    .rewards-console-header .rewards-subtitle {
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    .rewards-tier-badge {
+      padding: 4px 9px;
+      font-size: 9px;
+      letter-spacing: 0.11em;
+    }
+    .rewards-balance-row,
+    .rewards-token-summary {
+      padding: 8px 9px;
+      border-radius: 12px;
+    }
+    .rewards-points-value {
+      font-size: clamp(20px, 2.9vw, 30px);
+    }
+    .rewards-token-orb {
+      width: 48px;
+      height: 48px;
+    }
+    .rewards-token-orb img {
+      width: 42px;
+      height: 42px;
+    }
+    .rewards-token-summary strong {
+      font-size: 18px;
+    }
+    .rewards-options-grid {
+      gap: 6px;
+    }
+    .rewards-plan-card,
+    .rewards-option {
+      border-radius: 12px;
+      padding: 8px;
+    }
+    .rewards-plan-title {
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+    .rewards-plan-badge {
+      font-size: 9px;
+      padding: 2px 6px;
+    }
+    .rewards-plan-list {
+      gap: 4px;
+      font-size: 10px;
+      line-height: 1.28;
+    }
+    .rewards-progress-meta {
+      gap: 5px;
+      margin-top: 6px;
+    }
+    .rewards-redemption-pill {
+      padding: 3px 8px;
+      font-size: 10px;
+    }
+    .rewards-cycle-note,
+    .rewards-footer-pill {
+      font-size: 10px;
+      padding: 6px 8px;
+      letter-spacing: 0.04em;
+    }
+    #landingScreen .launch-social-proof {
+      margin-top: 0;
+      padding: 9px;
+      border-radius: 14px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    #landingScreen .launch-social-proof::before {
+      opacity: 0.22;
+      animation-duration: 16s;
+    }
+    #landingScreen .launch-social-proof .proof-row {
+      margin-top: 0 !important;
+      min-height: 56px;
+      padding: 9px 10px;
+      border-radius: 12px;
+      gap: 8px;
+      box-shadow: 0 7px 16px rgba(0, 0, 0, 0.24), 0 0 10px rgba(34, 211, 238, 0.08);
+    }
+    #landingScreen .proof-check {
+      width: 22px;
+      height: 22px;
+      border-radius: 8px;
+      font-size: 14px;
+      animation: none;
+    }
+    #landingScreen .proof-text {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      animation: none;
+      text-shadow: 0 0 10px rgba(34, 211, 238, 0.16), 0 0 14px rgba(143, 91, 255, 0.12);
+    }
+    #landingScreen .proof-number {
+      letter-spacing: 0.03em;
+      text-shadow: 0 0 10px rgba(34, 211, 238, 0.3), 0 0 14px rgba(143, 91, 255, 0.16);
+    }
+    #landingScreen .home-utility-panel {
+      padding: 10px;
+      border-radius: 14px;
+      background: linear-gradient(165deg, rgba(3, 9, 22, 0.62), rgba(2, 6, 16, 0.56));
+      border: 1px solid rgba(34, 211, 238, 0.18);
+      box-shadow: 0 10px 24px rgba(2, 6, 23, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+    #landingScreen .launch-entry-row.launch-entry-links {
+      margin-top: 0;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    #landingScreen .launch-inline-link {
+      min-height: 44px;
+      border-radius: 12px;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      font-weight: 800;
+    }
+    #landingScreen .launch-secondary-actions {
+      margin-top: 6px;
+    }
+    #landingScreen .launch-secondary-actions #addToHomeBtn {
+      min-height: 44px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+    }
+    #landingScreen .landing-responsible-note {
+      margin-top: 8px;
+      font-size: 11px;
+      opacity: 0.9;
+    }
+    #landingScreen .insta-cta-wrap {
+      margin-top: 8px;
+      gap: 8px;
+    }
+    #landingScreen .landing-share-btn {
+      min-height: 44px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+    }
+    @media (min-width: 961px) {
+      #landingScreen .home-dashboard-grid {
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
+        align-items: start;
+      }
+      #landingScreen .home-tonight-module {
+        min-height: 100%;
+      }
+    }
+    @media (max-width: 920px) {
+      #landingScreen .home-dashboard-grid {
+        gap: 9px;
+      }
+      #landingScreen .launch-social-proof {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      #landingScreen .launch-entry-row.launch-entry-links {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      #landingScreen .launch-billboard {
+        padding: 11px 12px 10px;
+      }
+      #landingScreen .launch-billboard .launch-hero-title {
+        font-size: clamp(26px, 8vw, 36px);
+      }
+    }
+    @media (max-width: 640px) {
+      #landingScreen .launch-header-actions {
+        margin-top: 7px;
+      }
+      #landingScreen #landingGetPassBtn {
+        min-height: 44px !important;
+        font-size: 13px !important;
+      }
+      #landingScreen .home-dashboard-grid {
+        gap: 8px;
+      }
+      #landingScreen .home-tonight-module {
+        padding: 12px;
+      }
+      #landingScreen .home-tonight-points span {
+        font-size: 10px;
+        letter-spacing: 0.04em;
+      }
+      #landingScreen .home-utility-panel {
+        padding: 8px;
+      }
+      #landingScreen .launch-social-proof .proof-row {
+        min-height: 50px;
+        padding: 8px 9px;
+      }
+      #landingScreen .proof-text {
+        font-size: 12px;
+      }
+      .rewards-points-value {
+        font-size: clamp(18px, 6.2vw, 24px);
+      }
+      .rewards-token-summary strong {
+        font-size: 16px;
+      }
     }
 
     .staff-checkins-card {
@@ -16021,85 +16382,94 @@
             <div class="tagline" id="landingTagline">
               Fort Collins nightlife, redesigned: instant perks, live venue alerts, and a pass built to move with your night.
             </div>
-            <div class="launch-hero-grid">
-              <section class="launch-billboard glassBox photo-glass premiumGlass" aria-label="FoCo premium nightlife billboard">
-                <div class="billboard-pill-row">LIVE VENUE FEED • LOCAL-ONLY PERKS • MEMBER-ONLY ACCESS</div>
-                <h2 class="launch-hero-title neonHero" id="landingHeroHeadline">Unlock Tonight's VIP Perks &amp; Flash Deals.</h2>
-                <p class="launch-hero-copy" id="landingHeroSubhead">Live posts from Fort Collins venues — members see everything.</p>
-              </section>
-              <section id="landingRewardsModule" class="landing-live-feed landing-live-feed-premium rewards-console glassBox photo-glass premiumGlass" aria-label="Tonight's rewards">
-                <header class="landing-live-feed-header rewards-console-header">
-                  <div>
-                    <span class="launch-live-tag neonLabel">How Rewards Work</span>
-                    <p class="rewards-subtitle">Earn points, unlock extra vouchers, and keep the night going.</p>
-                  </div>
-                  <span id="landingRewardsTierBadge" class="rewards-tier-badge">LOYALTY PERKS</span>
-                </header>
-                <div class="rewards-balance-row">
-                  <div>
-                    <p class="rewards-label">Points redemption options</p>
-                    <strong id="landingRewardsPoints" class="rewards-points-value">500 / 700 / 1000</strong>
-                  </div>
-                  <div class="rewards-token-orb" aria-hidden="true">
-                    <img src="media/foco-redemption-token.png" alt="" />
-                  </div>
-                </div>
-                <div class="rewards-token-summary">
-                  <span class="rewards-label">Redeem points for extra monthly voucher tokens</span>
-                  <strong id="landingRewardsExtraTokens">+2  +3  +5</strong>
-                </div>
-                <div id="landingRewardsOptions" class="rewards-options-grid"></div>
-                <div class="rewards-footer">
-                  <div id="landingRenewalBonusNote" class="rewards-footer-pill">Renewal bonus: Standard +200 | VIP +300 points</div>
-                  <div id="landingTierBoostNote" class="rewards-footer-pill">Point rate: Standard 1.0x | VIP 1.25x</div>
-                </div>
-              </section>
-            </div>
-            <div class="launch-actions">
+            <div class="launch-header-actions">
               <button id="landingGetPassBtn" class="btn btn-primary btnPrimary btnPremiumPrimary" type="button">
                 UNLOCK TONIGHT'S PERKS — 21+
               </button>
             </div>
-            <div class="launch-social-proof glassBox premiumGlass" aria-label="Social proof">
-              <div class="proof-row">
-                <span class="proof-check">✓</span>
-                <span class="proof-text"><span class="proof-number">23</span> members redeemed perks in the last <span class="proof-number">hour</span></span>
+            <div class="home-dashboard-grid">
+              <section class="launch-billboard home-tonight-module glassBox photo-glass premiumGlass" aria-label="Tonight's perks and flash deals">
+                <div class="billboard-pill-row">LIVE VENUE FEED • LOCAL-ONLY PERKS • MEMBER-ONLY ACCESS</div>
+                <h2 class="launch-hero-title neonHero" id="landingHeroHeadline">Unlock Tonight's VIP Perks &amp; Flash Deals.</h2>
+                <p class="launch-hero-copy" id="landingHeroSubhead">Live posts from Fort Collins venues — members see everything.</p>
+                <div class="home-tonight-points">
+                  <span>Live perk drops from Fort Collins venues</span>
+                  <span>VIP + flash deals rotate all night</span>
+                  <span>Members unlock full details instantly</span>
+                </div>
+              </section>
+              <div class="home-support-stack">
+                <section id="landingRewardsModule" class="landing-live-feed landing-live-feed-premium rewards-console glassBox photo-glass premiumGlass" aria-label="Tonight's rewards">
+                  <header class="landing-live-feed-header rewards-console-header">
+                    <div>
+                      <span class="launch-live-tag neonLabel">How Rewards Work</span>
+                      <p class="rewards-subtitle">Earn points, unlock extra vouchers, and keep the night going.</p>
+                    </div>
+                    <span id="landingRewardsTierBadge" class="rewards-tier-badge">LOYALTY PERKS</span>
+                  </header>
+                  <div class="rewards-balance-row">
+                    <div>
+                      <p class="rewards-label">Points redemption options</p>
+                      <strong id="landingRewardsPoints" class="rewards-points-value">500 / 700 / 1000</strong>
+                    </div>
+                    <div class="rewards-token-orb" aria-hidden="true">
+                      <img src="media/foco-redemption-token.png" alt="" />
+                    </div>
+                  </div>
+                  <div class="rewards-token-summary">
+                    <span class="rewards-label">Redeem points for extra monthly voucher tokens</span>
+                    <strong id="landingRewardsExtraTokens">+2  +3  +5</strong>
+                  </div>
+                  <div id="landingRewardsOptions" class="rewards-options-grid"></div>
+                  <div class="rewards-footer">
+                    <div id="landingRenewalBonusNote" class="rewards-footer-pill">Renewal bonus: Standard +200 | VIP +300 points</div>
+                    <div id="landingTierBoostNote" class="rewards-footer-pill">Point rate: Standard 1.0x | VIP 1.25x</div>
+                  </div>
+                </section>
+                <div class="launch-social-proof glassBox premiumGlass" aria-label="Social proof">
+                  <div class="proof-row">
+                    <span class="proof-check">✓</span>
+                    <span class="proof-text"><span class="proof-number">23</span> members redeemed perks in the last <span class="proof-number">hour</span></span>
+                  </div>
+                  <div class="proof-row">
+                    <span class="proof-check">✓</span>
+                    <span class="proof-text">
+                      Members saved an average of <span class="money-pop">$18</span> each night last week
+                    </span>
+                  </div>
+                </div>
+                <section class="home-utility-panel glassBox premiumGlass" aria-label="Quick actions">
+                  <div class="launch-entry-row launch-entry-links">
+                    <button id="landingLoginLink" class="launch-inline-link btnGlass btnPremiumGlass" type="button">
+                      ALREADY A MEMBER? LOG IN
+                    </button>
+                    <button id="landingStaffLogin" class="launch-inline-link btnGlass btnPremiumGlass" type="button">
+                      VENUE STAFF PORTAL LOG IN
+                    </button>
+                  </div>
+                  <div class="launch-secondary-actions">
+                    <button id="addToHomeBtn" class="btn btn-secondary btnGlass btnPremiumGlass" type="button">ADD TO HOME SCREEN</button>
+                  </div>
+                  <div class="insta-cta-wrap">
+                    <div class="insta-cta">
+                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <rect x="3" y="3" width="18" height="18" rx="5" ry="5" stroke="url(#igGradient)" stroke-width="1.6" fill="rgba(15,23,42,0.35)"/>
+                        <defs>
+                          <linearGradient id="igGradient" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#22d3ee"/><stop offset="1" stop-color="#ec4899"/>
+                          </linearGradient>
+                        </defs>
+                        <circle cx="12" cy="12" r="4.2" stroke="url(#igGradient)" stroke-width="1.6"/>
+                        <circle cx="17" cy="7" r="1.2" fill="#22d3ee"/>
+                      </svg>
+                      <a href="https://www.instagram.com/focoafterdark/" target="_blank" rel="noopener">Add us on Instagram</a>
+                    </div>
+                    <button id="landingShareBtn" class="landing-share-btn btnGlass btnPremiumGlass" type="button">Share with friends</button>
+                  </div>
+                </section>
               </div>
-              <div class="proof-row">
-                <span class="proof-check">✓</span>
-                <span class="proof-text">
-                  Members saved an average of <span class="money-pop">$18</span> each night last week
-                </span>
-              </div>
-            </div>
-            <div class="launch-entry-row launch-entry-links">
-              <button id="landingLoginLink" class="launch-inline-link btnGlass btnPremiumGlass" type="button">
-                ALREADY A MEMBER? LOG IN
-              </button>
-              <button id="landingStaffLogin" class="launch-inline-link btnGlass btnPremiumGlass" type="button">
-                VENUE STAFF PORTAL LOG IN
-              </button>
-            </div>
-            <div class="launch-secondary-actions">
-              <button id="addToHomeBtn" class="btn btn-secondary btnGlass btnPremiumGlass" type="button">ADD TO HOME SCREEN</button>
             </div>
             <div class="landing-responsible-note">Please drink responsibly. Never drink and drive — call a rideshare.</div>
-            <div class="insta-cta-wrap">
-              <div class="insta-cta">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <rect x="3" y="3" width="18" height="18" rx="5" ry="5" stroke="url(#igGradient)" stroke-width="1.6" fill="rgba(15,23,42,0.35)"/>
-                  <defs>
-                    <linearGradient id="igGradient" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-                      <stop stop-color="#22d3ee"/><stop offset="1" stop-color="#ec4899"/>
-                    </linearGradient>
-                  </defs>
-                  <circle cx="12" cy="12" r="4.2" stroke="url(#igGradient)" stroke-width="1.6"/>
-                  <circle cx="17" cy="7" r="1.2" fill="#22d3ee"/>
-                </svg>
-                <a href="https://www.instagram.com/focoafterdark/" target="_blank" rel="noopener">Add us on Instagram</a>
-              </div>
-              <button id="landingShareBtn" class="landing-share-btn btnGlass btnPremiumGlass" type="button">Share with friends</button>
-            </div>
       </div>
     </div>
 
@@ -24891,6 +25261,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.81",
+        date: "2026-03-07",
+        added: [
+          "Home screen now uses a dashboard-style layout with a compact utility actions panel"
+        ],
+        improved: [
+          "Home hierarchy was fully restructured into one compact header, a main Tonight's Perks module, and supporting cards for rewards/social proof"
+        ],
+        fixed: [
+          "Staff can now expire Tonight alerts immediately without manager-code blocking for expire/delete actions"
+        ]
+      },
+      {
         version: "v0.9.80",
         date: "2026-03-07",
         added: [
@@ -24900,7 +25283,7 @@
           "Completely redesigned Tonight's alerts presentation on member profiles with a new premium high-priority visual layout"
         ],
         fixed: [
-          "Alert timers now display HH:MM and continue live minute-by-minute countdown while users stay on-screen"
+          "Alert timers now display HH:MM:SS and continue live second-by-second countdown while users stay on-screen"
         ]
       },
       {
@@ -28881,15 +29264,18 @@
       const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
-      return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")} left`;
+      const seconds = totalSeconds % 60;
+      return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")} left`;
     }
     function getAlertCountdownParts(diffMs) {
       const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
       return {
         h: hours.toString().padStart(2, "0"),
-        m: minutes.toString().padStart(2, "0")
+        m: minutes.toString().padStart(2, "0"),
+        s: seconds.toString().padStart(2, "0")
       };
     }
     function getAlertRushCopy(diffMs) {
@@ -28934,7 +29320,13 @@
             timer = `
               <div class="alert-future-timer" title="${formatAlertCountdown(diff)}">
                 <span class="alert-future-timer-label">Ends In</span>
-                <span class="alert-future-timer-value">${parts.h}:${parts.m}</span>
+                <span class="alert-future-timer-stack">
+                  <span class="alert-future-time-box">${parts.h}<small>HH</small></span>
+                  <span class="alert-future-time-colon">:</span>
+                  <span class="alert-future-time-box">${parts.m}<small>MM</small></span>
+                  <span class="alert-future-time-colon">:</span>
+                  <span class="alert-future-time-box">${parts.s}<small>SS</small></span>
+                </span>
                 <span class="alert-future-rush">${getAlertRushCopy(diff)}</span>
               </div>
             `;
@@ -28961,15 +29353,46 @@
               <span class="alert-type-pill">${typeLabel}</span>
               ${timer}
             </div>
-            <div class="alert-future-title">${alert.title}</div>
-            <div class="alert-future-detail">${alert.detail}</div>
-            <div class="alert-future-bottomline">
-              <span class="alerts-meta">${alert.meta || (alert.type === "vip" ? "VIP venue" : "Live venue update")}</span>
+            <div class="alert-future-content">
+              <div class="alert-future-title">${alert.title}</div>
+              <div class="alert-future-detail">${alert.detail}</div>
             </div>
-            ${checkInAction}
+            <div class="alert-future-footer">
+              <div class="alert-future-bottomline">
+                <span class="alerts-meta">${alert.meta || (alert.type === "vip" ? "VIP venue" : "Live venue update")}</span>
+              </div>
+              ${checkInAction}
+            </div>
           </li>
         `;
       }).join("");
+    }
+
+    function expireAlertInUiNow(alertId) {
+      const id = String(alertId || "").trim();
+      if (!id) return false;
+      const expiredAt = Date.now() - 1000;
+      let changed = false;
+      tonightAlerts = (Array.isArray(tonightAlerts) ? tonightAlerts : []).map((alert) => {
+        if (String(alert?.id || "").trim() !== id) return alert;
+        changed = true;
+        return { ...alert, enabled: false, expiresAt: expiredAt, updatedAt: Date.now() };
+      });
+      alertsCache = (Array.isArray(alertsCache) ? alertsCache : []).map((alert) => {
+        if (String(alert?.id || "").trim() !== id) return alert;
+        return { ...alert, enabled: false, expiresAt: expiredAt, updatedAt: Date.now() };
+      });
+      if (alertsMap.has(id)) {
+        alertsMap.delete(id);
+        changed = true;
+      }
+      if (changed) {
+        saveAlertsToStorage(tonightAlerts);
+        refreshAlertsTicker();
+        renderStaffAlertPreview();
+        renderStaffDealCodes();
+      }
+      return changed;
     }
 
     function renderAlertsList() {
@@ -30357,13 +30780,8 @@ let onboardingIndex = 0;
         if (expireBtn) {
           const id = expireBtn.dataset.expireAlert;
           const useLocalCache = allowLocalCache();
+          const hadAlert = expireAlertInUiNow(id);
           if (useLocalCache) {
-            tonightAlerts = tonightAlerts.map(alert =>
-              alert.id === id ? { ...alert, expiresAt: Date.now() - 1000 } : alert
-            );
-            saveAlertsToStorage(tonightAlerts);
-            refreshAlertsTicker();
-            renderStaffAlertPreview();
             return;
           }
           if (!db || !functionsClient) return;
@@ -30375,6 +30793,9 @@ let onboardingIndex = 0;
             await refreshTonightAlerts();
           } catch (err) {
             console.error("Failed to expire alert", err);
+            if (!hadAlert) {
+              await refreshTonightAlerts({ forceFallback: true });
+            }
           }
         }
       });

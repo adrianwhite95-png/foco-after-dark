@@ -6530,8 +6530,16 @@ exports.staffUpsertVenueOffer = functions.https.onCall(async (data, context) => 
       burstAllowance: 140
     });
     const venueId = assertVenueMutationAccess(context, data?.venueId);
-    const managerApproval = await assertManagerApprovalForVenue(venueId, data || {});
     const action = String(data?.action || "upsert").trim().toLowerCase();
+    let managerApproval = {
+      approvedByStaffId: null,
+      approvedByStaffName: null
+    };
+    // Manager code is only required when creating/updating offers.
+    // Expire/delete must be instant operational actions for active staff.
+    if (action === "upsert") {
+      managerApproval = await assertManagerApprovalForVenue(venueId, data || {});
+    }
     const offerTypeRaw = String(data?.offerType || "alert").trim().toLowerCase();
     const venueName = getStaffVenueName(venueId);
     let collectionName = "alerts";
@@ -6552,12 +6560,16 @@ exports.staffUpsertVenueOffer = functions.https.onCall(async (data, context) => 
     }
 
     if (action === "expire") {
-      await docRef.set({
+      const expirePayload = {
         venueId,
         venueName,
         expiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() - 1000)),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+      };
+      if (collectionName === "alerts") {
+        expirePayload.enabled = false;
+      }
+      await docRef.set(expirePayload, { merge: true });
       return { ok: true, action, offerType: offerTypeRaw, id: docRef.id, venueId };
     }
 
