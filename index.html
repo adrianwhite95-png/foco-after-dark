@@ -23459,8 +23459,52 @@
 	        localStorage.setItem(PENDING_MEMBERSHIP_STORAGE_KEY, cred.user.uid);
           pendingMembershipTier = requestedTier;
 	      }
+        if (!onboardingMembershipFlow && requestedTier === "explorer" && !signupAppliedFreeInvite) {
+          try {
+            await handleAuthenticatedUser(cred.user);
+          } catch (bootstrapErr) {
+            console.warn("Explorer signup bootstrap warning", bootstrapErr);
+          }
+          completedPostAuthBootstrap = true;
+          onboardingMembershipFlow = false;
+          forceMembershipScreen = false;
+          pendingMembershipTier = null;
+          clearOnboardingResume();
+          clearPendingMembershipFlagForUser(firebaseAuth?.currentUser?.uid);
+          if (allowLocalCache() && cred.user?.uid) {
+            localStorage.setItem(`membership_${cred.user.uid}`, "explorer");
+          }
+          memberProfile = {
+            ...(memberProfile || {}),
+            tier: "explorer",
+            requestedTier: "explorer",
+            paymentStatus: "active",
+            membershipStatus: "explorer",
+            ageVerificationRequired: false,
+            ageVerificationStatus: "skipped_explorer",
+            ageVerified21: true
+          };
+          if (firebaseAuth?.currentUser) {
+            await updateMemberProfile({
+              tier: "explorer",
+              requestedTier: "explorer",
+              paymentStatus: "active",
+              membershipStatus: "explorer",
+              ageVerificationRequired: false,
+              ageVerificationStatus: "skipped_explorer",
+              ageVerified21: true
+            }).catch((err) => console.warn("Explorer signup profile update failed", err));
+          }
+          applyMembershipToPass("explorer");
+          updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
+          forceShowLogin = false;
+          clearLoginHash();
+          showScreen("pass");
+          showAddHomeGate();
+          return;
+        }
 	      await handleAuthenticatedUser(cred.user);
-      completedPostAuthBootstrap = true;
+        completedPostAuthBootstrap = true;
       if (!finalizedUsername && username) {
         const retry = await reserveUsernameCloud(username);
         if (retry.ok) {
@@ -23483,7 +23527,7 @@
             }
             showToast("Choose Monthly or Yearly to continue.", 2200);
             setTimeout(() => { flushDeferredOnboardingMembershipSelection(); }, 0);
-	      } else if (requestedTier === "explorer" && !signupAppliedFreeInvite && !isFreeMember(memberProfile)) {
+	      } else if (requestedTier === "explorer" && !signupAppliedFreeInvite) {
           onboardingMembershipFlow = false;
           forceMembershipScreen = false;
           pendingMembershipTier = null;
@@ -25315,6 +25359,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.88",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Explorer accounts now stay in-session after account creation instead of bouncing back to signup"
+        ],
+        fixed: [
+          "Explorer upgrade checkout now proceeds to Stripe correctly instead of returning users to the pass screen"
+        ]
+      },
       {
         version: "v0.9.87",
         date: "2026-03-07",
@@ -31819,7 +31874,8 @@ let onboardingIndex = 0;
           return;
         }
       }
-      if (isStripeExcludedMember()) {
+      const explorerUpgradeToPaid = isExplorerMember() && (normalizedTier === "standard" || normalizedTier === "vip");
+      if (isStripeExcludedMember() && !explorerUpgradeToPaid) {
         showToast("This account does not use Stripe billing.");
         showScreen("pass");
         setMembershipPromoStatus("", "error");
@@ -45197,12 +45253,7 @@ let onboardingIndex = 0;
           initialAuthResolved = true;
           return;
         }
-        if (shouldRequireMemberReauthOnResume(user) && !consumeMemberAuthBootstrap(user.uid)) {
-          console.info("[auth] member persisted session requires fresh login");
-          await signOutToLanding();
-          initialAuthResolved = true;
-          return;
-        }
+        consumeMemberAuthBootstrap(user.uid);
         if (await maybeForceMemberReauthOnResume("auth-state")) {
           initialAuthResolved = true;
           return;
