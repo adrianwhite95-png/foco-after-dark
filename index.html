@@ -16140,12 +16140,26 @@
       letter-spacing: 0.06em;
     }
     @media (min-width: 961px) {
+      #landingScreen .launch-header-actions,
       #landingScreen .home-dashboard-grid {
-        grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
+        max-width: 1140px;
+      }
+      #landingScreen .home-dashboard-grid {
+        grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
         align-items: start;
+        column-gap: 12px;
+        row-gap: 10px;
       }
       #landingScreen .home-tonight-module {
-        min-height: 100%;
+        min-height: 0;
+        height: auto;
+        align-self: start;
+      }
+      #landingScreen .home-support-stack {
+        align-self: start;
+      }
+      #landingScreen .home-dashboard-grid > * {
+        min-width: 0;
       }
     }
     @media (max-width: 920px) {
@@ -25260,6 +25274,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.84",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Web home layout now uses independent card heights so the left module no longer stretches to match the right column"
+        ],
+        fixed: [
+          "Desktop home grid alignment and fit issues that caused awkward stretching and uneven spacing"
+        ]
+      },
       {
         version: "v0.9.83",
         date: "2026-03-07",
