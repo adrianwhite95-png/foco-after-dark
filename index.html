@@ -19597,10 +19597,11 @@
       }
     });
     window.addEventListener("pageshow", () => {
-      maybeSchedulePushAutoSync("pageshow", true);
+      // Keep this lightweight on iOS app-open to avoid repeated startup churn.
+      maybeSchedulePushAutoSync("pageshow", false);
     });
     window.addEventListener("online", () => {
-      maybeSchedulePushAutoSync("online", true);
+      maybeSchedulePushAutoSync("online", false);
     });
     window.addEventListener("touchstart", () => {
       requestBadgeClear();
@@ -21417,14 +21418,12 @@
     let landingRewardsLastPoints = null;
     function renderLandingRewardsModule() {
       if (!landingRewardsModule || !landingRewardsOptions) return;
-      if (landingRewardsPoints) {
-        landingRewardsPoints.textContent = "STANDARD vs VIP";
-        landingRewardsPoints.classList.remove("pulse");
-      }
+      const rewardsPointsRow = landingRewardsPoints?.closest?.(".rewards-balance-row");
+      if (rewardsPointsRow) rewardsPointsRow.style.display = "none";
+      if (landingRewardsPoints) landingRewardsPoints.classList.remove("pulse");
       landingRewardsLastPoints = null;
-      if (landingRewardsExtraTokens) {
-        landingRewardsExtraTokens.textContent = "500→+2   700→+3   1000→+5";
-      }
+      const rewardsTokensRow = landingRewardsExtraTokens?.closest?.(".rewards-token-summary");
+      if (rewardsTokensRow) rewardsTokensRow.style.display = "none";
 
       const tierKey = normalizeTierKey(currentMembershipTier || memberProfile?.tier || "");
       const vipLike = isCeoActive() || isFreeMember() || tierKey === "vip" || tierKey === "ceo_free" || tierKey === "free";
@@ -21439,6 +21438,9 @@
       }
       if (landingRenewalBonusNote) {
         landingRenewalBonusNote.textContent = "Monthly renewal bonus: Standard +200 points, VIP +300 points.";
+      }
+      if (landingTierBoostNote) {
+        landingTierBoostNote.style.display = "none";
       }
 
       landingRewardsOptions.innerHTML = `
@@ -21466,19 +21468,6 @@
             </ul>
           </article>
         </div>
-        <article class="rewards-option ready">
-          <div class="rewards-option-head">
-            <span class="rewards-option-label">Points Redemption Options</span>
-            <span class="rewards-option-action">Overview</span>
-          </div>
-          <div class="rewards-progress"><div class="rewards-progress-fill" style="width:100%;"></div></div>
-          <div class="rewards-progress-meta">
-            <span class="rewards-redemption-pill"><span class="rewards-key-number">500 → +2</span> monthly tokens</span>
-            <span class="rewards-redemption-pill"><span class="rewards-key-number">700 → +3</span> monthly tokens</span>
-            <span class="rewards-redemption-pill"><span class="rewards-key-number">1000 → +5</span> monthly tokens</span>
-          </div>
-          <div class="rewards-cycle-note">All extra tokens from points apply to the current billing cycle only and do not roll over.</div>
-        </article>
       `;
     }
     function celebrateLandingRewards() {
@@ -25359,6 +25348,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.89",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "iOS app-open behavior now avoids repeated startup refresh churn for smoother Home Screen launches"
+        ],
+        fixed: [
+          "Removed repeated Rewards module boxes on Home (points redemption summary, duplicate redemption copy, and multiplier footer) while keeping the rest intact"
+        ]
+      },
       {
         version: "v0.9.88",
         date: "2026-03-07",
@@ -49819,7 +49819,17 @@ let onboardingIndex = 0;
   initCheersQuotes();
   initQaPanel();
 
-  window.addEventListener("pageshow", refreshOnLaunch);
+  let lastPageShowRefreshAt = 0;
+  window.addEventListener("pageshow", (event) => {
+    const now = Date.now();
+    if ((now - lastPageShowRefreshAt) < 45000) return;
+    // iOS Home Screen launches can trigger multiple lifecycle events back-to-back.
+    // Only run launch refresh when restoring from bfcache or after a real gap.
+    if (event?.persisted || document.visibilityState === "visible") {
+      lastPageShowRefreshAt = now;
+      refreshOnLaunch();
+    }
+  });
 
   if (maintenanceRetryBtn) {
     maintenanceRetryBtn.addEventListener("click", async () => {
