@@ -21462,7 +21462,7 @@
         landingTierBoostNote.classList.toggle("boosted", vipLike);
       }
       if (landingRenewalBonusNote) {
-        landingRenewalBonusNote.textContent = "Monthly renewal bonus: Standard +200 points, VIP +300 points.";
+        landingRenewalBonusNote.style.display = "none";
       }
       if (landingTierBoostNote) {
         landingTierBoostNote.style.display = "none";
@@ -23426,6 +23426,12 @@
         suppressLandingRedirectOnce = true;
         const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         createdUser = cred?.user || null;
+        if (requestedTier === "explorer" && createdUser?.uid) {
+          markExplorerSignupForce(createdUser.uid, 60000);
+          if (allowLocalCache()) {
+            localStorage.setItem(`membership_${createdUser.uid}`, "explorer");
+          }
+        }
         if (cred?.user) {
           if (fullName) {
             await updateProfile(cred.user, { displayName: fullName });
@@ -23576,6 +23582,33 @@
 	      showAddHomeGate();
 	    }
       } catch (err) {
+        const activeUserUid = String(firebaseAuth?.currentUser?.uid || "");
+        if (requestedTier === "explorer" && activeUserUid) {
+          console.warn("Explorer signup recovered from intermediate error", err);
+          onboardingMembershipFlow = false;
+          forceMembershipScreen = false;
+          pendingMembershipTier = null;
+          clearOnboardingResume();
+          clearPendingMembershipFlagForUser(activeUserUid);
+          if (allowLocalCache()) {
+            localStorage.setItem(`membership_${activeUserUid}`, "explorer");
+          }
+          memberProfile = {
+            ...(memberProfile || {}),
+            tier: "explorer",
+            requestedTier: "explorer",
+            paymentStatus: "active",
+            membershipStatus: "explorer",
+            ageVerificationRequired: false,
+            ageVerificationStatus: "skipped_explorer",
+            ageVerified21: true
+          };
+          applyMembershipToPass("explorer");
+          showScreen("pass");
+          showAddHomeGate();
+          pendingSignupData = null;
+          return;
+        }
         const errCode = String(err?.code || "");
         const errMsg = String(err?.message || "").toLowerCase();
         if (errCode.includes("email-already-in-use")) {
@@ -24272,6 +24305,7 @@
 
       const pendingUid = localStorage.getItem(PENDING_MEMBERSHIP_STORAGE_KEY);
       let storedTier = memberProfile?.tier || (allowLocalCache() && user.uid ? localStorage.getItem(`membership_${user.uid}`) : null);
+      if (isExplorerSignupForceActive(user.uid)) storedTier = "explorer";
       if (memberProfile?.freeMembership) storedTier = "free";
       if (shouldForceExplorerTier(memberProfile)) storedTier = "explorer";
       const membershipStatusKey = String(memberProfile?.membershipStatus || "").toLowerCase();
@@ -25374,6 +25408,26 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.92",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Explorer signup now locks membership state earlier in account creation to prevent post-create route flicker"
+        ],
+        fixed: [
+          "Recovered explorer signup from transient bootstrap errors without bouncing back to the signup screen"
+        ]
+      },
+      {
+        version: "v0.9.91",
+        date: "2026-03-07",
+        added: [],
+        improved: [],
+        fixed: [
+          "Removed the Home screen monthly renewal bonus box from the rewards panel"
+        ]
+      },
       {
         version: "v0.9.90",
         date: "2026-03-07",
