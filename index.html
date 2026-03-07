@@ -24103,6 +24103,7 @@
       const timeoutPromise = new Promise(resolve => {
         setTimeout(() => {
           const localProfile = buildLocalProfile(user);
+          localProfile.profileSyncPending = true;
           memberProfile = localProfile;
           resolve(localProfile);
         }, timeoutMs);
@@ -24113,6 +24114,7 @@
       } catch (err) {
         console.warn("Profile load race failed:", err);
         const fallback = buildLocalProfile(user);
+        fallback.profileSyncPending = true;
         memberProfile = fallback;
         return fallback;
       }
@@ -24328,10 +24330,38 @@
       if (!storedTier && normalizeTierKey(memberProfile?.requestedTier) === "explorer") {
         storedTier = "explorer";
       }
-      if (pendingUid && pendingUid === user.uid) {
+      const requestedTierFallback = normalizeTierKey(memberProfile?.requestedTier || memberProfile?.membershipTier || "");
+      if (!storedTier && requestedTierFallback) {
+        storedTier = requestedTierFallback;
+      }
+      const hasPendingSignupMembership = pendingUid && pendingUid === user.uid;
+      const profileSyncPending = memberProfile?.profileSyncPending === true;
+      if (!storedTier && !hasPendingSignupMembership && !onboardingMembershipFlow && !profileSyncPending) {
+        storedTier = "explorer";
+        onboardingMembershipFlow = false;
+        forceMembershipScreen = false;
+        pendingMembershipTier = null;
+        clearOnboardingResume();
+        clearPendingMembershipFlagForUser(user.uid);
+        if (allowLocalCache() && user.uid) {
+          localStorage.setItem(`membership_${user.uid}`, "explorer");
+        }
+        memberProfile = {
+          ...(memberProfile || {}),
+          tier: "explorer",
+          requestedTier: "explorer",
+          membershipStatus: "explorer",
+          paymentStatus: String(memberProfile?.paymentStatus || "active"),
+          ageVerificationRequired: false,
+          ageVerificationStatus: String(memberProfile?.ageVerificationStatus || "skipped_explorer")
+        };
+      }
+      if (hasPendingSignupMembership) {
         onboardingMembershipFlow = true;
       }
-      const needsMembership = (onboardingMembershipFlow || !storedTier) && !isFreeMember(memberProfile);
+      const needsMembership = (onboardingMembershipFlow || !storedTier)
+        && !isFreeMember(memberProfile)
+        && !shouldForceExplorerTier(memberProfile);
       if (needsMembership) {
         forceMembershipScreen = false;
         if (onboardingMembershipFlow) {
@@ -45261,6 +45291,10 @@ let onboardingIndex = 0;
     let authListenerStarted = false;
 
     function maybeResumeOnboardingAfterAuth(user) {
+      if (shouldForceExplorerTier(memberProfile) || isExplorerMember(memberProfile)) {
+        clearOnboardingResume();
+        return false;
+      }
       const marker = readOnboardingResume();
       if (!resumeIsValidForUser(marker, user)) return false;
       const stage = String(marker?.stage || "chooseMembership").toLowerCase();
@@ -45412,6 +45446,9 @@ let onboardingIndex = 0;
           return;
         }
         await handleAuthenticatedUser(user);
+        if (shouldForceExplorerTier(memberProfile) || isExplorerMember(memberProfile)) {
+          clearOnboardingResume();
+        }
         if (isExplorerSignupForceActive(user.uid) && isExplorerMember()) {
           onboardingMembershipFlow = false;
           forceMembershipScreen = false;
