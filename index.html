@@ -16165,6 +16165,7 @@
       background:
         radial-gradient(52% 42% at 8% 16%, rgba(102, 255, 36, 0.34), transparent 70%),
         radial-gradient(54% 34% at 92% 18%, rgba(57, 255, 20, 0.24), transparent 72%),
+        radial-gradient(48% 30% at 56% 10%, rgba(32, 232, 255, 0.26), transparent 68%),
         radial-gradient(74% 52% at 50% 82%, rgba(57, 255, 20, 0.14), transparent 82%);
       filter: blur(17px);
       opacity: 0.96;
@@ -16187,13 +16188,13 @@
       background: linear-gradient(180deg, rgba(160, 255, 104, 0.94), rgba(160, 255, 104, 0.3) 30%, rgba(160, 255, 104, 0.02) 100%);
     }
     body.screen-landing .club-beam.b3 {
-      background: linear-gradient(180deg, rgba(108, 255, 58, 0.92), rgba(108, 255, 58, 0.3) 34%, rgba(108, 255, 58, 0.02) 100%);
+      background: linear-gradient(180deg, rgba(32, 232, 255, 0.94), rgba(32, 232, 255, 0.32) 34%, rgba(32, 232, 255, 0.02) 100%);
     }
     body.screen-landing .club-beam.b4 {
       background: linear-gradient(180deg, rgba(57, 255, 20, 0.92), rgba(57, 255, 20, 0.3) 33%, rgba(57, 255, 20, 0.02) 100%);
     }
     body.screen-landing .club-beam.b5 {
-      background: linear-gradient(180deg, rgba(98, 255, 58, 0.92), rgba(98, 255, 58, 0.28) 34%, rgba(98, 255, 58, 0.02) 100%);
+      background: linear-gradient(180deg, rgba(64, 243, 255, 0.9), rgba(64, 243, 255, 0.26) 34%, rgba(64, 243, 255, 0.02) 100%);
     }
     body.screen-landing .club-haze {
       opacity: 0.82;
@@ -16202,6 +16203,7 @@
     body.screen-landing .pageWash {
       background:
         radial-gradient(78% 46% at 8% 16%, rgba(57, 255, 20, 0.2), transparent 72%),
+        radial-gradient(66% 40% at 58% 22%, rgba(32, 232, 255, 0.14), transparent 72%),
         radial-gradient(72% 42% at 94% 24%, rgba(57, 255, 20, 0.14), transparent 74%),
         linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.975)) !important;
       box-shadow: inset 0 0 300px rgba(0, 0, 0, 0.92) !important;
@@ -16255,7 +16257,12 @@
           transparent 0 45%,
           rgba(153, 255, 98, var(--landing-laser-alpha-b, 0.36)) 51%,
           transparent 56%),
+        linear-gradient(var(--landing-laser-angle-c, 176deg),
+          transparent 0 43%,
+          rgba(32, 232, 255, var(--landing-laser-alpha-c, 0.32)) 48%,
+          transparent 56%),
         radial-gradient(circle at var(--landing-flash-x, 76%) var(--landing-flash-y, 24%), rgba(57, 255, 20, 0.3), transparent 22%),
+        radial-gradient(circle at var(--landing-flash-y, 24%) var(--landing-flash-x, 76%), rgba(32, 232, 255, 0.18), transparent 24%),
         linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.42)) !important;
       opacity: 0.82 !important;
       filter: blur(0.18px);
@@ -16265,7 +16272,8 @@
     #landingScreen .landing-wrapper .landing-strobe {
       background:
         linear-gradient(var(--landing-strobe-angle-a, 103deg), transparent 20%, rgba(57, 255, 20, 0.34) 46%, transparent 66%),
-        linear-gradient(var(--landing-strobe-angle-b, 284deg), transparent 54%, rgba(98, 255, 58, 0.28) 74%, transparent 88%);
+        linear-gradient(var(--landing-strobe-angle-b, 284deg), transparent 54%, rgba(98, 255, 58, 0.28) 74%, transparent 88%),
+        linear-gradient(var(--landing-strobe-angle-c, 236deg), transparent 28%, rgba(32, 232, 255, 0.22) 56%, transparent 82%);
       opacity: 0.72;
       filter: blur(5px) saturate(1.2);
       mix-blend-mode: screen;
@@ -16275,7 +16283,8 @@
       opacity: 0.54;
       background:
         radial-gradient(circle at 72% 14%, rgba(57, 255, 20, 0.46), transparent 56%),
-        radial-gradient(circle at 20% 72%, rgba(118, 255, 74, 0.36), transparent 64%);
+        radial-gradient(circle at 20% 72%, rgba(118, 255, 74, 0.36), transparent 64%),
+        radial-gradient(circle at 42% 48%, rgba(32, 232, 255, 0.3), transparent 58%);
     }
     #landingScreen .landing-wrapper .landing-strobe.flash-burst {
       opacity: 0.96 !important;
@@ -16400,6 +16409,26 @@
       border-color: rgba(153, 255, 98, 0.56) !important;
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42), 0 0 20px rgba(57, 255, 20, 0.24);
     }
+    #landingScreen #landingLoginLink,
+    #landingScreen #landingStaffLogin {
+      background: linear-gradient(152deg, rgba(3, 10, 20, 0.9), rgba(2, 17, 26, 0.84)) !important;
+      border: 1px solid rgba(66, 243, 255, 0.42) !important;
+      color: #e8fbff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 0 0 1px rgba(57, 255, 20, 0.14),
+        0 12px 28px rgba(0, 0, 0, 0.5),
+        0 0 18px rgba(66, 243, 255, 0.2) !important;
+    }
+    #landingScreen #landingLoginLink:hover,
+    #landingScreen #landingStaffLogin:hover {
+      border-color: rgba(161, 255, 107, 0.62) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 0 0 1px rgba(57, 255, 20, 0.22),
+        0 14px 30px rgba(0, 0, 0, 0.54),
+        0 0 24px rgba(57, 255, 20, 0.28) !important;
+    }
     #landingScreen .rewards-points-value,
     #landingScreen #landingRewardsExtraTokens,
     #landingScreen .rewards-plan-title,
@@ -16447,6 +16476,25 @@
       #landingScreen .landing-wrapper::after {
         opacity: 0.74 !important;
       }
+    }
+    body.ios.screen-landing .club-atmosphere {
+      opacity: 1 !important;
+      filter: saturate(1.5) contrast(1.3) brightness(1.06) !important;
+    }
+    body.ios.screen-landing .club-atmosphere::before {
+      opacity: 1 !important;
+      filter: blur(20px) saturate(1.62) !important;
+    }
+    body.ios.screen-landing .club-beam {
+      opacity: 1 !important;
+      filter: blur(0.1px) saturate(1.78) contrast(1.14) brightness(1.2) !important;
+    }
+    body.ios.mobile-performance #landingScreen.active .landing-wrapper::after {
+      opacity: 0.9 !important;
+    }
+    body.ios.mobile-performance #landingScreen.active .landing-wrapper .landing-strobe {
+      opacity: 0.84 !important;
+      filter: blur(4px) saturate(1.36) brightness(1.2) !important;
     }
     @media (max-width: 640px) {
       #landingScreen .home-marketing-eyebrow {
@@ -18812,6 +18860,9 @@
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Account security</h4>
         <p>You are responsible for safeguarding your login credentials and device access. If you believe your account has been accessed without permission, contact support immediately.</p>
+
+        <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Motion and photosensitivity warning</h4>
+        <p>This app includes fast animations, strobe-like lighting effects, and flashing neon visuals that may affect people with photosensitive epilepsy or other light-sensitivity conditions. Use caution, reduce screen brightness, and stop using the app immediately if you feel discomfort.</p>
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Data accuracy & audit logs</h4>
         <p>We log redemption attempts, verification events, and timestamps for operational, analytics, and fraud-prevention purposes. We strive for accuracy, but logs may be delayed or incomplete due to connectivity or device issues.</p>
@@ -21740,13 +21791,16 @@
       });
       landingLaserWrapper.style.setProperty("--landing-laser-angle-a", `${randomInRange(96, 138).toFixed(2)}deg`);
       landingLaserWrapper.style.setProperty("--landing-laser-angle-b", `${randomInRange(220, 282).toFixed(2)}deg`);
+      landingLaserWrapper.style.setProperty("--landing-laser-angle-c", `${randomInRange(148, 212).toFixed(2)}deg`);
       landingLaserWrapper.style.setProperty("--landing-laser-alpha-a", `${(forceBurst ? randomInRange(0.62, 0.9) : randomInRange(0.36, 0.68)).toFixed(2)}`);
       landingLaserWrapper.style.setProperty("--landing-laser-alpha-b", `${(forceBurst ? randomInRange(0.5, 0.74) : randomInRange(0.26, 0.54)).toFixed(2)}`);
+      landingLaserWrapper.style.setProperty("--landing-laser-alpha-c", `${(forceBurst ? randomInRange(0.34, 0.58) : randomInRange(0.18, 0.4)).toFixed(2)}`);
       landingLaserWrapper.style.setProperty("--landing-flash-x", `${randomInRange(8, 92).toFixed(1)}%`);
       landingLaserWrapper.style.setProperty("--landing-flash-y", `${randomInRange(8, 88).toFixed(1)}%`);
       if (landingLaserStrobe) {
         landingLaserStrobe.style.setProperty("--landing-strobe-angle-a", `${randomInRange(96, 148).toFixed(2)}deg`);
         landingLaserStrobe.style.setProperty("--landing-strobe-angle-b", `${randomInRange(236, 298).toFixed(2)}deg`);
+        landingLaserStrobe.style.setProperty("--landing-strobe-angle-c", `${randomInRange(154, 238).toFixed(2)}deg`);
         landingLaserStrobe.classList.remove("flash-burst");
         if (forceBurst) {
           landingLaserStrobe.classList.add("flash-burst");
@@ -25826,6 +25880,18 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.105",
+        date: "2026-03-07",
+        added: [
+          "Added a motion and photosensitivity warning in About / Legal for users sensitive to flashing or strobe-like visuals"
+        ],
+        improved: [
+          "Home laser atmosphere now includes a cyan energy channel layered with neon green for stronger nightlife lighting depth, especially on iOS",
+          "Member and staff login buttons on home now use the same smoked-glass neon palette as the rest of the home modules"
+        ],
+        fixed: []
+      },
       {
         version: "v0.9.104",
         date: "2026-03-07",
