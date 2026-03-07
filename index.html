@@ -13096,23 +13096,28 @@
       opacity: 0.78;
     }
     #mapScreen .map-wrap {
+      position: relative;
       overflow: hidden;
       border-radius: 16px;
+      min-height: 320px;
+      height: min(46vh, 380px);
     }
     #venueMapCanvas {
+      position: absolute;
+      inset: 0;
       width: 100% !important;
-      min-height: 320px !important;
-      height: min(46vh, 380px) !important;
+      height: 100% !important;
       border: 0 !important;
       display: none;
-      border-radius: 16px;
+      border-radius: inherit;
       overflow: hidden;
       background: rgba(2, 6, 23, 0.52);
     }
     #venueMapFrame {
+      position: absolute;
+      inset: 0;
       width: 100% !important;
-      min-height: 320px !important;
-      height: min(46vh, 380px) !important;
+      height: 100% !important;
       border: 0 !important;
       display: block !important;
     }
@@ -26488,6 +26493,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.124",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Map layout on web was tightened so embedded/interactive map surfaces no longer stack with extra vertical space"
+        ],
+        fixed: [
+          "Map venue-list selections now consistently re-focus the visible map surface"
+        ]
+      },
+      {
         version: "v0.9.123",
         date: "2026-03-07",
         added: [],
@@ -28644,6 +28660,7 @@
     let venueMapInteractiveReady = false;
     const venueMapMarkerCache = new Map();
     const venueMapGeocodeCache = new Map();
+    let mapFallbackLastInteractionMs = 0;
     function isPrisonPunchMapSource(source = "") {
       const normalized = decodeURIComponent(String(source || "").toLowerCase());
       if (!normalized) return false;
@@ -28843,18 +28860,18 @@
       if (!venuesInfo?.[venueId]) return;
       activeMapVenueId = venueId;
       const info = venuesInfo[venueId] || {};
-      if (venueMapInteractiveReady && venueGoogleMap) {
-        focusVenueOnInteractiveMap(venueId);
-      } else if (venueMapFrame) {
+      if (venueMapFrame) {
         const query = [info.name, info.address, "Fort Collins, CO"].filter(Boolean).join(", ");
         const nextSrc = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(query)}&t=m&z=16&output=embed`;
         venueMapFrame.src = nextSrc;
-        if (currentScreenName === "map") {
-          ensureInteractiveVenueMapReady().then((ready) => {
-            if (!ready) return;
-            focusVenueOnInteractiveMap(venueId);
-          });
-        }
+      }
+      if (venueMapInteractiveReady && venueGoogleMap) {
+        focusVenueOnInteractiveMap(venueId);
+      } else if (currentScreenName === "map") {
+        ensureInteractiveVenueMapReady().then((ready) => {
+          if (!ready) return;
+          focusVenueOnInteractiveMap(venueId);
+        });
       }
       renderMapVenueList();
     }
@@ -32726,6 +32743,33 @@ let onboardingIndex = 0;
         }
       });
     }
+    if (venueMapFrame) {
+      venueMapFrame.addEventListener("pointerdown", () => {
+        if (currentScreenName !== "map") return;
+        mapFallbackLastInteractionMs = Date.now();
+      }, { passive: true });
+      venueMapFrame.addEventListener("touchstart", () => {
+        if (currentScreenName !== "map") return;
+        mapFallbackLastInteractionMs = Date.now();
+      }, { passive: true });
+    }
+    window.addEventListener("message", (event) => {
+      if (currentScreenName !== "map") return;
+      const origin = String(event?.origin || "").toLowerCase();
+      if (!origin.includes("google")) return;
+      const payload = typeof event?.data === "string" ? event.data : JSON.stringify(event?.data || "");
+      if (isPrisonPunchMapSource(payload)) {
+        unlockPrisonPunchFromMap({ showAlreadyUnlocked: true });
+      }
+    });
+    window.addEventListener("blur", () => {
+      if (currentScreenName !== "map") return;
+      if (!venueMapFrame || document.activeElement !== venueMapFrame) return;
+      if (venueMapInteractiveReady) return;
+      if ((Date.now() - Number(mapFallbackLastInteractionMs || 0)) > 3000) return;
+      // iframe fallback path: treat focused map interaction as intentional hidden-map interaction
+      unlockPrisonPunchFromMap({ showAlreadyUnlocked: true });
+    });
     document.addEventListener("keydown", (event) => {
       const isCmdK = (event.metaKey || event.ctrlKey) && String(event.key || "").toLowerCase() === "k";
       if (!isCmdK) return;
