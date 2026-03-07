@@ -21018,6 +21018,13 @@
       membershipPaymentPrepInFlight = false;
       queuedMembershipPaymentPrep = null;
     }
+    function isSignupOnboardingActiveForCurrentUser() {
+      if (!onboardingMembershipFlow) return false;
+      if (signupAccountSetupInFlight || !!pendingSignupData) return true;
+      const uid = String(firebaseAuth?.currentUser?.uid || "").trim();
+      if (!uid) return false;
+      return localStorage.getItem(PENDING_MEMBERSHIP_STORAGE_KEY) === uid;
+    }
 
     function openBillingScreenForTier(tier, options = {}) {
       const requestedTier = normalizeCheckoutTier(tier || getRequestedTier(memberProfile));
@@ -21134,6 +21141,7 @@
     let forceMembershipScreen = false;
     let explorerSignupForceUid = "";
     let explorerSignupForceUntil = 0;
+    const EXPLORER_ACCOUNT_LOCK_PREFIX = "explorerLock_";
     let isLaunched = false;
     let appLocked = false;
     let appLockedAt = null;
@@ -21182,6 +21190,40 @@
         explorerSignupForceUid = "";
         explorerSignupForceUntil = 0;
       }
+    }
+    function getExplorerAccountLockKey(uid = firebaseAuth?.currentUser?.uid) {
+      const safeUid = String(uid || "").trim();
+      return safeUid ? `${EXPLORER_ACCOUNT_LOCK_PREFIX}${safeUid}` : "";
+    }
+    function setExplorerAccountLock(uid = firebaseAuth?.currentUser?.uid) {
+      if (!allowLocalCache()) return;
+      const key = getExplorerAccountLockKey(uid);
+      if (!key) return;
+      try { localStorage.setItem(key, "1"); } catch (_) {}
+    }
+    function clearExplorerAccountLock(uid = firebaseAuth?.currentUser?.uid) {
+      if (!allowLocalCache()) return;
+      const key = getExplorerAccountLockKey(uid);
+      if (!key) return;
+      try { localStorage.removeItem(key); } catch (_) {}
+    }
+    function isExplorerAccountLockActive(uid = firebaseAuth?.currentUser?.uid) {
+      if (!allowLocalCache()) return false;
+      const key = getExplorerAccountLockKey(uid);
+      if (!key) return false;
+      try { return localStorage.getItem(key) === "1"; } catch (_) { return false; }
+    }
+    function hasConfirmedPaidMembership(profile = memberProfile) {
+      const tier = normalizeTierKey(profile?.tier || "");
+      if (tier !== "standard" && tier !== "vip") return false;
+      const membershipStatus = String(profile?.membershipStatus || "").toLowerCase();
+      const paymentStatus = String(profile?.paymentStatus || "").toLowerCase();
+      return Boolean(
+        profile?.stripeSubscriptionId
+        || profile?.membershipActivatedAt
+        || membershipStatus === "active"
+        || paymentStatus === "active"
+      );
     }
     function isAgeVerificationExemptClient(profile = memberProfile, user = firebaseAuth?.currentUser) {
       const email = String(profile?.email || user?.email || "").toLowerCase();
@@ -24274,6 +24316,7 @@
         pendingMembershipTier = null;
         clearOnboardingResume();
         clearPendingMembershipFlagForUser(user.uid);
+        setExplorerAccountLock(user.uid);
         if (allowLocalCache() && user.uid) {
           localStorage.setItem(`membership_${user.uid}`, "explorer");
         }
@@ -24324,6 +24367,9 @@
       if (isExplorerSignupForceActive(user.uid)) storedTier = "explorer";
       if (memberProfile?.freeMembership) storedTier = "free";
       if (shouldForceExplorerTier(memberProfile)) storedTier = "explorer";
+      if (isExplorerAccountLockActive(user.uid) && !hasConfirmedPaidMembership(memberProfile)) {
+        storedTier = "explorer";
+      }
       const membershipStatusKey = String(memberProfile?.membershipStatus || "").toLowerCase();
       if (!memberProfile?.freeMembership && membershipStatusKey === "explorer") {
         storedTier = "explorer";
@@ -24393,6 +24439,9 @@
       clearPendingMembershipFlagForUser(user.uid);
       forceMembershipScreen = false;
       const tierToApply = storedTier || "standard";
+      if ((tierToApply === "standard" || tierToApply === "vip") && hasConfirmedPaidMembership(memberProfile)) {
+        clearExplorerAccountLock(user.uid);
+      }
       applyMembershipToPass(tierToApply);
       // Auto-renew membership perks monthly using stored card on file
       checkMembershipAutoRenew(storedTier || "standard");
@@ -25452,6 +25501,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.97",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Back navigation from profile upgrade screens now consistently returns logged-in members to their profile/pass view"
+        ],
+        fixed: [
+          "Explorer accounts now keep a dedicated lock state to prevent accidental fallback to Standard visibility during refresh/login edge cases"
+        ]
+      },
       {
         version: "v0.9.96",
         date: "2026-03-07",
@@ -31878,15 +31938,14 @@ let onboardingIndex = 0;
         clearPendingMembershipPaymentPrep();
         setMembershipPlanSelectionBusy(false);
         const loggedInMember = !!(firebaseAuth?.currentUser && !firebaseAuth.currentUser.isAnonymous);
-        if (onboardingMembershipFlow === true && loggedInMember && !signupAccountSetupInFlight && !pendingSignupData) {
+        const signupOnboarding = isSignupOnboardingActiveForCurrentUser();
+        if (loggedInMember && !signupOnboarding) {
           onboardingMembershipFlow = false;
           forceMembershipScreen = false;
+          pendingMembershipTier = null;
           clearOnboardingResume();
           clearPendingMembershipFlagForUser(firebaseAuth.currentUser?.uid || "");
-          const memberTarget = (membershipReturnScreen && membershipReturnScreen !== "membership" && membershipReturnScreen !== "auth")
-            ? membershipReturnScreen
-            : "pass";
-          showScreen(memberTarget);
+          showScreen("pass");
           return;
         }
         if (onboardingMembershipFlow === true) {
@@ -46806,10 +46865,19 @@ let onboardingIndex = 0;
       paymentBackBtn.addEventListener("click", () => {
         clearPendingMembershipPaymentPrep();
         setMembershipPlanSelectionBusy(false);
-        const wasOnboarding = onboardingMembershipFlow;
-        if (!wasOnboarding) pendingMembershipTier = null;
+        const loggedInMember = !!(firebaseAuth?.currentUser && !firebaseAuth.currentUser.isAnonymous);
+        const signupOnboarding = isSignupOnboardingActiveForCurrentUser();
+        if (!signupOnboarding) pendingMembershipTier = null;
         resetPaymentForm();
-        if (wasOnboarding) suppressAgeVerifyAutoContinue = true;
+        if (loggedInMember && !signupOnboarding) {
+          onboardingMembershipFlow = false;
+          forceMembershipScreen = false;
+          clearOnboardingResume();
+          clearPendingMembershipFlagForUser(firebaseAuth.currentUser?.uid || "");
+          showScreen("pass");
+          return;
+        }
+        if (signupOnboarding) suppressAgeVerifyAutoContinue = true;
         showScreen("membership");
         refreshMembershipChoices();
       });
@@ -48597,6 +48665,11 @@ let onboardingIndex = 0;
         if (storageKey) {
           localStorage.setItem(storageKey, tier);
         }
+        if (tier === "explorer") {
+          setExplorerAccountLock(user?.uid);
+        } else if (tier === "standard" || tier === "vip" || tier === "free" || tier === "ceo") {
+          clearExplorerAccountLock(user?.uid);
+        }
         if (memberProfile && user) {
           updateMemberProfile({ tier, billingInterval: interval });
           memberProfile.billingInterval = interval;
@@ -49272,6 +49345,14 @@ let onboardingIndex = 0;
         showToast(cfg.text("billing.disabled.message", DEFAULT_CONFIG_TEXT["billing.disabled.message"]), 2400);
         return;
       }
+      const loggedInMember = !!(firebaseAuth?.currentUser && !firebaseAuth.currentUser.isAnonymous);
+      const signupOnboarding = isSignupOnboardingActiveForCurrentUser();
+      if (loggedInMember && !signupOnboarding) {
+        onboardingMembershipFlow = false;
+        forceMembershipScreen = false;
+        clearOnboardingResume();
+        clearPendingMembershipFlagForUser(firebaseAuth.currentUser?.uid || "");
+      }
       if (onboardingMembershipFlow === true) {
         onboardingReturnScreen = "auth";
         membershipReturnScreen = onboardingReturnScreen;
@@ -49463,6 +49544,15 @@ let onboardingIndex = 0;
         tier = "explorer";
       }
       currentMembershipTier = tier;
+      if (tier === "explorer") {
+        setExplorerAccountLock(firebaseAuth?.currentUser?.uid);
+      } else if (
+        tier === "free"
+        || tier === "ceo"
+        || ((tier === "standard" || tier === "vip") && hasConfirmedPaidMembership(memberProfile))
+      ) {
+        clearExplorerAccountLock(firebaseAuth?.currentUser?.uid);
+      }
       applyProfileTierMode(tier);
       if (statusPill) statusPill.classList.remove("danger");
       if (memberProfile && !ceoPreviewTier) {
