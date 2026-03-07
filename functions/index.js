@@ -2785,96 +2785,108 @@ exports.claimCeoFreeSignupCode = functions.https.onCall(async (data, context) =>
 });
 
 exports.setCeoFreeMembershipForPass = functions.https.onCall(async (data, context) => {
-  await enforceCallableSecurity(context, {
-    requireAuth: true,
-    rateLimit: true,
-    maxPerMin: 30,
-    maxPerDay: 600
-  });
-  if (!isCeoContext(context)) throw new HttpsError("permission-denied", "CEO only");
-  const passCode = String(data?.passCode || "").trim().toUpperCase();
-  if (!passCode) throw new HttpsError("invalid-argument", "Pass code required");
-  const enable = data?.enable !== false;
+  try {
+    await enforceCallableSecurity(context, {
+      requireAuth: true,
+      rateLimit: true,
+      maxPerMin: 30,
+      maxPerDay: 600
+    });
+    if (!isCeoContext(context)) throw new HttpsError("permission-denied", "CEO only");
+    const passCode = String(data?.passCode || "").trim().toUpperCase();
+    if (!passCode) throw new HttpsError("invalid-argument", "Pass code required");
+    const enable = data?.enable !== false;
 
-  const memberSnap = await db.collection("members").where("passCode", "==", passCode).limit(1).get();
-  if (memberSnap.empty) throw new HttpsError("not-found", "Member not found");
-  const memberDoc = memberSnap.docs[0];
-  const memberData = memberDoc.data() || {};
-  const freeRef = db.collection("freeMemberships").doc(passCode);
-  const priorTier = normalizeLookupTier(memberData) || "standard";
-  const safePriorTier = ["vip", "standard", "explorer"].includes(priorTier) ? priorTier : "standard";
+    let memberSnap = await db.collection("members").where("passCode", "==", passCode).limit(1).get();
+    if (memberSnap.empty) {
+      memberSnap = await db.collection("members").where("passId", "==", passCode).limit(1).get();
+    }
+    if (memberSnap.empty) throw new HttpsError("not-found", "Member not found");
+    const memberDoc = memberSnap.docs[0];
+    const memberData = memberDoc.data() || {};
+    const freeRef = db.collection("freeMemberships").doc(passCode);
+    const priorTier = normalizeLookupTier(memberData) || "standard";
+    const safePriorTier = ["vip", "standard", "explorer"].includes(priorTier) ? priorTier : "standard";
 
-  await db.runTransaction(async (tx) => {
-    const liveSnap = await tx.get(memberDoc.ref);
-    const live = liveSnap.exists ? (liveSnap.data() || {}) : {};
-    if (enable) {
-      const liveTier = normalizeLookupTier(live) || "standard";
-      const baseTier = ["vip", "standard", "explorer"].includes(liveTier) ? liveTier : "standard";
+    await db.runTransaction(async (tx) => {
+      const liveSnap = await tx.get(memberDoc.ref);
+      const live = liveSnap.exists ? (liveSnap.data() || {}) : {};
+      if (enable) {
+        const liveTier = normalizeLookupTier(live) || "standard";
+        const baseTier = ["vip", "standard", "explorer"].includes(liveTier) ? liveTier : "standard";
+        tx.set(memberDoc.ref, {
+          freeMembership: true,
+          membershipOverride: "CEO_FREE",
+          tier: "ceo_free",
+          membershipTier: "ceo_free",
+          requestedTier: "ceo_free",
+          baseTierBeforeCeoFree: live.baseTierBeforeCeoFree || baseTier,
+          priorTierBeforeFree: live.priorTierBeforeFree || baseTier,
+          preCeoFreePaymentStatus: String(live.paymentStatus || "active"),
+          preCeoFreeMembershipStatus: String(live.membershipStatus || "active"),
+          membershipStatus: "active",
+          paymentStatus: "active",
+          revoked: false,
+          validUntil: "never",
+          freeGrantedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        tx.set(freeRef, {
+          active: true,
+          passCode,
+          uid: memberDoc.id,
+          email: String(live.email || "").toLowerCase() || null,
+          freeMembership: true,
+          membershipOverride: "CEO_FREE",
+          tier: "ceo_free",
+          grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return;
+      }
+      const restoreTier = normalizeLookupTier(
+        live.baseTierBeforeCeoFree
+        || live.priorTierBeforeFree
+        || live.requestedTier
+        || live.membershipTier
+        || safePriorTier
+      ) || "standard";
+      const restorePayment = String(live.preCeoFreePaymentStatus || live.paymentStatus || "active").toLowerCase();
+      const restoreMembership = String(live.preCeoFreeMembershipStatus || live.membershipStatus || "active").toLowerCase();
       tx.set(memberDoc.ref, {
-        freeMembership: true,
-        membershipOverride: "CEO_FREE",
-        tier: "ceo_free",
-        membershipTier: "ceo_free",
-        requestedTier: "ceo_free",
-        baseTierBeforeCeoFree: live.baseTierBeforeCeoFree || baseTier,
-        priorTierBeforeFree: live.priorTierBeforeFree || baseTier,
-        preCeoFreePaymentStatus: String(live.paymentStatus || "active"),
-        preCeoFreeMembershipStatus: String(live.membershipStatus || "active"),
-        membershipStatus: "active",
-        paymentStatus: "active",
+        freeMembership: false,
+        membershipOverride: null,
+        tier: restoreTier,
+        membershipTier: restoreTier,
+        requestedTier: restoreTier,
+        paymentStatus: restoreTier === "explorer" ? "active" : restorePayment,
+        membershipStatus: restoreTier === "explorer" ? "explorer" : restoreMembership,
         revoked: false,
-        validUntil: "never",
-        freeGrantedAt: admin.firestore.FieldValue.serverTimestamp(),
+        validUntil: null,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
       tx.set(freeRef, {
-        active: true,
-        passCode,
-        uid: memberDoc.id,
-        email: String(live.email || "").toLowerCase() || null,
-        freeMembership: true,
-        membershipOverride: "CEO_FREE",
-        tier: "ceo_free",
-        grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+        active: false,
+        revoked: true,
+        revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+        revokedByUid: context.auth.uid,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
-      return;
-    }
-    const restoreTier = normalizeLookupTier(
-      live.baseTierBeforeCeoFree
-      || live.priorTierBeforeFree
-      || live.requestedTier
-      || live.membershipTier
-      || safePriorTier
-    ) || "standard";
-    const restorePayment = String(live.preCeoFreePaymentStatus || live.paymentStatus || "active").toLowerCase();
-    const restoreMembership = String(live.preCeoFreeMembershipStatus || live.membershipStatus || "active").toLowerCase();
-    tx.set(memberDoc.ref, {
-      freeMembership: false,
-      membershipOverride: null,
-      tier: restoreTier,
-      membershipTier: restoreTier,
-      requestedTier: restoreTier,
-      paymentStatus: restoreTier === "explorer" ? "active" : restorePayment,
-      membershipStatus: restoreTier === "explorer" ? "explorer" : restoreMembership,
-      revoked: false,
-      validUntil: null,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    tx.set(freeRef, {
-      active: false,
-      revoked: true,
-      revokedAt: admin.firestore.FieldValue.serverTimestamp(),
-      revokedByUid: context.auth.uid,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-  });
+    });
 
-  return {
-    ok: true,
-    passCode,
-    enabled: enable
-  };
+    return {
+      ok: true,
+      passCode,
+      enabled: enable
+    };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.error("[setCeoFreeMembershipForPass]", err?.message || err, {
+      uid: context?.auth?.uid || null,
+      passCode: String(data?.passCode || "").trim().toUpperCase(),
+    });
+    throw new HttpsError("internal", "Could not update CEO FREE status right now.");
+  }
 });
 
 function normalizePointAwardKey(raw = "") {
@@ -3232,7 +3244,7 @@ exports.spinNightWheel = functions.https.onCall(async (data, context) => {
 // Push notifications: register token per user
 exports.registerPushToken = functions.https.onCall(async (data, context) => {
   await enforceCallableSecurity(context, {
-    rateLimit: { maxPerMin: 20, maxPerDay: 300 }
+    rateLimit: { maxPerMin: 120, maxPerDay: 2000 }
   });
   const token = (data?.token || '').trim();
   const clientKey = (data?.clientKey || '').trim().slice(0, 120);
@@ -3281,7 +3293,7 @@ exports.registerPushToken = functions.https.onCall(async (data, context) => {
 exports.registerPushTokenPublic = functions.https.onCall(async (data, context) => {
   await enforceCallableSecurity(context, {
     requireAuth: false,
-    publicRateLimit: { limit: 60, windowMs: 10 * 60 * 1000 },
+    publicRateLimit: { limit: 300, windowMs: 10 * 60 * 1000 },
     publicScope: "push-register",
   });
   const token = String(data?.token || "").trim();

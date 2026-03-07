@@ -19405,7 +19405,7 @@
         return false;
       }
     }
-    async function enablePushNotifications({ forcePrompt = false } = {}) {
+    async function enablePushNotifications({ forcePrompt = false, forceRegister = false } = {}) {
       const hasVapid = VAPID_PUBLIC_KEY && !VAPID_PUBLIC_KEY.includes("REPLACE");
       if (!hasVapid) {
         updateNotificationsStatus("Notifications not configured yet.");
@@ -19441,7 +19441,7 @@
           vapidKey: VAPID_PUBLIC_KEY,
           serviceWorkerRegistration: registration
         });
-        const ok = await registerPushToken(token, { force: true });
+        const ok = await registerPushToken(token, { force: !!forceRegister });
         updateNotificationsStatus(ok ? "Notifications enabled." : "Notifications on, token pending.");
         return ok;
       } catch (err) {
@@ -19470,7 +19470,7 @@
       const seen = localStorage.getItem(seenKey) === "1";
       if (Notification.permission === "default" && !seen) {
         localStorage.setItem(seenKey, "1");
-        const prompted = await enablePushNotifications({ forcePrompt: true });
+        const prompted = await enablePushNotifications({ forcePrompt: true, forceRegister: true });
         if (prompted) schedulePushTokenAutoSync("first-permission", true);
       }
       if (Notification.permission === "granted") {
@@ -24697,7 +24697,7 @@
         enableNotificationsBtn.textContent = "Reconnecting...";
         let ok = false;
         try {
-          ok = await withTimeout(enablePushNotifications({ forcePrompt: true }), 12000);
+          ok = await withTimeout(enablePushNotifications({ forcePrompt: true, forceRegister: true }), 12000);
         } catch (_) {
           ok = false;
         }
@@ -24761,7 +24761,7 @@
         enableNotificationsPromptBtn.textContent = "Reconnecting...";
         let ok = false;
         try {
-          ok = await withTimeout(enablePushNotifications({ forcePrompt: true }), 12000);
+          ok = await withTimeout(enablePushNotifications({ forcePrompt: true, forceRegister: true }), 12000);
         } catch (_) {
           ok = false;
         }
@@ -24781,7 +24781,7 @@
         authEnableNotificationsBtn.textContent = "Reconnecting...";
         let ok = false;
         try {
-          ok = await withTimeout(enablePushNotifications({ forcePrompt: true }), 12000);
+          ok = await withTimeout(enablePushNotifications({ forcePrompt: true, forceRegister: true }), 12000);
         } catch (_) {
           ok = false;
         }
@@ -24806,7 +24806,7 @@
           return;
         }
         if (Notification.permission !== "granted") {
-          const ok = await enablePushNotifications({ forcePrompt: true });
+          const ok = await enablePushNotifications({ forcePrompt: true, forceRegister: true });
           if (!ok) return;
         }
         try {
@@ -25315,6 +25315,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.87",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Push token registration now avoids forced re-register loops during normal sync, reducing notification rate-limit noise"
+        ],
+        fixed: [
+          "CEO FREE grant/revoke now supports members stored by passId and returns clearer status instead of generic failure"
+        ]
+      },
       {
         version: "v0.9.86",
         date: "2026-03-07",
@@ -35386,7 +35397,8 @@ let onboardingIndex = 0;
         return;
       } catch (err) {
         console.warn("setCeoFreeMembershipForPass callable failed", err);
-        showFreeStatus("Could not update CEO FREE status right now.", false);
+        const msg = mapMemberFacingError(err, "Could not update CEO FREE status right now.");
+        showFreeStatus(msg, false);
         return;
       }
       let profile = null;
