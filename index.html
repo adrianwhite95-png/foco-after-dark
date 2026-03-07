@@ -16109,6 +16109,92 @@
     }
 
     /* Home art direction retune: smoked-black glass + focused neon */
+    #landingScreen .home-marketing-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 8px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(86, 229, 255, 0.5);
+      background: rgba(2, 8, 20, 0.72);
+      color: #bff3ff;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.22), inset 0 0 10px rgba(34, 211, 238, 0.08);
+    }
+    #landingScreen .home-marketing-headline {
+      margin: 0 0 8px;
+      text-wrap: balance;
+    }
+    #landingScreen .headline-neon {
+      color: #9eefff;
+      text-shadow:
+        0 0 14px rgba(34, 211, 238, 0.34),
+        0 0 26px rgba(255, 47, 184, 0.22);
+    }
+    #landingScreen .home-marketing-subhead {
+      margin: 0 auto;
+      max-width: 710px;
+      text-wrap: pretty;
+    }
+    body.screen-landing .club-atmosphere {
+      opacity: 0.86;
+      filter: saturate(1.35) contrast(1.08);
+    }
+    body.screen-landing .club-atmosphere::before {
+      content: "";
+      position: absolute;
+      inset: -20% -22%;
+      pointer-events: none;
+      background:
+        radial-gradient(46% 36% at 12% 20%, rgba(34, 211, 238, 0.24), transparent 72%),
+        radial-gradient(50% 38% at 88% 26%, rgba(255, 47, 184, 0.24), transparent 74%),
+        radial-gradient(64% 46% at 50% 74%, rgba(34, 211, 238, 0.12), transparent 78%);
+      filter: blur(24px);
+      opacity: 0.92;
+      animation: landingRaveBloom 6.5s ease-in-out infinite alternate;
+    }
+    body.screen-landing .club-beam {
+      top: 20px;
+      height: 84vh;
+      opacity: 0.82;
+      filter: blur(0.8px) saturate(1.35);
+      animation-duration: 7.8s, 2.7s;
+    }
+    body.screen-landing .club-beam.b1 {
+      background: linear-gradient(180deg, rgba(34, 211, 238, 0.62), rgba(34, 211, 238, 0.2) 36%, rgba(34, 211, 238, 0.02) 100%);
+    }
+    body.screen-landing .club-beam.b2 {
+      background: linear-gradient(180deg, rgba(255, 47, 184, 0.58), rgba(255, 47, 184, 0.2) 34%, rgba(255, 47, 184, 0.02) 100%);
+    }
+    body.screen-landing .club-beam.b3 {
+      background: linear-gradient(180deg, rgba(74, 229, 255, 0.66), rgba(74, 229, 255, 0.22) 38%, rgba(74, 229, 255, 0.02) 100%);
+    }
+    body.screen-landing .club-beam.b4 {
+      background: linear-gradient(180deg, rgba(255, 72, 194, 0.58), rgba(255, 72, 194, 0.18) 36%, rgba(255, 72, 194, 0.02) 100%);
+    }
+    body.screen-landing .club-beam.b5 {
+      background: linear-gradient(180deg, rgba(34, 211, 238, 0.54), rgba(34, 211, 238, 0.14) 38%, rgba(34, 211, 238, 0.02) 100%);
+    }
+    body.screen-landing .club-haze {
+      opacity: 0.72;
+      filter: blur(18px) saturate(1.2);
+    }
+    body.screen-landing .pageWash {
+      background:
+        radial-gradient(70% 42% at 10% 18%, rgba(34, 211, 238, 0.14), transparent 70%),
+        radial-gradient(74% 46% at 92% 24%, rgba(255, 47, 184, 0.14), transparent 72%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.94)) !important;
+      box-shadow: inset 0 0 300px rgba(0, 0, 0, 0.92) !important;
+    }
+    @keyframes landingRaveBloom {
+      0% { transform: translate3d(-2%, 0, 0) scale(1); opacity: 0.76; }
+      50% { transform: translate3d(2%, -1%, 0) scale(1.03); opacity: 0.95; }
+      100% { transform: translate3d(-1%, 1%, 0) scale(1.01); opacity: 0.8; }
+    }
     #landingScreen .landing-wrapper,
     #landingScreen .landing-wrapper.appFrame {
       background: linear-gradient(175deg, rgba(1, 3, 8, 0.42), rgba(1, 2, 7, 0.58)) !important;
@@ -16284,6 +16370,14 @@
       box-shadow: 0 0 16px rgba(34, 211, 238, 0.24);
     }
     @media (max-width: 920px) {
+      body.screen-landing .club-atmosphere {
+        opacity: 0.72;
+      }
+      body.screen-landing .club-beam {
+        top: 18px;
+        height: 72vh;
+        opacity: 0.68;
+      }
       #landingScreen .landing-wrapper,
       #landingScreen .landing-wrapper.appFrame {
         box-shadow:
@@ -16295,6 +16389,20 @@
       }
       #landingScreen .landing-wrapper::after {
         opacity: 0.74 !important;
+      }
+    }
+    @media (max-width: 640px) {
+      #landingScreen .home-marketing-eyebrow {
+        font-size: 9px;
+        letter-spacing: 0.13em;
+      }
+      #landingScreen .home-marketing-headline {
+        font-size: clamp(27px, 8.4vw, 38px);
+        line-height: 1.05;
+      }
+      #landingScreen .home-marketing-subhead {
+        font-size: 13px;
+        line-height: 1.34;
       }
     }
         .staff-checkins-card {
@@ -16379,7 +16487,7 @@
   <link rel="stylesheet" href="/styles/components.css?v=2026.02.21.2" />
   <link rel="stylesheet" href="/styles/screens.css?v=2026.02.21.2" />
 </head>
-  <body class="foco-premium">
+  <body class="foco-premium screen-landing">
       <div class="pageBg" aria-hidden="true"></div>
       <div class="pageWash" aria-hidden="true"></div>
       <div class="grain" aria-hidden="true"></div>
@@ -16485,9 +16593,9 @@
             </div>
             <div class="home-dashboard-grid">
               <section class="launch-billboard home-tonight-module glassBox photo-glass premiumGlass" aria-label="Tonight's perks and flash deals">
-                <div class="billboard-pill-row">LIVE VENUE FEED • LOCAL-ONLY PERKS • MEMBER-ONLY ACCESS</div>
-                <h2 class="launch-hero-title neonHero" id="landingHeroHeadline">Unlock Tonight's VIP Perks &amp; Flash Deals.</h2>
-                <p class="launch-hero-copy" id="landingHeroSubhead">Live posts from Fort Collins venues — members see everything.</p>
+                <div class="home-marketing-eyebrow">LIVE FORT COLLINS NIGHTLIFE ACCESS</div>
+                <h2 class="launch-hero-title neonHero home-marketing-headline" id="landingHeroHeadline">Your Pass to FoCo's <span class="headline-neon">Best Nightlife Perks</span>.</h2>
+                <p class="launch-hero-copy home-marketing-subhead" id="landingHeroSubhead">FoCo After Dark gives members real-time access to nightlife perks across Fort Collins - flash deals, live venue drops, VIP-style offers, and local-only rewards that make going out better.</p>
                 <div class="home-tonight-points">
                   <span>Live perk drops from Fort Collins venues</span>
                   <span>VIP + flash deals rotate all night</span>
@@ -21682,6 +21790,7 @@
         membershipReturnScreen = previousScreenName;
       }
       currentScreenName = name;
+      document.body.classList.toggle("screen-landing", name === "landing");
       if (previousScreenName === "ceoPortal" && name !== "ceoPortal") {
         stopCeoLiveAnalyticsWatch();
       }
@@ -25590,6 +25699,18 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.100",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Home hero card now uses focused marketing copy that clearly explains FoCo After Dark value and nightlife perks",
+          "Landing visual atmosphere was upgraded with stronger rave-style cyan/magenta laser beams, haze, and neon bloom while preserving smoked-glass readability"
+        ],
+        fixed: [
+          "Removed the non-informational decorative placeholder feel in the left home card and replaced it with product-first headline/subheadline messaging"
+        ]
+      },
       {
         version: "v0.9.99",
         date: "2026-03-07",
