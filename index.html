@@ -13099,6 +13099,16 @@
       overflow: hidden;
       border-radius: 16px;
     }
+    #venueMapCanvas {
+      width: 100% !important;
+      min-height: 320px !important;
+      height: min(46vh, 380px) !important;
+      border: 0 !important;
+      display: none;
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(2, 6, 23, 0.52);
+    }
     #venueMapFrame {
       width: 100% !important;
       min-height: 320px !important;
@@ -17975,6 +17985,12 @@
     <div class="app-title"><span>Venue</span> Map</div>
     <div class="tagline">Participating venues around Old Town Fort Collins.</div>
     <div class="map-wrap card-hd">
+      <div
+        id="venueMapCanvas"
+        class="venue-map-canvas"
+        role="region"
+        aria-label="FoCo After Dark interactive venue map">
+      </div>
       <iframe
         title="FoCo After Dark venue map"
         id="venueMapFrame"
@@ -22494,9 +22510,12 @@
       }
       if (name === "map") {
         renderMapVenueList();
-        setTimeout(() => {
-          if (currentScreenName === "map") maybeUnlockPrisonPunchFromIframe();
-        }, 120);
+        ensureInteractiveVenueMapReady().then((ready) => {
+          if (!ready || currentScreenName !== "map") return;
+          if (activeMapVenueId) {
+            focusVenueOnInteractiveMap(activeMapVenueId);
+          }
+        });
       }
       if (name === "profileActivity") {
         renderProfileActivity();
@@ -26006,6 +26025,7 @@
     const tonightRecentRedeemed = document.getElementById("tonightRecentRedeemed");
     const tonightUpgradeBtn = document.getElementById("tonightUpgradeBtn");
     const mapVenueList = document.getElementById("mapVenueList");
+    const venueMapCanvas = document.getElementById("venueMapCanvas");
     const venueMapFrame = document.getElementById("venueMapFrame");
     const profileActivityName = document.getElementById("profileActivityName");
     const profileActivityTier = document.getElementById("profileActivityTier");
@@ -26467,6 +26487,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.122",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Map screen now uses a fully interactive Google Maps layer for direct place interactions on web and mobile"
+        ],
+        fixed: [
+          "Improved map tap/click handling reliability for location-based interactions"
+        ]
+      },
       {
         version: "v0.9.121",
         date: "2026-03-07",
@@ -28588,13 +28619,54 @@
     const MAP_EASTER_EGG_JAIL = Object.freeze({
       name: "Larimer County Jail",
       address: "2405 Midpoint Dr, Fort Collins, CO 80525, USA",
+      lat: 40.5538,
+      lng: -105.0336,
       matchers: ["larimer county jail", "2405 midpoint dr", "midpoint dr fort collins"]
     });
+    const MAP_DEFAULT_CENTER = Object.freeze({ lat: 40.5853, lng: -105.0844 });
     let activeMapVenueId = "";
-    function isPrisonPunchMapSource(src = "") {
-      const normalized = decodeURIComponent(String(src || "").toLowerCase());
+    let googleMapsLoaderPromise = null;
+    let venueGoogleMap = null;
+    let venueGoogleInfoWindow = null;
+    let venueGoogleGeocoder = null;
+    let venueGooglePlacesService = null;
+    let venueMapInteractiveReady = false;
+    const venueMapMarkerCache = new Map();
+    const venueMapGeocodeCache = new Map();
+    function isPrisonPunchMapSource(source = "") {
+      const normalized = decodeURIComponent(String(source || "").toLowerCase());
       if (!normalized) return false;
       return MAP_EASTER_EGG_JAIL.matchers.some((matcher) => normalized.includes(String(matcher || "").toLowerCase()));
+    }
+    function useInteractiveVenueMap(enabled) {
+      if (venueMapCanvas) {
+        venueMapCanvas.style.display = enabled ? "block" : "none";
+      }
+      if (venueMapFrame) {
+        venueMapFrame.style.display = enabled ? "none" : "block";
+      }
+    }
+    useInteractiveVenueMap(false);
+    function loadGoogleMapsJsApi() {
+      if (window.google?.maps) return Promise.resolve(true);
+      if (googleMapsLoaderPromise) return googleMapsLoaderPromise;
+      googleMapsLoaderPromise = new Promise((resolve, reject) => {
+        const existing = document.getElementById("googleMapsJsApiScript");
+        if (existing) {
+          existing.addEventListener("load", () => resolve(true), { once: true });
+          existing.addEventListener("error", () => reject(new Error("Google Maps JS API failed to load.")), { once: true });
+          return;
+        }
+        const script = document.createElement("script");
+        script.id = "googleMapsJsApiScript";
+        script.async = true;
+        script.defer = true;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(firebaseConfig.apiKey)}&libraries=places&v=weekly`;
+        script.onload = () => resolve(true);
+        script.onerror = () => reject(new Error("Google Maps JS API failed to load."));
+        document.head.appendChild(script);
+      });
+      return googleMapsLoaderPromise;
     }
     function unlockPrisonPunchFromMap(options = {}) {
       const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
@@ -28607,11 +28679,132 @@
         showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
       }
     }
-    function maybeUnlockPrisonPunchFromIframe() {
-      if (!venueMapFrame) return;
-      const src = venueMapFrame.src || venueMapFrame.getAttribute("src") || "";
-      if (isPrisonPunchMapSource(src)) {
-        unlockPrisonPunchFromMap();
+    function maybeUnlockPrisonPunchFromPlace(place = null, options = {}) {
+      const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
+      if (!place) return;
+      const name = String(place?.name || "").trim();
+      const address = String(place?.formatted_address || place?.vicinity || "").trim();
+      const source = `${name} ${address}`.trim();
+      if (isPrisonPunchMapSource(source)) {
+        unlockPrisonPunchFromMap({ showAlreadyUnlocked });
+      }
+    }
+    function openVenueMapInfo(position, title = "", subtitle = "") {
+      if (!venueGoogleInfoWindow || !venueGoogleMap || !position) return;
+      const safeTitle = escapeHtmlText(String(title || "").trim() || "FoCo After Dark");
+      const safeSubtitle = escapeHtmlText(String(subtitle || "").trim());
+      venueGoogleInfoWindow.setContent(`
+        <div style="max-width:220px;padding:2px 2px 1px;">
+          <div style="font-weight:800;font-size:13px;letter-spacing:.01em;">${safeTitle}</div>
+          ${safeSubtitle ? `<div style="font-size:11px;opacity:.82;margin-top:2px;">${safeSubtitle}</div>` : ""}
+        </div>
+      `);
+      venueGoogleInfoWindow.setPosition(position);
+      venueGoogleInfoWindow.open({ map: venueGoogleMap, shouldFocus: false });
+    }
+    function upsertVenueMapMarker(key, coords, title = "", subtitle = "", options = {}) {
+      if (!window.google?.maps || !venueGoogleMap || !coords) return null;
+      let marker = venueMapMarkerCache.get(key);
+      if (!marker) {
+        marker = new google.maps.Marker({
+          position: coords,
+          map: venueGoogleMap,
+          title: title || "FoCo After Dark"
+        });
+        venueMapMarkerCache.set(key, marker);
+      } else {
+        marker.setPosition(coords);
+        marker.setMap(venueGoogleMap);
+      }
+      if (!marker.__focoBound) {
+        marker.addListener("click", () => {
+          if (options?.onClick && typeof options.onClick === "function") {
+            options.onClick();
+          }
+          openVenueMapInfo(marker.getPosition(), title, subtitle);
+        });
+        marker.__focoBound = true;
+      }
+      return marker;
+    }
+    function focusVenueOnInteractiveMap(venueId) {
+      if (!venueGoogleMap || !venueGoogleGeocoder) return;
+      const cached = venueMapGeocodeCache.get(venueId);
+      const info = venuesInfo?.[venueId] || {};
+      const venueName = info.name || getVenueDisplayName(venueId);
+      const venueAddress = String(info.address || "Fort Collins, CO").trim();
+      const applyFocus = (coords) => {
+        if (!coords || !Number.isFinite(Number(coords.lat)) || !Number.isFinite(Number(coords.lng))) return;
+        venueGoogleMap.panTo(coords);
+        venueGoogleMap.setZoom(Math.max(14, Number(venueGoogleMap.getZoom() || 14)));
+        upsertVenueMapMarker(`venue:${venueId}`, coords, venueName, venueAddress);
+      };
+      if (cached) {
+        applyFocus(cached);
+        return;
+      }
+      const queryAddress = [venueName, venueAddress, "Fort Collins, CO"].filter(Boolean).join(", ");
+      venueGoogleGeocoder.geocode({ address: queryAddress }, (results, status) => {
+        if (status !== "OK" || !Array.isArray(results) || !results[0]?.geometry?.location) return;
+        const point = results[0].geometry.location;
+        const coords = { lat: Number(point.lat()), lng: Number(point.lng()) };
+        venueMapGeocodeCache.set(venueId, coords);
+        applyFocus(coords);
+      });
+    }
+    async function ensureInteractiveVenueMapReady() {
+      if (!venueMapCanvas) return false;
+      if (venueMapInteractiveReady && venueGoogleMap) {
+        useInteractiveVenueMap(true);
+        return true;
+      }
+      try {
+        await loadGoogleMapsJsApi();
+        if (!window.google?.maps) throw new Error("Google Maps API unavailable");
+        venueGoogleMap = new google.maps.Map(venueMapCanvas, {
+          center: MAP_DEFAULT_CENTER,
+          zoom: 13,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+          clickableIcons: true,
+          gestureHandling: "greedy"
+        });
+        venueGoogleInfoWindow = new google.maps.InfoWindow();
+        venueGoogleGeocoder = new google.maps.Geocoder();
+        if (window.google?.maps?.places) {
+          venueGooglePlacesService = new google.maps.places.PlacesService(venueGoogleMap);
+        }
+        upsertVenueMapMarker(
+          "__jail__",
+          { lat: MAP_EASTER_EGG_JAIL.lat, lng: MAP_EASTER_EGG_JAIL.lng },
+          MAP_EASTER_EGG_JAIL.name,
+          MAP_EASTER_EGG_JAIL.address,
+          { onClick: () => unlockPrisonPunchFromMap({ showAlreadyUnlocked: true }) }
+        );
+        venueGoogleMap.addListener("click", (event) => {
+          const placeId = String(event?.placeId || "").trim();
+          if (!placeId || !venueGooglePlacesService) return;
+          if (typeof event.stop === "function") event.stop();
+          venueGooglePlacesService.getDetails(
+            { placeId, fields: ["name", "formatted_address"] },
+            (place, status) => {
+              if (status !== window.google.maps.places.PlacesServiceStatus.OK) return;
+              maybeUnlockPrisonPunchFromPlace(place, { showAlreadyUnlocked: true });
+            }
+          );
+        });
+        venueMapInteractiveReady = true;
+        useInteractiveVenueMap(true);
+        if (activeMapVenueId) {
+          focusVenueOnInteractiveMap(activeMapVenueId);
+        }
+        return true;
+      } catch (err) {
+        console.warn("Interactive map unavailable; using embed fallback.", err);
+        venueMapInteractiveReady = false;
+        useInteractiveVenueMap(false);
+        return false;
       }
     }
     function setActiveMapVenue(venueId) {
@@ -28619,10 +28812,18 @@
       if (!venuesInfo?.[venueId]) return;
       activeMapVenueId = venueId;
       const info = venuesInfo[venueId] || {};
-      if (venueMapFrame) {
+      if (venueMapInteractiveReady && venueGoogleMap) {
+        focusVenueOnInteractiveMap(venueId);
+      } else if (venueMapFrame) {
         const query = [info.name, info.address, "Fort Collins, CO"].filter(Boolean).join(", ");
         const nextSrc = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(query)}&t=m&z=16&output=embed`;
         venueMapFrame.src = nextSrc;
+        if (currentScreenName === "map") {
+          ensureInteractiveVenueMapReady().then((ready) => {
+            if (!ready) return;
+            focusVenueOnInteractiveMap(venueId);
+          });
+        }
       }
       renderMapVenueList();
     }
@@ -32488,28 +32689,10 @@ let onboardingIndex = 0;
         const venueId = String(btn.dataset.mapVenue || "").trim();
         if (!venueId) return;
         setActiveMapVenue(venueId);
-        if (venueMapFrame) {
-          venueMapFrame.scrollIntoView({ behavior: "smooth", block: "start" });
+        const mapTarget = venueMapInteractiveReady && venueMapCanvas ? venueMapCanvas : venueMapFrame;
+        if (mapTarget) {
+          mapTarget.scrollIntoView({ behavior: "smooth", block: "start" });
         }
-      });
-    }
-    if (venueMapFrame) {
-      venueMapFrame.addEventListener("load", () => {
-        if (currentScreenName !== "map") return;
-        maybeUnlockPrisonPunchFromIframe();
-      });
-      venueMapFrame.addEventListener("touchstart", () => {
-        if (currentScreenName !== "map") return;
-        setTimeout(() => maybeUnlockPrisonPunchFromIframe(), 120);
-      }, { passive: true });
-      venueMapFrame.addEventListener("pointerdown", () => {
-        if (currentScreenName !== "map") return;
-        setTimeout(() => maybeUnlockPrisonPunchFromIframe(), 120);
-      }, { passive: true });
-      window.addEventListener("blur", () => {
-        if (currentScreenName !== "map") return;
-        if (document.activeElement !== venueMapFrame) return;
-        setTimeout(() => maybeUnlockPrisonPunchFromIframe(), 220);
       });
     }
     document.addEventListener("keydown", (event) => {
