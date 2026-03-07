@@ -1620,6 +1620,17 @@ exports.checkInAlert = functions.https.onCall(async (data, context) => {
       checkedInAt: serverNow,
       expiresAt: alertData.expiresAt || null
     }, { merge: true });
+    const venueCheckinId = `${alertId}_${checkinDocId}`.replace(/[\/\s]+/g, "_").slice(0, 180);
+    tx.set(db.collection("venueAlertCheckins").doc(venueCheckinId), {
+      uid,
+      alertId,
+      venueId,
+      venueName,
+      passCode: memberPassCode || null,
+      checkinKey: checkinDocId,
+      checkedInAt: serverNow,
+      expiresAt: alertData.expiresAt || null
+    }, { merge: true });
     tx.set(memberCheckinRef, {
       alertId,
       venueId,
@@ -1651,6 +1662,55 @@ exports.checkInAlert = functions.https.onCall(async (data, context) => {
     checkInCount: Math.max(0, Number(result.checkInCount || 0)),
     checkedInAt: now
   };
+});
+
+exports.getVenueAlertCheckins = functions.https.onCall(async (data, context) => {
+  await enforceCallableSecurity(context, {
+    requireAuth: true,
+    appLockEnforced: false,
+    rateLimit: { maxPerMin: 90, maxPerDay: 2000 }
+  });
+  const venueHint = String(data?.venueId || getStaffVenueFromContext(context) || "").trim().toLowerCase();
+  const venueId = assertVenueMutationAccess(context, venueHint);
+  const limitCount = Math.max(10, Math.min(250, Number(data?.limit || 80) || 80));
+  const lookbackHours = Math.max(2, Math.min(24, Number(data?.lookbackHours || 12) || 12));
+  const startMs = Date.now() - (lookbackHours * 60 * 60 * 1000);
+  const startTs = admin.firestore.Timestamp.fromMillis(startMs);
+  try {
+    const snap = await db
+      .collection("venueAlertCheckins")
+      .where("venueId", "==", venueId)
+      .where("checkedInAt", ">=", startTs)
+      .orderBy("checkedInAt", "desc")
+      .limit(limitCount)
+      .get();
+    const checkins = [];
+    snap.forEach((docSnap) => {
+      const row = docSnap.data() || {};
+      const checkedInAtMs = toMillisSafe(row.checkedInAt) || Date.now();
+      const alertId = String(row.alertId || "").trim();
+      checkins.push({
+        id: docSnap.id,
+        alertId,
+        passCode: String(row.passCode || "").trim().toUpperCase() || null,
+        uid: String(row.uid || "").trim() || null,
+        venueId: String(row.venueId || venueId).trim().toLowerCase(),
+        venueName: String(row.venueName || "").trim() || null,
+        checkedInAt: checkedInAtMs,
+        expiresAt: toMillisSafe(row.expiresAt) || null
+      });
+    });
+    return {
+      ok: true,
+      venueId,
+      lookbackHours,
+      count: checkins.length,
+      checkins
+    };
+  } catch (err) {
+    console.error("[getVenueAlertCheckins]", err?.message || err);
+    throw new HttpsError("internal", "Could not load venue check-ins");
+  }
 });
 
 exports.getMemberAlertCheckins = functions.https.onCall(async (data, context) => {

@@ -15665,6 +15665,70 @@
       border-color: rgba(255, 47, 184, 0.4);
       background: linear-gradient(135deg, rgba(58, 11, 41, 0.65), rgba(42, 12, 68, 0.52));
       box-shadow: 0 0 18px rgba(255, 47, 184, 0.16), inset 0 0 10px rgba(255, 47, 184, 0.14);
+      padding: 6px 10px;
+    }
+    #passScreen .alerts-card .alert-timer-chip {
+      min-width: unset;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: #fef2ff;
+      border-color: rgba(255, 47, 184, 0.45);
+      background: linear-gradient(140deg, rgba(89, 16, 61, 0.6), rgba(59, 20, 103, 0.56));
+    }
+    #passScreen .alerts-card .alert-rush-copy {
+      margin-left: 2px;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(251, 191, 255, 0.92);
+    }
+    #passScreen .alerts-card .alert-future-row {
+      position: relative;
+      isolation: isolate;
+    }
+    #passScreen .alerts-card .alert-future-row::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+      pointer-events: none;
+      background: linear-gradient(90deg, rgba(34, 211, 238, 0.08), rgba(143, 91, 255, 0.06), rgba(255, 47, 184, 0.08));
+      opacity: 0.8;
+      mix-blend-mode: screen;
+    }
+    #passScreen .alerts-card .alert-future-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    #passScreen .alerts-card .alert-type-pill {
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      border: 1px solid rgba(34, 211, 238, 0.45);
+      color: #c6f7ff;
+      background: rgba(6, 78, 112, 0.25);
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.2);
+      position: relative;
+      z-index: 1;
+    }
+    #passScreen .alerts-card .alert-future-row.is-vip .alert-type-pill {
+      border-color: rgba(255, 47, 184, 0.45);
+      color: #ffd0f0;
+      background: rgba(112, 6, 73, 0.25);
+      box-shadow: 0 0 14px rgba(255, 47, 184, 0.2);
+    }
+    #passScreen .alerts-card .alert-future-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
     }
     #passScreen .alerts-card .alert-actions {
       margin-top: 4px;
@@ -15692,6 +15756,68 @@
       border-radius: 12px;
       padding: 10px 12px;
       background: linear-gradient(145deg, rgba(2, 10, 24, 0.62), rgba(10, 20, 40, 0.48));
+    }
+
+    .staff-checkins-card {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      background: linear-gradient(145deg, rgba(2, 10, 24, 0.72), rgba(8, 22, 44, 0.54));
+      box-shadow: 0 14px 32px rgba(2, 6, 23, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    .staff-checkins-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .staff-checkins-head strong {
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #bae6fd;
+    }
+    .staff-checkins-filter {
+      margin: 6px 0 8px;
+    }
+    .staff-checkins-filter label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .staff-checkins-filter select {
+      width: 100%;
+      min-height: 40px;
+    }
+    .staff-checkins-list {
+      margin-top: 8px;
+      max-height: 200px;
+      overflow: auto;
+      display: grid;
+      gap: 8px;
+      padding-right: 2px;
+    }
+    .staff-checkin-row {
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.78), rgba(2, 6, 23, 0.66));
+    }
+    .staff-checkin-pass {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: #f8fbff;
+    }
+    .staff-checkin-meta {
+      margin-top: 2px;
+      font-size: 11px;
+      color: #bfdbfe;
     }
 
 </style>
@@ -16992,6 +17118,20 @@
         </form>
         <p class="support-success" id="alertSuccess">Alert posted.</p>
         <div class="vip-deal-preview" id="alertPreview">No alerts scheduled yet.</div>
+        <div class="staff-checkins-card" id="staffCheckinsCard">
+          <div class="staff-checkins-head">
+            <strong>Tonight check-ins (Pass ID)</strong>
+            <button type="button" class="btn btn-secondary" id="staffCheckinsRefreshBtn">Refresh</button>
+          </div>
+          <div class="staff-checkins-filter">
+            <label for="staffCheckinsAlertFilter">Filter by alert</label>
+            <select id="staffCheckinsAlertFilter">
+              <option value="all">All active alerts</option>
+            </select>
+          </div>
+          <div class="small" id="staffCheckinsStatus" style="color:#93c5fd;">Live sync ready.</div>
+          <div class="staff-checkins-list" id="staffCheckinsList">No check-ins yet.</div>
+        </div>
         <div class="vip-deal-preview" id="vipDealPreview">No VIP deal set for this venue yet.</div>
         <div class="recent-actions" id="staffRecentActions"></div>
       </div>
@@ -19299,6 +19439,9 @@
     let staffRedemptionsMap = new Map();
     let staffQueueEntries = [];
     let staffRedemptionsVenue = null;
+    let staffAlertCheckinsCache = [];
+    let staffAlertCheckinsTimer = null;
+    let staffAlertCheckinsInFlight = false;
     if (betaPassMode) {
       localStorage.removeItem("betaSkipActive");
       betaPassMode = false;
@@ -20973,6 +21116,7 @@
           stopIdleTimer();
           renderStaffShiftStatus();
           maybePromptStartShift();
+          ensureStaffAlertCheckinsPolling();
           if (staffSession?.venue) {
             startStaffAnalyticsWatch(staffSession.venue, staffAnalyticsRangeKey || "1d");
             renderStaffAnalytics();
@@ -21001,6 +21145,7 @@
           revealPortal(name);
         } else {
           stopIdleTimer();
+          stopStaffAlertCheckinsPolling();
         }
       }
       if (name !== "landing" && name !== "auth" && name !== "maintenance") {
@@ -22245,6 +22390,17 @@
         alertDetailInput.value = "";
         alertMetaInput.value = "";
         alertExpiresInput.value = "";
+      });
+    }
+    if (staffCheckinsRefreshBtn) {
+      staffCheckinsRefreshBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        refreshStaffAlertCheckins({ force: true });
+      });
+    }
+    if (staffCheckinsAlertFilter) {
+      staffCheckinsAlertFilter.addEventListener("change", () => {
+        renderStaffAlertCheckins();
       });
     }
 
@@ -24617,6 +24773,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.78",
+        date: "2026-03-07",
+        added: [
+          "Staff portal now includes a live Tonight check-ins list showing Pass IDs for venue alerts with auto refresh"
+        ],
+        improved: [
+          "Tonight's alerts on member profile now use a futuristic high-priority layout with stronger visual hierarchy and premium styling"
+        ],
+        fixed: [
+          "Alert countdown now displays HH:MM and updates live without seconds noise"
+        ]
+      },
+      {
         version: "v0.9.77",
         date: "2026-03-07",
         added: [],
@@ -25413,6 +25582,11 @@
     const vipDealError = document.getElementById("vipDealError");
     const vipDealSuccess = document.getElementById("vipDealSuccess");
     const vipDealPreview = document.getElementById("vipDealPreview");
+    const staffCheckinsCard = document.getElementById("staffCheckinsCard");
+    const staffCheckinsAlertFilter = document.getElementById("staffCheckinsAlertFilter");
+    const staffCheckinsStatus = document.getElementById("staffCheckinsStatus");
+    const staffCheckinsList = document.getElementById("staffCheckinsList");
+    const staffCheckinsRefreshBtn = document.getElementById("staffCheckinsRefreshBtn");
     const vipMemberDeal = document.getElementById("vipMemberDeal");
     const successTimers = new WeakMap();
     if (scanConfirmToStaff) {
@@ -28563,21 +28737,15 @@
       const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
-      if (hours > 0) {
-        return `${hours}h ${minutes.toString().padStart(2, "0")}m ${seconds.toString().padStart(2, "0")}s left`;
-      }
-      return `${minutes}m ${seconds.toString().padStart(2, "0")}s left`;
+      return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")} left`;
     }
     function getAlertCountdownParts(diffMs) {
       const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
       return {
         h: hours.toString().padStart(2, "0"),
-        m: minutes.toString().padStart(2, "0"),
-        s: seconds.toString().padStart(2, "0")
+        m: minutes.toString().padStart(2, "0")
       };
     }
     function getAlertRushCopy(diffMs) {
@@ -28621,11 +28789,9 @@
             timer = `
               <div class="alert-timer" title="${formatAlertCountdown(diff)}">
                 <span class="alert-timer-label">Ends in</span>
-                <span class="alert-timer-chip">${parts.h}h</span>
-                <span class="alert-timer-chip">${parts.m}m</span>
-                <span class="alert-timer-chip">${parts.s}s</span>
+                <span class="alert-timer-chip">${parts.h}:${parts.m}</span>
+                <span class="alert-rush-copy">${getAlertRushCopy(diff)}</span>
               </div>
-              <div class="alert-rush-copy">${getAlertRushCopy(diff)}</div>
             `;
           }
         }
@@ -28643,11 +28809,16 @@
           `
           : "";
         return `
-          <li>
-            <strong>${alert.title}</strong>
+          <li class="alert-future-row ${alert.type === "vip" ? "is-vip" : "is-general"}">
+            <div class="alert-future-head">
+              <strong>${alert.title}</strong>
+              ${alert.type === "vip" ? '<span class="alert-type-pill">VIP</span>' : '<span class="alert-type-pill">LIVE</span>'}
+            </div>
             <span>${alert.detail}</span>
-            <span class="alerts-meta">${alert.meta || ""}${alert.type === "vip" ? " • VIP" : ""}</span>
-            ${timer}
+            <div class="alert-future-meta">
+              <span class="alerts-meta">${alert.meta || ""}${alert.type === "vip" ? " • VIP" : ""}</span>
+              ${timer}
+            </div>
             ${checkInAction}
           </li>
         `;
@@ -29542,6 +29713,7 @@ let onboardingIndex = 0;
       }
       detachAllRealtimeListeners("logout");
       resetInMemoryCaches();
+      stopStaffAlertCheckinsPolling();
       ["betaSkipActive", "staffSession", "ceoSession", "pendingScanVerify", "lastUid", "lastRole", "lastRoute", "activeProfile", "betaLogin", "anonLogin"].forEach(key => localStorage.removeItem(key));
       if (currentUid) {
         clearLoginSessionFlag(currentUid);
@@ -35161,6 +35333,7 @@ let onboardingIndex = 0;
     function renderStaffAlertPreview() {
       if (!alertPreview) return;
       if (!staffSession) {
+        stopStaffAlertCheckinsPolling();
         alertPreview.textContent = "Log in to post alerts for your venue.";
         if (alertTitleInput) alertTitleInput.value = "";
         if (alertDetailInput) alertDetailInput.value = "";
@@ -35193,6 +35366,9 @@ let onboardingIndex = 0;
         alertPreview.textContent = "No alerts scheduled yet.";
         renderStaffDealCodes();
         updateStaffKpis(0, false);
+        renderStaffCheckinsFilterOptions();
+        renderStaffAlertCheckins();
+        ensureStaffAlertCheckinsPolling();
         return;
       }
       const activeHtml = venueAlerts.map(alert => {
@@ -35229,7 +35405,127 @@ let onboardingIndex = 0;
         ${expired.length ? `<div style="margin-top:10px;"><strong style="color:#fca5a5;">Expired</strong>${expiredHtml}</div>` : ""}
       `;
       updateStaffKpis(venueAlerts.length, !!vipDealsCache[staffSession.venue]);
+      renderStaffCheckinsFilterOptions();
+      renderStaffAlertCheckins();
+      ensureStaffAlertCheckinsPolling();
     }
+
+    function stopStaffAlertCheckinsPolling() {
+      if (staffAlertCheckinsTimer) {
+        clearInterval(staffAlertCheckinsTimer);
+        staffAlertCheckinsTimer = null;
+      }
+      staffAlertCheckinsInFlight = false;
+      staffAlertCheckinsCache = [];
+      if (staffCheckinsList) {
+        staffCheckinsList.innerHTML = "No check-ins yet.";
+      }
+      if (staffCheckinsStatus) {
+        staffCheckinsStatus.textContent = "Live sync paused.";
+      }
+    }
+
+    function renderStaffCheckinsFilterOptions() {
+      if (!staffCheckinsAlertFilter || !staffSession?.venue) return;
+      const previous = String(staffCheckinsAlertFilter.value || "all").trim();
+      const now = Date.now();
+      const activeAlerts = (tonightAlerts || [])
+        .filter((alert) => String(alert?.venueId || "").trim().toLowerCase() === String(staffSession.venue || "").trim().toLowerCase())
+        .filter((alert) => !alert?.expiresAt || Number(alert.expiresAt) > now)
+        .slice(0, 40);
+      const options = [
+        '<option value="all">All active alerts</option>',
+        ...activeAlerts.map((alert) => {
+          const id = String(alert?.id || "").trim();
+          if (!id) return "";
+          const label = String(alert?.title || alert?.detail || "Venue alert").trim().slice(0, 68);
+          return `<option value="${escapeHtmlText(id)}">${escapeHtmlText(label)}</option>`;
+        }).filter(Boolean)
+      ];
+      staffCheckinsAlertFilter.innerHTML = options.join("");
+      const hasPrevious = Array.from(staffCheckinsAlertFilter.options || []).some((option) => option.value === previous);
+      staffCheckinsAlertFilter.value = hasPrevious ? previous : "all";
+    }
+
+    function renderStaffAlertCheckins() {
+      if (!staffCheckinsList) return;
+      const selectedAlert = String(staffCheckinsAlertFilter?.value || "all").trim();
+      const rows = (staffAlertCheckinsCache || []).filter((entry) => {
+        if (selectedAlert === "all") return true;
+        return String(entry?.alertId || "").trim() === selectedAlert;
+      });
+      if (!rows.length) {
+        staffCheckinsList.innerHTML = '<div class="small" style="color:#94a3b8;">No check-ins for this filter yet.</div>';
+        return;
+      }
+      staffCheckinsList.innerHTML = rows.slice(0, 120).map((entry) => {
+        const passCode = String(entry?.passCode || "").trim().toUpperCase() || "PASS UNKNOWN";
+        const when = formatMST(Number(entry?.checkedInAt || Date.now()), { hour: "numeric", minute: "2-digit" });
+        const alertTitle = String(entry?.alertTitle || "Tonight alert").trim();
+        return `
+          <div class="staff-checkin-row">
+            <div class="staff-checkin-pass">${escapeHtmlText(passCode)}</div>
+            <div class="staff-checkin-meta">${escapeHtmlText(alertTitle)} · ${escapeHtmlText(when)}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function refreshStaffAlertCheckins(options = {}) {
+      if (!staffSession?.venue || !functionsClient || SAFE_MODE) return;
+      if (staffAlertCheckinsInFlight && !options.force) return;
+      staffAlertCheckinsInFlight = true;
+      if (staffCheckinsStatus) staffCheckinsStatus.textContent = "Syncing check-ins…";
+      try {
+        const fn = httpsCallable(functionsClient, "getVenueAlertCheckins");
+        const resp = await fn({
+          venueId: staffSession.venue,
+          limit: 120,
+          lookbackHours: 18
+        });
+        const data = resp?.data || {};
+        const items = Array.isArray(data.checkins) ? data.checkins : [];
+        const alertTitleMap = new Map(
+          (tonightAlerts || [])
+            .filter((alert) => String(alert?.venueId || "").trim().toLowerCase() === String(staffSession.venue || "").trim().toLowerCase())
+            .map((alert) => [String(alert?.id || "").trim(), String(alert?.title || alert?.detail || "Tonight alert").trim()])
+        );
+        staffAlertCheckinsCache = items
+          .map((item) => ({
+            ...item,
+            passCode: String(item?.passCode || "").trim().toUpperCase(),
+            checkedInAt: Number(item?.checkedInAt || 0) || Date.now(),
+            alertTitle: alertTitleMap.get(String(item?.alertId || "").trim()) || "Tonight alert"
+          }))
+          .sort((a, b) => Number(b.checkedInAt || 0) - Number(a.checkedInAt || 0));
+        renderStaffCheckinsFilterOptions();
+        renderStaffAlertCheckins();
+        if (staffCheckinsStatus) {
+          const count = staffAlertCheckinsCache.length;
+          staffCheckinsStatus.textContent = `${count} check-in${count === 1 ? "" : "s"} synced · auto refresh`;
+        }
+      } catch (err) {
+        console.warn("Failed to load venue check-ins", err);
+        if (staffCheckinsStatus) staffCheckinsStatus.textContent = "Could not load check-ins.";
+      } finally {
+        staffAlertCheckinsInFlight = false;
+      }
+    }
+
+    function ensureStaffAlertCheckinsPolling() {
+      if (!staffSession?.venue) {
+        stopStaffAlertCheckinsPolling();
+        return;
+      }
+      if (!staffAlertCheckinsTimer) {
+        staffAlertCheckinsTimer = setInterval(() => {
+          if (currentScreenName !== "staffPortal") return;
+          refreshStaffAlertCheckins();
+        }, 5000);
+      }
+      refreshStaffAlertCheckins({ force: true });
+    }
+
     function renderStaffVipDeal() {
       if (!vipDealPreview) return;
       if (!staffSession) {
@@ -41373,6 +41669,7 @@ let onboardingIndex = 0;
       stopStaffAnalyticsWatch();
       stopStaffActiveShiftListener();
       stopStaffShiftLockListener();
+      stopStaffAlertCheckinsPolling();
       if (previousVenue) {
         delete staffActiveShiftMap[previousVenue];
       }
