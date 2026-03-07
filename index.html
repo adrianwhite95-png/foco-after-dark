@@ -26488,6 +26488,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.123",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Map screen now auto-falls back cleanly to embedded mode when interactive map services are unavailable"
+        ],
+        fixed: [
+          "Reduced blank/error-state map risk when third-party map services are not enabled"
+        ]
+      },
+      {
         version: "v0.9.122",
         date: "2026-03-07",
         added: [],
@@ -28668,6 +28679,16 @@
       });
       return googleMapsLoaderPromise;
     }
+    function interactiveMapHasRuntimeError() {
+      if (!venueMapCanvas) return false;
+      const errNode = venueMapCanvas.querySelector(".gm-err-container, .gm-err-message");
+      if (errNode) return true;
+      const txt = String(venueMapCanvas.textContent || "").toLowerCase();
+      if (!txt) return false;
+      return txt.includes("can’t load google maps correctly")
+        || txt.includes("can't load google maps correctly")
+        || txt.includes("for development purposes only");
+    }
     function unlockPrisonPunchFromMap(options = {}) {
       const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
       const unlocked = unlockAccentForCurrentMember("prison_punch");
@@ -28796,6 +28817,16 @@
         });
         venueMapInteractiveReady = true;
         useInteractiveVenueMap(true);
+        setTimeout(() => {
+          if (!venueMapInteractiveReady) return;
+          if (!interactiveMapHasRuntimeError()) return;
+          console.warn("Interactive map runtime error detected; falling back to embed map.");
+          venueMapInteractiveReady = false;
+          useInteractiveVenueMap(false);
+          if (currentScreenName === "map") {
+            showToast("Interactive map unavailable. Using fallback map.", 2600);
+          }
+        }, 1200);
         if (activeMapVenueId) {
           focusVenueOnInteractiveMap(activeMapVenueId);
         }
