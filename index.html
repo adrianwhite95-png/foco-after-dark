@@ -31723,17 +31723,15 @@ let onboardingIndex = 0;
         return;
       }
       const previousVenuePerks = Array.isArray(venuePerksCache[venueId]) ? [...venuePerksCache[venueId]] : [];
-      const hasAddedOrChangedByCache = (() => {
-        const prevById = new Map(previousVenuePerks.map((item) => [String(item.id || ""), item]));
-        if (previousVenuePerks.length !== perks.length) return true;
+      const hasAddedPerkByCache = (() => {
+        const prevIds = new Set(
+          previousVenuePerks
+            .map((item) => String(item.id || "").trim())
+            .filter(Boolean)
+        );
         return perks.some((perk) => {
-          const prev = prevById.get(String(perk.id || ""));
-          if (!prev) return true;
-          return (
-            String(perk.label || "").trim() !== String(prev.label || "").trim() ||
-            Number(perk.standardQty || 0) !== Number(prev.standardQty || 0) ||
-            Number(perk.vipQty || 0) !== Number(prev.vipQty || 0)
-          );
+          const id = String(perk.id || "").trim();
+          return !id || !prevIds.has(id);
         });
       })();
       if (!functionsClient) {
@@ -31759,7 +31757,7 @@ let onboardingIndex = 0;
         venuePerksCache[venueId] = perks;
         renderRedemptionOptions();
         refreshFeaturedVenuesData();
-        if (hasAddedOrChangedByCache) {
+        if (hasAddedPerkByCache) {
           const pushResult = await sendVenueUpdatePushFallback({
             title: `Perks Updated - ${venueName}`,
             body: `${venueName} just updated this month's perks.`.slice(0, 160),
