@@ -22494,6 +22494,9 @@
       }
       if (name === "map") {
         renderMapVenueList();
+        setTimeout(() => {
+          if (currentScreenName === "map") maybeUnlockPrisonPunchFromIframe();
+        }, 120);
       }
       if (name === "profileActivity") {
         renderProfileActivity();
@@ -26465,6 +26468,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.121",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Map-based hidden accent discovery now relies on direct Google Maps interaction instead of a visible shortcut row"
+        ],
+        fixed: [
+          "Removed the dedicated map list shortcut that exposed a hidden challenge trigger too directly"
+        ]
+      },
+      {
         version: "v0.9.120",
         date: "2026-03-07",
         added: [
@@ -28572,37 +28586,36 @@
       return activeCount === 1 ? "1 active perk" : `${activeCount} active perks`;
     }
     const MAP_EASTER_EGG_JAIL = Object.freeze({
-      venueId: "larimer_county_jail",
       name: "Larimer County Jail",
-      address: "2405 Midpoint Dr, Fort Collins, CO 80525, USA"
+      address: "2405 Midpoint Dr, Fort Collins, CO 80525, USA",
+      matchers: ["larimer county jail", "2405 midpoint dr", "midpoint dr fort collins"]
     });
     let activeMapVenueId = "";
-    function isMapEasterEggVenue(venueId = "") {
-      return String(venueId || "").trim().toLowerCase() === MAP_EASTER_EGG_JAIL.venueId;
+    function isPrisonPunchMapSource(src = "") {
+      const normalized = decodeURIComponent(String(src || "").toLowerCase());
+      if (!normalized) return false;
+      return MAP_EASTER_EGG_JAIL.matchers.some((matcher) => normalized.includes(String(matcher || "").toLowerCase()));
     }
-    function unlockPrisonPunchFromMap() {
+    function unlockPrisonPunchFromMap(options = {}) {
+      const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
       const unlocked = unlockAccentForCurrentMember("prison_punch");
       if (unlocked) {
         showToast("🚔 Easter egg unlocked: Prison Punch accent is now available.", 7000);
         applyAccentTheme("prison_punch");
         updateAccentChipLocks();
-      } else {
+      } else if (showAlreadyUnlocked) {
         showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
+      }
+    }
+    function maybeUnlockPrisonPunchFromIframe() {
+      if (!venueMapFrame) return;
+      const src = venueMapFrame.src || venueMapFrame.getAttribute("src") || "";
+      if (isPrisonPunchMapSource(src)) {
+        unlockPrisonPunchFromMap();
       }
     }
     function setActiveMapVenue(venueId) {
       if (!venueId) return;
-      if (isMapEasterEggVenue(venueId)) {
-        activeMapVenueId = MAP_EASTER_EGG_JAIL.venueId;
-        if (venueMapFrame) {
-          const query = `${MAP_EASTER_EGG_JAIL.name}, ${MAP_EASTER_EGG_JAIL.address}`;
-          const nextSrc = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(query)}&t=m&z=16&output=embed`;
-          venueMapFrame.src = nextSrc;
-        }
-        renderMapVenueList();
-        unlockPrisonPunchFromMap();
-        return;
-      }
       if (!venuesInfo?.[venueId]) return;
       activeMapVenueId = venueId;
       const info = venuesInfo[venueId] || {};
@@ -28722,13 +28735,6 @@
     function renderMapVenueList() {
       if (!mapVenueList) return;
       const entries = featuredVenuesData.slice();
-      const easterEggRow = `
-        <button type="button" class="map-venue-item ${activeMapVenueId === MAP_EASTER_EGG_JAIL.venueId ? "active" : ""}" data-map-venue="${MAP_EASTER_EGG_JAIL.venueId}">
-          <strong>${MAP_EASTER_EGG_JAIL.name}</strong>
-          <span>${MAP_EASTER_EGG_JAIL.address}</span>
-          <span>Tap to open in Google Maps and unlock Prison Punch.</span>
-        </button>
-      `;
       mapVenueList.innerHTML = entries.length
         ? `${entries.map((v) => `
           <button type="button" class="map-venue-item ${activeMapVenueId === v.venueId ? "active" : ""}" data-map-venue="${v.venueId}">
@@ -28736,8 +28742,8 @@
             <span>${(venuesInfo[v.venueId] || {}).address || "Fort Collins"}</span>
             <span>${formatVenueOpenStatus(v.venueId)} · ${getVenuePerksStatus(v.venueId)}</span>
           </button>
-        `).join("")}${easterEggRow}`
-        : `<div class="map-venue-item"><strong>No venues loaded</strong><span>Venue list appears here when available.</span></div>${easterEggRow}`;
+        `).join("")}`
+        : `<div class="map-venue-item"><strong>No venues loaded</strong><span>Venue list appears here when available.</span></div>`;
     }
     function renderProfileActivity() {
       if (!profileActivityName) return;
@@ -32485,6 +32491,25 @@ let onboardingIndex = 0;
         if (venueMapFrame) {
           venueMapFrame.scrollIntoView({ behavior: "smooth", block: "start" });
         }
+      });
+    }
+    if (venueMapFrame) {
+      venueMapFrame.addEventListener("load", () => {
+        if (currentScreenName !== "map") return;
+        maybeUnlockPrisonPunchFromIframe();
+      });
+      venueMapFrame.addEventListener("touchstart", () => {
+        if (currentScreenName !== "map") return;
+        setTimeout(() => maybeUnlockPrisonPunchFromIframe(), 120);
+      }, { passive: true });
+      venueMapFrame.addEventListener("pointerdown", () => {
+        if (currentScreenName !== "map") return;
+        setTimeout(() => maybeUnlockPrisonPunchFromIframe(), 120);
+      }, { passive: true });
+      window.addEventListener("blur", () => {
+        if (currentScreenName !== "map") return;
+        if (document.activeElement !== venueMapFrame) return;
+        setTimeout(() => maybeUnlockPrisonPunchFromIframe(), 220);
       });
     }
     document.addEventListener("keydown", (event) => {
