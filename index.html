@@ -3074,10 +3074,10 @@
       color: #fed7aa;
     }
     .accent-chip[data-accent="csu_jungle_juice"] {
-      background: linear-gradient(120deg, rgba(7, 56, 41, 0.9), rgba(15, 110, 76, 0.62));
-      border-color: rgba(120, 255, 185, 0.58);
+      background: linear-gradient(120deg, rgba(4, 44, 32, 0.92), rgba(9, 94, 67, 0.72), rgba(203, 157, 55, 0.28));
+      border-color: rgba(239, 198, 92, 0.64);
       color: #ecfff5;
-      text-shadow: 0 0 10px rgba(124, 255, 192, 0.42);
+      text-shadow: 0 0 10px rgba(255, 218, 128, 0.42);
     }
     .accent-chip[data-accent="ceo"] {
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(148, 212, 255, 0.32));
@@ -23431,20 +23431,23 @@
         if (profileEasterEggLogoFace === "csu" && quickTaps.length >= 2) {
           logoTaps = [];
           playProfileLogoCoinFlipTo("foco", logo);
-          showToast("Logo switched back to FoCo.", 2400);
           return;
         }
         if (logoTaps.length < 3) return;
         logoTaps = [];
-        const unlocked = unlockAccentForCurrentMember("csu_jungle_juice");
-        if (unlocked) {
+        const alreadyUnlocked = isAccentUnlockedForCurrentMember("csu_jungle_juice");
+        if (!alreadyUnlocked) {
+          const unlocked = unlockAccentForCurrentMember("csu_jungle_juice");
+          if (!unlocked) {
+            syncProfileEasterEggLogoFace();
+            return;
+          }
           playProfileLogoCoinFlipTo("csu", logo);
           showToast("🐏 Easter egg unlocked: CSU Jungle Juice accent is now available.", 7000);
           applyAccentTheme("csu_jungle_juice");
           updateAccentChipLocks();
         } else {
-          syncProfileEasterEggLogoFace();
-          showToast("Already unlocked this easter egg.", 3200);
+          playProfileLogoCoinFlipTo("csu", logo);
         }
       };
       const targetSelector = "#passScreen #passUserName, #passScreen #userUsername, #passScreen .username-row, #passScreen .profile-summary, #profileActivityScreen #profileActivityName, #profileActivityScreen .profile-activity-card";
@@ -26388,6 +26391,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.118",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "CSU Jungle Juice accent now uses full CSU-inspired color energy with green, white, and gold styling"
+        ],
+        fixed: [
+          "After CSU Jungle Juice is unlocked, logo flips are now silent (no repeat toasts) while still allowing unlimited flip toggles without re-applying accent automatically"
+        ]
+      },
       {
         version: "v0.9.117",
         date: "2026-03-07",
@@ -35071,12 +35085,12 @@ let onboardingIndex = 0;
           shadow: "0 28px 72px rgba(8, 4, 2, 0.88), 0 0 40px rgba(241, 194, 125, 0.34), 0 0 26px rgba(143, 91, 255, 0.26)"
         },
         csu_jungle_juice: {
-          primary: "#0b6b4f",
-          secondary: "#f6fff9",
-          glow: "rgba(62, 255, 171, 0.54)",
-          border: "rgba(162, 247, 210, 0.62)",
-          surface: "rgba(4, 45, 33, 0.28)",
-          shadow: "0 28px 72px rgba(2, 16, 12, 0.9), 0 0 44px rgba(62, 255, 171, 0.3), 0 0 22px rgba(246, 255, 249, 0.32)"
+          primary: "#0a6a4a",
+          secondary: "#f8fff7",
+          glow: "rgba(241, 196, 82, 0.56)",
+          border: "rgba(241, 196, 82, 0.62)",
+          surface: "rgba(6, 56, 40, 0.3)",
+          shadow: "0 28px 72px rgba(1, 16, 11, 0.9), 0 0 44px rgba(9, 161, 112, 0.32), 0 0 24px rgba(241, 196, 82, 0.34)"
         },
         ceo: {
           primary: "#ffd700",
