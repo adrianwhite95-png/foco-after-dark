@@ -25261,6 +25261,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.83",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Tonight alerts on member profiles now run on true 1-second live countdown updates"
+        ],
+        fixed: [
+          "Restored explicit HH:MM:SS timer behavior for profile Tonight alerts"
+        ]
+      },
+      {
         version: "v0.9.82",
         date: "2026-03-07",
         added: [],
@@ -29438,10 +29449,10 @@
         return;
       }
       if (!window.__alertsCountdownHandle) {
-        const countdownMs = LOW_PERF_MODE ? 2000 : 1000;
+        // Keep profile alert timers truly live (HH:MM:SS) at 1s ticks.
         window.__alertsCountdownHandle = setInterval(() => {
           renderAlertsList();
-        }, countdownMs);
+        }, 1000);
       }
       updateMemberCommandSignals();
       const total = Number.parseInt((statRedemptions?.textContent || "0").replace(/[^\d-]/g, ""), 10) || 0;
