@@ -15685,50 +15685,132 @@
     #passScreen .alerts-card .alert-future-row {
       position: relative;
       isolation: isolate;
+      overflow: hidden;
+      padding: 12px 12px 12px 14px;
     }
-    #passScreen .alerts-card .alert-future-row::after {
-      content: "";
+    #passScreen .alerts-card .alert-future-glow {
       position: absolute;
-      inset: 0;
-      border-radius: 14px;
-      pointer-events: none;
-      background: linear-gradient(90deg, rgba(34, 211, 238, 0.08), rgba(143, 91, 255, 0.06), rgba(255, 47, 184, 0.08));
-      opacity: 0.8;
-      mix-blend-mode: screen;
-    }
-    #passScreen .alerts-card .alert-future-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    #passScreen .alerts-card .alert-type-pill {
-      padding: 4px 8px;
+      inset: -20% -15% auto -15%;
+      height: 68%;
       border-radius: 999px;
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      border: 1px solid rgba(34, 211, 238, 0.45);
-      color: #c6f7ff;
-      background: rgba(6, 78, 112, 0.25);
-      box-shadow: 0 0 14px rgba(34, 211, 238, 0.2);
-      position: relative;
-      z-index: 1;
+      background: radial-gradient(ellipse at top, rgba(34, 211, 238, 0.16), rgba(143, 91, 255, 0.1), rgba(255, 47, 184, 0));
+      pointer-events: none;
+      z-index: 0;
     }
-    #passScreen .alerts-card .alert-future-row.is-vip .alert-type-pill {
-      border-color: rgba(255, 47, 184, 0.45);
-      color: #ffd0f0;
-      background: rgba(112, 6, 73, 0.25);
-      box-shadow: 0 0 14px rgba(255, 47, 184, 0.2);
-    }
-    #passScreen .alerts-card .alert-future-meta {
+    #passScreen .alerts-card .alert-future-topline {
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
       position: relative;
       z-index: 1;
+    }
+    #passScreen .alerts-card .alert-future-title {
+      margin-top: 8px;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      color: #f8fbff;
+      line-height: 1.2;
+      position: relative;
+      z-index: 1;
+      text-shadow: 0 0 18px rgba(34, 211, 238, 0.15);
+    }
+    #passScreen .alerts-card .alert-future-detail {
+      margin-top: 6px;
+      color: rgba(226, 232, 240, 0.92);
+      line-height: 1.35;
+      font-size: 13px;
+      position: relative;
+      z-index: 1;
+    }
+    #passScreen .alerts-card .alert-type-pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: 1px solid rgba(34, 211, 238, 0.45);
+      color: #c6f7ff;
+      background: rgba(6, 78, 112, 0.34);
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.2);
+      position: relative;
+      z-index: 1;
+      font-weight: 800;
+    }
+    #passScreen .alerts-card .alert-future-row.is-vip .alert-type-pill {
+      border-color: rgba(255, 47, 184, 0.45);
+      color: #ffd0f0;
+      background: rgba(112, 6, 73, 0.34);
+      box-shadow: 0 0 14px rgba(255, 47, 184, 0.2);
+    }
+    #passScreen .alerts-card .alert-future-bottomline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      margin-top: 9px;
+      position: relative;
+      z-index: 1;
+    }
+    #passScreen .alerts-card .alert-future-timer {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 47, 184, 0.4);
+      background: linear-gradient(135deg, rgba(58, 11, 41, 0.68), rgba(42, 12, 68, 0.56));
+      box-shadow: 0 0 16px rgba(255, 47, 184, 0.14), inset 0 0 8px rgba(255, 47, 184, 0.1);
+      padding: 4px 8px;
+      white-space: nowrap;
+      position: relative;
+      z-index: 1;
+    }
+    #passScreen .alerts-card .alert-future-timer-label {
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(250, 204, 255, 0.9);
+      font-weight: 700;
+    }
+    #passScreen .alerts-card .alert-future-timer-value {
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      color: #fff;
+    }
+    #passScreen .alerts-card .alert-future-rush {
+      font-size: 9px;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: rgba(253, 224, 252, 0.9);
+      padding-left: 6px;
+      border-left: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    #passScreen .alerts-card .alert-future-actions {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    #passScreen .alerts-card .alert-empty-state {
+      border: 1px dashed rgba(56, 189, 248, 0.35);
+      border-radius: 14px;
+      padding: 14px;
+      background: linear-gradient(145deg, rgba(2, 10, 24, 0.58), rgba(15, 23, 42, 0.5));
+      text-align: center;
+    }
+    #passScreen .alerts-card .alert-empty-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #bae6fd;
+      margin-bottom: 4px;
     }
     #passScreen .alerts-card .alert-actions {
       margin-top: 4px;
@@ -17151,7 +17233,7 @@
             <option value="oldest">Oldest first</option>
           </select>
         </div>
-        <div class="small" id="staffCheckinsStatus" style="color:#93c5fd;">Live sync ready.</div>
+          <div class="small" id="staffCheckinsStatus" style="color:#93c5fd;display:none;"></div>
         <div class="staff-checkins-list" id="staffCheckinsList">No check-ins yet.</div>
       </div>
         <div class="vip-deal-preview" id="vipDealPreview">No VIP deal set for this venue yet.</div>
@@ -24809,6 +24891,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.80",
+        date: "2026-03-07",
+        added: [
+          "Staff check-ins now sync silently in the background without visible syncing status text"
+        ],
+        improved: [
+          "Completely redesigned Tonight's alerts presentation on member profiles with a new premium high-priority visual layout"
+        ],
+        fixed: [
+          "Alert timers now display HH:MM and continue live minute-by-minute countdown while users stay on-screen"
+        ]
+      },
+      {
         version: "v0.9.79",
         date: "2026-03-07",
         added: [
@@ -28824,8 +28919,9 @@
     function buildAlertFeedHtml(alerts = []) {
       if (!alerts.length) {
         return `
-          <li class="empty">
-            <span>No alerts tonight. Check back when venues post live perks.</span>
+          <li class="empty alert-empty-state">
+            <div class="alert-empty-title">No live alerts right now</div>
+            <span>Stay close — venues post drops throughout the night.</span>
           </li>
         `;
       }
@@ -28836,10 +28932,10 @@
           if (diff > 0) {
             const parts = getAlertCountdownParts(diff);
             timer = `
-              <div class="alert-timer" title="${formatAlertCountdown(diff)}">
-                <span class="alert-timer-label">Ends in</span>
-                <span class="alert-timer-chip">${parts.h}:${parts.m}</span>
-                <span class="alert-rush-copy">${getAlertRushCopy(diff)}</span>
+              <div class="alert-future-timer" title="${formatAlertCountdown(diff)}">
+                <span class="alert-future-timer-label">Ends In</span>
+                <span class="alert-future-timer-value">${parts.h}:${parts.m}</span>
+                <span class="alert-future-rush">${getAlertRushCopy(diff)}</span>
               </div>
             `;
           }
@@ -28849,24 +28945,26 @@
         const checkInBusy = alertCheckinInFlight.has(String(alert.id || "").trim());
         const checkInAction = alert.type === "general" && alert.id
           ? `
-            <div class="alert-actions">
+            <div class="alert-future-actions">
               <button type="button" class="alert-checkin-btn ${checkedIn ? "is-checked" : ""}" data-alert-checkin="${alert.id}" ${(checkedIn || checkInBusy) ? "disabled" : ""}>
                 ${checkedIn ? "Checked in" : (checkInBusy ? "Checking in..." : "Check in")}
               </button>
-              <span class="alert-checkin-count">${checkInCount} user${checkInCount === 1 ? "" : "s"} checked in for this alert</span>
+              <span class="alert-checkin-count">${checkInCount} member${checkInCount === 1 ? "" : "s"} checked in</span>
             </div>
           `
           : "";
+        const typeLabel = alert.type === "vip" ? "VIP ONLY" : "TONIGHT ALERT";
         return `
           <li class="alert-future-row ${alert.type === "vip" ? "is-vip" : "is-general"}">
-            <div class="alert-future-head">
-              <strong>${alert.title}</strong>
-              ${alert.type === "vip" ? '<span class="alert-type-pill">VIP</span>' : '<span class="alert-type-pill">LIVE</span>'}
-            </div>
-            <span>${alert.detail}</span>
-            <div class="alert-future-meta">
-              <span class="alerts-meta">${alert.meta || ""}${alert.type === "vip" ? " • VIP" : ""}</span>
+            <div class="alert-future-glow"></div>
+            <div class="alert-future-topline">
+              <span class="alert-type-pill">${typeLabel}</span>
               ${timer}
+            </div>
+            <div class="alert-future-title">${alert.title}</div>
+            <div class="alert-future-detail">${alert.detail}</div>
+            <div class="alert-future-bottomline">
+              <span class="alerts-meta">${alert.meta || (alert.type === "vip" ? "VIP venue" : "Live venue update")}</span>
             </div>
             ${checkInAction}
           </li>
@@ -35469,9 +35567,7 @@ let onboardingIndex = 0;
       if (staffCheckinsList) {
         staffCheckinsList.innerHTML = "No check-ins yet.";
       }
-      if (staffCheckinsStatus) {
-        staffCheckinsStatus.textContent = "Live sync paused.";
-      }
+      if (staffCheckinsStatus) staffCheckinsStatus.textContent = "";
     }
 
     function renderStaffCheckinsFilterOptions() {
@@ -35534,7 +35630,6 @@ let onboardingIndex = 0;
       if (!staffSession?.venue || !functionsClient || SAFE_MODE) return;
       if (staffAlertCheckinsInFlight && !options.force) return;
       staffAlertCheckinsInFlight = true;
-      if (staffCheckinsStatus) staffCheckinsStatus.textContent = "Syncing check-ins…";
       try {
         const fn = httpsCallable(functionsClient, "getVenueAlertCheckins");
         const resp = await fn({
@@ -35559,13 +35654,10 @@ let onboardingIndex = 0;
           .sort((a, b) => Number(b.checkedInAt || 0) - Number(a.checkedInAt || 0));
         renderStaffCheckinsFilterOptions();
         renderStaffAlertCheckins();
-        if (staffCheckinsStatus) {
-          const count = staffAlertCheckinsCache.length;
-          staffCheckinsStatus.textContent = `${count} check-in${count === 1 ? "" : "s"} synced · auto refresh`;
-        }
+        if (staffCheckinsStatus) staffCheckinsStatus.textContent = "";
       } catch (err) {
         console.warn("Failed to load venue check-ins", err);
-        if (staffCheckinsStatus) staffCheckinsStatus.textContent = "Could not load check-ins.";
+        if (staffCheckinsStatus) staffCheckinsStatus.textContent = "";
       } finally {
         staffAlertCheckinsInFlight = false;
       }
