@@ -25409,6 +25409,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.93",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Logged-in membership changes now treat Back as in-app navigation and return to profile/pass context"
+        ],
+        fixed: [
+          "Explorer upgrade chooser no longer routes Back to signup/auth; signup-only onboarding behavior remains isolated to auth flow"
+        ]
+      },
+      {
         version: "v0.9.92",
         date: "2026-03-07",
         added: [],
@@ -31791,11 +31802,23 @@ let onboardingIndex = 0;
       membershipBackBtn.addEventListener("click", () => {
         clearPendingMembershipPaymentPrep();
         setMembershipPlanSelectionBusy(false);
+        const loggedInMember = !!(firebaseAuth?.currentUser && !firebaseAuth.currentUser.isAnonymous);
+        if (onboardingMembershipFlow === true && loggedInMember && !signupAccountSetupInFlight && !pendingSignupData) {
+          onboardingMembershipFlow = false;
+          forceMembershipScreen = false;
+          clearOnboardingResume();
+          clearPendingMembershipFlagForUser(firebaseAuth.currentUser?.uid || "");
+          const memberTarget = (membershipReturnScreen && membershipReturnScreen !== "membership" && membershipReturnScreen !== "auth")
+            ? membershipReturnScreen
+            : "pass";
+          showScreen(memberTarget);
+          return;
+        }
         if (onboardingMembershipFlow === true) {
           showScreen(onboardingReturnScreen || "auth");
           return;
         }
-        const fallback = firebaseAuth.currentUser ? "tonight" : "landing";
+        const fallback = firebaseAuth.currentUser ? "pass" : "landing";
         const target = membershipReturnScreen && membershipReturnScreen !== "membership"
           ? membershipReturnScreen
           : fallback;
@@ -49255,8 +49278,10 @@ let onboardingIndex = 0;
         if (isExplorerMember() && (tier === "standard" || tier === "vip")) {
           pendingMembershipTier = tier;
           pendingMembershipInterval = interval;
-          onboardingMembershipFlow = true;
+          onboardingMembershipFlow = false;
           forceMembershipScreen = false;
+          clearOnboardingResume();
+          clearPendingMembershipFlagForUser(user?.uid || "");
           memberProfile = {
             ...(memberProfile || {}),
             requestedTier: tier,
