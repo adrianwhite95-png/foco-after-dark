@@ -18236,7 +18236,7 @@
         <button type="button" class="ceo-nav-item" data-ceo-tab="content">Content</button>
         <button type="button" class="ceo-nav-item" data-ceo-tab="redemptions">Redemptions</button>
         <button type="button" class="ceo-nav-item" data-ceo-tab="datareset">Data Reset</button>
-        <button type="button" class="ceo-nav-item" data-ceo-tab="assistant">HQ AI Assistant</button>
+        <button type="button" class="ceo-nav-item" data-ceo-tab="venueVisibility">Venue Visibility</button>
       </aside>
       <div class="ceo-hq-main">
         <header class="ceo-hq-header">
@@ -18793,26 +18793,21 @@
           </div>
         </section>
 
-        <section class="ceo-hq-panel" data-ceo-panel="assistant">
+        <section class="ceo-hq-panel" data-ceo-panel="venueVisibility">
           <div class="ceo-panel-header">
-            <h3>HQ AI Assistant</h3>
-            <p class="small">Ask product, ops, or rollout questions.</p>
+            <h3>Venue Visibility</h3>
+            <p class="small">Turn venues on/off for all non-CEO users without deleting anything.</p>
           </div>
-          <div class="ceo-reset-card" id="ceoChatCard">
-            <div class="ceo-chat-body" style="flex:1;">
-              <strong>Ask HQ (AI)</strong>
-              <div class="meta-note">CEO-only assistant with live app context (features, messaging, redemptions, settings).</div>
-              <div class="field" style="margin-top:2px;">
-                <label for="ceoChatInput" style="font-size:12px;color:#cbd5f5;">Prompt</label>
-                <textarea id="ceoChatInput" rows="4"></textarea>
+          <div class="ceo-reset-card">
+            <div style="flex:1;width:100%;">
+              <strong>Show or hide venues everywhere</strong>
+              <div class="meta-note">When hidden, a venue is removed from Home, venue lists, search, map, feeds, and voucher redemption venue picker.</div>
+              <div class="ceo-panel-tools" style="margin-top:10px;">
+                <input id="ceoVenueVisibilitySearch" type="text" placeholder="Search venue..." />
+                <button type="button" class="btn btn-secondary" id="ceoVenueVisibilityRefresh">Refresh</button>
               </div>
-              <div class="ceo-reset-actions" style="margin-top:2px;">
-                <button type="button" class="btn btn-secondary" id="ceoChatSyncContext">Sync app context</button>
-                <span class="small" id="ceoChatSyncStatus" style="color:#94a3b8;">Context sync pending</span>
-              </div>
-              <div id="ceoChatHistory" style="max-height:200px;overflow:auto;font-size:12px;display:flex;flex-direction:column;gap:6px;"></div>
+              <div id="ceoVenueVisibilityList" class="ceo-scroll" style="margin-top:8px;"></div>
             </div>
-            <button type="button" class="btn btn-primary" id="ceoChatSend">Send</button>
           </div>
         </section>
       </div>
@@ -25898,6 +25893,9 @@
     const ceoVenueAdminSearch = document.getElementById("ceoVenueAdminSearch");
     const ceoVenueAdminRefresh = document.getElementById("ceoVenueAdminRefresh");
     const ceoVenueAdminList = document.getElementById("ceoVenueAdminList");
+    const ceoVenueVisibilitySearch = document.getElementById("ceoVenueVisibilitySearch");
+    const ceoVenueVisibilityRefresh = document.getElementById("ceoVenueVisibilityRefresh");
+    const ceoVenueVisibilityList = document.getElementById("ceoVenueVisibilityList");
     const ceoNewVenueName = document.getElementById("ceoNewVenueName");
     const ceoNewVenueAddress = document.getElementById("ceoNewVenueAddress");
     const ceoNewVenueHours = document.getElementById("ceoNewVenueHours");
@@ -26078,6 +26076,19 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.108",
+        date: "2026-03-07",
+        added: [
+          "CEO HQ now has a dedicated Venue Visibility tab with simple on/off toggles to hide or show venues everywhere without deleting venue data"
+        ],
+        improved: [
+          "Hidden venues are now consistently removed from member-facing alert feeds and VIP deal feed visibility"
+        ],
+        fixed: [
+          "Replaced the CEO HQ AI assistant section with direct venue visibility controls for faster operations"
+        ]
+      },
       {
         version: "v0.9.107",
         date: "2026-03-07",
@@ -30453,6 +30464,8 @@
         .filter((alert) => {
           if (!alert || alert.enabled === false) return false;
           if (alert.expiresAt && alert.expiresAt <= now) return false;
+          const venueId = resolveVenueId(String(alert.venueId || ""));
+          if (venueId && !isVenueVisibleToMembers(venueId)) return false;
           const audience = String(alert.audience || "all").toLowerCase();
           if (audience === "vip" && !isVip) return false;
           return true;
@@ -37145,6 +37158,8 @@ let onboardingIndex = 0;
         .filter(deal => {
           const enabled = deal?.enabled !== false && deal?.disabled !== true;
           if (!enabled) return false;
+          const venueId = resolveVenueId(String(deal?.venueId || ""));
+          if (venueId && !isVenueVisibleToMembers(venueId)) return false;
           if (!deal.expiresAt) return true;
           const expires = deal.expiresAt.toMillis ? deal.expiresAt.toMillis() : new Date(deal.expiresAt).getTime();
           if (!(expires > now)) return false;
@@ -44840,6 +44855,49 @@ let onboardingIndex = 0;
       }).join("");
     }
 
+    function renderCeoVenueVisibilityList() {
+      if (!ceoVenueVisibilityList) return;
+      const search = String(ceoVenueVisibilitySearch?.value || "").trim().toLowerCase();
+      const venueIds = getAllKnownVenueIds()
+        .filter((id) => {
+          const info = venuesInfo[id] || {};
+          const haystack = `${id} ${info.name || ""} ${info.address || ""}`.toLowerCase();
+          return !search || haystack.includes(search);
+        })
+        .sort((a, b) => getVenueDisplayName(a).localeCompare(getVenueDisplayName(b)));
+      if (!venueIds.length) {
+        ceoVenueVisibilityList.innerHTML = '<p class="small">No venues found.</p>';
+        return;
+      }
+      ceoVenueVisibilityList.innerHTML = venueIds.map((venueId) => {
+        const info = venuesInfo[venueId] || {};
+        const state = getVenueAdminState(venueId);
+        const isArchived = state.status === "archived";
+        const visibleToUsers = state.status !== "hidden" && state.status !== "archived";
+        const statusLabel = isArchived
+          ? "Archived"
+          : (visibleToUsers ? "Visible to users" : "Hidden from users");
+        const buttonLabel = isArchived
+          ? "Archived (use Control Center to restore)"
+          : (visibleToUsers ? "Hide everywhere" : "Show everywhere");
+        return `
+          <div class="ceo-venue-admin-row" data-visibility-venue-id="${escapeHtmlText(venueId)}">
+            <div>
+              <strong>${escapeHtmlText(info.name || getVenueDisplayName(venueId))}</strong>
+              <div class="small">${escapeHtmlText(venueId)} · ${escapeHtmlText(info.address || "Address pending")}</div>
+              <div class="meta">
+                <span>Status: ${escapeHtmlText(statusLabel)}</span>
+                <span>Saved history is kept</span>
+              </div>
+            </div>
+            <div class="ceo-venue-admin-actions">
+              <button type="button" class="btn btn-secondary" data-venue-visibility-toggle ${isArchived ? "disabled" : ""}>${buttonLabel}</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
     function renderCeoControlCenter() {
       applyCeoControlAccessUi();
       if (!canAccessCeoControlCenter()) return;
@@ -44848,6 +44906,7 @@ let onboardingIndex = 0;
       renderCeoControlNumbers();
       renderCeoControlLists();
       renderCeoVenueAdminList();
+      renderCeoVenueVisibilityList();
       updateCeoWaitlistUi();
     }
 
@@ -44865,8 +44924,8 @@ let onboardingIndex = 0;
       if (tab === "content") {
         refreshFreeMembersList();
         refreshCeoFreeCodeList();
-      } else if (tab === "assistant") {
-        syncCeoAssistantContext(false);
+      } else if (tab === "venueVisibility") {
+        renderCeoVenueVisibilityList();
       } else if (tab === "control") {
         renderCeoControlCenter();
       }
@@ -45206,6 +45265,47 @@ let onboardingIndex = 0;
         initCeoVenueFilter();
         renderCeoControlCenter();
         showToast("Venue controls refreshed.", 1400);
+      });
+    }
+    if (ceoVenueVisibilitySearch) {
+      ceoVenueVisibilitySearch.addEventListener("input", () => {
+        renderCeoVenueVisibilityList();
+      });
+    }
+    if (ceoVenueVisibilityRefresh) {
+      ceoVenueVisibilityRefresh.addEventListener("click", () => {
+        refreshFeaturedVenuesData();
+        populateRedeemVenueOptions();
+        initCeoVenueFilter();
+        renderCeoVenueVisibilityList();
+        showToast("Venue visibility refreshed.", 1400);
+      });
+    }
+    if (ceoVenueVisibilityList) {
+      ceoVenueVisibilityList.addEventListener("click", async (event) => {
+        const row = event.target.closest("[data-visibility-venue-id]");
+        const btn = event.target.closest("[data-venue-visibility-toggle]");
+        if (!row || !btn) return;
+        const venueId = String(row.dataset.visibilityVenueId || "").trim();
+        if (!venueId) return;
+        const state = getVenueAdminState(venueId);
+        if (state.status === "archived") {
+          showToast("Archived venues can be restored in Control Center.", 2200);
+          return;
+        }
+        btn.disabled = true;
+        try {
+          const currentlyVisible = state.status !== "hidden" && state.status !== "archived";
+          const nextStatus = currentlyVisible ? "hidden" : "active";
+          await updateVenueViaAdmin(venueId, { status: nextStatus });
+          showToast(currentlyVisible ? "Venue hidden everywhere." : "Venue visible everywhere.", 1800);
+          renderCeoVenueVisibilityList();
+          renderCeoVenueAdminList();
+        } catch (err) {
+          showToast(mapMemberFacingError(err, "generic"), 2400);
+        } finally {
+          btn.disabled = false;
+        }
       });
     }
     if (ceoVenueAdminList) {
