@@ -19103,7 +19103,7 @@
           <button type="button" id="aboutPatchNotesToggle" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;">View older</button>
         </div>
 
-        <p id="aboutLastUpdatedText" style="margin-top:12px;font-size:12px;color:#9ca3af;">Last updated: March 4, 2026</p>
+        <p id="aboutLastUpdatedText" style="margin-top:12px;font-size:12px;color:#9ca3af;">Last updated: Checking current MST time...</p>
         <div style="margin-top:14px;border-top:1px solid rgba(148,163,184,0.06);padding-top:10px;text-align:center;color:var(--accent-magenta);font-weight:700;">© 2026 FoCo After Dark<br/>Founded &amp; Designed by Adrian White</div>
       </div>
     </div>
@@ -26079,6 +26079,18 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.107",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Patch Notes date sorting/formatting now uses explicit America/Denver date-safe parsing to prevent off-by-one timezone shifts",
+          "About Last updated now resolves from MST/MDT-aware internal clock fallback and shows timezone label for clarity"
+        ],
+        fixed: [
+          "Resolved cases where patch note dates could appear one day behind due to UTC date parsing behavior"
+        ]
+      },
+      {
         version: "v0.9.106",
         date: "2026-03-07",
         added: [
@@ -27048,6 +27060,68 @@
       return String(bVersion || "").localeCompare(String(aVersion || ""));
     }
 
+    const PATCH_NOTE_MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const PATCH_NOTE_MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    function getDenverTimeZoneAbbreviation(date = new Date()) {
+      try {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/Denver",
+          timeZoneName: "short"
+        }).formatToParts(date);
+        const label = parts.find((part) => part.type === "timeZoneName")?.value;
+        return String(label || "MT");
+      } catch (_) {
+        return "MT";
+      }
+    }
+
+    function parsePatchNoteDateParts(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return null;
+      const literal = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (literal) {
+        return {
+          year: Number(literal[1]) || 0,
+          month: Number(literal[2]) || 0,
+          day: Number(literal[3]) || 0
+        };
+      }
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) return null;
+      const mst = getMstDateParts(parsed);
+      return {
+        year: Number(mst.year) || 0,
+        month: Number(mst.month) || 0,
+        day: Number(mst.day) || 0
+      };
+    }
+
+    function getPatchNoteDateKey(value) {
+      const parts = parsePatchNoteDateParts(value);
+      if (!parts || !parts.year || !parts.month || !parts.day) return 0;
+      return (parts.year * 10000) + (parts.month * 100) + parts.day;
+    }
+
+    function formatLongDateParts(parts = {}) {
+      const year = Number(parts.year) || 0;
+      const month = Number(parts.month) || 0;
+      const day = Number(parts.day) || 0;
+      if (!year || !month || !day) return "";
+      const monthLabel = PATCH_NOTE_MONTHS_LONG[Math.max(0, Math.min(11, month - 1))] || "";
+      return `${monthLabel} ${day}, ${year}`;
+    }
+
+    function parseVersionDateParts(version = "") {
+      const match = String(version || "").match(/^(\d{4})\.(\d{2})\.(\d{2})/);
+      if (!match) return null;
+      return {
+        year: Number(match[1]) || 0,
+        month: Number(match[2]) || 0,
+        day: Number(match[3]) || 0
+      };
+    }
+
     function getSortedPatchNotes() {
       const source = Array.isArray(PATCH_NOTES) ? PATCH_NOTES : [];
       const seenVersions = new Set();
@@ -27061,7 +27135,7 @@
           ...entry,
           version,
           __index: index,
-          __dateStamp: Number.isFinite(Date.parse(entry.date)) ? Date.parse(entry.date) : 0
+          __dateStamp: getPatchNoteDateKey(entry.date)
         });
       });
       normalized.sort((a, b) => {
@@ -27075,13 +27149,10 @@
 
     function formatPatchNoteDate(value) {
       if (!value) return "";
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return String(value);
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric"
-      });
+      const parts = parsePatchNoteDateParts(value);
+      if (!parts || !parts.year || !parts.month || !parts.day) return String(value);
+      const monthLabel = PATCH_NOTE_MONTHS_SHORT[Math.max(0, Math.min(11, parts.month - 1))] || "";
+      return `${monthLabel} ${parts.day}, ${parts.year}`;
     }
 
     function renderPatchNotes() {
@@ -27139,6 +27210,12 @@
 
     async function refreshAboutLastUpdatedText() {
       if (!aboutLastUpdatedText) return;
+      const fallbackParts = getMstDateParts(new Date());
+      const fallbackLabel = formatLongDateParts(fallbackParts);
+      const fallbackZone = getDenverTimeZoneAbbreviation(new Date());
+      if (fallbackLabel) {
+        aboutLastUpdatedText.textContent = `Last updated: ${fallbackLabel} (${fallbackZone})`;
+      }
       try {
         const stamp = Date.now();
         const resp = await fetch(`/version.json?v=${stamp}`, { cache: "no-store" });
@@ -27148,18 +27225,20 @@
         if (version) {
           renderPatchNotes();
         }
-        const match = version.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
-        if (!match) return;
-        const [, year, month, day] = match;
-        const parsed = new Date(`${year}-${month}-${day}T12:00:00`);
-        if (Number.isNaN(parsed.getTime())) return;
-        aboutLastUpdatedText.textContent = `Last updated: ${parsed.toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric"
-        })}`;
+        const versionParts = parseVersionDateParts(version);
+        const chosenParts = versionParts || fallbackParts;
+        const label = formatLongDateParts(chosenParts);
+        if (!label) return;
+        const zoneDate = new Date(Date.UTC(
+          Number(chosenParts.year) || fallbackParts.year,
+          (Number(chosenParts.month) || fallbackParts.month) - 1,
+          Number(chosenParts.day) || fallbackParts.day,
+          12, 0, 0, 0
+        ));
+        const zone = getDenverTimeZoneAbbreviation(zoneDate);
+        aboutLastUpdatedText.textContent = `Last updated: ${label} (${zone})`;
       } catch (_) {
-        // keep static fallback text
+        // keep MST fallback text set at function start
       }
     }
     const pointsRedeemCancel = document.getElementById("pointsRedeemCancel");
