@@ -16116,24 +16116,24 @@
       margin: 0 auto 8px;
       padding: 5px 12px;
       border-radius: 999px;
-      border: 1px solid rgba(86, 229, 255, 0.5);
-      background: rgba(2, 8, 20, 0.72);
-      color: #bff3ff;
+      border: 1px solid rgba(103, 255, 127, 0.68);
+      background: rgba(1, 8, 2, 0.58);
+      color: #d9ffe3;
       font-size: 10px;
       font-weight: 800;
       letter-spacing: 0.15em;
       text-transform: uppercase;
-      box-shadow: 0 0 16px rgba(34, 211, 238, 0.22), inset 0 0 10px rgba(34, 211, 238, 0.08);
+      box-shadow: 0 0 18px rgba(57, 255, 20, 0.32), inset 0 0 12px rgba(57, 255, 20, 0.12);
     }
     #landingScreen .home-marketing-headline {
       margin: 0 0 8px;
       text-wrap: balance;
     }
     #landingScreen .headline-neon {
-      color: #9eefff;
+      color: #a7ff77;
       text-shadow:
-        0 0 14px rgba(34, 211, 238, 0.34),
-        0 0 26px rgba(255, 47, 184, 0.22);
+        0 0 14px rgba(57, 255, 20, 0.45),
+        0 0 26px rgba(57, 255, 20, 0.28);
     }
     #landingScreen .home-marketing-subhead {
       margin: 0 auto;
@@ -16141,8 +16141,8 @@
       text-wrap: pretty;
     }
     body.screen-landing .club-atmosphere {
-      opacity: 0.86;
-      filter: saturate(1.35) contrast(1.08);
+      opacity: 0.97;
+      filter: saturate(1.34) contrast(1.2) brightness(0.98);
     }
     body.screen-landing .club-atmosphere::before {
       content: "";
@@ -16150,45 +16150,74 @@
       inset: -20% -22%;
       pointer-events: none;
       background:
-        radial-gradient(46% 36% at 12% 20%, rgba(34, 211, 238, 0.24), transparent 72%),
-        radial-gradient(50% 38% at 88% 26%, rgba(255, 47, 184, 0.24), transparent 74%),
-        radial-gradient(64% 46% at 50% 74%, rgba(34, 211, 238, 0.12), transparent 78%);
-      filter: blur(24px);
-      opacity: 0.92;
-      animation: landingRaveBloom 6.5s ease-in-out infinite alternate;
+        radial-gradient(52% 42% at 8% 16%, rgba(102, 255, 36, 0.34), transparent 70%),
+        radial-gradient(54% 34% at 92% 18%, rgba(57, 255, 20, 0.24), transparent 72%),
+        radial-gradient(74% 52% at 50% 82%, rgba(57, 255, 20, 0.14), transparent 82%);
+      filter: blur(17px);
+      opacity: 0.96;
+      animation: landingRaveBloom 5.2s ease-in-out infinite alternate;
     }
     body.screen-landing .club-beam {
-      top: 20px;
-      height: 84vh;
-      opacity: 0.82;
-      filter: blur(0.8px) saturate(1.35);
-      animation-duration: 7.8s, 2.7s;
+      top: 12px;
+      width: min(24vw, 220px);
+      min-width: 120px;
+      height: 88vh;
+      opacity: 0.96;
+      filter: blur(0.12px) saturate(1.55) contrast(1.08);
+      animation-duration: 5.4s, 1.7s;
+      clip-path: polygon(49.5% 0, 50.5% 0, 100% 100%, 0 100%);
     }
     body.screen-landing .club-beam.b1 {
-      background: linear-gradient(180deg, rgba(34, 211, 238, 0.62), rgba(34, 211, 238, 0.2) 36%, rgba(34, 211, 238, 0.02) 100%);
+      background: linear-gradient(180deg, rgba(57, 255, 20, 0.98), rgba(57, 255, 20, 0.34) 28%, rgba(57, 255, 20, 0.02) 100%);
     }
     body.screen-landing .club-beam.b2 {
-      background: linear-gradient(180deg, rgba(255, 47, 184, 0.58), rgba(255, 47, 184, 0.2) 34%, rgba(255, 47, 184, 0.02) 100%);
+      background: linear-gradient(180deg, rgba(160, 255, 104, 0.94), rgba(160, 255, 104, 0.3) 30%, rgba(160, 255, 104, 0.02) 100%);
     }
     body.screen-landing .club-beam.b3 {
-      background: linear-gradient(180deg, rgba(74, 229, 255, 0.66), rgba(74, 229, 255, 0.22) 38%, rgba(74, 229, 255, 0.02) 100%);
+      background: linear-gradient(180deg, rgba(108, 255, 58, 0.92), rgba(108, 255, 58, 0.3) 34%, rgba(108, 255, 58, 0.02) 100%);
     }
     body.screen-landing .club-beam.b4 {
-      background: linear-gradient(180deg, rgba(255, 72, 194, 0.58), rgba(255, 72, 194, 0.18) 36%, rgba(255, 72, 194, 0.02) 100%);
+      background: linear-gradient(180deg, rgba(57, 255, 20, 0.92), rgba(57, 255, 20, 0.3) 33%, rgba(57, 255, 20, 0.02) 100%);
     }
     body.screen-landing .club-beam.b5 {
-      background: linear-gradient(180deg, rgba(34, 211, 238, 0.54), rgba(34, 211, 238, 0.14) 38%, rgba(34, 211, 238, 0.02) 100%);
+      background: linear-gradient(180deg, rgba(98, 255, 58, 0.92), rgba(98, 255, 58, 0.28) 34%, rgba(98, 255, 58, 0.02) 100%);
     }
     body.screen-landing .club-haze {
-      opacity: 0.72;
-      filter: blur(18px) saturate(1.2);
+      opacity: 0.82;
+      filter: blur(16px) saturate(1.25);
     }
     body.screen-landing .pageWash {
       background:
-        radial-gradient(70% 42% at 10% 18%, rgba(34, 211, 238, 0.14), transparent 70%),
-        radial-gradient(74% 46% at 92% 24%, rgba(255, 47, 184, 0.14), transparent 72%),
-        linear-gradient(180deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.94)) !important;
+        radial-gradient(78% 46% at 8% 16%, rgba(57, 255, 20, 0.2), transparent 72%),
+        radial-gradient(72% 42% at 94% 24%, rgba(57, 255, 20, 0.14), transparent 74%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.975)) !important;
       box-shadow: inset 0 0 300px rgba(0, 0, 0, 0.92) !important;
+    }
+    body.screen-landing .landing-wrapper::after {
+      background:
+        repeating-linear-gradient(112deg,
+          rgba(57, 255, 20, 0) 0 68px,
+          rgba(57, 255, 20, 0.88) 68px 69px,
+          rgba(57, 255, 20, 0) 69px 132px),
+        repeating-linear-gradient(248deg,
+          rgba(57, 255, 20, 0) 0 84px,
+          rgba(160, 255, 104, 0.72) 84px 85px,
+          rgba(57, 255, 20, 0) 85px 156px),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.46)) !important;
+      opacity: 0.74 !important;
+      filter: blur(0.16px);
+      animation: landingLaserGridSweep 5.8s linear infinite;
+    }
+    body.screen-landing .landing-wrapper .landing-strobe {
+      background:
+        linear-gradient(110deg, transparent 16%, rgba(57, 255, 20, 0.28) 39%, transparent 52%),
+        linear-gradient(252deg, transparent 35%, rgba(57, 255, 20, 0.22) 63%, transparent 77%);
+      opacity: 0.68;
+      filter: blur(5px);
+    }
+    @keyframes landingLaserGridSweep {
+      0% { background-position: -220px 0, 180px 0, 0 0; }
+      100% { background-position: 280px 0, -220px 0, 0 0; }
     }
     @keyframes landingRaveBloom {
       0% { transform: translate3d(-2%, 0, 0) scale(1); opacity: 0.76; }
@@ -16197,45 +16226,50 @@
     }
     #landingScreen .landing-wrapper,
     #landingScreen .landing-wrapper.appFrame {
-      background: linear-gradient(175deg, rgba(1, 3, 8, 0.42), rgba(1, 2, 7, 0.58)) !important;
-      border: 1px solid rgba(111, 152, 187, 0.25) !important;
+      background: linear-gradient(175deg, rgba(0, 0, 0, 0.46), rgba(1, 2, 4, 0.64)) !important;
+      border: 1px solid rgba(116, 168, 126, 0.25) !important;
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.07),
-        inset 0 -28px 54px rgba(0, 0, 0, 0.38),
-        0 34px 90px rgba(0, 0, 0, 0.62),
-        0 0 30px rgba(34, 211, 238, 0.12),
-        0 0 30px rgba(255, 47, 184, 0.08) !important;
+        inset 0 -30px 56px rgba(0, 0, 0, 0.44),
+        0 34px 90px rgba(0, 0, 0, 0.7),
+        0 0 30px rgba(57, 255, 20, 0.14) !important;
       backdrop-filter: blur(10px) saturate(1.02);
       -webkit-backdrop-filter: blur(10px) saturate(1.02);
     }
     #landingScreen .landing-wrapper::before {
       background:
         radial-gradient(130% 105% at 50% 112%, rgba(0, 0, 0, 0.78), transparent 62%),
-        radial-gradient(120% 95% at 16% -10%, rgba(2, 11, 28, 0.62), transparent 70%),
-        radial-gradient(120% 95% at 84% -8%, rgba(20, 8, 28, 0.5), transparent 72%) !important;
+        radial-gradient(120% 95% at 16% -10%, rgba(1, 10, 2, 0.72), transparent 70%),
+        radial-gradient(120% 95% at 84% -8%, rgba(6, 10, 3, 0.66), transparent 72%) !important;
       opacity: 1 !important;
     }
     #landingScreen .landing-wrapper::after {
       background:
-        linear-gradient(109deg, transparent 22%, rgba(34, 211, 238, 0.24) 36%, rgba(34, 211, 238, 0) 47%),
-        linear-gradient(124deg, transparent 54%, rgba(255, 47, 184, 0.2) 69%, transparent 81%),
-        linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.32) 100%) !important;
-      opacity: 0.86 !important;
-      filter: blur(15px);
-      animation: landingLaserDrift 10s linear infinite;
+        repeating-linear-gradient(114deg,
+          rgba(57, 255, 20, 0) 0 72px,
+          rgba(57, 255, 20, 0.88) 72px 73px,
+          rgba(57, 255, 20, 0) 73px 148px),
+        repeating-linear-gradient(246deg,
+          rgba(57, 255, 20, 0) 0 88px,
+          rgba(153, 255, 98, 0.68) 88px 89px,
+          rgba(57, 255, 20, 0) 89px 170px),
+        linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.42)) !important;
+      opacity: 0.76 !important;
+      filter: blur(0.18px);
+      animation: landingLaserGridSweep 5.8s linear infinite;
     }
     #landingScreen .landing-wrapper .landing-strobe {
       background:
-        linear-gradient(103deg, transparent 20%, rgba(34, 211, 238, 0.24) 46%, transparent 66%),
-        linear-gradient(284deg, transparent 54%, rgba(255, 47, 184, 0.2) 74%, transparent 88%);
-      opacity: 0.42;
-      filter: blur(24px);
+        linear-gradient(103deg, transparent 20%, rgba(57, 255, 20, 0.3) 46%, transparent 66%),
+        linear-gradient(284deg, transparent 54%, rgba(98, 255, 58, 0.24) 74%, transparent 88%);
+      opacity: 0.62;
+      filter: blur(8px);
     }
     #landingScreen .landing-wrapper .landing-strobe::before {
-      opacity: 0.48;
+      opacity: 0.54;
       background:
-        radial-gradient(circle at 72% 14%, rgba(34, 211, 238, 0.42), transparent 56%),
-        radial-gradient(circle at 20% 72%, rgba(255, 47, 184, 0.34), transparent 64%);
+        radial-gradient(circle at 72% 14%, rgba(57, 255, 20, 0.46), transparent 56%),
+        radial-gradient(circle at 20% 72%, rgba(118, 255, 74, 0.36), transparent 64%);
     }
     @keyframes landingLaserDrift {
       0% { transform: translate3d(-2%, 0, 0) scale(1); }
@@ -16275,21 +16309,23 @@
       inset: -35% -30%;
       pointer-events: none;
       background:
-        linear-gradient(112deg, transparent 18%, rgba(34, 211, 238, 0.18) 41%, transparent 62%),
-        linear-gradient(126deg, transparent 53%, rgba(255, 47, 184, 0.16) 71%, transparent 84%);
+        linear-gradient(112deg, transparent 18%, rgba(57, 255, 20, 0.22) 41%, transparent 62%),
+        linear-gradient(126deg, transparent 53%, rgba(153, 255, 98, 0.16) 71%, transparent 84%);
       opacity: 0.62;
-      filter: blur(12px);
+      filter: blur(8px);
     }
     #landingScreen .launch-billboard .launch-hero-title {
-      background: linear-gradient(95deg, #f4fbff 0%, #97ebff 56%, #ff66c4 100%) !important;
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
+      background: none !important;
+      background-image: none !important;
+      -webkit-background-clip: border-box !important;
+      background-clip: border-box !important;
+      color: #ebffee !important;
+      -webkit-text-fill-color: #ebffee !important;
+      filter: none !important;
       text-shadow:
-        0 0 12px rgba(34, 211, 238, 0.24),
-        0 0 24px rgba(34, 211, 238, 0.16),
-        0 0 26px rgba(255, 47, 184, 0.2),
-        0 14px 36px rgba(0, 0, 0, 0.6);
+        0 0 14px rgba(57, 255, 20, 0.44),
+        0 0 32px rgba(57, 255, 20, 0.28),
+        0 14px 36px rgba(0, 0, 0, 0.65);
     }
     #landingScreen .launch-billboard .launch-hero-copy,
     #landingScreen .rewards-subtitle,
@@ -16299,10 +16335,10 @@
       text-shadow: none !important;
     }
     #landingScreen .billboard-pill-row {
-      border-color: rgba(82, 224, 255, 0.48) !important;
-      background: rgba(3, 9, 20, 0.66) !important;
-      color: #bceeff !important;
-      box-shadow: 0 0 14px rgba(34, 211, 238, 0.2), inset 0 0 14px rgba(34, 211, 238, 0.06);
+      border-color: rgba(98, 255, 58, 0.52) !important;
+      background: rgba(2, 10, 3, 0.54) !important;
+      color: #d8ffd0 !important;
+      box-shadow: 0 0 14px rgba(57, 255, 20, 0.24), inset 0 0 14px rgba(57, 255, 20, 0.08);
     }
     #landingScreen .home-tonight-points span,
     #landingScreen .rewards-option,
@@ -16312,36 +16348,36 @@
       color: rgba(223, 237, 251, 0.92) !important;
     }
     #landingScreen #landingGetPassBtn {
-      background: linear-gradient(110deg, rgba(5, 18, 35, 0.96), rgba(12, 30, 54, 0.94)) !important;
-      border: 1px solid rgba(57, 232, 255, 0.62) !important;
-      color: #ecfdff !important;
+      background: linear-gradient(110deg, rgba(2, 16, 4, 0.95), rgba(7, 30, 9, 0.92)) !important;
+      border: 1px solid rgba(153, 255, 98, 0.62) !important;
+      color: #ecffee !important;
       box-shadow:
-        0 0 0 1px rgba(34, 211, 238, 0.28),
-        0 0 22px rgba(34, 211, 238, 0.3),
-        0 0 22px rgba(255, 47, 184, 0.2),
+        0 0 0 1px rgba(57, 255, 20, 0.3),
+        0 0 22px rgba(57, 255, 20, 0.34),
+        0 0 30px rgba(57, 255, 20, 0.22),
         0 14px 30px rgba(0, 0, 0, 0.55) !important;
     }
     #landingScreen #landingGetPassBtn:hover {
       transform: translateY(-1px);
       box-shadow:
-        0 0 0 1px rgba(57, 232, 255, 0.42),
-        0 0 28px rgba(34, 211, 238, 0.38),
-        0 0 30px rgba(255, 47, 184, 0.24),
+        0 0 0 1px rgba(195, 255, 166, 0.44),
+        0 0 32px rgba(57, 255, 20, 0.44),
+        0 0 36px rgba(57, 255, 20, 0.28),
         0 18px 36px rgba(0, 0, 0, 0.58) !important;
     }
     #landingScreen .launch-inline-link,
     #landingScreen .landing-share-btn,
     #landingScreen .launch-secondary-actions #addToHomeBtn {
       background: linear-gradient(165deg, rgba(4, 10, 23, 0.82), rgba(3, 8, 19, 0.72)) !important;
-      border-color: rgba(104, 178, 214, 0.34) !important;
+      border-color: rgba(127, 174, 123, 0.34) !important;
       color: #ddf4ff !important;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.36), 0 0 14px rgba(34, 211, 238, 0.12);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.36), 0 0 14px rgba(57, 255, 20, 0.18);
     }
     #landingScreen .launch-inline-link:hover,
     #landingScreen .landing-share-btn:hover,
     #landingScreen .launch-secondary-actions #addToHomeBtn:hover {
-      border-color: rgba(57, 232, 255, 0.54) !important;
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42), 0 0 18px rgba(34, 211, 238, 0.22), 0 0 16px rgba(255, 47, 184, 0.14);
+      border-color: rgba(153, 255, 98, 0.56) !important;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42), 0 0 20px rgba(57, 255, 20, 0.24);
     }
     #landingScreen .rewards-points-value,
     #landingScreen #landingRewardsExtraTokens,
@@ -16351,8 +16387,8 @@
     #landingScreen .launch-live-tag,
     #landingScreen #landingRewardsTierBadge {
       text-shadow:
-        0 0 10px rgba(34, 211, 238, 0.28),
-        0 0 18px rgba(255, 47, 184, 0.18) !important;
+        0 0 10px rgba(57, 255, 20, 0.38),
+        0 0 18px rgba(57, 255, 20, 0.24) !important;
     }
     #landingScreen .proof-row {
       background: linear-gradient(155deg, rgba(3, 8, 18, 0.74), rgba(2, 5, 13, 0.86)) !important;
@@ -16365,18 +16401,18 @@
     }
     #landingScreen .proof-check {
       background: linear-gradient(145deg, rgba(6, 18, 35, 0.9), rgba(19, 42, 72, 0.86)) !important;
-      border-color: rgba(57, 232, 255, 0.48) !important;
-      color: #9ef0ff !important;
-      box-shadow: 0 0 16px rgba(34, 211, 238, 0.24);
+      border-color: rgba(153, 255, 98, 0.48) !important;
+      color: #d6ffd0 !important;
+      box-shadow: 0 0 16px rgba(57, 255, 20, 0.3);
     }
     @media (max-width: 920px) {
       body.screen-landing .club-atmosphere {
-        opacity: 0.72;
+        opacity: 0.82;
       }
       body.screen-landing .club-beam {
         top: 18px;
         height: 72vh;
-        opacity: 0.68;
+        opacity: 0.74;
       }
       #landingScreen .landing-wrapper,
       #landingScreen .landing-wrapper.appFrame {
@@ -16569,7 +16605,7 @@
               <span class="landing-asterism a2"></span>
               <span class="landing-asterism a3"></span>
             </div>
-            <img src="foco-logo.png" alt="FoCo After Dark logo" class="landing-logo-overlay" style="position:absolute;inset:0;object-fit:contain;opacity:0.18;mix-blend-mode:screen;pointer-events:none;filter:drop-shadow(0 0 18px rgba(34,211,238,0.5));" />
+            <img src="foco-logo.png" alt="FoCo After Dark logo" class="landing-logo-overlay" style="position:absolute;inset:0;object-fit:contain;opacity:0.18;mix-blend-mode:screen;pointer-events:none;filter:drop-shadow(0 0 18px rgba(57,255,20,0.48));" />
             <div class="landing-orbs" aria-hidden="true">
               <span></span>
               <span></span>
@@ -25699,6 +25735,30 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.102",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Home hero now runs a darker neon-green laser-show art direction with sharper beam lines, deeper smoked-glass contrast, and stronger nightclub atmosphere",
+          "Landing headline stack now uses clear product-first messaging with higher readability and stronger visual hierarchy across web, iPad, and iPhone"
+        ],
+        fixed: [
+          "Removed the remaining colorful block artifact in the home hero text area"
+        ]
+      },
+      {
+        version: "v0.9.101",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Home hero visuals now use a dark laser-show atmosphere with sharper neon-green beam lines through smoky black glass",
+          "Landing messaging card was strengthened with product-first marketing hierarchy and cleaner headline readability across web, iPad, and iPhone"
+        ],
+        fixed: [
+          "Removed the colorful gradient block artifact from the home hero section"
+        ]
+      },
       {
         version: "v0.9.100",
         date: "2026-03-07",
