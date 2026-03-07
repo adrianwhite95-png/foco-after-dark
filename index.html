@@ -3074,10 +3074,10 @@
       color: #fed7aa;
     }
     .accent-chip[data-accent="csu_jungle_juice"] {
-      background: linear-gradient(120deg, rgba(4, 44, 32, 0.92), rgba(9, 94, 67, 0.72), rgba(203, 157, 55, 0.28));
-      border-color: rgba(239, 198, 92, 0.64);
-      color: #ecfff5;
-      text-shadow: 0 0 10px rgba(255, 218, 128, 0.42);
+      background: linear-gradient(120deg, rgba(6, 46, 34, 0.94), rgba(17, 94, 62, 0.74), rgba(226, 190, 92, 0.52));
+      border-color: rgba(248, 214, 126, 0.78);
+      color: #fff6d8;
+      text-shadow: 0 0 12px rgba(255, 220, 136, 0.62);
     }
     .accent-chip[data-accent="prison_punch"] {
       background: linear-gradient(120deg, rgba(10, 22, 56, 0.92), rgba(20, 66, 158, 0.62), rgba(164, 20, 20, 0.32));
@@ -16180,6 +16180,54 @@
       gap: 10px;
       align-content: start;
     }
+    #landingScreen .home-easter-egg-card {
+      padding: 11px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(120, 255, 106, 0.38);
+      background: linear-gradient(160deg, rgba(3, 8, 18, 0.78), rgba(2, 6, 16, 0.72));
+      box-shadow:
+        inset 0 0 0 1px rgba(120, 255, 106, 0.12),
+        0 12px 28px rgba(0, 0, 0, 0.42),
+        0 0 16px rgba(57, 255, 20, 0.2);
+      display: grid;
+      gap: 6px;
+    }
+    #landingScreen .home-easter-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 241, 255, 0.46);
+      background: rgba(2, 18, 28, 0.44);
+      color: rgba(192, 244, 255, 0.92);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px rgba(32, 232, 255, 0.34);
+    }
+    #landingScreen .home-easter-title {
+      margin: 0;
+      font-size: clamp(16px, 2vw, 20px);
+      line-height: 1.22;
+      color: #f2fff4;
+      text-shadow: 0 0 16px rgba(57, 255, 20, 0.28);
+      text-wrap: balance;
+    }
+    #landingScreen .home-easter-copy {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.38;
+      color: rgba(214, 231, 247, 0.9);
+      text-wrap: pretty;
+    }
+    #landingScreen .home-easter-copy strong {
+      color: #d7ffba;
+      text-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
     #landingScreen .launch-billboard {
       padding: 13px 15px 12px;
       border-radius: 18px;
@@ -16474,6 +16522,16 @@
         padding: 8px 9px;
       }
       #landingScreen .proof-text {
+        font-size: 12px;
+      }
+      #landingScreen .home-easter-egg-card {
+        padding: 10px 11px;
+        gap: 5px;
+      }
+      #landingScreen .home-easter-title {
+        font-size: 16px;
+      }
+      #landingScreen .home-easter-copy {
         font-size: 12px;
       }
       .rewards-points-value {
@@ -17098,6 +17156,11 @@
                     <div id="landingRenewalBonusNote" class="rewards-footer-pill">Renewal bonus: Standard +200 | VIP +300 points</div>
                     <div id="landingTierBoostNote" class="rewards-footer-pill">Point rate: Standard 1.0x | VIP 1.25x</div>
                   </div>
+                </section>
+                <section class="home-easter-egg-card glassBox premiumGlass" aria-label="Easter egg challenge">
+                  <div class="home-easter-eyebrow">Secret Challenge</div>
+                  <h3 class="home-easter-title">Think you've seen everything?</h3>
+                  <p class="home-easter-copy">There are <strong>3 hidden easter eggs</strong> in the app. The first user to find all 3 unlocks <strong>unlimited monthly vouchers for 1 year</strong>.</p>
                 </section>
                 <div class="launch-social-proof glassBox premiumGlass" aria-label="Social proof">
                   <div class="proof-row">
@@ -26402,10 +26465,23 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.120",
+        date: "2026-03-07",
+        added: [
+          "Home now includes a new Secret Challenge card highlighting the 3-easter-egg race and 1-year unlimited monthly voucher prize"
+        ],
+        improved: [
+          "CSU Jungle Juice accent was retuned with stronger CSU gold contrast so it stands apart more clearly from Mojito Mint-style greens"
+        ],
+        fixed: [
+          "Patch note wording now avoids revealing hidden unlock methods directly"
+        ]
+      },
+      {
         version: "v0.9.119",
         date: "2026-03-07",
         added: [
-          "New locked easter-egg accent: Prison Punch, unlocked from the Map screen by selecting Larimer County Jail"
+          "New locked easter-egg accent: Prison Punch"
         ],
         improved: [
           "CEO Members view and member preview now include Easter Eggs unlocked progress (out of 3 total)"
@@ -26430,7 +26506,7 @@
         date: "2026-03-07",
         added: [],
         improved: [
-          "Top logo on the member pass is now fully tappable/clickable on iOS and web and participates in the same easter-egg flip behavior as the profile menu logo"
+          "Top logo on the member pass is now fully tappable/clickable on iOS and web and mirrors the same collectible-logo behavior as the profile menu logo"
         ],
         fixed: [
           "Reduced pass-screen scroll blanking/flicker by removing pass hero/profile paint containment and promoting key pass modules to smoother composited rendering"
@@ -26442,7 +26518,7 @@
         added: [],
         improved: [
           "CSU easter-egg logo now resets to the FoCo logo on next login/session change",
-          "Added quick double-tap action on the profile logo to flip it back to FoCo instantly"
+          "Added a quick profile-logo revert action to flip it back to FoCo instantly"
         ],
         fixed: [
           "Profile logo face no longer persists unintentionally between user sessions"
@@ -26452,10 +26528,10 @@
         version: "v0.9.115",
         date: "2026-03-07",
         added: [
-          "New locked accent: CSU Jungle Juice (dark green and white), unlocked by a new profile-logo easter egg"
+          "New locked accent: CSU Jungle Juice (dark green and white)"
         ],
         improved: [
-          "Profile menu logo now supports triple-tap easter egg detection in a 2-second window with touch/click handling tuned for mobile and web",
+          "Profile menu logo now supports hidden accent discovery behavior with touch/click handling tuned for mobile and web",
           "Unlocked CSU Jungle Juice state now persists per member account and updates accent chip lock state instantly"
         ],
         fixed: [
@@ -35145,12 +35221,12 @@ let onboardingIndex = 0;
           shadow: "0 28px 72px rgba(8, 4, 2, 0.88), 0 0 40px rgba(241, 194, 125, 0.34), 0 0 26px rgba(143, 91, 255, 0.26)"
         },
         csu_jungle_juice: {
-          primary: "#0a6a4a",
-          secondary: "#f8fff7",
-          glow: "rgba(241, 196, 82, 0.56)",
-          border: "rgba(241, 196, 82, 0.62)",
-          surface: "rgba(6, 56, 40, 0.3)",
-          shadow: "0 28px 72px rgba(1, 16, 11, 0.9), 0 0 44px rgba(9, 161, 112, 0.32), 0 0 24px rgba(241, 196, 82, 0.34)"
+          primary: "#0b4f35",
+          secondary: "#f3c84f",
+          glow: "rgba(243, 200, 79, 0.68)",
+          border: "rgba(243, 200, 79, 0.78)",
+          surface: "rgba(8, 44, 31, 0.38)",
+          shadow: "0 28px 72px rgba(1, 14, 10, 0.92), 0 0 44px rgba(11, 136, 90, 0.28), 0 0 30px rgba(243, 200, 79, 0.5)"
         },
         prison_punch: {
           primary: "#1f4ed8",
@@ -35632,7 +35708,7 @@ let onboardingIndex = 0;
         neon_lime: 92,
         ruby_night: 348,
         paloma: 18,
-        csu_jungle_juice: 145,
+        csu_jungle_juice: 42,
         prison_punch: 220,
         ceo: 48
       };
