@@ -10793,6 +10793,7 @@
       -webkit-backface-visibility: hidden;
       backface-visibility: hidden;
       will-change: transform, opacity, background-position;
+      animation-play-state: running !important;
       animation: passLaserSweep 7.4s linear infinite, passLaserPulse 2.1s ease-in-out infinite, passLaserFlash 2.6s steps(4, end) infinite;
     }
     #passScreen .pass-card::after {
@@ -10814,6 +10815,7 @@
       -webkit-backface-visibility: hidden;
       backface-visibility: hidden;
       will-change: transform, opacity, background-position;
+      animation-play-state: running !important;
       animation: passLaserGridShift 5.6s linear infinite, passLaserFlash 3.2s steps(5, end) infinite reverse;
     }
     @keyframes passLaserSweep {
@@ -11412,6 +11414,10 @@
     body.motion-refresh #passScreen .member-hero::before,
     body.motion-refresh #passScreen .member-hero::after,
     body.motion-refresh #passScreen .profile-summary::before {
+      animation: none !important;
+    }
+    #passScreen.pass-laser-refresh .pass-card::before,
+    #passScreen.pass-laser-refresh .pass-card::after {
       animation: none !important;
     }
 
@@ -22369,6 +22375,10 @@
       }
       if (name === "pass") {
         triggerPassIntro();
+        restartPassLaserAnimations();
+        setTimeout(() => {
+          if (currentScreenName === "pass") restartPassLaserAnimations();
+        }, 120);
         maybeShowOnboarding();
         startIdleTimer();
       } else {
@@ -22621,6 +22631,15 @@
       // force reflow to restart animation
       void passCard.offsetWidth;
       passCard.classList.add("intro");
+    }
+    function restartPassLaserAnimations() {
+      const passScreenEl = screens?.pass || document.getElementById("passScreen");
+      if (!passScreenEl) return;
+      passScreenEl.classList.add("pass-laser-refresh");
+      void passScreenEl.offsetWidth;
+      requestAnimationFrame(() => {
+        passScreenEl.classList.remove("pass-laser-refresh");
+      });
     }
 
     let forceShowLogin = false;
@@ -26214,6 +26233,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.112",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Pass laser layers now auto-restart when returning to Pass or changing accent, so profile lighting stays alive without manual refresh"
+        ],
+        fixed: [
+          "Resolved issue where pass lasers could appear paused after screen changes or accent updates"
+        ]
+      },
       {
         version: "v0.9.111",
         date: "2026-03-07",
@@ -35001,6 +35031,9 @@ let onboardingIndex = 0;
         chip.classList.toggle("active", chip.dataset.accent === safeTheme);
       });
       updateAccentChipLocks();
+      if (currentScreenName === "pass") {
+        restartPassLaserAnimations();
+      }
       // Background auto-apply disabled (users no longer choose background options)
     }
     function loadAccentTheme() {
@@ -51283,6 +51316,12 @@ let onboardingIndex = 0;
     if (event?.persisted || document.visibilityState === "visible") {
       lastPageShowRefreshAt = now;
       refreshOnLaunch();
+    }
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (currentScreenName === "pass") {
+      restartPassLaserAnimations();
     }
   });
 
