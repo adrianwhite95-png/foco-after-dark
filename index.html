@@ -505,9 +505,49 @@
       justify-content: center;
       min-height: 100vh;
       padding: 28px 18px;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(165deg, rgba(1, 2, 5, 0.9), rgba(2, 6, 14, 0.94));
     }
     .maintenance-screen.active {
       display: flex;
+    }
+    .maintenance-screen::before {
+      content: "";
+      position: absolute;
+      inset: -30%;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.76;
+      filter: blur(0.2px);
+      background:
+        linear-gradient(var(--landing-laser-angle-a, 114deg),
+          transparent 0 44%,
+          rgba(57, 255, 20, var(--landing-laser-alpha-a, 0.52)) 49%,
+          transparent 54%),
+        linear-gradient(var(--landing-laser-angle-b, 246deg),
+          transparent 0 45%,
+          rgba(153, 255, 98, var(--landing-laser-alpha-b, 0.36)) 51%,
+          transparent 56%),
+        linear-gradient(var(--landing-laser-angle-c, 176deg),
+          transparent 0 43%,
+          rgba(32, 232, 255, var(--landing-laser-alpha-c, 0.32)) 48%,
+          transparent 56%);
+      animation: landingLaserFlash 2s steps(2, end) infinite;
+    }
+    .maintenance-screen::after {
+      content: "";
+      position: absolute;
+      inset: -20%;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.56;
+      filter: blur(8px) saturate(1.24);
+      background:
+        linear-gradient(var(--landing-strobe-angle-a, 103deg), transparent 20%, rgba(57, 255, 20, 0.34) 46%, transparent 66%),
+        linear-gradient(var(--landing-strobe-angle-b, 284deg), transparent 54%, rgba(98, 255, 58, 0.28) 74%, transparent 88%),
+        linear-gradient(var(--landing-strobe-angle-c, 236deg), transparent 28%, rgba(32, 232, 255, 0.22) 56%, transparent 82%);
+      animation: landingStrobeFlicker 2.2s steps(3, end) infinite;
     }
     .maintenance-card {
       width: min(520px, 100%);
@@ -517,6 +557,8 @@
       background: rgba(10, 14, 24, 0.92);
       border: 1px solid rgba(148, 163, 184, 0.22);
       box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+      position: relative;
+      z-index: 2;
     }
     .maintenance-card img {
       width: 96px;
@@ -6782,6 +6824,30 @@
         color-mix(in srgb, var(--accent-primary-live) 30%, transparent) 286deg 304deg,
         transparent 304deg 360deg
       );
+      background:
+        linear-gradient(116deg,
+          transparent 0 43%,
+          color-mix(in srgb, var(--accent-primary-live) 76%, transparent) 49%,
+          transparent 55%),
+        linear-gradient(244deg,
+          transparent 0 45%,
+          color-mix(in srgb, var(--accent-secondary-live) 66%, transparent) 51%,
+          transparent 57%),
+        conic-gradient(
+          from 0deg,
+          color-mix(in srgb, var(--accent-primary-live) 42%, transparent) 0deg 24deg,
+          transparent 24deg 66deg,
+          color-mix(in srgb, var(--accent-secondary-live) 38%, transparent) 66deg 98deg,
+          transparent 98deg 146deg,
+          color-mix(in srgb, var(--accent-primary-live) 34%, transparent) 146deg 172deg,
+          transparent 172deg 232deg,
+          color-mix(in srgb, var(--accent-secondary-live) 30%, transparent) 232deg 254deg,
+          transparent 254deg 286deg,
+          color-mix(in srgb, var(--accent-primary-live) 30%, transparent) 286deg 304deg,
+          transparent 304deg 360deg
+        );
+      opacity: 0.56;
+      filter: blur(10px) saturate(1.34) brightness(1.12);
     }
     #staffPortalScreen::before {
       background: conic-gradient(
@@ -11188,8 +11254,18 @@
     }
     #passScreen::after {
       background:
+        linear-gradient(128deg,
+          transparent 0 40%,
+          color-mix(in srgb, var(--accent-primary-live) 46%, transparent) 49%,
+          transparent 58%),
+        linear-gradient(226deg,
+          transparent 0 42%,
+          color-mix(in srgb, var(--accent-secondary-live) 40%, transparent) 51%,
+          transparent 60%),
         radial-gradient(circle at 22% 28%, color-mix(in srgb, var(--accent-primary-live) 42%, transparent), transparent 48%),
         radial-gradient(circle at 74% 72%, color-mix(in srgb, var(--accent-secondary-live) 38%, transparent), transparent 52%);
+      opacity: 0.31;
+      filter: blur(18px) saturate(1.22);
     }
     #staffPortalScreen::after {
       background:
@@ -11220,6 +11296,24 @@
     }
     body.ios #passScreen .value-radar-core {
       animation-duration: 1.2s;
+    }
+    body.user-motion-reduced #passScreen::before,
+    body.user-motion-reduced #passScreen::after,
+    body.user-motion-reduced #passScreen .pass-card::after,
+    body.user-motion-reduced #passScreen .pulse-band::after,
+    body.user-motion-reduced #passScreen .pulse-thread span,
+    body.user-motion-reduced #passScreen .pulse-sparks span,
+    body.user-motion-reduced #passScreen .pulse-streaks span,
+    body.user-motion-reduced #passScreen .pulse-bursts span,
+    body.user-motion-reduced #passScreen .member-hero::before,
+    body.user-motion-reduced #passScreen .member-hero::after,
+    body.user-motion-reduced #passScreen .profile-summary::before {
+      animation: none !important;
+    }
+    body.user-motion-reduced #passScreen::before,
+    body.user-motion-reduced #passScreen::after {
+      opacity: 0.16 !important;
+      filter: blur(12px) saturate(1.05) !important;
     }
 
     #passScreen .profile-summary::before {
@@ -12960,6 +13054,36 @@
       min-height: 50px;
       margin: 0;
       padding: 10px 12px;
+    }
+    #menuScreen .menu-motion-control {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 30%, rgba(148, 163, 184, 0.28));
+      background: linear-gradient(158deg, rgba(4, 10, 20, 0.74), rgba(5, 12, 24, 0.62));
+      display: grid;
+      gap: 8px;
+    }
+    #menuScreen .menu-motion-title {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: color-mix(in srgb, var(--accent-primary-live) 76%, #f8fafc);
+    }
+    #menuScreen .menu-motion-status {
+      margin: 0;
+      font-size: 12px;
+      color: rgba(226, 232, 240, 0.9);
+    }
+    #menuScreen .menu-motion-note {
+      margin: 0;
+      font-size: 11px;
+      color: rgba(186, 198, 218, 0.84);
+      line-height: 1.35;
+    }
+    #menuScreen #menuMotionToggle {
+      min-height: 42px;
     }
     @media (max-width: 1280px) {
       #menuScreen .menu-screen-grid { grid-template-columns: 1fr; }
@@ -15181,8 +15305,45 @@
       inset: 0;
       backdrop-filter: blur(12px) saturate(1.12);
       -webkit-backdrop-filter: blur(12px) saturate(1.12);
-      background: linear-gradient(165deg, rgba(2, 6, 23, 0.72), rgba(2, 6, 23, 0.88));
+      background: linear-gradient(165deg, rgba(1, 2, 8, 0.68), rgba(2, 6, 14, 0.84));
       pointer-events: none;
+    }
+    .waitlist-backdrop::before {
+      content: "";
+      position: absolute;
+      inset: -34%;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.76;
+      filter: blur(0.2px);
+      background:
+        linear-gradient(var(--landing-laser-angle-a, 114deg),
+          transparent 0 44%,
+          rgba(57, 255, 20, var(--landing-laser-alpha-a, 0.52)) 49%,
+          transparent 54%),
+        linear-gradient(var(--landing-laser-angle-b, 246deg),
+          transparent 0 45%,
+          rgba(153, 255, 98, var(--landing-laser-alpha-b, 0.36)) 51%,
+          transparent 56%),
+        linear-gradient(var(--landing-laser-angle-c, 176deg),
+          transparent 0 43%,
+          rgba(32, 232, 255, var(--landing-laser-alpha-c, 0.32)) 48%,
+          transparent 56%);
+      animation: landingLaserFlash 1.95s steps(2, end) infinite;
+    }
+    .waitlist-backdrop::after {
+      content: "";
+      position: absolute;
+      inset: -20%;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.58;
+      filter: blur(8px) saturate(1.24);
+      background:
+        linear-gradient(var(--landing-strobe-angle-a, 103deg), transparent 20%, rgba(57, 255, 20, 0.34) 46%, transparent 66%),
+        linear-gradient(var(--landing-strobe-angle-b, 284deg), transparent 54%, rgba(98, 255, 58, 0.28) 74%, transparent 88%),
+        linear-gradient(var(--landing-strobe-angle-c, 236deg), transparent 28%, rgba(32, 232, 255, 0.22) 56%, transparent 82%);
+      animation: landingStrobeFlicker 2.2s steps(3, end) infinite;
     }
     .waitlist-card {
       position: relative;
@@ -15280,6 +15441,16 @@
     }
     body.waitlist-mode .global-footer {
       display: none !important;
+    }
+    body.screen-waitlist .club-atmosphere,
+    body.screen-maintenance .club-atmosphere {
+      opacity: 1 !important;
+      filter: saturate(1.45) contrast(1.24) brightness(1.04);
+    }
+    body.screen-waitlist .club-beam,
+    body.screen-maintenance .club-beam {
+      opacity: 0.96 !important;
+      filter: blur(0.1px) saturate(1.72) contrast(1.1) brightness(1.2) !important;
     }
     @keyframes waitlistFadeIn {
       from { opacity: 0; }
@@ -17618,6 +17789,12 @@
           <button type="button" class="accent-chip" data-accent="paloma">Paloma Pop</button>
           <button type="button" class="accent-chip" data-accent="espresso_martini">Espresso Martini</button>
           <button type="button" class="accent-chip ceo-only" data-accent="ceo">CEO</button>
+        </div>
+        <div class="menu-motion-control" id="menuMotionControl">
+          <p class="menu-motion-title">Laser &amp; light motion</p>
+          <p class="menu-motion-status" id="menuMotionStatus">Motion: Full</p>
+          <button type="button" class="menu-action-btn" id="menuMotionToggle">Set reduced motion</button>
+          <p class="menu-motion-note">Applies only to your account visuals.</p>
         </div>
       </div>
     </div>
@@ -20278,6 +20455,7 @@
       resetPaymentForm();
       resetSupportForm();
       applyAccentTheme("cyan");
+      applyMemberMotionPreference(false);
       localStorage.removeItem(ACCENT_KEY_LEGACY);
       localStorage.removeItem(BG_KEY);
       localStorage.removeItem(BG_KEY);
@@ -20388,6 +20566,7 @@
     const BG_KEY = "bgTheme";
     const LAST_SCREEN_PREFIX = "lastScreen_";
     const MEMBER_ACCENT_PREFIX = "memberAccent_";
+    const MEMBER_MOTION_PREFIX = "memberMotion_";
     const MEMBER_ACCENT_UNLOCKS_PREFIX = "memberAccentUnlocks_";
     const UNLOCK_ONLY_ACCENTS = new Set(["espresso_martini"]);
     const ACCENT_KEY_LEGACY = "accentTheme";
@@ -21797,10 +21976,21 @@
       landingLaserWrapper.style.setProperty("--landing-laser-alpha-c", `${(forceBurst ? randomInRange(0.34, 0.58) : randomInRange(0.18, 0.4)).toFixed(2)}`);
       landingLaserWrapper.style.setProperty("--landing-flash-x", `${randomInRange(8, 92).toFixed(1)}%`);
       landingLaserWrapper.style.setProperty("--landing-flash-y", `${randomInRange(8, 88).toFixed(1)}%`);
+      document.documentElement.style.setProperty("--landing-laser-angle-a", landingLaserWrapper.style.getPropertyValue("--landing-laser-angle-a"));
+      document.documentElement.style.setProperty("--landing-laser-angle-b", landingLaserWrapper.style.getPropertyValue("--landing-laser-angle-b"));
+      document.documentElement.style.setProperty("--landing-laser-angle-c", landingLaserWrapper.style.getPropertyValue("--landing-laser-angle-c"));
+      document.documentElement.style.setProperty("--landing-laser-alpha-a", landingLaserWrapper.style.getPropertyValue("--landing-laser-alpha-a"));
+      document.documentElement.style.setProperty("--landing-laser-alpha-b", landingLaserWrapper.style.getPropertyValue("--landing-laser-alpha-b"));
+      document.documentElement.style.setProperty("--landing-laser-alpha-c", landingLaserWrapper.style.getPropertyValue("--landing-laser-alpha-c"));
+      document.documentElement.style.setProperty("--landing-flash-x", landingLaserWrapper.style.getPropertyValue("--landing-flash-x"));
+      document.documentElement.style.setProperty("--landing-flash-y", landingLaserWrapper.style.getPropertyValue("--landing-flash-y"));
       if (landingLaserStrobe) {
         landingLaserStrobe.style.setProperty("--landing-strobe-angle-a", `${randomInRange(96, 148).toFixed(2)}deg`);
         landingLaserStrobe.style.setProperty("--landing-strobe-angle-b", `${randomInRange(236, 298).toFixed(2)}deg`);
         landingLaserStrobe.style.setProperty("--landing-strobe-angle-c", `${randomInRange(154, 238).toFixed(2)}deg`);
+        document.documentElement.style.setProperty("--landing-strobe-angle-a", landingLaserStrobe.style.getPropertyValue("--landing-strobe-angle-a"));
+        document.documentElement.style.setProperty("--landing-strobe-angle-b", landingLaserStrobe.style.getPropertyValue("--landing-strobe-angle-b"));
+        document.documentElement.style.setProperty("--landing-strobe-angle-c", landingLaserStrobe.style.getPropertyValue("--landing-strobe-angle-c"));
         landingLaserStrobe.classList.remove("flash-burst");
         if (forceBurst) {
           landingLaserStrobe.classList.add("flash-burst");
@@ -21969,6 +22159,8 @@
       }
       currentScreenName = name;
       document.body.classList.toggle("screen-landing", name === "landing");
+      document.body.classList.toggle("screen-waitlist", name === "waitlistGate");
+      document.body.classList.toggle("screen-maintenance", name === "maintenance");
       if (previousScreenName === "ceoPortal" && name !== "ceoPortal") {
         stopCeoLiveAnalyticsWatch();
       }
@@ -21986,19 +22178,18 @@
       if (name === "landing" || name === "pass") {
         updateRandomTestimonial();
       }
-      if (name === "landing") {
+      if (name === "landing" || name === "waitlistGate" || name === "maintenance") {
         forceLandingAfterWaitlistDisable = false;
-        closeStaleBlockingOverlays();
-        setLandingTagline();
-        randomizeLandingPostedTimes();
-        randomizeLandingSocialProof();
-        applyLandingLivePillsByTime();
-        renderLandingRewardsModule();
+        if (name === "landing") {
+          closeStaleBlockingOverlays();
+          setLandingTagline();
+          randomizeLandingPostedTimes();
+          randomizeLandingSocialProof();
+          applyLandingLivePillsByTime();
+          renderLandingRewardsModule();
+        }
         startLandingLaserShow();
-        if (landingRefreshBtn) landingRefreshBtn.style.display = "inline-flex";
-      } else if (name === "waitlistGate") {
-        stopLandingLaserShow();
-        if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
+        if (landingRefreshBtn) landingRefreshBtn.style.display = name === "landing" ? "inline-flex" : "none";
       } else {
         stopLandingLaserShow();
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
@@ -24543,6 +24734,7 @@
         isBetaAccount = false;
         resetRewardsProgressState();
         showScreen("landing");
+        applyMemberMotionPreference(false);
         memberProfile = null;
         memberDocRef = null;
         clearPassRealtime();
@@ -24621,6 +24813,7 @@
         applyCachedStats();
         ensurePointsEntry();
         loadAccentTheme();
+        applyMemberMotionPreference(false);
         ceoSession = true;
         isCeoAccount = true;
         localStorage.setItem("ceoSession", "true");
@@ -24648,6 +24841,7 @@
         ensurePassCode();
         applyCachedStats();
         loadAccentTheme();
+        loadMemberMotionPreference(user);
         showScreen("tonight");
         clearPassLoading();
         return;
@@ -24833,6 +25027,7 @@
       applyCachedStats();
       ensurePointsEntry();
       loadAccentTheme();
+      loadMemberMotionPreference(user);
       showPassLoading();
       renderPassIdentity(user);
       showFreeWelcomeToast();
@@ -25433,6 +25628,9 @@
     const profileActivityNights = document.getElementById("profileActivityNights");
     const profileActivityHistory = document.getElementById("profileActivityHistory");
     const menuAccentGrid = document.getElementById("menuAccentGrid");
+    const menuMotionControl = document.getElementById("menuMotionControl");
+    const menuMotionStatus = document.getElementById("menuMotionStatus");
+    const menuMotionToggle = document.getElementById("menuMotionToggle");
     const menuScreen = document.getElementById("menuScreen");
     const cancelMembershipModal = document.getElementById("cancelMembershipModal");
     const cancelMembershipConfirm = document.getElementById("cancelMembershipConfirm");
@@ -25880,6 +26078,18 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.106",
+        date: "2026-03-07",
+        added: [
+          "Member Menu now includes a personal Laser & Light Motion toggle so each user can switch between full motion and reduced motion for their own account visuals"
+        ],
+        improved: [
+          "Waitlist mode and maintenance mode now run the same animated laser/strobe atmosphere as home behind the dark overlay",
+          "Pass/Profile visual atmosphere now hits harder with accent-driven laser layers so each user theme controls the look"
+        ],
+        fixed: []
+      },
       {
         version: "v0.9.105",
         date: "2026-03-07",
@@ -31483,6 +31693,13 @@ let onboardingIndex = 0;
         applyAccentTheme(theme);
       });
     }
+    if (menuMotionToggle) {
+      menuMotionToggle.addEventListener("click", () => {
+        if (!firebaseAuth?.currentUser || isCeoAccount || ceoSession) return;
+        applyMemberMotionPreference(!memberMotionReduced, { persist: true, toast: true });
+      });
+    }
+    updateMemberMotionControlUi();
     attachProfileLogoEasterEgg();
     document.addEventListener("click", (e) => {
       if (!navMenu || !navMenuToggle) return;
@@ -32049,6 +32266,7 @@ let onboardingIndex = 0;
       } else if (userTaglineEl) {
         userTaglineEl.textContent = "Tap to add your vibe.";
       }
+      updateMemberMotionControlUi();
       renderAchievementsList();
     }
     function toInputDateValue(date) {
@@ -34093,6 +34311,7 @@ let onboardingIndex = 0;
     }
     dealCodes = loadDealCodes();
     let currentAccentTheme = "cyan";
+    var memberMotionReduced = false;
     let currentBgTheme = "default";
     let bgUserSelected = false;
     /* accentToBg mapping removed — background selection disabled */
@@ -34343,6 +34562,10 @@ let onboardingIndex = 0;
       const safeUid = String(uid || "").trim();
       return safeUid ? `${MEMBER_ACCENT_PREFIX}${safeUid}` : "";
     }
+    function getMemberMotionStorageKey(uid = firebaseAuth?.currentUser?.uid) {
+      const safeUid = String(uid || "").trim();
+      return safeUid ? `${MEMBER_MOTION_PREFIX}${safeUid}` : "";
+    }
     function getMemberAccentUnlocksStorageKey(uid = firebaseAuth?.currentUser?.uid) {
       const safeUid = String(uid || "").trim();
       return safeUid ? `${MEMBER_ACCENT_UNLOCKS_PREFIX}${safeUid}` : "";
@@ -34355,6 +34578,68 @@ let onboardingIndex = 0;
       } catch (_) {
         return "";
       }
+    }
+    function readMemberMotionFromStorage(uid = firebaseAuth?.currentUser?.uid) {
+      const key = getMemberMotionStorageKey(uid);
+      if (!key) return null;
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw == null || raw === "") return null;
+        if (raw === "1" || raw === "true") return true;
+        if (raw === "0" || raw === "false") return false;
+        return null;
+      } catch (_) {
+        return null;
+      }
+    }
+    function writeMemberMotionToStorage(reduced, uid = firebaseAuth?.currentUser?.uid) {
+      const key = getMemberMotionStorageKey(uid);
+      if (!key) return;
+      try {
+        localStorage.setItem(key, reduced ? "1" : "0");
+      } catch (_) {}
+    }
+    function updateMemberMotionControlUi() {
+      if (!menuMotionControl) return;
+      const isMemberSession = !!firebaseAuth?.currentUser && !isCeoAccount && !ceoSession;
+      menuMotionControl.style.display = isMemberSession ? "" : "none";
+      if (menuMotionStatus) {
+        menuMotionStatus.textContent = memberMotionReduced ? "Motion: Reduced" : "Motion: Full";
+      }
+      if (menuMotionToggle) {
+        menuMotionToggle.textContent = memberMotionReduced ? "Set full motion" : "Set reduced motion";
+      }
+    }
+    function applyMemberMotionPreference(reduced, options = {}) {
+      const normalized = reduced === true;
+      memberMotionReduced = normalized;
+      document.body.classList.toggle("user-motion-reduced", normalized);
+      updateMemberMotionControlUi();
+      if (options.persist === true && firebaseAuth?.currentUser && !isCeoAccount && !ceoSession) {
+        writeMemberMotionToStorage(normalized, firebaseAuth.currentUser.uid);
+        if (memberProfile && typeof memberProfile === "object") {
+          memberProfile.motionReduced = normalized;
+        }
+        if (currentPassCode) {
+          setMemberDirectoryEntry(currentPassCode, { motionReduced: normalized });
+        }
+        persistMemberState({ motionReduced: normalized });
+      }
+      if (options.toast === true) {
+        showToast(normalized ? "Visual motion reduced for your account." : "Full motion enabled for your account.", 2200);
+      }
+    }
+    function loadMemberMotionPreference(user = firebaseAuth?.currentUser) {
+      if (!user || isCeoAccount || ceoSession) {
+        applyMemberMotionPreference(false);
+        return;
+      }
+      const profilePref = typeof memberProfile?.motionReduced === "boolean"
+        ? memberProfile.motionReduced
+        : null;
+      const localPref = readMemberMotionFromStorage(user.uid);
+      const resolved = profilePref != null ? profilePref : (localPref === true);
+      applyMemberMotionPreference(resolved);
     }
     function readMemberAccentUnlocks(uid = firebaseAuth?.currentUser?.uid) {
       const key = getMemberAccentUnlocksStorageKey(uid);
