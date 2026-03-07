@@ -15794,6 +15794,21 @@
       width: 100%;
       min-height: 40px;
     }
+    .staff-checkins-tools {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin: 6px 0 8px;
+    }
+    .staff-checkins-tools input,
+    .staff-checkins-tools select {
+      min-height: 38px;
+    }
+    @media (max-width: 720px) {
+      .staff-checkins-tools {
+        grid-template-columns: 1fr;
+      }
+    }
     .staff-checkins-list {
       margin-top: 8px;
       max-height: 200px;
@@ -17123,15 +17138,22 @@
             <strong>Tonight check-ins (Pass ID)</strong>
             <button type="button" class="btn btn-secondary" id="staffCheckinsRefreshBtn">Refresh</button>
           </div>
-          <div class="staff-checkins-filter">
-            <label for="staffCheckinsAlertFilter">Filter by alert</label>
-            <select id="staffCheckinsAlertFilter">
-              <option value="all">All active alerts</option>
-            </select>
-          </div>
-          <div class="small" id="staffCheckinsStatus" style="color:#93c5fd;">Live sync ready.</div>
-          <div class="staff-checkins-list" id="staffCheckinsList">No check-ins yet.</div>
+        <div class="staff-checkins-filter">
+          <label for="staffCheckinsAlertFilter">Filter by alert</label>
+          <select id="staffCheckinsAlertFilter">
+            <option value="all">All active alerts</option>
+          </select>
         </div>
+        <div class="staff-checkins-tools">
+          <input id="staffCheckinsSearch" type="text" placeholder="Search Pass ID" autocomplete="off" />
+          <select id="staffCheckinsSort">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </div>
+        <div class="small" id="staffCheckinsStatus" style="color:#93c5fd;">Live sync ready.</div>
+        <div class="staff-checkins-list" id="staffCheckinsList">No check-ins yet.</div>
+      </div>
         <div class="vip-deal-preview" id="vipDealPreview">No VIP deal set for this venue yet.</div>
         <div class="recent-actions" id="staffRecentActions"></div>
       </div>
@@ -22403,6 +22425,16 @@
         renderStaffAlertCheckins();
       });
     }
+    if (staffCheckinsSearch) {
+      staffCheckinsSearch.addEventListener("input", () => {
+        renderStaffAlertCheckins();
+      });
+    }
+    if (staffCheckinsSort) {
+      staffCheckinsSort.addEventListener("change", () => {
+        renderStaffAlertCheckins();
+      });
+    }
 
   (async function handlePasswordResetFromUrl() {
     try {
@@ -24773,6 +24805,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.79",
+        date: "2026-03-07",
+        added: [
+          "Staff Tonight check-ins panel now includes Pass ID search and newest/oldest sorting controls"
+        ],
+        improved: [
+          "Staff check-in filtering now supports alert + Pass ID combo filtering for faster lookup during live service"
+        ],
+        fixed: []
+      },
+      {
         version: "v0.9.78",
         date: "2026-03-07",
         added: [
@@ -25584,6 +25627,8 @@
     const vipDealPreview = document.getElementById("vipDealPreview");
     const staffCheckinsCard = document.getElementById("staffCheckinsCard");
     const staffCheckinsAlertFilter = document.getElementById("staffCheckinsAlertFilter");
+    const staffCheckinsSearch = document.getElementById("staffCheckinsSearch");
+    const staffCheckinsSort = document.getElementById("staffCheckinsSort");
     const staffCheckinsStatus = document.getElementById("staffCheckinsStatus");
     const staffCheckinsList = document.getElementById("staffCheckinsList");
     const staffCheckinsRefreshBtn = document.getElementById("staffCheckinsRefreshBtn");
@@ -35450,12 +35495,22 @@ let onboardingIndex = 0;
     function renderStaffAlertCheckins() {
       if (!staffCheckinsList) return;
       const selectedAlert = String(staffCheckinsAlertFilter?.value || "all").trim();
-      const rows = (staffAlertCheckinsCache || []).filter((entry) => {
+      const searchTerm = String(staffCheckinsSearch?.value || "").trim().toUpperCase();
+      const sortMode = String(staffCheckinsSort?.value || "newest").trim().toLowerCase();
+      let rows = (staffAlertCheckinsCache || []).filter((entry) => {
         if (selectedAlert === "all") return true;
         return String(entry?.alertId || "").trim() === selectedAlert;
       });
+      if (searchTerm) {
+        rows = rows.filter((entry) => String(entry?.passCode || "").trim().toUpperCase().includes(searchTerm));
+      }
+      rows.sort((a, b) => {
+        const aTs = Number(a?.checkedInAt || 0);
+        const bTs = Number(b?.checkedInAt || 0);
+        return sortMode === "oldest" ? (aTs - bTs) : (bTs - aTs);
+      });
       if (!rows.length) {
-        staffCheckinsList.innerHTML = '<div class="small" style="color:#94a3b8;">No check-ins for this filter yet.</div>';
+        staffCheckinsList.innerHTML = '<div class="small" style="color:#94a3b8;">No check-ins match this filter.</div>';
         return;
       }
       staffCheckinsList.innerHTML = rows.slice(0, 120).map((entry) => {
