@@ -19761,6 +19761,8 @@
       appId: "1:962947086594:web:9c931c93a90992f4826a1b",
       measurementId: "G-FCLG1RNRYZ"
     };
+    // Dedicated Google Maps JavaScript API key (separate from Firebase web key).
+    const GOOGLE_MAPS_JS_API_KEY = "AIzaSyAKpIWsUn6ngQ8xOlQvE7kqyJ-m6CqrhlI";
     // Optional App Check rollout key.
     // Leave blank to keep current behavior; once set, callable hardening can be switched to "required"
     // from Firestore: settings/security { appCheckMode: "required" }.
@@ -26493,6 +26495,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.126",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Map initialization now uses a dedicated Google Maps API key path for more reliable map loading"
+        ],
+        fixed: [
+          "Resolved map API key routing that could block interactive map features in production"
+        ]
+      },
+      {
         version: "v0.9.125",
         date: "2026-03-07",
         added: [],
@@ -28701,7 +28714,8 @@
         script.id = "googleMapsJsApiScript";
         script.async = true;
         script.defer = true;
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(firebaseConfig.apiKey)}&libraries=places&v=weekly`;
+        const mapKey = String(GOOGLE_MAPS_JS_API_KEY || firebaseConfig.apiKey || "").trim();
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(mapKey)}&libraries=places&v=weekly`;
         script.onload = () => resolve(true);
         script.onerror = () => reject(new Error("Google Maps JS API failed to load."));
         document.head.appendChild(script);
