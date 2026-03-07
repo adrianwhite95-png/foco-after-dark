@@ -21131,6 +21131,8 @@
     let currentPassCode = null;
     let onboardingMembershipFlow = false;
     let forceMembershipScreen = false;
+    let explorerSignupForceUid = "";
+    let explorerSignupForceUntil = 0;
     let isLaunched = false;
     let appLocked = false;
     let appLockedAt = null;
@@ -21156,6 +21158,29 @@
         !currentMembershipTier ||
         currentMembershipTier === "standard_pending"
       );
+    }
+    function markExplorerSignupForce(uid = "", ttlMs = 30000) {
+      const safeUid = String(uid || "").trim();
+      if (!safeUid) return;
+      explorerSignupForceUid = safeUid;
+      explorerSignupForceUntil = Date.now() + Math.max(10000, Number(ttlMs) || 30000);
+    }
+    function isExplorerSignupForceActive(uid = "") {
+      if (!explorerSignupForceUid) return false;
+      if (Date.now() > explorerSignupForceUntil) {
+        explorerSignupForceUid = "";
+        explorerSignupForceUntil = 0;
+        return false;
+      }
+      if (!uid) return true;
+      return String(uid || "").trim() === explorerSignupForceUid;
+    }
+    function clearExplorerSignupForce(uid = "") {
+      if (!explorerSignupForceUid) return;
+      if (!uid || String(uid || "").trim() === explorerSignupForceUid) {
+        explorerSignupForceUid = "";
+        explorerSignupForceUntil = 0;
+      }
     }
     function isAgeVerificationExemptClient(profile = memberProfile, user = firebaseAuth?.currentUser) {
       const email = String(profile?.email || user?.email || "").toLowerCase();
@@ -23449,6 +23474,7 @@
           pendingMembershipTier = requestedTier;
 	      }
         if (!onboardingMembershipFlow && requestedTier === "explorer" && !signupAppliedFreeInvite) {
+          markExplorerSignupForce(cred.user?.uid || "", 45000);
           try {
             await handleAuthenticatedUser(cred.user);
           } catch (bootstrapErr) {
@@ -25348,6 +25374,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.90",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Explorer signup now uses a stronger post-create routing lock to keep new users on their profile/pass screen"
+        ],
+        fixed: [
+          "Resolved transient auth-state bounce where Explorer signup could flash pass then return to signup"
+        ]
+      },
       {
         version: "v0.9.89",
         date: "2026-03-07",
@@ -45171,6 +45208,11 @@ let onboardingIndex = 0;
         });
         const loginForced = forceShowLogin || window.location.hash === "#login";
         if (!user) {
+          if (isExplorerSignupForceActive(previousUid || "")) {
+            console.info("[auth] suppressing transient signout during explorer signup bootstrap");
+            initialAuthResolved = true;
+            return;
+          }
           clearPushAutoSyncTimers();
           forceLogoutOnReload = false;
           clearLoginSessionFlag(previousUid);
@@ -45269,6 +45311,12 @@ let onboardingIndex = 0;
           return;
         }
         await handleAuthenticatedUser(user);
+        if (isExplorerSignupForceActive(user.uid) && isExplorerMember()) {
+          onboardingMembershipFlow = false;
+          forceMembershipScreen = false;
+          showScreen("pass");
+          clearExplorerSignupForce(user.uid);
+        }
         await processVoucherCheckoutReturn();
         if (maybeResumeOnboardingAfterAuth(user)) {
           updateRefreshButtonsVisibility();
