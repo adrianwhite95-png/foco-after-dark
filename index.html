@@ -22414,24 +22414,28 @@
         alertExpiresInput.value = "";
       });
     }
-    if (staffCheckinsRefreshBtn) {
-      staffCheckinsRefreshBtn.addEventListener("click", (event) => {
+    const earlyStaffCheckinsRefreshBtn = document.getElementById("staffCheckinsRefreshBtn");
+    if (earlyStaffCheckinsRefreshBtn) {
+      earlyStaffCheckinsRefreshBtn.addEventListener("click", (event) => {
         event.preventDefault();
         refreshStaffAlertCheckins({ force: true });
       });
     }
-    if (staffCheckinsAlertFilter) {
-      staffCheckinsAlertFilter.addEventListener("change", () => {
+    const earlyStaffCheckinsAlertFilter = document.getElementById("staffCheckinsAlertFilter");
+    if (earlyStaffCheckinsAlertFilter) {
+      earlyStaffCheckinsAlertFilter.addEventListener("change", () => {
         renderStaffAlertCheckins();
       });
     }
-    if (staffCheckinsSearch) {
-      staffCheckinsSearch.addEventListener("input", () => {
+    const earlyStaffCheckinsSearch = document.getElementById("staffCheckinsSearch");
+    if (earlyStaffCheckinsSearch) {
+      earlyStaffCheckinsSearch.addEventListener("input", () => {
         renderStaffAlertCheckins();
       });
     }
-    if (staffCheckinsSort) {
-      staffCheckinsSort.addEventListener("change", () => {
+    const earlyStaffCheckinsSort = document.getElementById("staffCheckinsSort");
+    if (earlyStaffCheckinsSort) {
+      earlyStaffCheckinsSort.addEventListener("change", () => {
         renderStaffAlertCheckins();
       });
     }
