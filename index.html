@@ -23332,14 +23332,17 @@
         }
       });
     }
+    let profileEasterEggLogoFace = "foco";
     function setProfileEasterEggLogoFace(face = "foco") {
       const logo = document.getElementById("profileEasterEggLogo");
+      const normalizedFace = face === "csu" ? "csu" : "foco";
+      profileEasterEggLogoFace = normalizedFace;
       if (!logo) return;
-      const target = face === "csu" ? "assets/csu-rams-logo.png" : "foco-logo.png";
+      const target = normalizedFace === "csu" ? "assets/csu-rams-logo.png" : "foco-logo.png";
       if (logo.getAttribute("src") !== target) {
         logo.setAttribute("src", target);
       }
-      logo.dataset.face = face;
+      logo.dataset.face = normalizedFace;
     }
     function playProfileLogoCoinFlipTo(face = "csu") {
       const logo = document.getElementById("profileEasterEggLogo");
@@ -23356,8 +23359,11 @@
       logo.dataset.flipTimers = `${swapAt},${clearAt}`;
     }
     function syncProfileEasterEggLogoFace() {
-      const hasCsu = isAccentUnlockedForCurrentMember("csu_jungle_juice");
-      setProfileEasterEggLogoFace(hasCsu ? "csu" : "foco");
+      setProfileEasterEggLogoFace(profileEasterEggLogoFace || "foco");
+    }
+    function resetProfileEasterEggLogoFace() {
+      profileEasterEggLogoFace = "foco";
+      syncProfileEasterEggLogoFace();
     }
     function attachProfileLogoEasterEgg() {
       if (document.body?.dataset?.easterAttached === "1") return;
@@ -23368,6 +23374,7 @@
       let lastLogoTapAt = 0;
       const espressoWindowMs = 1500;
       const logoWindowMs = 2000;
+      const logoResetWindowMs = 1200;
       const recordEspressoTap = () => {
         const now = Date.now();
         if (now - lastTapAt < 120) return;
@@ -23396,6 +23403,13 @@
         lastLogoTapAt = now;
         logoTaps = logoTaps.filter((ts) => (now - ts) <= logoWindowMs);
         logoTaps.push(now);
+        const quickTaps = logoTaps.filter((ts) => (now - ts) <= logoResetWindowMs);
+        if (profileEasterEggLogoFace === "csu" && quickTaps.length >= 2) {
+          logoTaps = [];
+          playProfileLogoCoinFlipTo("foco");
+          showToast("Logo switched back to FoCo.", 2400);
+          return;
+        }
         if (logoTaps.length < 3) return;
         logoTaps = [];
         const unlocked = unlockAccentForCurrentMember("csu_jungle_juice");
@@ -26350,6 +26364,18 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.116",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "CSU easter-egg logo now resets to the FoCo logo on next login/session change",
+          "Added quick double-tap action on the profile logo to flip it back to FoCo instantly"
+        ],
+        fixed: [
+          "Profile logo face no longer persists unintentionally between user sessions"
+        ]
+      },
       {
         version: "v0.9.115",
         date: "2026-03-07",
@@ -46921,6 +46947,9 @@ let onboardingIndex = 0;
         blockedWriteLabels.clear();
         const previousUid = lastAuthUid;
         lastAuthUid = user?.uid || null;
+        if (previousUid !== lastAuthUid) {
+          resetProfileEasterEggLogoFace();
+        }
         console.info("[auth] state", {
           uid: user?.uid || null,
           isAnonymous: !!user?.isAnonymous,
