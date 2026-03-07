@@ -23484,6 +23484,11 @@
             showToast("Choose Monthly or Yearly to continue.", 2200);
             setTimeout(() => { flushDeferredOnboardingMembershipSelection(); }, 0);
 	      } else if (requestedTier === "explorer" && !signupAppliedFreeInvite && !isFreeMember(memberProfile)) {
+          onboardingMembershipFlow = false;
+          forceMembershipScreen = false;
+          pendingMembershipTier = null;
+          clearOnboardingResume();
+          clearPendingMembershipFlagForUser(firebaseAuth?.currentUser?.uid);
           memberProfile = {
             ...(memberProfile || {}),
             tier: "explorer",
@@ -23495,7 +23500,7 @@
             ageVerified21: true
           };
           if (firebaseAuth?.currentUser) {
-            updateMemberProfile({
+            await updateMemberProfile({
               tier: "explorer",
               requestedTier: "explorer",
               paymentStatus: "active",
@@ -23507,7 +23512,7 @@
           }
           applyMembershipToPass("explorer");
           updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
-          showScreen("tonight");
+          showScreen("pass");
 	      }
 	      showAddHomeGate();
 	    }
@@ -25310,6 +25315,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.86",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Explorer signup confirm now completes directly into the member pass/profile flow"
+        ],
+        fixed: [
+          "Resolved Explorer signup loop where confirm could clear form and return to signup instead of entering the account"
+        ]
+      },
       {
         version: "v0.9.85",
         date: "2026-03-07",
