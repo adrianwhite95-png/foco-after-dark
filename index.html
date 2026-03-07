@@ -26493,6 +26493,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.125",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Map venue switching now refreshes selected locations immediately and more reliably on web"
+        ],
+        fixed: [
+          "Resolved map selection flow issues that caused stale map views and inconsistent interaction unlock detection"
+        ]
+      },
+      {
         version: "v0.9.124",
         date: "2026-03-07",
         added: [],
@@ -28661,6 +28672,7 @@
     const venueMapMarkerCache = new Map();
     const venueMapGeocodeCache = new Map();
     let mapFallbackLastInteractionMs = 0;
+    let mapFallbackUnlockTimer = null;
     function isPrisonPunchMapSource(source = "") {
       const normalized = decodeURIComponent(String(source || "").toLowerCase());
       if (!normalized) return false;
@@ -28792,6 +28804,12 @@
     }
     async function ensureInteractiveVenueMapReady() {
       if (!venueMapCanvas) return false;
+      // Keep map behavior stable on web/iOS when Maps JS API is not fully enabled.
+      if (!window.google?.maps?.Map && interactiveMapHasRuntimeError()) {
+        venueMapInteractiveReady = false;
+        useInteractiveVenueMap(false);
+        return false;
+      }
       if (venueMapInteractiveReady && venueGoogleMap) {
         useInteractiveVenueMap(true);
         return true;
@@ -28832,6 +28850,10 @@
             }
           );
         });
+        await new Promise((resolve) => setTimeout(resolve, 220));
+        if (interactiveMapHasRuntimeError()) {
+          throw new Error("Interactive Google map runtime error");
+        }
         venueMapInteractiveReady = true;
         useInteractiveVenueMap(true);
         setTimeout(() => {
@@ -28862,8 +28884,11 @@
       const info = venuesInfo[venueId] || {};
       if (venueMapFrame) {
         const query = [info.name, info.address, "Fort Collins, CO"].filter(Boolean).join(", ");
-        const nextSrc = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(query)}&t=m&z=16&output=embed`;
-        venueMapFrame.src = nextSrc;
+        const nextSrcBase = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(query)}&t=m&z=16&output=embed`;
+        const currentSrc = String(venueMapFrame.src || "");
+        venueMapFrame.src = currentSrc.includes(nextSrcBase)
+          ? `${nextSrcBase}&foco_refresh=${Date.now()}`
+          : nextSrcBase;
       }
       if (venueMapInteractiveReady && venueGoogleMap) {
         focusVenueOnInteractiveMap(venueId);
@@ -28874,6 +28899,17 @@
         });
       }
       renderMapVenueList();
+    }
+    function maybeUnlockPrisonPunchFromFallbackMap() {
+      if (currentScreenName !== "map") return;
+      if (venueMapInteractiveReady) return;
+      mapFallbackLastInteractionMs = Date.now();
+      clearTimeout(mapFallbackUnlockTimer);
+      mapFallbackUnlockTimer = setTimeout(() => {
+        if (currentScreenName !== "map") return;
+        if (venueMapInteractiveReady) return;
+        unlockPrisonPunchFromMap({ showAlreadyUnlocked: true });
+      }, 360);
     }
     function getActiveVenuePerks(venueId) {
       if (!venueId) return [];
@@ -32737,20 +32773,14 @@ let onboardingIndex = 0;
         const venueId = String(btn.dataset.mapVenue || "").trim();
         if (!venueId) return;
         setActiveMapVenue(venueId);
-        const mapTarget = venueMapInteractiveReady && venueMapCanvas ? venueMapCanvas : venueMapFrame;
-        if (mapTarget) {
-          mapTarget.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
       });
     }
     if (venueMapFrame) {
       venueMapFrame.addEventListener("pointerdown", () => {
-        if (currentScreenName !== "map") return;
-        mapFallbackLastInteractionMs = Date.now();
+        maybeUnlockPrisonPunchFromFallbackMap();
       }, { passive: true });
       venueMapFrame.addEventListener("touchstart", () => {
-        if (currentScreenName !== "map") return;
-        mapFallbackLastInteractionMs = Date.now();
+        maybeUnlockPrisonPunchFromFallbackMap();
       }, { passive: true });
     }
     window.addEventListener("message", (event) => {
