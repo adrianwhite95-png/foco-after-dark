@@ -16162,6 +16162,42 @@
         min-width: 0;
       }
     }
+    /* iPad-specific home fit pass (portrait + landscape) */
+    @media (min-width: 768px) and (max-width: 960px) {
+      #landingScreen .launch-header-actions,
+      #landingScreen .home-dashboard-grid {
+        max-width: 940px;
+        width: min(940px, calc(100vw - 28px));
+      }
+      #landingScreen .home-dashboard-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+      }
+      #landingScreen .home-tonight-module,
+      #landingScreen .home-support-stack,
+      #landingScreen .home-utility-panel,
+      #landingScreen .launch-social-proof {
+        min-width: 0;
+      }
+    }
+    @media (min-width: 961px) and (max-width: 1180px) {
+      #landingScreen .launch-header-actions,
+      #landingScreen .home-dashboard-grid {
+        max-width: 1020px;
+        width: min(1020px, calc(100vw - 36px));
+      }
+      #landingScreen .home-dashboard-grid {
+        grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
+        column-gap: 10px;
+      }
+      #landingScreen .launch-billboard,
+      #landingScreen .home-tonight-module {
+        padding: 12px 13px 11px;
+      }
+      #landingScreen .launch-social-proof .proof-row {
+        min-height: 52px;
+      }
+    }
     @media (max-width: 920px) {
       #landingScreen .home-dashboard-grid {
         gap: 9px;
@@ -25274,6 +25310,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.85",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Added iPad-specific home layout tuning for cleaner fit in both portrait and landscape"
+        ],
+        fixed: [
+          "Resolved home module stretching and spacing issues on iPad widths without changing iPhone behavior"
+        ]
+      },
       {
         version: "v0.9.84",
         date: "2026-03-07",
