@@ -387,38 +387,37 @@
       height: 78vh;
       transform-origin: 50% 0%;
       clip-path: polygon(48% 0, 52% 0, 100% 100%, 0 100%);
-      filter: blur(1.2px);
-      opacity: 0.58;
-      animation: beamSweep 11s cubic-bezier(0.37, 0, 0.63, 1) infinite alternate, beamPulse 4.4s ease-in-out infinite;
+      left: var(--beam-left, 0%);
+      transform: rotate(var(--beam-rot, 0deg)) scaleY(var(--beam-scale, 1));
+      filter: blur(0.35px) saturate(1.4) brightness(1.12);
+      opacity: var(--beam-opacity, 0.7);
+      transition: left 520ms linear, transform 520ms linear, opacity 220ms ease, filter 220ms ease;
+      animation: beamPulse 1.9s steps(2, end) infinite;
     }
     .club-beam.b1 {
       left: -6vw;
-      background: linear-gradient(180deg, rgba(34, 211, 238, 0.38), rgba(34, 211, 238, 0.08) 45%, rgba(34, 211, 238, 0) 100%);
-      animation-delay: -2.1s;
+      background: linear-gradient(180deg, rgba(57, 255, 20, 0.9), rgba(57, 255, 20, 0.18) 45%, rgba(57, 255, 20, 0) 100%);
+      animation-delay: -0.4s;
     }
     .club-beam.b2 {
       left: 14vw;
-      background: linear-gradient(180deg, rgba(244, 114, 182, 0.35), rgba(244, 114, 182, 0.08) 44%, rgba(244, 114, 182, 0) 100%);
-      animation-delay: -4.6s;
-      animation-duration: 12.8s, 4.8s;
+      background: linear-gradient(180deg, rgba(102, 255, 36, 0.88), rgba(102, 255, 36, 0.16) 44%, rgba(102, 255, 36, 0) 100%);
+      animation-delay: -1.1s;
     }
     .club-beam.b3 {
       left: 38vw;
-      background: linear-gradient(180deg, rgba(125, 211, 252, 0.38), rgba(125, 211, 252, 0.08) 46%, rgba(125, 211, 252, 0) 100%);
-      animation-delay: -1.3s;
-      animation-duration: 10.7s, 4.1s;
+      background: linear-gradient(180deg, rgba(153, 255, 98, 0.86), rgba(153, 255, 98, 0.16) 46%, rgba(153, 255, 98, 0) 100%);
+      animation-delay: -0.8s;
     }
     .club-beam.b4 {
-      right: 16vw;
-      background: linear-gradient(180deg, rgba(168, 85, 247, 0.34), rgba(168, 85, 247, 0.07) 45%, rgba(168, 85, 247, 0) 100%);
-      animation-delay: -5.2s;
-      animation-duration: 13.4s, 5.2s;
+      right: auto;
+      background: linear-gradient(180deg, rgba(130, 255, 82, 0.84), rgba(130, 255, 82, 0.15) 45%, rgba(130, 255, 82, 0) 100%);
+      animation-delay: -1.6s;
     }
     .club-beam.b5 {
-      right: -8vw;
-      background: linear-gradient(180deg, rgba(34, 197, 94, 0.28), rgba(34, 197, 94, 0.06) 48%, rgba(34, 197, 94, 0) 100%);
-      animation-delay: -3.2s;
-      animation-duration: 11.9s, 4.6s;
+      right: auto;
+      background: linear-gradient(180deg, rgba(84, 255, 28, 0.86), rgba(84, 255, 28, 0.16) 48%, rgba(84, 255, 28, 0) 100%);
+      animation-delay: -0.2s;
     }
     .club-haze {
       position: absolute;
@@ -434,14 +433,9 @@
       filter: blur(14px);
       animation: hazeDrift 18s ease-in-out infinite alternate;
     }
-    @keyframes beamSweep {
-      0% { transform: rotate(-14deg) scaleX(0.94); }
-      50% { transform: rotate(4deg) scaleX(1.02); }
-      100% { transform: rotate(17deg) scaleX(0.95); }
-    }
     @keyframes beamPulse {
-      0%, 100% { opacity: 0.42; }
-      50% { opacity: 0.72; }
+      0%, 100% { opacity: calc(var(--beam-opacity, 0.7) * 0.72); }
+      50% { opacity: var(--beam-opacity, 0.7); }
     }
     @keyframes fixturePulse {
       0%, 100% { filter: brightness(0.95); }
@@ -463,7 +457,7 @@
       .club-haze { opacity: 0.44; }
     }
     body.ios .club-atmosphere { opacity: 0.55; }
-    body.ios.mobile-performance .club-beam { opacity: 0.44; }
+    body.ios.mobile-performance .club-beam { opacity: 0.66; }
     #app {
       width: 100vw;
       max-width: 100vw;
@@ -12144,12 +12138,13 @@
         0 0 34px color-mix(in srgb, var(--accent-secondary-live) 16%, transparent);
     }
     body.ios.mobile-performance .club-atmosphere {
-      opacity: 0.46 !important;
-      filter: none !important;
-      mix-blend-mode: normal;
+      opacity: 0.82 !important;
+      filter: saturate(1.2) contrast(1.08) !important;
+      mix-blend-mode: screen;
     }
     body.ios.mobile-performance .club-beams {
-      display: none !important;
+      display: block !important;
+      opacity: 0.88 !important;
     }
     body.ios.mobile-performance .club-fixture,
     body.ios.mobile-performance .club-haze {
@@ -12160,13 +12155,14 @@
       filter: blur(8px);
     }
     body.ios.mobile-performance #landingScreen.active .landing-wrapper .landing-strobe {
-      animation: strobeSpin 34s linear infinite !important;
-      filter: blur(10px) saturate(1.02) !important;
-      opacity: 0.16 !important;
-      mix-blend-mode: normal;
+      animation: landingStrobeFlicker 2.2s steps(3, end) infinite !important;
+      filter: blur(5px) saturate(1.2) !important;
+      opacity: 0.66 !important;
+      mix-blend-mode: screen;
     }
     body.ios.mobile-performance #landingScreen.active .landing-wrapper .landing-strobe::before {
-      display: none !important;
+      display: block !important;
+      opacity: 0.46 !important;
     }
     body.ios.mobile-performance #landingScreen .hero-point,
     body.ios.mobile-performance #landingScreen .landing-feature-card,
@@ -13593,8 +13589,12 @@
       pointer-events: none;
     }
     .rewards-plan-card.boosted {
-      border-color: rgba(255, 47, 184, 0.4);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 18px rgba(255, 47, 184, 0.16), 0 14px 28px rgba(0, 0, 0, 0.42);
+      border-color: rgba(255, 214, 120, 0.58);
+      background: linear-gradient(158deg, rgba(22, 13, 4, 0.86), rgba(20, 11, 5, 0.9));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 0 20px rgba(255, 193, 92, 0.2),
+        0 14px 28px rgba(0, 0, 0, 0.46);
     }
     .rewards-plan-title {
       display: flex;
@@ -13627,8 +13627,21 @@
       max-width: 64%;
     }
     .rewards-plan-card.boosted .rewards-plan-badge {
-      border-color: rgba(255, 47, 184, 0.44);
-      color: #ffd6ee;
+      border-color: rgba(255, 214, 120, 0.62);
+      color: #ffe8b8;
+      background: rgba(34, 20, 7, 0.74);
+      box-shadow: 0 0 14px rgba(255, 193, 92, 0.24);
+    }
+    .rewards-plan-card.boosted .rewards-plan-title {
+      color: #ffe7b6;
+      text-shadow: 0 0 12px rgba(255, 205, 100, 0.34);
+    }
+    .rewards-plan-card.boosted .rewards-plan-list {
+      color: rgba(255, 236, 198, 0.9);
+    }
+    .rewards-plan-card.boosted .rewards-plan-list strong {
+      color: #fff3d8;
+      text-shadow: 0 0 10px rgba(255, 205, 100, 0.28);
     }
     .rewards-plan-list {
       margin: 0;
@@ -16195,29 +16208,44 @@
     }
     body.screen-landing .landing-wrapper::after {
       background:
-        repeating-linear-gradient(112deg,
-          rgba(57, 255, 20, 0) 0 68px,
-          rgba(57, 255, 20, 0.88) 68px 69px,
-          rgba(57, 255, 20, 0) 69px 132px),
-        repeating-linear-gradient(248deg,
-          rgba(57, 255, 20, 0) 0 84px,
-          rgba(160, 255, 104, 0.72) 84px 85px,
-          rgba(57, 255, 20, 0) 85px 156px),
+        linear-gradient(var(--landing-laser-angle-a, 112deg),
+          transparent 0 43%,
+          rgba(57, 255, 20, var(--landing-laser-alpha-a, 0.44)) 48%,
+          transparent 53%),
+        linear-gradient(var(--landing-laser-angle-b, 248deg),
+          transparent 0 45%,
+          rgba(153, 255, 98, var(--landing-laser-alpha-b, 0.34)) 50%,
+          transparent 55%),
+        radial-gradient(circle at var(--landing-flash-x, 76%) var(--landing-flash-y, 24%), rgba(57, 255, 20, 0.22), transparent 24%),
         linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.46)) !important;
-      opacity: 0.74 !important;
-      filter: blur(0.16px);
-      animation: landingLaserGridSweep 5.8s linear infinite;
+      opacity: 0.78 !important;
+      filter: blur(0.22px);
+      mix-blend-mode: screen;
+      animation: landingLaserFlash 1.9s steps(2, end) infinite;
     }
     body.screen-landing .landing-wrapper .landing-strobe {
       background:
-        linear-gradient(110deg, transparent 16%, rgba(57, 255, 20, 0.28) 39%, transparent 52%),
-        linear-gradient(252deg, transparent 35%, rgba(57, 255, 20, 0.22) 63%, transparent 77%);
-      opacity: 0.68;
-      filter: blur(5px);
+        linear-gradient(var(--landing-strobe-angle-a, 108deg), transparent 18%, rgba(57, 255, 20, 0.34) 43%, transparent 58%),
+        linear-gradient(var(--landing-strobe-angle-b, 262deg), transparent 34%, rgba(153, 255, 98, 0.24) 64%, transparent 78%);
+      opacity: 0.7;
+      filter: blur(4.5px) saturate(1.2);
+      mix-blend-mode: screen;
+      animation: landingStrobeFlicker 2.2s steps(3, end) infinite;
     }
-    @keyframes landingLaserGridSweep {
-      0% { background-position: -220px 0, 180px 0, 0 0; }
-      100% { background-position: 280px 0, -220px 0, 0 0; }
+    @keyframes landingLaserFlash {
+      0%, 100% { opacity: 0.56; }
+      22% { opacity: 0.88; }
+      38% { opacity: 0.46; }
+      57% { opacity: 0.92; }
+      73% { opacity: 0.52; }
+    }
+    @keyframes landingStrobeFlicker {
+      0%, 100% { opacity: 0.38; }
+      14% { opacity: 0.78; }
+      27% { opacity: 0.44; }
+      49% { opacity: 0.84; }
+      63% { opacity: 0.36; }
+      81% { opacity: 0.72; }
     }
     @keyframes landingRaveBloom {
       0% { transform: translate3d(-2%, 0, 0) scale(1); opacity: 0.76; }
@@ -16245,25 +16273,29 @@
     }
     #landingScreen .landing-wrapper::after {
       background:
-        repeating-linear-gradient(114deg,
-          rgba(57, 255, 20, 0) 0 72px,
-          rgba(57, 255, 20, 0.88) 72px 73px,
-          rgba(57, 255, 20, 0) 73px 148px),
-        repeating-linear-gradient(246deg,
-          rgba(57, 255, 20, 0) 0 88px,
-          rgba(153, 255, 98, 0.68) 88px 89px,
-          rgba(57, 255, 20, 0) 89px 170px),
+        linear-gradient(var(--landing-laser-angle-a, 114deg),
+          transparent 0 44%,
+          rgba(57, 255, 20, var(--landing-laser-alpha-a, 0.52)) 49%,
+          transparent 54%),
+        linear-gradient(var(--landing-laser-angle-b, 246deg),
+          transparent 0 45%,
+          rgba(153, 255, 98, var(--landing-laser-alpha-b, 0.36)) 51%,
+          transparent 56%),
+        radial-gradient(circle at var(--landing-flash-x, 76%) var(--landing-flash-y, 24%), rgba(57, 255, 20, 0.3), transparent 22%),
         linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.42)) !important;
-      opacity: 0.76 !important;
+      opacity: 0.82 !important;
       filter: blur(0.18px);
-      animation: landingLaserGridSweep 5.8s linear infinite;
+      mix-blend-mode: screen;
+      animation: landingLaserFlash 1.9s steps(2, end) infinite;
     }
     #landingScreen .landing-wrapper .landing-strobe {
       background:
-        linear-gradient(103deg, transparent 20%, rgba(57, 255, 20, 0.3) 46%, transparent 66%),
-        linear-gradient(284deg, transparent 54%, rgba(98, 255, 58, 0.24) 74%, transparent 88%);
-      opacity: 0.62;
-      filter: blur(8px);
+        linear-gradient(var(--landing-strobe-angle-a, 103deg), transparent 20%, rgba(57, 255, 20, 0.34) 46%, transparent 66%),
+        linear-gradient(var(--landing-strobe-angle-b, 284deg), transparent 54%, rgba(98, 255, 58, 0.28) 74%, transparent 88%);
+      opacity: 0.72;
+      filter: blur(5px) saturate(1.2);
+      mix-blend-mode: screen;
+      animation: landingStrobeFlicker 2.2s steps(3, end) infinite;
     }
     #landingScreen .landing-wrapper .landing-strobe::before {
       opacity: 0.54;
@@ -16271,10 +16303,9 @@
         radial-gradient(circle at 72% 14%, rgba(57, 255, 20, 0.46), transparent 56%),
         radial-gradient(circle at 20% 72%, rgba(118, 255, 74, 0.36), transparent 64%);
     }
-    @keyframes landingLaserDrift {
-      0% { transform: translate3d(-2%, 0, 0) scale(1); }
-      50% { transform: translate3d(2%, -0.7%, 0) scale(1.02); }
-      100% { transform: translate3d(-2%, 0, 0) scale(1); }
+    #landingScreen .landing-wrapper .landing-strobe.flash-burst {
+      opacity: 0.96 !important;
+      filter: blur(3px) saturate(1.36) brightness(1.24) !important;
     }
     #landingScreen .premiumGlass,
     #landingScreen .photo-glass {
@@ -16301,6 +16332,22 @@
     #landingScreen .home-utility-panel {
       position: relative;
       overflow: hidden;
+    }
+    #landingScreen .home-dashboard-grid :is(
+      .home-tonight-module,
+      .landing-live-feed-premium,
+      .launch-social-proof,
+      .home-utility-panel,
+      .proof-row,
+      .rewards-plan-card,
+      .rewards-option,
+      .home-tonight-points span
+    ) {
+      border-color: rgba(120, 255, 106, 0.4) !important;
+      box-shadow:
+        inset 0 0 0 1px rgba(120, 255, 106, 0.14),
+        0 0 16px rgba(57, 255, 20, 0.2),
+        0 12px 30px rgba(0, 0, 0, 0.45) !important;
     }
     #landingScreen .home-tonight-module::before,
     #landingScreen .landing-live-feed-premium::before {
@@ -21692,6 +21739,74 @@
       countNode.textContent = String(count);
       applyLandingWeeklySavings();
     }
+    const landingLaserBeams = Array.from(document.querySelectorAll(".club-beam"));
+    const landingLaserStrobe = document.querySelector("#landingScreen .landing-strobe");
+    const landingLaserWrapper = document.querySelector("#landingScreen .landing-wrapper");
+    let landingLaserPulseTimer = null;
+    let landingLaserBurstTimer = null;
+    let landingLaserRunning = false;
+    function randomInRange(min, max) {
+      return min + Math.random() * (max - min);
+    }
+    function randomizeLandingLaserFrame(forceBurst = false) {
+      if (!landingLaserBeams.length || !landingLaserWrapper) return;
+      landingLaserBeams.forEach((beam, index) => {
+        const anchor = (index / Math.max(1, landingLaserBeams.length - 1)) * 100;
+        const left = Math.max(-8, Math.min(104, anchor + randomInRange(-22, 22)));
+        const rot = randomInRange(-42, 42);
+        const scale = randomInRange(0.86, 1.28);
+        const opacity = forceBurst ? randomInRange(0.76, 0.98) : randomInRange(0.34, 0.9);
+        const blurPx = forceBurst ? randomInRange(0.08, 0.2) : randomInRange(0.14, 0.34);
+        const bright = forceBurst ? randomInRange(1.38, 1.62) : randomInRange(1.1, 1.42);
+        beam.style.setProperty("--beam-left", `${left.toFixed(2)}%`);
+        beam.style.setProperty("--beam-rot", `${rot.toFixed(2)}deg`);
+        beam.style.setProperty("--beam-scale", scale.toFixed(3));
+        beam.style.setProperty("--beam-opacity", opacity.toFixed(2));
+        beam.style.filter = `blur(${blurPx.toFixed(2)}px) saturate(1.55) brightness(${bright.toFixed(2)})`;
+      });
+      landingLaserWrapper.style.setProperty("--landing-laser-angle-a", `${randomInRange(96, 138).toFixed(2)}deg`);
+      landingLaserWrapper.style.setProperty("--landing-laser-angle-b", `${randomInRange(220, 282).toFixed(2)}deg`);
+      landingLaserWrapper.style.setProperty("--landing-laser-alpha-a", `${(forceBurst ? randomInRange(0.62, 0.9) : randomInRange(0.36, 0.68)).toFixed(2)}`);
+      landingLaserWrapper.style.setProperty("--landing-laser-alpha-b", `${(forceBurst ? randomInRange(0.5, 0.74) : randomInRange(0.26, 0.54)).toFixed(2)}`);
+      landingLaserWrapper.style.setProperty("--landing-flash-x", `${randomInRange(8, 92).toFixed(1)}%`);
+      landingLaserWrapper.style.setProperty("--landing-flash-y", `${randomInRange(8, 88).toFixed(1)}%`);
+      if (landingLaserStrobe) {
+        landingLaserStrobe.style.setProperty("--landing-strobe-angle-a", `${randomInRange(96, 148).toFixed(2)}deg`);
+        landingLaserStrobe.style.setProperty("--landing-strobe-angle-b", `${randomInRange(236, 298).toFixed(2)}deg`);
+        landingLaserStrobe.classList.remove("flash-burst");
+        if (forceBurst) {
+          landingLaserStrobe.classList.add("flash-burst");
+          setTimeout(() => landingLaserStrobe.classList.remove("flash-burst"), 180);
+        }
+      }
+    }
+    function stopLandingLaserShow() {
+      landingLaserRunning = false;
+      if (landingLaserPulseTimer) {
+        clearInterval(landingLaserPulseTimer);
+        landingLaserPulseTimer = null;
+      }
+      if (landingLaserBurstTimer) {
+        clearTimeout(landingLaserBurstTimer);
+        landingLaserBurstTimer = null;
+      }
+      landingLaserStrobe?.classList.remove("flash-burst");
+    }
+    function queueLandingLaserBurst() {
+      if (!landingLaserRunning) return;
+      const waitMs = Math.round(randomInRange(220, 1250));
+      landingLaserBurstTimer = setTimeout(() => {
+        randomizeLandingLaserFrame(true);
+        queueLandingLaserBurst();
+      }, waitMs);
+    }
+    function startLandingLaserShow() {
+      if (landingLaserRunning) return;
+      landingLaserRunning = true;
+      randomizeLandingLaserFrame(true);
+      landingLaserPulseTimer = setInterval(() => randomizeLandingLaserFrame(false), 820);
+      queueLandingLaserBurst();
+    }
     let landingRewardsLastPoints = null;
     function renderLandingRewardsModule() {
       if (!landingRewardsModule || !landingRewardsOptions) return;
@@ -21761,6 +21876,7 @@
       randomizeLandingSocialProof();
       applyLandingLivePillsByTime();
       renderLandingRewardsModule();
+      startLandingLaserShow();
     }
     const waitlistFormNode = document.getElementById("waitlistForm");
     if (waitlistFormNode) {
@@ -21852,10 +21968,13 @@
         randomizeLandingSocialProof();
         applyLandingLivePillsByTime();
         renderLandingRewardsModule();
+        startLandingLaserShow();
         if (landingRefreshBtn) landingRefreshBtn.style.display = "inline-flex";
       } else if (name === "waitlistGate") {
+        stopLandingLaserShow();
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
       } else {
+        stopLandingLaserShow();
         if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
       }
       updateRefreshButtonsVisibility();
@@ -25735,6 +25854,18 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.103",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Home lasers now strobe with randomized angles/positions for a live laser-show effect on web and iOS instead of fixed diamond-grid lines",
+          "Home cards now use consistent neon outlines and VIP comparison styling has a premium gold treatment to clearly separate VIP details"
+        ],
+        fixed: [
+          "Restored visible neon strobe/light beams on iOS home view by removing mobile-performance beam suppression"
+        ]
+      },
       {
         version: "v0.9.102",
         date: "2026-03-07",
