@@ -697,23 +697,7 @@
     body::before { transform: translate3d(calc(var(--parallax-x) * 12px), calc(var(--parallax-y) * 8px), 0) scale(1.02); transition: transform 220ms linear; }
 
     /* Respect user preference for reduced motion */
-    @media (prefers-reduced-motion: reduce) {
-      .btn-primary, .ceo-issued-item, .global-footer, body::before {
-        animation: none !important;
-        transition: none !important;
-      }
-      .club-atmosphere,
-      .club-fixture,
-      .club-beam,
-      .club-haze {
-        animation: none !important;
-      }
-      .club-beam { display: none !important; }
-      .club-atmosphere { opacity: 0.32; }
-      .btn-primary:hover, .btn-primary:active { transform: none !important; box-shadow: none !important; }
-      .ceo-issued-item.pop { transform: none !important; box-shadow: none !important; }
-    }
-    body.mobile-performance {
+        body.mobile-performance {
       -webkit-font-smoothing: antialiased;
       text-rendering: optimizeLegibility;
     }
@@ -1693,28 +1677,7 @@
       0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
       50% { transform: translate3d(6px, -4px, 0) scale(1.02); }
     }
-    @media (prefers-reduced-motion: reduce) {
-      #landingScreen.active .landing-wrapper,
-      #landingScreen.active .brand-logo-img,
-      #landingScreen.active .app-title,
-      #landingScreen.active #landingTagline,
-      #landingScreen.active .hero-point,
-      #landingScreen.active #landingGetPassBtn,
-      .landing-bg::before,
-      .landing-stars::before,
-      .landing-stars::after,
-      .landing-asterism,
-      .landing-orbs span,
-      #landingScreen.active .landing-wrapper::before,
-      .landing-wrapper .landing-strobe {
-        animation: none !important;
-      }
-      #landingScreen .hero-point {
-        opacity: 1;
-        transform: none;
-      }
-    }
-    .hero-carousel,
+        .hero-carousel,
     .hero-slide,
     .hero-slide.active {
       display: none !important;
@@ -2690,15 +2653,7 @@
       object-fit: cover;
       display: block;
     }
-    @media (prefers-reduced-motion: reduce) {
-      .btn-primary,
-      .qr-image-shell,
-      .qr-image-shell::after {
-        animation: none;
-      }
-    }
-
-    .divider {
+        .divider {
       height: 1px;
       border-radius: 999px;
       background: linear-gradient(
@@ -4873,14 +4828,7 @@
           drop-shadow(0 0 28px rgba(255, 47, 184, 0.34));
       }
     }
-    @media (prefers-reduced-motion: reduce) {
-      .voucher-grant-card { animation: none !important; }
-      .voucher-grant-hero {
-        animation: none !important;
-        transform: none !important;
-      }
-    }
-    .vibe-menu {
+        .vibe-menu {
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -10522,18 +10470,7 @@
       50%  { background-position: 0 22px, 0 0, 0 0; opacity: 0.28; }
       100% { background-position: 0 44px, 0 0, 0 0; opacity: 0.18; }
     }
-    @media (prefers-reduced-motion: reduce) {
-      .pass-card::before,
-      .pass-card::after {
-        animation: none !important;
-        opacity: 0.18 !important;
-      }
-      .screen {
-        transition: none !important;
-      }
-    }
-
-    .edit-pencil {
+        .edit-pencil {
       width: 14px;
       height: 14px;
       display: inline-block;
@@ -11955,50 +11892,7 @@
       animation: none !important;
     }
 
-    @media (prefers-reduced-motion: reduce) {
-      #passScreen::after,
-      #staffPortalScreen::after,
-      #passScreen .profile-summary::before,
-      #passScreen .pass-inner::before,
-      #passScreen .member-hero,
-      #passScreen .member-hero::before,
-      #passScreen .member-hero::after,
-      #passScreen .value-radar-ring,
-      #passScreen .community-stat,
-      #passScreen .btn.btn-primary,
-      #staffPortalScreen .staff-form::before,
-      #staffPortalScreen .staff-form::after,
-      #staffPortalScreen .vip-deal-card::before,
-      #staffPortalScreen .vip-deal-card::after,
-      #staffPortalScreen .staff-more::before,
-      #staffPortalScreen .staff-more::after,
-      #staffPortalScreen .staff-ticker::before,
-      #staffPortalScreen .staff-ticker::after,
-      #staffPortalScreen .btn.btn-primary,
-      #landingScreen.active .landing-bg img,
-      #landingScreen.active .landing-logo-overlay,
-      #landingScreen.active .landing-wrapper .landing-strobe,
-      #landingScreen.active .landing-wrapper .landing-strobe::before,
-      #landingScreen.active .hero-highlight,
-      #landingScreen.active .hero-point.neon-card,
-      #landingScreen.active .landing-feature-card,
-      #landingScreen.active #landingGetPassBtn,
-      #landingScreen.active #addToHomeBtn,
-      #passScreen.screen-in .profile-summary,
-      #passScreen.screen-in .member-hero,
-      #passScreen.screen-in .alerts-card,
-      #staffPortalScreen.screen-in #verifyCard,
-      #staffPortalScreen.screen-in #staffRadar,
-      #staffPortalScreen.screen-in #staffPerksCard,
-      #staffPortalScreen.screen-in #alertCard,
-      #staffPortalScreen.screen-in #codesCard,
-      #staffPortalScreen.screen-in #staffMessageCard,
-      #staffPortalScreen.screen-in #staffMore {
-        animation: none !important;
-      }
-    }
-
-    /* Futuristic global visual pass: nightlife neon, cleaner depth, lighter motion */
+        /* Futuristic global visual pass: nightlife neon, cleaner depth, lighter motion */
     :root {
       --fut-surface-a: rgba(6, 14, 34, 0.86);
       --fut-surface-b: rgba(10, 18, 42, 0.82);
@@ -12367,20 +12261,7 @@
         animation-duration: 8.4s;
       }
     }
-    @media (prefers-reduced-motion: reduce) {
-      body::before,
-      body::after,
-      #passScreen.active .pass-card,
-      #staffPortalScreen.active .staff-board > *,
-      #ceoPortalScreen.active .ceo-hq-panel.active,
-      #landingScreen .hero-point,
-      #landingScreen .landing-feature-card,
-      :is(.btn-primary, #landingGetPassBtn, #addToHomeBtn, #redeemTrigger, #staffSavePerksBtn) {
-        animation: none !important;
-      }
-    }
-
-    /* ===== Next-level UX polish layer (visual only) ===== */
+        /* ===== Next-level UX polish layer (visual only) ===== */
     :root {
       --ui-space-1: 8px;
       --ui-space-2: 12px;
@@ -13899,17 +13780,7 @@
       35% { box-shadow: 0 0 32px rgba(34, 211, 238, 0.32), 0 0 48px rgba(255, 47, 184, 0.24); }
       100% { box-shadow: 0 0 0 rgba(34, 211, 238, 0); }
     }
-    @media (prefers-reduced-motion: reduce) {
-      .rewards-console::before,
-      .rewards-option.ready::after,
-      .rewards-plan-card::after,
-      .rewards-token-orb img,
-      .rewards-points-value.pulse,
-      .rewards-console.celebrate {
-        animation: none !important;
-      }
-    }
-    .dealTease {
+        .dealTease {
       position: relative;
       display: block;
       max-width: 100%;
@@ -14951,12 +14822,7 @@
       border-color: rgba(34, 211, 238, 0.20);
       filter: brightness(1.03);
     }
-    @media (prefers-reduced-motion: reduce) {
-      .foco-premium .btnPremiumPrimary::after {
-        animation: none !important;
-      }
-    }
-    /* ===== Neon nightlife dark-glow tuning ===== */
+        /* ===== Neon nightlife dark-glow tuning ===== */
     .foco-premium .pageWash {
       background:
         radial-gradient(980px 720px at 14% 18%, rgba(34, 211, 238, 0.12), transparent 62%),
@@ -15894,16 +15760,7 @@
     #passScreen .alerts-card .alert-future-time-box {
       font-variant-numeric: tabular-nums;
     }
-    @media (prefers-reduced-motion: reduce) {
-      #passScreen .alerts-card .alert-future-timer {
-        animation: none !important;
-      }
-      #passScreen .alerts-card .alert-future-timer::after {
-        animation: none !important;
-      }
-    }
-
-    #tonightScreen #tonightAlertsCard {
+        #tonightScreen #tonightAlertsCard {
       border-color: rgba(34, 211, 238, 0.28);
       box-shadow: 0 18px 48px rgba(2, 6, 23, 0.56), 0 0 28px rgba(34, 211, 238, 0.12);
     }
@@ -16440,13 +16297,7 @@
         opacity: 0.74 !important;
       }
     }
-    @media (prefers-reduced-motion: reduce) {
-      #landingScreen .landing-wrapper::after {
-        animation: none !important;
-      }
-    }
-
-    .staff-checkins-card {
+        .staff-checkins-card {
       margin-top: 12px;
       padding: 12px;
       border-radius: 14px;
@@ -24895,9 +24746,7 @@
     const navMenuToggle = document.getElementById("navMenuToggle");
     // Visual helpers: motion & perf gating, parallax + confetti
     function prefersReducedMotion() {
-      try {
-        return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      } catch (e) { return false; }
+      return false;
     }
     function isLowEndDevice() {
       try {
@@ -25741,6 +25590,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.99",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Full-motion visual behavior is now consistently enabled across the app experience"
+        ],
+        fixed: [
+          "Removed global reduced-motion fallbacks so animations, pulses, and transitions no longer auto-disable by preference checks"
+        ]
+      },
       {
         version: "v0.9.98",
         date: "2026-03-07",
@@ -50320,9 +50180,6 @@ let onboardingIndex = 0;
     setLandingTagline();
     setPassBrandTagline();
     updateRandomTestimonial();
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      return;
-    }
     if (cheersQuoteTimer) clearInterval(cheersQuoteTimer);
     const intervalMs = LOW_PERF_MODE ? 9000 : 5000;
     cheersQuoteTimer = setInterval(() => {
@@ -50346,7 +50203,7 @@ let onboardingIndex = 0;
 
   function applyExperienceTiers() {
     try {
-      const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const reducedMotion = false;
       document.body.setAttribute("data-motion-tier", reducedMotion ? "calm" : "full");
 
       const memory = Number(navigator.deviceMemory || 0);
