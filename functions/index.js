@@ -6519,6 +6519,31 @@ function coerceDateInput(value, fieldName = "date") {
   return d;
 }
 
+async function clearAlertCheckinsForAlert(alertId, batchSize = 300) {
+  const safeAlertId = String(alertId || "").trim();
+  if (!safeAlertId) return 0;
+  const alertRef = db.collection("alerts").doc(safeAlertId);
+  const checkinsRef = alertRef.collection("checkins");
+  let totalDeleted = 0;
+  let snap = await checkinsRef.limit(batchSize).get();
+  while (!snap.empty) {
+    const batch = db.batch();
+    snap.docs.forEach((docSnap) => {
+      const row = docSnap.data() || {};
+      const uid = String(row.uid || "").trim();
+      batch.delete(docSnap.ref);
+      if (uid) {
+        batch.delete(db.collection("members").doc(uid).collection("alertCheckins").doc(safeAlertId));
+      }
+      totalDeleted += 1;
+    });
+    await batch.commit();
+    if (snap.size < batchSize) break;
+    snap = await checkinsRef.limit(batchSize).get();
+  }
+  return totalDeleted;
+}
+
 exports.staffUpsertVenueOffer = functions.https.onCall(async (data, context) => {
   try {
     await enforceCallableSecurity(context, {
@@ -6555,8 +6580,16 @@ exports.staffUpsertVenueOffer = functions.https.onCall(async (data, context) => 
     const docRef = docId ? collectionRef.doc(docId) : collectionRef.doc();
 
     if (action === "delete") {
+      let clearedCheckins = 0;
+      if (collectionName === "alerts") {
+        try {
+          clearedCheckins = await clearAlertCheckinsForAlert(docRef.id);
+        } catch (clearErr) {
+          console.warn("clearAlertCheckinsForAlert failed", docRef.id, clearErr?.message || clearErr);
+        }
+      }
       await docRef.delete();
-      return { ok: true, action, offerType: offerTypeRaw, id: docRef.id, venueId };
+      return { ok: true, action, offerType: offerTypeRaw, id: docRef.id, venueId, clearedCheckins };
     }
 
     if (action === "expire") {
@@ -6570,7 +6603,15 @@ exports.staffUpsertVenueOffer = functions.https.onCall(async (data, context) => 
         expirePayload.enabled = false;
       }
       await docRef.set(expirePayload, { merge: true });
-      return { ok: true, action, offerType: offerTypeRaw, id: docRef.id, venueId };
+      let clearedCheckins = 0;
+      if (collectionName === "alerts") {
+        try {
+          clearedCheckins = await clearAlertCheckinsForAlert(docRef.id);
+        } catch (clearErr) {
+          console.warn("clearAlertCheckinsForAlert failed", docRef.id, clearErr?.message || clearErr);
+        }
+      }
+      return { ok: true, action, offerType: offerTypeRaw, id: docRef.id, venueId, clearedCheckins };
     }
 
     if (action !== "upsert") throw new HttpsError("invalid-argument", "Unsupported offer action");
