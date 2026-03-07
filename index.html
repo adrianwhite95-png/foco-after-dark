@@ -11380,6 +11380,21 @@
       animation-duration: 13s !important;
       opacity: 0.24 !important;
     }
+    /* Force a clean animation restart when toggling back to full motion (Safari/iOS-safe). */
+    body.motion-refresh #passScreen::before,
+    body.motion-refresh #passScreen::after,
+    body.motion-refresh #passScreen .pass-card::before,
+    body.motion-refresh #passScreen .pass-card::after,
+    body.motion-refresh #passScreen .pulse-band::after,
+    body.motion-refresh #passScreen .pulse-thread span,
+    body.motion-refresh #passScreen .pulse-sparks span,
+    body.motion-refresh #passScreen .pulse-streaks span,
+    body.motion-refresh #passScreen .pulse-bursts span,
+    body.motion-refresh #passScreen .member-hero::before,
+    body.motion-refresh #passScreen .member-hero::after,
+    body.motion-refresh #passScreen .profile-summary::before {
+      animation: none !important;
+    }
 
     #passScreen .profile-summary::before {
       animation: profileAuraDrift 16s ease-in-out infinite alternate;
@@ -26142,6 +26157,18 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.110",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Personal motion toggle now immediately restores full pass laser animation without needing a hard refresh",
+          "Motion state now updates the runtime motion tier instantly when switching between Reduced and Full"
+        ],
+        fixed: [
+          "Resolved iOS/Safari animation restart edge-case where pass motion could stay reduced after toggling back to Full"
+        ]
+      },
+      {
         version: "v0.9.109",
         date: "2026-03-07",
         added: [],
@@ -34779,10 +34806,25 @@ let onboardingIndex = 0;
         menuMotionToggle.textContent = memberMotionReduced ? "Set full motion" : "Set reduced motion";
       }
     }
+    function restartMemberMotionVisuals() {
+      if (!document?.body) return;
+      document.body.classList.add("motion-refresh");
+      void document.body.offsetWidth;
+      requestAnimationFrame(() => {
+        document.body.classList.remove("motion-refresh");
+        if (typeof updateLivePulseUI === "function") {
+          updateLivePulseUI();
+        }
+      });
+    }
     function applyMemberMotionPreference(reduced, options = {}) {
       const normalized = reduced === true;
       memberMotionReduced = normalized;
       document.body.classList.toggle("user-motion-reduced", normalized);
+      document.body.setAttribute("data-motion-tier", normalized ? "calm" : "full");
+      if (!normalized) {
+        restartMemberMotionVisuals();
+      }
       updateMemberMotionControlUi();
       if (options.persist === true && firebaseAuth?.currentUser && !isCeoAccount && !ceoSession) {
         writeMemberMotionToStorage(normalized, firebaseAuth.currentUser.uid);
