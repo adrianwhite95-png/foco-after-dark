@@ -3079,6 +3079,12 @@
       color: #ecfff5;
       text-shadow: 0 0 10px rgba(255, 218, 128, 0.42);
     }
+    .accent-chip[data-accent="prison_punch"] {
+      background: linear-gradient(120deg, rgba(10, 22, 56, 0.92), rgba(20, 66, 158, 0.62), rgba(164, 20, 20, 0.32));
+      border-color: rgba(121, 186, 255, 0.62);
+      color: #f5f9ff;
+      text-shadow: 0 0 10px rgba(121, 186, 255, 0.45), 0 0 10px rgba(239, 68, 68, 0.28);
+    }
     .accent-chip[data-accent="ceo"] {
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(148, 212, 255, 0.32));
       border-color: rgba(208, 234, 255, 0.75);
@@ -17449,6 +17455,7 @@
                   <button type="button" class="accent-chip" data-accent="paloma">Paloma Pop</button>
                   <button type="button" class="accent-chip" data-accent="espresso_martini">Espresso Martini</button>
                   <button type="button" class="accent-chip" data-accent="csu_jungle_juice">CSU Jungle Juice</button>
+                  <button type="button" class="accent-chip" data-accent="prison_punch">Prison Punch</button>
                   <button type="button" class="accent-chip ceo-only" data-accent="ceo">CEO</button>
                 </div>
               </div>
@@ -17976,6 +17983,7 @@
           <button type="button" class="accent-chip" data-accent="paloma">Paloma Pop</button>
           <button type="button" class="accent-chip" data-accent="espresso_martini">Espresso Martini</button>
           <button type="button" class="accent-chip" data-accent="csu_jungle_juice">CSU Jungle Juice</button>
+          <button type="button" class="accent-chip" data-accent="prison_punch">Prison Punch</button>
           <button type="button" class="accent-chip ceo-only" data-accent="ceo">CEO</button>
         </div>
         <div class="menu-motion-control" id="menuMotionControl">
@@ -18577,6 +18585,7 @@
                       <th>Last active</th>
                       <th>Redeemed</th>
                       <th>Nights</th>
+                      <th>Easter eggs</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -20754,7 +20763,8 @@
     const MEMBER_ACCENT_PREFIX = "memberAccent_";
     const MEMBER_MOTION_PREFIX = "memberMotion_";
     const MEMBER_ACCENT_UNLOCKS_PREFIX = "memberAccentUnlocks_";
-    const UNLOCK_ONLY_ACCENTS = new Set(["espresso_martini", "csu_jungle_juice"]);
+    const EASTER_EGG_UNLOCK_THEMES = Object.freeze(["espresso_martini", "csu_jungle_juice", "prison_punch"]);
+    const UNLOCK_ONLY_ACCENTS = new Set(EASTER_EGG_UNLOCK_THEMES);
     const ACCENT_KEY_LEGACY = "accentTheme";
     const LAST_SCREEN_ALLOWLIST = new Set(["tonight", "pass", "venues", "map", "profileActivity", "menu", "support", "staffPortal", "ceoPortal"]);
     const ACHIEVEMENTS_KEY = "achievementsMap";
@@ -23319,7 +23329,7 @@
     function isPointsLockedForCurrentMember(profile = memberProfile) {
       return isExplorerMember(profile);
     }
-    const EXPLORER_LOCKED_ACCENTS = new Set(["jade", "electric", "ember", "glass", "neon_lime", "ruby_night", "paloma", "espresso_martini", "csu_jungle_juice"]);
+    const EXPLORER_LOCKED_ACCENTS = new Set(["jade", "electric", "ember", "glass", "neon_lime", "ruby_night", "paloma", "espresso_martini", "csu_jungle_juice", "prison_punch"]);
     function isExplorerLockedAccent(theme = "") {
       return EXPLORER_LOCKED_ACCENTS.has(String(theme || "").toLowerCase());
     }
@@ -26392,6 +26402,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.119",
+        date: "2026-03-07",
+        added: [
+          "New locked easter-egg accent: Prison Punch, unlocked from the Map screen by selecting Larimer County Jail"
+        ],
+        improved: [
+          "CEO Members view and member preview now include Easter Eggs unlocked progress (out of 3 total)"
+        ],
+        fixed: [
+          "Member unlock progress is now synced to profile state so CEO progress reporting stays current"
+        ]
+      },
+      {
         version: "v0.9.118",
         date: "2026-03-07",
         added: [],
@@ -28472,9 +28495,39 @@
       if (activeCount <= 0) return "No active perks";
       return activeCount === 1 ? "1 active perk" : `${activeCount} active perks`;
     }
+    const MAP_EASTER_EGG_JAIL = Object.freeze({
+      venueId: "larimer_county_jail",
+      name: "Larimer County Jail",
+      address: "2405 Midpoint Dr, Fort Collins, CO 80525, USA"
+    });
     let activeMapVenueId = "";
+    function isMapEasterEggVenue(venueId = "") {
+      return String(venueId || "").trim().toLowerCase() === MAP_EASTER_EGG_JAIL.venueId;
+    }
+    function unlockPrisonPunchFromMap() {
+      const unlocked = unlockAccentForCurrentMember("prison_punch");
+      if (unlocked) {
+        showToast("🚔 Easter egg unlocked: Prison Punch accent is now available.", 7000);
+        applyAccentTheme("prison_punch");
+        updateAccentChipLocks();
+      } else {
+        showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
+      }
+    }
     function setActiveMapVenue(venueId) {
-      if (!venueId || !venuesInfo?.[venueId]) return;
+      if (!venueId) return;
+      if (isMapEasterEggVenue(venueId)) {
+        activeMapVenueId = MAP_EASTER_EGG_JAIL.venueId;
+        if (venueMapFrame) {
+          const query = `${MAP_EASTER_EGG_JAIL.name}, ${MAP_EASTER_EGG_JAIL.address}`;
+          const nextSrc = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(query)}&t=m&z=16&output=embed`;
+          venueMapFrame.src = nextSrc;
+        }
+        renderMapVenueList();
+        unlockPrisonPunchFromMap();
+        return;
+      }
+      if (!venuesInfo?.[venueId]) return;
       activeMapVenueId = venueId;
       const info = venuesInfo[venueId] || {};
       if (venueMapFrame) {
@@ -28593,15 +28646,22 @@
     function renderMapVenueList() {
       if (!mapVenueList) return;
       const entries = featuredVenuesData.slice();
+      const easterEggRow = `
+        <button type="button" class="map-venue-item ${activeMapVenueId === MAP_EASTER_EGG_JAIL.venueId ? "active" : ""}" data-map-venue="${MAP_EASTER_EGG_JAIL.venueId}">
+          <strong>${MAP_EASTER_EGG_JAIL.name}</strong>
+          <span>${MAP_EASTER_EGG_JAIL.address}</span>
+          <span>Tap to open in Google Maps and unlock Prison Punch.</span>
+        </button>
+      `;
       mapVenueList.innerHTML = entries.length
-        ? entries.map((v) => `
+        ? `${entries.map((v) => `
           <button type="button" class="map-venue-item ${activeMapVenueId === v.venueId ? "active" : ""}" data-map-venue="${v.venueId}">
             <strong>${v.name}</strong>
             <span>${(venuesInfo[v.venueId] || {}).address || "Fort Collins"}</span>
             <span>${formatVenueOpenStatus(v.venueId)} · ${getVenuePerksStatus(v.venueId)}</span>
           </button>
-        `).join("")
-        : '<div class="map-venue-item"><strong>No venues loaded</strong><span>Venue list appears here when available.</span></div>';
+        `).join("")}${easterEggRow}`
+        : `<div class="map-venue-item"><strong>No venues loaded</strong><span>Venue list appears here when available.</span></div>${easterEggRow}`;
     }
     function renderProfileActivity() {
       if (!profileActivityName) return;
@@ -35092,6 +35152,14 @@ let onboardingIndex = 0;
           surface: "rgba(6, 56, 40, 0.3)",
           shadow: "0 28px 72px rgba(1, 16, 11, 0.9), 0 0 44px rgba(9, 161, 112, 0.32), 0 0 24px rgba(241, 196, 82, 0.34)"
         },
+        prison_punch: {
+          primary: "#1f4ed8",
+          secondary: "#ef4444",
+          glow: "rgba(129, 180, 255, 0.58)",
+          border: "rgba(129, 180, 255, 0.62)",
+          surface: "rgba(10, 28, 82, 0.3)",
+          shadow: "0 28px 72px rgba(2, 9, 28, 0.9), 0 0 44px rgba(31, 78, 216, 0.36), 0 0 24px rgba(239, 68, 68, 0.34)"
+        },
         ceo: {
           primary: "#ffd700",
           secondary: "#00f7ff",
@@ -35212,6 +35280,40 @@ let onboardingIndex = 0;
         return new Set();
       }
     }
+    function getCurrentMemberEasterEggUnlockSummary(uid = firebaseAuth?.currentUser?.uid) {
+      const unlocks = readMemberAccentUnlocks(uid);
+      const themes = EASTER_EGG_UNLOCK_THEMES.filter((theme) => unlocks.has(theme));
+      return {
+        themes,
+        count: themes.length,
+        total: EASTER_EGG_UNLOCK_THEMES.length
+      };
+    }
+    function syncMemberEasterEggProgress(uid = firebaseAuth?.currentUser?.uid) {
+      const safeUid = String(uid || "").trim();
+      const activeUid = String(firebaseAuth?.currentUser?.uid || "").trim();
+      if (!safeUid || safeUid !== activeUid || !currentPassCode) return;
+      const summary = getCurrentMemberEasterEggUnlockSummary(safeUid);
+      const existingCount = Number(memberProfile?.easterEggUnlockedCount || 0);
+      const existingThemes = Array.isArray(memberProfile?.easterEggUnlockedThemes)
+        ? memberProfile.easterEggUnlockedThemes.map((theme) => String(theme || "").toLowerCase()).filter(Boolean)
+        : [];
+      const existingSig = existingThemes.sort().join("|");
+      const nextSig = summary.themes.slice().sort().join("|");
+      if (existingCount === summary.count && existingSig === nextSig) return;
+      if (memberProfile && typeof memberProfile === "object") {
+        memberProfile.easterEggUnlockedCount = summary.count;
+        memberProfile.easterEggUnlockedThemes = summary.themes.slice();
+      }
+      setMemberDirectoryEntry(currentPassCode, {
+        easterEggUnlockedCount: summary.count,
+        easterEggUnlockedThemes: summary.themes.slice()
+      });
+      persistMemberState({
+        easterEggUnlockedCount: summary.count,
+        easterEggUnlockedThemes: summary.themes.slice()
+      });
+    }
     function isAccentUnlockedForCurrentMember(theme = "", uid = firebaseAuth?.currentUser?.uid) {
       const t = String(theme || "").toLowerCase();
       if (!t) return false;
@@ -35229,6 +35331,7 @@ let onboardingIndex = 0;
       try {
         localStorage.setItem(key, JSON.stringify(Array.from(unlocks)));
       } catch (_) {}
+      syncMemberEasterEggProgress(uid);
       return true;
     }
     function writeMemberAccentToStorage(theme, uid = firebaseAuth?.currentUser?.uid) {
@@ -35267,7 +35370,7 @@ let onboardingIndex = 0;
       root.style.setProperty("--accent-glow-live", palette.glow);
       root.style.setProperty("--accent-surface-live", palette.surface);
       root.style.setProperty("--accent-shadow-live", palette.shadow);
-      document.body.classList.remove("theme-cyan", "theme-magenta", "theme-gold", "theme-jade", "theme-electric", "theme-ember", "theme-glass", "theme-neon_lime", "theme-ruby_night", "theme-paloma", "theme-espresso_martini", "theme-csu_jungle_juice", "theme-ceo");
+      document.body.classList.remove("theme-cyan", "theme-magenta", "theme-gold", "theme-jade", "theme-electric", "theme-ember", "theme-glass", "theme-neon_lime", "theme-ruby_night", "theme-paloma", "theme-espresso_martini", "theme-csu_jungle_juice", "theme-prison_punch", "theme-ceo");
       document.body.classList.add(`theme-${safeTheme}`);
       currentAccentTheme = safeTheme;
       if (currentPassCode) {
@@ -35304,6 +35407,7 @@ let onboardingIndex = 0;
       const entry = directory[(currentPassCode || "").toUpperCase()];
       if (entry?.accent) fromProfile = entry.accent;
       applyAccentTheme(fromProfile || local || "cyan");
+      syncMemberEasterEggProgress();
       loadBackgroundTheme();
     }
     function applyBackgroundTheme(theme = "default") {
@@ -35529,6 +35633,7 @@ let onboardingIndex = 0;
         ruby_night: 348,
         paloma: 18,
         csu_jungle_juice: 145,
+        prison_punch: 220,
         ceo: 48
       };
       return map[theme] ?? 185;
@@ -47704,6 +47809,18 @@ let onboardingIndex = 0;
       return isActiveProfileEntry(data, uid);
     }
     function normalizeCeoMemberData(data = {}, uid = "") {
+      const easterEggThemes = Array.isArray(data.easterEggUnlockedThemes)
+        ? data.easterEggUnlockedThemes.map((theme) => String(theme || "").toLowerCase()).filter(Boolean)
+        : [];
+      const easterEggCount = Math.max(
+        0,
+        Math.min(
+          EASTER_EGG_UNLOCK_THEMES.length,
+          Number.isFinite(Number(data.easterEggUnlockedCount))
+            ? Number(data.easterEggUnlockedCount)
+            : easterEggThemes.length
+        )
+      );
       const rawTier = (data.tier || data.membershipTier || data.membership || data.plan || "").toString();
       const tierKey = normalizeTierKey(rawTier);
       const requestedTierKey = normalizeTierKey(data.requestedTier || "");
@@ -47754,6 +47871,7 @@ let onboardingIndex = 0;
         membershipOverride: override || "",
         freeMembership: data.freeMembership === true || override === "CEO_FREE" || isExplorerAccount,
         accountType: isExplorerAccount ? "Explorer (FREE)" : tierLabel,
+        easterEggUnlockedCount: easterEggCount,
         birthDateLabel: formatCeoDate(data.birthDate || data.dob || null),
         source: String(data.signUpSource || data.signupSource || "App signup")
       };
@@ -48051,6 +48169,7 @@ let onboardingIndex = 0;
         { label: "Status", value: member.statusLabel || "—" },
         { label: "Perks redeemed", value: "0", key: "perksRedeemed" },
         { label: "Nights active", value: "0", key: "nightsActive" },
+        { label: "Easter Eggs unlocked", value: `${Number(member.easterEggUnlockedCount || 0)} / ${EASTER_EGG_UNLOCK_THEMES.length}` },
         { label: "Gender", value: member.gender || "—" },
         { label: "Joined", value: member.createdAtLabel || "—" },
         { label: "Last login", value: member.lastLoginLabel || member.lastActiveLabel || "—" },
@@ -48160,6 +48279,7 @@ let onboardingIndex = 0;
             <td data-label="Last active">${m.lastActiveLabel}</td>
             <td data-label="Redeemed">${activity.redeemed}</td>
             <td data-label="Nights">${activity.nights}</td>
+            <td data-label="Easter eggs">${Number(m.easterEggUnlockedCount || 0)} / ${EASTER_EGG_UNLOCK_THEMES.length}</td>
             <td data-label="Actions">
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button type="button" class="btn btn-secondary" style="padding:6px 10px;font-size:11px;border-radius:10px;" data-member-uid="${m.uid}" data-member-paused="${m.paused ? "1" : "0"}">
@@ -48173,7 +48293,7 @@ let onboardingIndex = 0;
           </tr>
         `;
       });
-      ceoMembersList.innerHTML = rows.join("") || `<tr><td colspan="10" style="color:#94a3b8;font-size:12px;">No members found.</td></tr>`;
+      ceoMembersList.innerHTML = rows.join("") || `<tr><td colspan="11" style="color:#94a3b8;font-size:12px;">No members found.</td></tr>`;
       updateCeoMetrics();
     }
     function startCeoMembersRealtime(force = false) {
@@ -48218,7 +48338,7 @@ let onboardingIndex = 0;
     function exportCeoMembersCsv() {
       if (!ceoMembersCache.length) return;
       const list = getFilteredCeoMembers();
-      const headers = ["Username","UID","Tier","Status","Gender","Joined","Last Active","PassCode"];
+      const headers = ["Username","UID","Tier","Status","Gender","Joined","Last Active","PassCode","EasterEggsUnlocked"];
       const rows = list.map(m => [
         m.username,
         m.uid,
@@ -48227,7 +48347,8 @@ let onboardingIndex = 0;
         m.gender,
         m.createdAtLabel,
         m.lastActiveLabel,
-        m.passCode || ""
+        m.passCode || "",
+        `${Number(m.easterEggUnlockedCount || 0)} / ${EASTER_EGG_UNLOCK_THEMES.length}`
       ]);
       const escape = (value) => {
         const str = String(value ?? "");
