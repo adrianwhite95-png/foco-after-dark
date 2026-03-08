@@ -29205,6 +29205,7 @@
     const MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS = 160;
     const MAP_EASTER_EGG_JAIL_FOCUS_RADIUS_METERS = 110;
     const MAP_EASTER_EGG_JAIL_FOCUS_MIN_ZOOM = 16;
+    const MAP_EASTER_EGG_JAIL_VISIBLE_MIN_ZOOM = 15;
     const MAP_EASTER_EGG_JAIL_FOCUS_SETTLE_MS = 3000;
     const MAP_EASTER_EGG_JAIL_STEER_TARGET = Object.freeze({
       lat: 40.56434597768495,
@@ -29370,6 +29371,12 @@
       }
       return { scale: 10.1, fillColor: "#ff2f6d", strokeColor: "#3af3ff", strokeWeight: 2.7, fillOpacity: 0.95, zIndex: 1000000 };
     }
+    function syncJailMarkerVisibilityByZoom() {
+      const marker = venueMapMarkerCache.get("__jail__");
+      if (!marker || !venueGoogleMap) return;
+      const zoom = Number(venueGoogleMap.getZoom?.() || 0);
+      marker.setVisible(zoom >= MAP_EASTER_EGG_JAIL_VISIBLE_MIN_ZOOM);
+    }
     function stopJailMarkerPulse() {
       if (!mapJailMarkerPulseTimer) return;
       clearInterval(mapJailMarkerPulseTimer);
@@ -29402,6 +29409,7 @@
           strokeWeight: Number(preset.strokeWeight || 2.7)
         }
       });
+      syncJailMarkerVisibilityByZoom();
     }
     function setJailMarkerVisualState(state = "base") {
       const nextState = String(state || "base").toLowerCase();
@@ -29709,13 +29717,20 @@
       const safeTitle = escapeHtmlText(String(title || "").trim() || "FoCo After Dark");
       const safeSubtitle = escapeHtmlText(String(subtitle || "").trim());
       venueGoogleInfoWindow.setContent(`
-        <div style="max-width:220px;padding:2px 2px 1px;">
-          <div style="font-weight:800;font-size:13px;letter-spacing:.01em;">${safeTitle}</div>
-          ${safeSubtitle ? `<div style="font-size:11px;opacity:.82;margin-top:2px;">${safeSubtitle}</div>` : ""}
+        <div style="max-width:220px;padding:4px 4px 2px;color:#0b1220;">
+          <div style="font-weight:800;font-size:13px;letter-spacing:.01em;line-height:1.25;color:#0b1220;">${safeTitle}</div>
+          ${safeSubtitle ? `<div style="font-size:11px;line-height:1.35;color:#334155;margin-top:3px;">${safeSubtitle}</div>` : ""}
         </div>
       `);
       venueGoogleInfoWindow.setPosition(position);
       venueGoogleInfoWindow.open({ map: venueGoogleMap, shouldFocus: false });
+    }
+    function openVenueMapInfoById(venueId) {
+      if (!venueId) return false;
+      const marker = venueMapMarkerCache.get(`venue:${venueId}`);
+      if (!marker) return false;
+      openVenueMapInfo(marker.getPosition(), marker.__focoTitle || getVenueDisplayName(venueId), marker.__focoSubtitle || "");
+      return true;
     }
     function upsertVenueMapMarker(key, coords, title = "", subtitle = "", options = {}) {
       if (!window.google?.maps || !venueGoogleMap || !coords) return null;
@@ -29832,21 +29847,25 @@
         if (!coords || !Number.isFinite(Number(coords.lat)) || !Number.isFinite(Number(coords.lng))) return;
         venueGoogleMap.panTo(coords);
         venueGoogleMap.setZoom(Math.max(14, Number(venueGoogleMap.getZoom() || 14)));
-        upsertVenueMapMarker(`venue:${venueId}`, coords, venueName, venueAddress, {
+        return upsertVenueMapMarker(`venue:${venueId}`, coords, venueName, venueAddress, {
           onClick: () => setActiveMapVenue(venueId)
         });
       };
       if (cached) {
-        applyFocus(cached);
-        return;
+        return Promise.resolve(applyFocus(cached) || null);
       }
       const queryAddress = [venueName, venueAddress, "Fort Collins, CO"].filter(Boolean).join(", ");
-      venueGoogleGeocoder.geocode({ address: queryAddress }, (results, status) => {
-        if (status !== "OK" || !Array.isArray(results) || !results[0]?.geometry?.location) return;
-        const point = results[0].geometry.location;
-        const coords = { lat: Number(point.lat()), lng: Number(point.lng()) };
-        venueMapGeocodeCache.set(venueId, coords);
-        applyFocus(coords);
+      return new Promise((resolve) => {
+        venueGoogleGeocoder.geocode({ address: queryAddress }, (results, status) => {
+          if (status !== "OK" || !Array.isArray(results) || !results[0]?.geometry?.location) {
+            resolve(null);
+            return;
+          }
+          const point = results[0].geometry.location;
+          const coords = { lat: Number(point.lat()), lng: Number(point.lng()) };
+          venueMapGeocodeCache.set(venueId, coords);
+          resolve(applyFocus(coords) || null);
+        });
       });
     }
     let mapInteractiveUnavailableToastAt = 0;
@@ -29943,6 +29962,7 @@
         venueGoogleMap.addListener("idle", () => {
           evaluateJailFocusCandidate("map_idle");
           updateMapEggDiagnostics("idle");
+          syncJailMarkerVisibilityByZoom();
         });
         venueGoogleMap.addListener("center_changed", () => {
           const center = venueGoogleMap.getCenter?.();
@@ -29956,6 +29976,7 @@
             clearJailFocusConfirmTimer("center_changed_out_of_focus");
           }
           updateMapEggDiagnostics("center_changed");
+          syncJailMarkerVisibilityByZoom();
         });
         venueGoogleMap.addListener("zoom_changed", () => {
           const center = venueGoogleMap.getCenter?.();
@@ -29969,6 +29990,7 @@
             clearJailFocusConfirmTimer("zoom_changed_out_of_focus");
           }
           updateMapEggDiagnostics("zoom_changed");
+          syncJailMarkerVisibilityByZoom();
         });
         await new Promise((resolve) => setTimeout(resolve, 220));
         if (interactiveMapHasRuntimeError()) {
@@ -30007,21 +30029,36 @@
         return false;
       }
     }
-    function setActiveMapVenue(venueId) {
+    function setActiveMapVenue(venueId, options = {}) {
       if (!venueId) return;
       const isJailTarget = venueId === "__jail__";
       if (!isJailTarget && !venuesInfo?.[venueId]) return;
       activeMapVenueId = venueId;
+      const shouldOpenInfo = options?.openInfo === true;
       const info = isJailTarget
         ? { name: MAP_EASTER_EGG_JAIL.name, address: MAP_EASTER_EGG_JAIL.address }
         : (venuesInfo[venueId] || {});
       if (venueMapInteractiveReady && venueGoogleMap) {
-        focusVenueOnInteractiveMap(venueId);
+        const focusPromise = focusVenueOnInteractiveMap(venueId);
+        if (shouldOpenInfo && !isJailTarget) {
+          Promise.resolve(focusPromise).then(() => {
+            if (!openVenueMapInfoById(venueId)) {
+              setTimeout(() => openVenueMapInfoById(venueId), 220);
+            }
+          });
+        }
         void syncInteractiveVenueMarkers("set_active_map_venue");
       } else if (currentScreenName === "map") {
         ensureInteractiveVenueMapReady().then((ready) => {
           if (!ready) return;
-          focusVenueOnInteractiveMap(venueId);
+          const focusPromise = focusVenueOnInteractiveMap(venueId);
+          if (shouldOpenInfo && !isJailTarget) {
+            Promise.resolve(focusPromise).then(() => {
+              if (!openVenueMapInfoById(venueId)) {
+                setTimeout(() => openVenueMapInfoById(venueId), 260);
+              }
+            });
+          }
           void syncInteractiveVenueMarkers("set_active_map_venue_ready");
         });
       }
@@ -34033,7 +34070,7 @@ let onboardingIndex = 0;
         if (!btn) return;
         const venueId = String(btn.dataset.mapVenue || "").trim();
         if (!venueId) return;
-        setActiveMapVenue(venueId);
+        setActiveMapVenue(venueId, { openInfo: true });
       });
     }
     document.addEventListener("keydown", (event) => {
