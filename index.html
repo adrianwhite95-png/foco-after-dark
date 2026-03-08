@@ -29259,6 +29259,10 @@
     let mapJailSteerBand = "";
     let mapJailSteerLastToastMs = 0;
     let mapJailSteerLastDistanceMeters = Number.POSITIVE_INFINITY;
+    let mapJailMarkerVisualState = "base";
+    let mapJailMarkerPulseMode = "none";
+    let mapJailMarkerPulseTimer = null;
+    let mapJailMarkerPulsePhase = 0;
     const venueMapMarkerCache = new Map();
     const venueMapGeocodeCache = new Map();
     function normalizeMapMatchSource(source = "") {
@@ -29325,6 +29329,9 @@
       if (venueMapFrame) {
         venueMapFrame.style.display = enabled ? "none" : "block";
       }
+      if (!enabled) {
+        stopJailMarkerPulse();
+      }
       updateMapEggDiagnostics("map_mode_toggle");
     }
     useInteractiveVenueMap(false);
@@ -29381,6 +29388,77 @@
       if (mapJailFocusLocked) return "confirmed";
       if (mapJailFocusConfirmTimer) return "running";
       return "idle";
+    }
+    function getJailMarkerVisualPreset(state = "base") {
+      const key = String(state || "base").toLowerCase();
+      if (key === "hold") {
+        return { scale: 14.2, fillColor: "#ff174f", strokeColor: "#f8fafc", strokeWeight: 4.4, fillOpacity: 0.98, zIndex: 1000060 };
+      }
+      if (key === "final") {
+        return { scale: 13.2, fillColor: "#ff2f6d", strokeColor: "#f1f5f9", strokeWeight: 3.9, fillOpacity: 0.98, zIndex: 1000040 };
+      }
+      if (key === "mid") {
+        return { scale: 11.9, fillColor: "#ff4979", strokeColor: "#82f6ff", strokeWeight: 3.35, fillOpacity: 0.97, zIndex: 1000025 };
+      }
+      if (key === "outer") {
+        return { scale: 10.9, fillColor: "#ff5b8d", strokeColor: "#70f2ff", strokeWeight: 3.05, fillOpacity: 0.96, zIndex: 1000015 };
+      }
+      return { scale: 10.1, fillColor: "#ff2f6d", strokeColor: "#3af3ff", strokeWeight: 2.7, fillOpacity: 0.95, zIndex: 1000000 };
+    }
+    function stopJailMarkerPulse() {
+      if (!mapJailMarkerPulseTimer) return;
+      clearInterval(mapJailMarkerPulseTimer);
+      mapJailMarkerPulseTimer = null;
+      mapJailMarkerPulseMode = "none";
+      mapJailMarkerPulsePhase = 0;
+    }
+    function applyJailMarkerVisualState(state = "base", pulseFactor = 0) {
+      const marker = venueMapMarkerCache.get("__jail__");
+      if (!marker || !window.google?.maps) return;
+      const preset = getJailMarkerVisualPreset(state);
+      const scale = Math.max(8.8, Number(preset.scale) + Number(pulseFactor || 0));
+      marker.setOptions({
+        title: MAP_EASTER_EGG_JAIL.name,
+        clickable: true,
+        optimized: false,
+        zIndex: Number(preset.zIndex || 1000000),
+        label: {
+          text: "JAIL",
+          color: "#e2f8ff",
+          fontSize: "10px",
+          fontWeight: "800"
+        },
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale,
+          fillColor: String(preset.fillColor || "#ff2f6d"),
+          fillOpacity: Number(preset.fillOpacity || 0.95),
+          strokeColor: String(preset.strokeColor || "#3af3ff"),
+          strokeWeight: Number(preset.strokeWeight || 2.7)
+        }
+      });
+    }
+    function setJailMarkerVisualState(state = "base") {
+      const nextState = String(state || "base").toLowerCase();
+      mapJailMarkerVisualState = nextState;
+      let nextPulseMode = "none";
+      if (nextState === "outer" || nextState === "mid") nextPulseMode = "soft";
+      if (nextState === "final" || nextState === "hold") nextPulseMode = "hard";
+      if (nextPulseMode !== mapJailMarkerPulseMode) {
+        stopJailMarkerPulse();
+        mapJailMarkerPulseMode = nextPulseMode;
+        if (nextPulseMode !== "none") {
+          mapJailMarkerPulseTimer = setInterval(() => {
+            const marker = venueMapMarkerCache.get("__jail__");
+            if (!marker || !venueMapInteractiveReady || !venueGoogleMap) return;
+            mapJailMarkerPulsePhase = (mapJailMarkerPulsePhase + 1) % 2;
+            const amount = nextPulseMode === "hard" ? 0.85 : 0.45;
+            const pulse = mapJailMarkerPulsePhase ? amount : -amount * 0.45;
+            applyJailMarkerVisualState(mapJailMarkerVisualState, pulse);
+          }, nextPulseMode === "hard" ? 300 : 460);
+        }
+      }
+      applyJailMarkerVisualState(nextState, 0);
     }
     function updateMapEggDiagnostics(source = "unknown") {
       if (!mapEggDiagnosticsPill) return;
@@ -29505,6 +29583,10 @@
       clearTimeout(mapJailFocusConfirmTimer);
       mapJailFocusConfirmTimer = null;
       console.log("[map egg] jail focus timer cancel", { reason: reason || "cancelled" });
+      if (!mapJailFocusLocked) {
+        const fallbackState = mapJailSteerBand === "mid" ? "mid" : (mapJailSteerBand === "outer" ? "outer" : "base");
+        setJailMarkerVisualState(fallbackState);
+      }
       updateMapEggDiagnostics("focus_timer_cancel");
     }
     function resetJailSteerState(reason = "out_of_range") {
@@ -29517,6 +29599,9 @@
       }
       mapJailSteerBand = "";
       mapJailSteerLastDistanceMeters = Number.POSITIVE_INFINITY;
+      if (!mapJailFocusConfirmTimer && !mapJailFocusLocked) {
+        setJailMarkerVisualState("base");
+      }
       updateMapEggDiagnostics("steer_reset");
     }
     function evaluateJailSteerState(lat, lng, zoom, source = "map_idle") {
@@ -29544,6 +29629,7 @@
       if (nextBand === "final") {
         mapJailSteerBand = "final";
         mapJailSteerLastDistanceMeters = distanceMeters;
+        setJailMarkerVisualState(mapJailFocusConfirmTimer ? "hold" : "final");
         updateMapEggDiagnostics("steer_final");
         return;
       }
@@ -29565,6 +29651,7 @@
       }
       mapJailSteerBand = nextBand;
       mapJailSteerLastDistanceMeters = distanceMeters;
+      setJailMarkerVisualState(nextBand);
       updateMapEggDiagnostics(`steer_${nextBand}`);
     }
     function evaluateJailFocusCandidate(source = "map_idle") {
@@ -29588,14 +29675,17 @@
       if (!candidate) {
         mapJailFocusLocked = false;
         clearJailFocusConfirmTimer("left_focus_zone");
+        setJailMarkerVisualState(mapJailSteerBand === "mid" ? "mid" : (mapJailSteerBand === "outer" ? "outer" : "base"));
         updateMapEggDiagnostics("focus_candidate_false");
         return;
       }
       if (mapJailFocusLocked) {
+        setJailMarkerVisualState("final");
         updateMapEggDiagnostics("focus_already_confirmed");
         return;
       }
       if (mapJailFocusConfirmTimer) {
+        setJailMarkerVisualState("hold");
         updateMapEggDiagnostics("focus_timer_running");
         return;
       }
@@ -29621,6 +29711,7 @@
           return;
         }
         mapJailFocusLocked = true;
+        setJailMarkerVisualState("final");
         console.log("[map egg] jail focus confirmed", {
           source,
           lat: settledLat,
@@ -29630,6 +29721,7 @@
         updateMapEggDiagnostics("focus_confirmed");
         triggerPrisonPunchFromJailSelection("jail_focus_hold");
       }, MAP_EASTER_EGG_JAIL_FOCUS_SETTLE_MS);
+      setJailMarkerVisualState("hold");
       updateMapEggDiagnostics("focus_timer_start");
     }
     function openVenueMapInfo(position, title = "", subtitle = "") {
@@ -29753,17 +29845,24 @@
             markerOptions: {
               zIndex: 1000000,
               optimized: false,
+              label: {
+                text: "JAIL",
+                color: "#e2f8ff",
+                fontSize: "10px",
+                fontWeight: "800"
+              },
               icon: {
                 path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 9.5,
+                scale: 10.1,
                 fillColor: "#ff2f6d",
-                fillOpacity: 0.98,
+                fillOpacity: 0.95,
                 strokeColor: "#3af3ff",
-                strokeWeight: 2.6
+                strokeWeight: 2.7
               }
             }
           }
         );
+        setJailMarkerVisualState("base");
         venueGoogleMap.addListener("idle", () => {
           evaluateJailFocusCandidate("map_idle");
           updateMapEggDiagnostics("idle");
@@ -29826,6 +29925,7 @@
         console.warn("Interactive map unavailable; using embed fallback.", err);
         venueMapInteractiveReady = false;
         useInteractiveVenueMap(false);
+        stopJailMarkerPulse();
         updateMapEggDiagnostics("interactive_init_failed");
         return false;
       }
