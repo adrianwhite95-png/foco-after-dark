@@ -58,6 +58,7 @@
       --glow-magenta: rgba(244, 114, 182, 0.35);
       --accent-primary-live: #22d3ee;
       --accent-secondary-live: #22c55e;
+      --accent-tertiary-live: #22d3ee;
       --accent-border-live: rgba(34, 211, 238, 0.4);
       --accent-glow-live: rgba(34, 211, 238, 0.35);
       --accent-surface-live: rgba(34, 211, 238, 0.12);
@@ -6845,6 +6846,10 @@
           transparent 0 45%,
           color-mix(in srgb, var(--accent-secondary-live) 66%, transparent) 51%,
           transparent 57%),
+        linear-gradient(176deg,
+          transparent 0 46%,
+          color-mix(in srgb, var(--accent-tertiary-live, var(--accent-primary-live)) 58%, transparent) 50%,
+          transparent 54%),
         conic-gradient(
           from 0deg,
           color-mix(in srgb, var(--accent-primary-live) 42%, transparent) 0deg 24deg,
@@ -11353,6 +11358,10 @@
           transparent 0 42%,
           color-mix(in srgb, var(--accent-secondary-live) 40%, transparent) 51%,
           transparent 60%),
+        linear-gradient(182deg,
+          transparent 0 45%,
+          color-mix(in srgb, var(--accent-tertiary-live, var(--accent-primary-live)) 34%, transparent) 50%,
+          transparent 55%),
         radial-gradient(circle at 22% 28%, color-mix(in srgb, var(--accent-primary-live) 42%, transparent), transparent 48%),
         radial-gradient(circle at 74% 72%, color-mix(in srgb, var(--accent-secondary-live) 38%, transparent), transparent 52%);
       opacity: 0.31;
@@ -11463,9 +11472,10 @@
       background-image:
         radial-gradient(circle at 16% 18%, color-mix(in srgb, var(--accent-primary-live) 20%, transparent), transparent 48%),
         radial-gradient(circle at 84% 78%, color-mix(in srgb, var(--accent-secondary-live) 18%, transparent), transparent 52%),
+        radial-gradient(circle at 52% 28%, color-mix(in srgb, var(--accent-tertiary-live, var(--accent-primary-live)) 16%, transparent), transparent 56%),
         repeating-linear-gradient(115deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 6px);
-      background-size: 100% 100%, 100% 100%, 260px 260px;
-      background-position: center, center, 0 0;
+      background-size: 100% 100%, 100% 100%, 100% 100%, 260px 260px;
+      background-position: center, center, center, 0 0;
       animation: cardFloatPulse 8.5s ease-in-out infinite, grainDrift 14s linear infinite;
     }
     #passScreen .member-hero::before {
@@ -26495,6 +26505,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.127",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "CSU Jungle Juice accent lighting now runs a three-tone laser blend for stronger profile atmosphere"
+        ],
+        fixed: [
+          "Added a dedicated bright third laser channel to CSU Jungle Juice so it reads clearly separate from other green themes"
+        ]
+      },
+      {
         version: "v0.9.126",
         date: "2026-03-07",
         added: [],
@@ -35550,6 +35571,7 @@ let onboardingIndex = 0;
         csu_jungle_juice: {
           primary: "#0b4f35",
           secondary: "#f3c84f",
+          tertiary: "#f8fafc",
           glow: "rgba(243, 200, 79, 0.68)",
           border: "rgba(243, 200, 79, 0.78)",
           surface: "rgba(8, 44, 31, 0.38)",
@@ -35769,6 +35791,7 @@ let onboardingIndex = 0;
       root.style.setProperty("--accent-magenta", palette.primary);
       root.style.setProperty("--accent-primary-live", palette.primary);
       root.style.setProperty("--accent-secondary-live", palette.secondary);
+      root.style.setProperty("--accent-tertiary-live", palette.tertiary || palette.primary);
       root.style.setProperty("--accent-border-live", palette.border);
       root.style.setProperty("--accent-glow-live", palette.glow);
       root.style.setProperty("--accent-surface-live", palette.surface);
