@@ -40405,22 +40405,50 @@ let onboardingIndex = 0;
     }
     function normalizeAvatarAccessories(value = null) {
       const src = (value && typeof value === "object") ? value : {};
+      const safeHatStyle = (() => {
+        const v = String(src.hatStyle || "").toLowerCase();
+        return ["cap", "bucket", "beanie"].includes(v) ? v : "cap";
+      })();
+      const safeDrinkStyle = (() => {
+        const v = String(src.drinkStyle || "").toLowerCase();
+        return ["martini", "whiskey", "beer", "shot"].includes(v) ? v : "martini";
+      })();
+      const safeGlassesStyle = (() => {
+        const v = String(src.glassesStyle || "").toLowerCase();
+        return ["classic", "neon", "star"].includes(v) ? v : "classic";
+      })();
       return {
         hat: src.hat === true,
-        hatStyle: AVATAR_HAT_STYLES[String(src.hatStyle || "").toLowerCase()] ? String(src.hatStyle || "").toLowerCase() : DEFAULT_AVATAR_ACCESSORIES.hatStyle,
+        hatStyle: safeHatStyle,
         drink: src.drink === true,
-        drinkStyle: AVATAR_DRINK_STYLES[String(src.drinkStyle || "").toLowerCase()] ? String(src.drinkStyle || "").toLowerCase() : DEFAULT_AVATAR_ACCESSORIES.drinkStyle,
+        drinkStyle: safeDrinkStyle,
         cigarette: src.cigarette === true,
         sunglasses: src.sunglasses === true,
-        glassesStyle: AVATAR_GLASSES_STYLES[String(src.glassesStyle || "").toLowerCase()] ? String(src.glassesStyle || "").toLowerCase() : DEFAULT_AVATAR_ACCESSORIES.glassesStyle
+        glassesStyle: safeGlassesStyle
       };
     }
     function renderAvatarAccessoriesMarkup(accessories = {}) {
       const a = normalizeAvatarAccessories(accessories);
+      const hatStyle = {
+        cap: "🧢",
+        bucket: "🎩",
+        beanie: "🧶"
+      };
+      const glassesStyle = {
+        classic: "🕶️",
+        neon: "😎",
+        star: "🤩"
+      };
+      const drinkStyle = {
+        martini: "🍸",
+        whiskey: "🥃",
+        beer: "🍺",
+        shot: "🥂"
+      };
       const out = [];
-      if (a.hat) out.push(`<span class="acc hat acc-style-${escapeHtmlText(a.hatStyle)}">${escapeHtmlText(AVATAR_HAT_STYLES[a.hatStyle]?.emoji || AVATAR_HAT_STYLES.cap.emoji)}</span>`);
-      if (a.sunglasses) out.push(`<span class="acc glasses acc-style-${escapeHtmlText(a.glassesStyle)}">${escapeHtmlText(AVATAR_GLASSES_STYLES[a.glassesStyle]?.emoji || AVATAR_GLASSES_STYLES.classic.emoji)}</span>`);
-      if (a.drink) out.push(`<span class="acc drink acc-style-${escapeHtmlText(a.drinkStyle)}">${escapeHtmlText(AVATAR_DRINK_STYLES[a.drinkStyle]?.emoji || AVATAR_DRINK_STYLES.martini.emoji)}</span>`);
+      if (a.hat) out.push(`<span class="acc hat acc-style-${escapeHtmlText(a.hatStyle)}">${escapeHtmlText(hatStyle[a.hatStyle] || hatStyle.cap)}</span>`);
+      if (a.sunglasses) out.push(`<span class="acc glasses acc-style-${escapeHtmlText(a.glassesStyle)}">${escapeHtmlText(glassesStyle[a.glassesStyle] || glassesStyle.classic)}</span>`);
+      if (a.drink) out.push(`<span class="acc drink acc-style-${escapeHtmlText(a.drinkStyle)}">${escapeHtmlText(drinkStyle[a.drinkStyle] || drinkStyle.martini)}</span>`);
       if (a.cigarette) out.push('<span class="acc cigarette">🚬</span>');
       return out.join("");
     }
