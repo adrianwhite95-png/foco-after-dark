@@ -2461,6 +2461,9 @@
       grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
       gap: 10px;
       margin-top: 8px;
+      max-height: min(58vh, 560px);
+      overflow-y: auto;
+      padding-right: 4px;
     }
     .avatar-preset-btn {
       border: 1px solid color-mix(in srgb, var(--accent-primary-live) 36%, rgba(148, 163, 184, 0.35));
@@ -27041,6 +27044,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.149",
+        date: "2026-03-08",
+        added: [
+          "Avatar picker now includes a larger cartoon animal lineup with nightlife-themed styling"
+        ],
+        improved: [
+          "Preset avatar library now supports more visual variety while keeping branded FoCo shirt art on each option"
+        ],
+        fixed: [
+          "Avatar picker grid now supports full vertical scrolling so all preset options are reachable on iOS and web"
+        ]
+      },
+      {
         version: "v0.9.148",
         date: "2026-03-08",
         added: [
@@ -39889,16 +39905,24 @@ let onboardingIndex = 0;
     renderVenueButtons();
     // Background selection removed; no UI controls remain for choosing background themes.
 
-    const DEFAULT_AVATAR_ID = "neon_blaze";
+    const DEFAULT_AVATAR_ID = "alley_fox";
     const AVATAR_LIBRARY = [
-      { id: "neon_blaze", label: "Neon Blaze", src: "media/avatar-neon_blaze.svg" },
-      { id: "midnight_muse", label: "Midnight Muse", src: "media/avatar-midnight_muse.svg" },
-      { id: "electric_echo", label: "Electric Echo", src: "media/avatar-electric_echo.svg" },
-      { id: "velvet_vibe", label: "Velvet Vibe", src: "media/avatar-velvet_vibe.svg" },
-      { id: "club_comet", label: "Club Comet", src: "media/avatar-club_comet.svg" },
-      { id: "afterglow_ace", label: "Afterglow Ace", src: "media/avatar-afterglow_ace.svg" },
-      { id: "laser_luxe", label: "Laser Luxe", src: "media/avatar-laser_luxe.svg" },
-      { id: "nightshift_nova", label: "Nightshift Nova", src: "media/avatar-nightshift_nova.svg" }
+      { id: "alley_fox", label: "Alley Fox", src: "media/avatar-alley_fox.svg" },
+      { id: "night_wolf", label: "Night Wolf", src: "media/avatar-night_wolf.svg" },
+      { id: "velvet_panther", label: "Velvet Panther", src: "media/avatar-velvet_panther.svg" },
+      { id: "ram_riot", label: "Ram Riot", src: "media/avatar-ram_riot.svg" },
+      { id: "club_bunny", label: "Club Bunny", src: "media/avatar-club_bunny.svg" },
+      { id: "disco_bear", label: "Disco Bear", src: "media/avatar-disco_bear.svg" },
+      { id: "neon_otter", label: "Neon Otter", src: "media/avatar-neon_otter.svg" },
+      { id: "midnight_raccoon", label: "Midnight Raccoon", src: "media/avatar-midnight_raccoon.svg" },
+      { id: "sly_coyote", label: "Sly Coyote", src: "media/avatar-sly_coyote.svg" },
+      { id: "strobe_tiger", label: "Strobe Tiger", src: "media/avatar-strobe_tiger.svg" },
+      { id: "moon_koala", label: "Moon Koala", src: "media/avatar-moon_koala.svg" },
+      { id: "after_dark_panda", label: "After Dark Panda", src: "media/avatar-after_dark_panda.svg" },
+      { id: "laser_frog", label: "Laser Frog", src: "media/avatar-laser_frog.svg" },
+      { id: "vip_penguin", label: "VIP Penguin", src: "media/avatar-vip_penguin.svg" },
+      { id: "glow_deer", label: "Glow Deer", src: "media/avatar-glow_deer.svg" },
+      { id: "electric_lion", label: "Electric Lion", src: "media/avatar-electric_lion.svg" }
     ];
     const AVATAR_LIBRARY_BY_ID = AVATAR_LIBRARY.reduce((acc, avatar) => {
       acc[avatar.id] = avatar;
