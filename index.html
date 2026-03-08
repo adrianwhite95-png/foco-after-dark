@@ -18349,12 +18349,6 @@
           <button type="button" class="menu-action-btn" id="menuMotionToggle">Set reduced motion</button>
           <p class="menu-motion-note">Applies only to your account visuals.</p>
         </div>
-        <div class="menu-motion-control" id="menuSoundControl">
-          <p class="menu-motion-title">Touch feedback sound</p>
-          <p class="menu-motion-status" id="menuSoundStatus">Touch sound: On</p>
-          <button type="button" class="menu-action-btn" id="menuSoundToggle">Turn touch sound off</button>
-          <p class="menu-motion-note">iPhone haptics stay active. Sound follows this toggle.</p>
-        </div>
       </div>
     </div>
   </div>
@@ -26950,6 +26944,15 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.137",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Member Menu controls were streamlined by removing the profile touch-sound toggle while keeping global tap feedback behavior intact"
+        ],
+        fixed: []
+      },
       {
         version: "v0.9.136",
         date: "2026-03-07",
