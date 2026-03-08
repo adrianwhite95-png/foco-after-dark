@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Jail pin">
+  <defs>
+    <clipPath id="jailClip"><circle cx="64" cy="64" r="45"/></clipPath>
+    <filter id="jailGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="jailRing" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6cf9ff"/>
+      <stop offset="100%" stop-color="#ff3f97"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="64" cy="64" r="54" fill="#0b1328" opacity="0.74" filter="url(#jailGlow)"/>
+  <circle cx="64" cy="64" r="49" fill="#04060d" stroke="url(#jailRing)" stroke-width="4"/>
+  <image href="jail-mugshot.png" x="19" y="19" width="90" height="90" preserveAspectRatio="xMidYMid slice" clip-path="url(#jailClip)"/>
+  <circle cx="64" cy="64" r="45" fill="none" stroke="#f8fafc" stroke-opacity="0.38" stroke-width="1.5"/>
+</svg>
