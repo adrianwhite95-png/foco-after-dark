@@ -2491,6 +2491,29 @@
       background-position: center;
       background-repeat: no-repeat;
       margin-bottom: 6px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 28px rgba(2, 6, 23, 0.35);
+    }
+    .avatar-preset-preview::after {
+      content: "";
+      position: absolute;
+      inset: -45% -30%;
+      background: linear-gradient(110deg, rgba(255, 255, 255, 0) 36%, rgba(255, 255, 255, 0.33) 50%, rgba(255, 255, 255, 0) 64%);
+      transform: translateX(-95%) rotate(6deg);
+      animation: avatarGlimmer 3.2s ease-in-out infinite;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.65;
+    }
+    .avatar-preset-btn:hover .avatar-preset-preview::after {
+      animation-duration: 2.2s;
+      opacity: 0.82;
+    }
+    @keyframes avatarGlimmer {
+      0% { transform: translateX(-115%) rotate(6deg); }
+      42% { transform: translateX(102%) rotate(6deg); }
+      100% { transform: translateX(102%) rotate(6deg); }
     }
     .avatar-preset-label {
       font-size: 11px;
@@ -13256,6 +13279,68 @@
       grid-column: 1 / -1;
       width: 100%;
       text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 124px;
+      overflow: hidden;
+    }
+    #tonightScreen .tonight-mini-meta {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+    #tonightScreen .tonight-mini-avatar-wrap {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      flex: 0 0 72px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 56%, rgba(148, 163, 184, 0.35));
+      box-shadow:
+        inset 0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 28%, transparent),
+        0 0 18px color-mix(in srgb, var(--accent-primary-live) 30%, transparent);
+      background:
+        radial-gradient(110% 110% at 15% 10%, color-mix(in srgb, var(--accent-primary-live) 36%, transparent), transparent 66%),
+        rgba(5, 10, 22, 0.9);
+      overflow: hidden;
+    }
+    #tonightScreen .tonight-mini-avatar {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      filter: saturate(1.05);
+      transition: filter 0.2s ease, transform 0.2s ease;
+    }
+    #tonightScreen .tonight-mini-avatar-wrap.explorer-locked .tonight-mini-avatar {
+      filter: blur(3px) grayscale(0.36) brightness(0.74);
+      transform: scale(1.04);
+    }
+    #tonightScreen .tonight-mini-avatar-lock {
+      position: absolute;
+      inset: auto 6px 6px 6px;
+      border-radius: 999px;
+      padding: 3px 7px;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fef3c7;
+      border: 1px solid rgba(251, 191, 36, 0.52);
+      background: rgba(15, 23, 42, 0.86);
+      box-shadow: 0 0 14px rgba(251, 191, 36, 0.2);
+      opacity: 0;
+      transform: translateY(4px);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    #tonightScreen .tonight-mini-avatar-wrap.explorer-locked .tonight-mini-avatar-lock {
+      opacity: 1;
+      transform: translateY(0);
     }
     #tonightScreen .tonight-redeem-cta {
       width: 100%;
@@ -18334,11 +18419,17 @@
     <div class="tagline">Live snapshot of where to go and what to redeem right now.</div>
     <div class="tonight-grid">
       <button type="button" class="tonight-mini-pass card-hd" id="tonightMiniPass">
-        <div class="micro-label">Mini pass</div>
-        <strong id="tonightMiniName">FoCo Member</strong>
-        <span id="tonightMiniTier">Standard</span>
-        <span id="tonightMiniCode">Pass ID: —</span>
-        <span class="tonight-mini-hint">Tap for full pass</span>
+        <div class="tonight-mini-avatar-wrap" id="tonightMiniAvatarWrap" aria-hidden="true">
+          <span class="tonight-mini-avatar" id="tonightMiniAvatar"></span>
+          <span class="tonight-mini-avatar-lock" id="tonightMiniAvatarLock">🔒 Locked</span>
+        </div>
+        <div class="tonight-mini-meta">
+          <div class="micro-label">Mini pass</div>
+          <strong id="tonightMiniName">FoCo Member</strong>
+          <span id="tonightMiniTier">Standard</span>
+          <span id="tonightMiniCode">Pass ID: —</span>
+          <span class="tonight-mini-hint">Tap for full pass</span>
+        </div>
       </button>
       <button type="button" class="tonight-redeem-cta card-hd" id="tonightRedeemBtn">
         <span class="tonight-redeem-title">Claim Tonight's Perk</span>
@@ -26579,6 +26670,8 @@
     const tonightMiniName = document.getElementById("tonightMiniName");
     const tonightMiniTier = document.getElementById("tonightMiniTier");
     const tonightMiniCode = document.getElementById("tonightMiniCode");
+    const tonightMiniAvatarWrap = document.getElementById("tonightMiniAvatarWrap");
+    const tonightMiniAvatar = document.getElementById("tonightMiniAvatar");
     const tonightOpenNowList = document.getElementById("tonightOpenNowList");
     const tonightAlertsList = document.getElementById("tonightAlertsList");
     const tonightRecentRedeemed = document.getElementById("tonightRecentRedeemed");
@@ -27049,6 +27142,19 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.151",
+        date: "2026-03-08",
+        added: [
+          "Tonight tab now shows a larger live member avatar tile with Explorer lock presentation"
+        ],
+        improved: [
+          "Avatar picker now includes four additional themed animal presets with improved shirt-logo framing and animated glimmer polish"
+        ],
+        fixed: [
+          "Avatar switches now force immediate refresh on Tonight, staff pending, staff redeemed, and activity views for faster cross-screen sync"
+        ]
+      },
       {
         version: "v0.9.150",
         date: "2026-03-08",
@@ -30474,11 +30580,18 @@
       const log = Array.isArray(redemptionLog) ? redemptionLog : [];
       const tierRaw = getEffectiveTierForDisplay();
       const tierLabel = tierLabelFromKey(tierRaw);
+      const avatarId = resolveMemberAvatarId(memberProfile || {}, currentPassCode || memberProfile?.passCode || "");
       tonightMiniName.textContent = preferredMemberName(firebaseAuth.currentUser || {});
       tonightMiniTier.textContent = tierLabel;
       tonightMiniCode.textContent = tierRaw === "explorer"
         ? "Pass locked · Upgrade to redeem"
         : `Pass ID: ${(currentPassCode || "—").toUpperCase()}`;
+      if (tonightMiniAvatar) {
+        tonightMiniAvatar.style.backgroundImage = `url('${getAvatarSourceById(avatarId)}')`;
+      }
+      if (tonightMiniAvatarWrap) {
+        tonightMiniAvatarWrap.classList.toggle("explorer-locked", tierRaw === "explorer");
+      }
 
       if (tonightOpenNowList) {
         const open = featuredVenuesData.filter((v) => isVenueOpenNow(v.venueId)).slice(0, 6);
@@ -32728,6 +32841,7 @@
             updatePointsUI();
             renderVipDealForMember();
             renderPassIdentity(firebaseAuth.currentUser);
+            renderTonightHub();
 	            updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
 	            updateExpiryDisplay();
 	            updateVoucherBalanceUI();
@@ -39941,7 +40055,11 @@ let onboardingIndex = 0;
       { id: "margarita_monkey", label: "Margarita Monkey", src: "media/avatar-margarita_monkey.svg" },
       { id: "tequila_toucan", label: "Tequila Toucan", src: "media/avatar-tequila_toucan.svg" },
       { id: "vodka_viper", label: "Vodka Viper", src: "media/avatar-vodka_viper.svg" },
-      { id: "gin_giraffe", label: "Gin Giraffe", src: "media/avatar-gin_giraffe.svg" }
+      { id: "gin_giraffe", label: "Gin Giraffe", src: "media/avatar-gin_giraffe.svg" },
+      { id: "rowdy_raccoon", label: "Rowdy Raccoon", src: "media/avatar-rowdy_raccoon.svg" },
+      { id: "sauced_seahorse", label: "Sauced Seahorse", src: "media/avatar-sauced_seahorse.svg" },
+      { id: "wavy_walrus", label: "Wavy Walrus", src: "media/avatar-wavy_walrus.svg" },
+      { id: "tipsy_tortoise", label: "Tipsy Tortoise", src: "media/avatar-tipsy_tortoise.svg" }
     ];
     const AVATAR_LIBRARY_BY_ID = AVATAR_LIBRARY.reduce((acc, avatar) => {
       acc[avatar.id] = avatar;
@@ -40033,8 +40151,10 @@ let onboardingIndex = 0;
       if (opts.persist !== false) {
         persistMemberState({ avatarId: safeId });
       }
+      renderTonightHub();
       renderStaffPendingQueue();
       if (typeof renderStaffVenueLog === "function") renderStaffVenueLog();
+      if (typeof renderStaffDealRedemptionLog === "function") renderStaffDealRedemptionLog();
       if (typeof renderCeoMembersTable === "function") renderCeoMembersTable();
     }
     async function openAvatarPickerModal() {

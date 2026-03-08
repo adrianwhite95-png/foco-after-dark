@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Tipsy Tortoise">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4ade80" stop-opacity="0.28"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0.26"/></linearGradient>
+    <linearGradient id="shirt" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#0ea5e9"/></linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="52" fill="#060d1a"/>
+  <rect x="8" y="8" width="240" height="240" rx="46" fill="url(#bg)"/>
+  <ellipse cx="128" cy="104" rx="46" ry="39" fill="#84cc16"/>
+  <ellipse cx="128" cy="109" rx="30" ry="23" fill="#e2e8f0" opacity="0.95"/>
+  <circle cx="114" cy="97" r="5" fill="#0f172a"/>
+  <circle cx="142" cy="97" r="5" fill="#0f172a"/>
+  <path d="M112 119c7 5 25 5 32 0" fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+  <path d="M90 104l14-8M166 104l-14-8" stroke="#65a30d" stroke-width="7" stroke-linecap="round"/>
+  <rect x="102" y="79" width="52" height="10" rx="5" fill="#111827"/>
+  <rect x="84" y="177" width="88" height="50" rx="14" fill="#0b1220" opacity="0.86"/>
+  <path d="M58 230c8-41 34-66 70-66s62 25 70 66" fill="url(#shirt)"/>
+  <circle cx="128" cy="196" r="24" fill="#050816"/>
+  <circle cx="128" cy="196" r="20.5" fill="none" stroke="#22d3ee" stroke-width="2.3" opacity="0.95"/>
+  <text x="128" y="192" text-anchor="middle" font-family="Arial, sans-serif" font-size="7.2" fill="#67e8f9" letter-spacing="1.32">FOCO</text>
+  <text x="128" y="201" text-anchor="middle" font-family="Arial, sans-serif" font-size="6.15" fill="#f472b6" letter-spacing="1">AFTER DARK</text>
+  <rect x="170" y="152" width="11" height="40" rx="5" fill="#f8fafc"/>
+  <rect x="181" y="152" width="22" height="37" rx="8" fill="#f97316" opacity="0.87"/>
+  <rect x="181" y="166" width="22" height="20" rx="6" fill="#fbbf24" opacity="0.75"/>
+  <path d="M172 147c4-5 8-7 14-7" stroke="#f8fafc" stroke-width="2" fill="none" opacity="0.8"/>
+</svg>
