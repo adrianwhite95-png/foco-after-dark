@@ -10794,14 +10794,19 @@
           transparent 43%,
           color-mix(in srgb, var(--accent-secondary-live) 92%, transparent) 46%,
           transparent 49%),
+        linear-gradient(92deg,
+          transparent 44%,
+          color-mix(in srgb, var(--accent-tertiary-live, var(--accent-primary-live)) 96%, transparent) 47%,
+          transparent 50%),
         linear-gradient(176deg,
           transparent 46%,
-          color-mix(in srgb, var(--accent-primary-live) 74%, transparent) 48%,
+          color-mix(in srgb, var(--accent-tertiary-live, var(--accent-primary-live)) 82%, transparent) 48%,
           transparent 50%),
         radial-gradient(130% 90% at 12% 8%, color-mix(in srgb, var(--accent-primary-live) 22%, transparent), transparent 62%),
-        radial-gradient(110% 84% at 88% 92%, color-mix(in srgb, var(--accent-secondary-live) 24%, transparent), transparent 64%);
-      background-size: 180% 180%, 190% 190%, 170% 170%, 100% 100%, 100% 100%;
-      background-position: 0% 2%, 100% 98%, 50% 0%, center, center;
+        radial-gradient(110% 84% at 88% 92%, color-mix(in srgb, var(--accent-secondary-live) 24%, transparent), transparent 64%),
+        radial-gradient(120% 95% at 52% 38%, color-mix(in srgb, var(--accent-tertiary-live, var(--accent-primary-live)) 22%, transparent), transparent 66%);
+      background-size: 180% 180%, 190% 190%, 180% 180%, 170% 170%, 100% 100%, 100% 100%, 100% 100%;
+      background-position: 0% 2%, 100% 98%, 48% 8%, 50% 0%, center, center, center;
       mix-blend-mode: screen;
       opacity: 0.78 !important;
       filter: blur(3px) saturate(1.42) contrast(1.06);
@@ -10824,9 +10829,13 @@
           transparent 0 42px,
           color-mix(in srgb, var(--accent-secondary-live) 32%, transparent) 43px 44px,
           transparent 45px 84px),
+        repeating-linear-gradient(96deg,
+          transparent 0 30px,
+          color-mix(in srgb, var(--accent-tertiary-live, var(--accent-primary-live)) 42%, transparent) 31px 32px,
+          transparent 33px 66px),
         radial-gradient(100% 74% at 50% 115%, color-mix(in srgb, var(--accent-secondary-live) 18%, transparent), transparent 66%);
-      background-size: 160% 160%, 170% 170%, 100% 100%;
-      background-position: 0% 0%, 100% 100%, center;
+      background-size: 160% 160%, 170% 170%, 150% 150%, 100% 100%;
+      background-position: 0% 0%, 100% 100%, 50% 0%, center;
       filter: blur(1px) saturate(1.25);
       transform: translateZ(0);
       -webkit-backface-visibility: hidden;
@@ -10834,6 +10843,23 @@
       will-change: transform, opacity, background-position;
       animation-play-state: running !important;
       animation: passLaserGridShift 5.6s linear infinite, passLaserFlash 3.2s steps(5, end) infinite reverse;
+    }
+    body.theme-csu_jungle_juice #passScreen .pass-card {
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 44%, rgba(148, 163, 184, 0.24)),
+        0 20px 46px rgba(1, 4, 14, 0.72),
+        0 0 44px color-mix(in srgb, var(--accent-primary-live) 34%, transparent),
+        0 0 34px rgba(248, 250, 252, 0.2),
+        inset 0 0 38px color-mix(in srgb, var(--accent-primary-live) 24%, transparent),
+        inset 0 0 58px color-mix(in srgb, var(--accent-secondary-live) 20%, transparent) !important;
+    }
+    body.theme-csu_jungle_juice #passScreen .pass-card::before {
+      filter: blur(2px) saturate(1.5) brightness(1.14);
+      opacity: 0.86 !important;
+    }
+    body.theme-csu_jungle_juice #passScreen .pass-card::after {
+      opacity: 0.52 !important;
+      filter: blur(0.5px) saturate(1.28) brightness(1.2);
     }
     @keyframes passLaserSweep {
       0% {
@@ -26509,6 +26535,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.129",
+        date: "2026-03-08",
+        added: [],
+        improved: [
+          "CSU Jungle Juice pass visuals now run a brighter three-laser mix (green, gold, white) with stronger white strobe definition"
+        ],
+        fixed: [
+          "Increased Jungle Juice white-beam visibility on pass lighting layers so the third laser channel is clearly visible"
+        ]
+      },
       {
         version: "v0.9.128",
         date: "2026-03-08",
