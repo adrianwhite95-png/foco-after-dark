@@ -29235,6 +29235,7 @@
     let mapJailMarkerPulsePhase = 0;
     const venueMapMarkerCache = new Map();
     const venueMapGeocodeCache = new Map();
+    let venueMapMarkerSyncVersion = 0;
     function normalizeMapMatchSource(source = "") {
       let decoded = String(source || "");
       try {
@@ -29458,6 +29459,7 @@
     }
     function unlockPrisonPunchFromMap(options = {}) {
       const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
+      const suppressToasts = options?.suppressToasts === true;
       const source = String(options?.source || "unknown");
       const identity = resolvePrisonPunchIdentityContext();
       const uid = identity.uid;
@@ -29480,18 +29482,18 @@
       if (preUnlocked) {
         result.ok = true;
         result.reason = "already_unlocked";
-        if (showAlreadyUnlocked) showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
+        if (showAlreadyUnlocked && !suppressToasts) showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
       } else if (writeResult.ok && persistedUnlocked) {
         result.ok = true;
         result.reason = "accent_unlocked";
-        showToast("🚔 Easter egg unlocked: Prison Punch accent is now available.", 7000);
+        if (!suppressToasts) showToast("🚔 Easter egg unlocked: Prison Punch accent is now available.", 7000);
       } else if (writeResult.ok && !persistedUnlocked) {
         result.ok = false;
         result.reason = "persist_failed";
       } else if (persistedUnlocked) {
         result.ok = true;
         result.reason = "already_unlocked";
-        if (showAlreadyUnlocked) showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
+        if (showAlreadyUnlocked && !suppressToasts) showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
       } else {
         result.ok = false;
         result.reason = "unknown";
@@ -29522,19 +29524,33 @@
     function triggerPrisonPunchFromJailSelection(source = "unknown", options = {}) {
       const sourceLabel = String(source || "unknown").trim() || "unknown";
       const now = Date.now();
+      const toastMode = String(options?.toastMode || "").trim().toLowerCase();
       console.log("[map egg] canonical jail trigger", { source: sourceLabel });
       if ((now - lastCanonicalJailTriggerMs) < 320) {
         const deduped = { ok: false, reason: "trigger_debounced", source: sourceLabel };
-        showToast("Jail location recognized", 1400);
+        if (toastMode === "jail_marker_exact") {
+          showToast("You already unlocked this easter egg.", 2200);
+        } else {
+          showToast("Jail location recognized", 1400);
+        }
         console.log("[map egg] canonical jail result", deduped);
         return deduped;
       }
       lastCanonicalJailTriggerMs = now;
       const result = unlockPrisonPunchFromMap({
         showAlreadyUnlocked: options?.showAlreadyUnlocked === true,
+        suppressToasts: toastMode === "jail_marker_exact",
         source: sourceLabel
       });
-      if (result?.reason === "already_unlocked") {
+      if (toastMode === "jail_marker_exact") {
+        if (result?.reason === "accent_unlocked" && result?.ok === true) {
+          showToast("Larimer County Jail is where you could end up if you choose to drink and drive. You've unlocked an easter egg.", 7000);
+          try { applyAccentTheme("prison_punch"); } catch (_) {}
+          updateAccentChipLocks();
+        } else {
+          showToast("You already unlocked this easter egg.", 2200);
+        }
+      } else if (result?.reason === "already_unlocked") {
         showToast("Prison Punch already unlocked", 1800);
       } else if (!(result?.ok === true && result?.reason === "accent_unlocked")) {
         showToast("Jail location recognized", 1500);
@@ -29722,6 +29738,7 @@
       marker.__focoOnClick = typeof options?.onClick === "function" ? options.onClick : null;
       marker.__focoTitle = title || "FoCo After Dark";
       marker.__focoSubtitle = subtitle || "";
+      marker.__focoSuppressInfoWindow = options?.suppressInfoWindow === true;
       marker.setOptions({
         title: marker.__focoTitle,
         clickable: true,
@@ -29732,11 +29749,78 @@
           if (typeof marker.__focoOnClick === "function") {
             marker.__focoOnClick();
           }
-          openVenueMapInfo(marker.getPosition(), marker.__focoTitle, marker.__focoSubtitle);
+          if (!marker.__focoSuppressInfoWindow) {
+            openVenueMapInfo(marker.getPosition(), marker.__focoTitle, marker.__focoSubtitle);
+          }
         });
         marker.__focoBound = true;
       }
       return marker;
+    }
+    function getMapVisibleVenueIds() {
+      return getSortedVenueIds({ includeInactive: false });
+    }
+    function clearInactiveVenueMapMarkers(activeVenueIds = new Set()) {
+      const activeSet = activeVenueIds instanceof Set ? activeVenueIds : new Set(activeVenueIds);
+      venueMapMarkerCache.forEach((marker, key) => {
+        if (!String(key).startsWith("venue:")) return;
+        const venueId = String(key).slice(6);
+        if (activeSet.has(venueId)) return;
+        try { marker.setMap(null); } catch (_) {}
+        venueMapMarkerCache.delete(key);
+      });
+    }
+    function resolveVenueCoordsForMap(venueId) {
+      const cached = venueMapGeocodeCache.get(venueId);
+      if (cached) return Promise.resolve(cached);
+      if (!venueGoogleGeocoder) return Promise.resolve(null);
+      const info = venuesInfo?.[venueId] || {};
+      const venueName = info.name || getVenueDisplayName(venueId);
+      const venueAddress = String(info.address || "Fort Collins, CO").trim();
+      const queryAddress = [venueName, venueAddress, "Fort Collins, CO"].filter(Boolean).join(", ");
+      return new Promise((resolve) => {
+        venueGoogleGeocoder.geocode({ address: queryAddress }, (results, status) => {
+          if (status !== "OK" || !Array.isArray(results) || !results[0]?.geometry?.location) {
+            resolve(null);
+            return;
+          }
+          const point = results[0].geometry.location;
+          const coords = { lat: Number(point.lat()), lng: Number(point.lng()) };
+          venueMapGeocodeCache.set(venueId, coords);
+          resolve(coords);
+        });
+      });
+    }
+    async function syncInteractiveVenueMarkers(reason = "sync") {
+      if (!venueMapInteractiveReady || !venueGoogleMap || !window.google?.maps) return;
+      const syncVersion = ++venueMapMarkerSyncVersion;
+      const venueIds = getMapVisibleVenueIds();
+      const activeSet = new Set(venueIds);
+      clearInactiveVenueMapMarkers(activeSet);
+      for (const venueId of venueIds) {
+        if (syncVersion !== venueMapMarkerSyncVersion) return;
+        const info = venuesInfo?.[venueId];
+        if (!info) continue;
+        const coords = await resolveVenueCoordsForMap(venueId);
+        if (syncVersion !== venueMapMarkerSyncVersion) return;
+        if (!coords) continue;
+        upsertVenueMapMarker(
+          `venue:${venueId}`,
+          coords,
+          info.name || getVenueDisplayName(venueId),
+          String(info.address || "Fort Collins, CO"),
+          {
+            onClick: () => {
+              setActiveMapVenue(venueId);
+            }
+          }
+        );
+      }
+      console.log("[map] venue marker sync complete", {
+        reason,
+        count: venueIds.length,
+        activeMapVenueId: String(activeMapVenueId || "")
+      });
     }
     function focusVenueOnInteractiveMap(venueId) {
       if (!venueGoogleMap || !venueGoogleGeocoder) return;
@@ -29748,7 +29832,9 @@
         if (!coords || !Number.isFinite(Number(coords.lat)) || !Number.isFinite(Number(coords.lng))) return;
         venueGoogleMap.panTo(coords);
         venueGoogleMap.setZoom(Math.max(14, Number(venueGoogleMap.getZoom() || 14)));
-        upsertVenueMapMarker(`venue:${venueId}`, coords, venueName, venueAddress);
+        upsertVenueMapMarker(`venue:${venueId}`, coords, venueName, venueAddress, {
+          onClick: () => setActiveMapVenue(venueId)
+        });
       };
       if (cached) {
         applyFocus(cached);
@@ -29819,6 +29905,13 @@
           MAP_EASTER_EGG_JAIL.name,
           MAP_EASTER_EGG_JAIL.address,
           {
+            onClick: () => {
+              triggerPrisonPunchFromJailSelection("jail_marker_click", {
+                showAlreadyUnlocked: true,
+                toastMode: "jail_marker_exact"
+              });
+            },
+            suppressInfoWindow: true,
             markerOptions: {
               zIndex: 1000000,
               optimized: false,
@@ -29886,6 +29979,7 @@
         venueMapInteractiveReady = true;
         useInteractiveVenueMap(true);
         updateMapEggDiagnostics("interactive_ready");
+        void syncInteractiveVenueMarkers("interactive_ready");
         setTimeout(() => {
           if (!venueMapInteractiveReady) return;
           if (!interactiveMapHasRuntimeError()) return;
@@ -29923,10 +30017,12 @@
         : (venuesInfo[venueId] || {});
       if (venueMapInteractiveReady && venueGoogleMap) {
         focusVenueOnInteractiveMap(venueId);
+        void syncInteractiveVenueMarkers("set_active_map_venue");
       } else if (currentScreenName === "map") {
         ensureInteractiveVenueMapReady().then((ready) => {
           if (!ready) return;
           focusVenueOnInteractiveMap(venueId);
+          void syncInteractiveVenueMarkers("set_active_map_venue_ready");
         });
       }
       renderMapVenueList();
@@ -29981,6 +30077,9 @@
       renderPassFeaturedGrid();
       renderTonightHub();
       renderMapVenueList();
+      if (venueMapInteractiveReady && venueGoogleMap) {
+        void syncInteractiveVenueMarkers("featured_refresh");
+      }
       setHeroSlideActive(0);
       refreshLiveNewBadges();
     }
