@@ -2472,6 +2472,80 @@
     .avatar.has-image .avatar-text {
       display: none;
     }
+    .avatar-accessories,
+    .tonight-mini-avatar-accessories,
+    .mini-avatar-accessories {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      font-size: 12px;
+      filter: drop-shadow(0 1px 2px rgba(2, 6, 23, 0.75));
+    }
+    .avatar-accessories .acc,
+    .tonight-mini-avatar-accessories .acc,
+    .mini-avatar-accessories .acc {
+      position: absolute;
+      line-height: 1;
+      user-select: none;
+    }
+    .avatar-accessories .acc.hat {
+      top: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 16px;
+    }
+    .avatar-accessories .acc.glasses {
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 13px;
+    }
+    .avatar-accessories .acc.drink {
+      right: -1px;
+      bottom: 6px;
+      font-size: 12px;
+    }
+    .avatar-accessories .acc.cigarette {
+      left: 2px;
+      bottom: 8px;
+      font-size: 11px;
+    }
+    .mini-avatar {
+      position: relative;
+      display: inline-flex;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 50%, rgba(148,163,184,0.4));
+      background: #020617 center/cover no-repeat;
+      box-shadow: 0 0 10px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);
+      overflow: hidden;
+    }
+    .mini-avatar-accessories {
+      font-size: 8px;
+    }
+    .mini-avatar-accessories .acc.hat {
+      top: -1px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .mini-avatar-accessories .acc.glasses {
+      top: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 7px;
+    }
+    .mini-avatar-accessories .acc.drink {
+      right: -1px;
+      bottom: 1px;
+      font-size: 7px;
+    }
+    .mini-avatar-accessories .acc.cigarette {
+      left: -1px;
+      bottom: 2px;
+      font-size: 7px;
+    }
     .avatar-picker-modal {
       width: min(720px, 96vw);
       max-height: min(82vh, 760px);
@@ -13336,6 +13410,28 @@
       filter: saturate(1.05);
       transition: filter 0.2s ease, transform 0.2s ease;
     }
+    #tonightScreen .tonight-mini-avatar-accessories .acc.hat {
+      top: 3px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 15px;
+    }
+    #tonightScreen .tonight-mini-avatar-accessories .acc.glasses {
+      top: 21px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 13px;
+    }
+    #tonightScreen .tonight-mini-avatar-accessories .acc.drink {
+      right: 2px;
+      bottom: 8px;
+      font-size: 12px;
+    }
+    #tonightScreen .tonight-mini-avatar-accessories .acc.cigarette {
+      left: 2px;
+      bottom: 9px;
+      font-size: 11px;
+    }
     #tonightScreen .tonight-mini-avatar-wrap.explorer-locked .tonight-mini-avatar {
       filter: blur(3px) grayscale(0.36) brightness(0.74);
       transform: scale(1.04);
@@ -18159,6 +18255,7 @@
                 <div class="avatar" id="avatarInitials" title="Tap to edit badge">
                   <span class="avatar-text" id="avatarText">AW</span>
                   <span class="avatar-flair" id="avatarFlair" aria-hidden="true"></span>
+                  <span class="avatar-accessories" id="avatarAccessories" aria-hidden="true"></span>
                 </div>
                 <div class="user-details">
                   <div class="user-name" id="passUserName">FoCo Member</div>
@@ -18177,6 +18274,7 @@
                   <button type="button" class="tagline-edit-hint" id="userTaglineEditBtn">Tap to edit tagline</button>
                   <div class="avatar-tools" id="avatarTools">
                     <button type="button" class="avatar-edit-btn" id="avatarEditBtn" title="Choose avatar">Choose avatar</button>
+                    <button type="button" class="avatar-edit-btn" id="avatarCustomizeBtn" title="Customize avatar">Customize</button>
                   </div>
                   <div class="badge-row" id="profileBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
                 </div>
@@ -18442,6 +18540,7 @@
       <button type="button" class="tonight-mini-pass card-hd" id="tonightMiniPass">
         <div class="tonight-mini-avatar-wrap" id="tonightMiniAvatarWrap" aria-hidden="true">
           <span class="tonight-mini-avatar" id="tonightMiniAvatar"></span>
+          <span class="tonight-mini-avatar-accessories" id="tonightMiniAvatarAccessories"></span>
           <span class="tonight-mini-avatar-lock" id="tonightMiniAvatarLock">🔒 Locked</span>
         </div>
         <div class="tonight-mini-meta">
@@ -26141,8 +26240,10 @@
     const userUsername = document.getElementById("userUsername");
     const editUsernameBtn = document.getElementById("editUsernameBtn");
     const avatarInitials = document.getElementById("avatarInitials");
+    const avatarAccessories = document.getElementById("avatarAccessories");
     const avatarText = document.getElementById("avatarText");
     const avatarEditBtn = document.getElementById("avatarEditBtn");
+    const avatarCustomizeBtn = document.getElementById("avatarCustomizeBtn");
     const avatarTools = document.getElementById("avatarTools");
     const passTierText = document.getElementById("passTierText");
     const profileBadges = document.getElementById("profileBadges");
@@ -26696,6 +26797,7 @@
     const tonightMiniCode = document.getElementById("tonightMiniCode");
     const tonightMiniAvatarWrap = document.getElementById("tonightMiniAvatarWrap");
     const tonightMiniAvatar = document.getElementById("tonightMiniAvatar");
+    const tonightMiniAvatarAccessories = document.getElementById("tonightMiniAvatarAccessories");
     const tonightOpenNowList = document.getElementById("tonightOpenNowList");
     const tonightAlertsList = document.getElementById("tonightAlertsList");
     const tonightRecentRedeemed = document.getElementById("tonightRecentRedeemed");
@@ -27167,6 +27269,19 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.153",
+        date: "2026-03-08",
+        added: [
+          "Avatar customization now supports optional add-ons (cap, sunglasses, drink, cigarette) with instant save/remove controls"
+        ],
+        improved: [
+          "Avatar shirt branding was tightened to fit cleanly as print art on iOS and web"
+        ],
+        fixed: [
+          "Staff venue headers now support editable venue emoji badges while keeping member badge editing active from tap-to-edit"
+        ]
+      },
       {
         version: "v0.9.152",
         date: "2026-03-08",
@@ -28922,6 +29037,7 @@
     const alertAudiencePills = document.getElementById("alertAudiencePills");
     const alertDetailCount = document.getElementById("alertDetailCount");
     const staffRecentActions = document.getElementById("staffRecentActions");
+    const staffVenueBadge = document.getElementById("staffVenueBadge");
     const staffVenueChip = document.getElementById("staffVenueChip");
     const kpiScans = document.getElementById("kpiScans");
     const kpiAlerts = document.getElementById("kpiAlerts");
@@ -30618,6 +30734,7 @@
       const log = Array.isArray(redemptionLog) ? redemptionLog : [];
       const tierRaw = getEffectiveTierForDisplay();
       const tierLabel = tierLabelFromKey(tierRaw);
+      const avatarAccessoriesNow = resolveMemberAvatarAccessories(memberProfile || {}, currentPassCode || memberProfile?.passCode || "");
       tonightMiniName.textContent = preferredMemberName(firebaseAuth.currentUser || {});
       tonightMiniTier.textContent = tierLabel;
       tonightMiniCode.textContent = tierRaw === "explorer"
@@ -30628,6 +30745,9 @@
           ? getAvatarSourceById(resolveMemberAvatarId(memberProfile || {}, currentPassCode || memberProfile?.passCode || ""))
           : AVATAR_FALLBACK_SRC;
         tonightMiniAvatar.style.backgroundImage = `url('${avatarSrc}')`;
+      }
+      if (tonightMiniAvatarAccessories) {
+        tonightMiniAvatarAccessories.innerHTML = renderAvatarAccessoriesMarkup(avatarAccessoriesNow);
       }
       if (tonightMiniAvatarWrap) {
         tonightMiniAvatarWrap.classList.toggle("explorer-locked", tierRaw === "explorer");
@@ -32881,6 +33001,11 @@
             updatePointsUI();
             renderVipDealForMember();
             renderPassIdentity(firebaseAuth.currentUser);
+            if (avatarAccessories) {
+              avatarAccessories.innerHTML = renderAvatarAccessoriesMarkup(
+                resolveMemberAvatarAccessories(memberProfile || {}, mergedPass || currentPassCode || "")
+              );
+            }
             renderTonightHub();
 	            updateMembershipStatusUI({ status: memberProfile?.paymentStatus, paused: memberProfile?.paused });
 	            updateExpiryDisplay();
@@ -40116,6 +40241,34 @@ let onboardingIndex = 0;
       if (AVATAR_LIBRARY_BY_ID[key]) return key;
       return fallback;
     }
+    function normalizeAvatarAccessories(value = null) {
+      const src = (value && typeof value === "object") ? value : {};
+      return {
+        hat: src.hat === true,
+        drink: src.drink === true,
+        cigarette: src.cigarette === true,
+        sunglasses: src.sunglasses === true
+      };
+    }
+    function renderAvatarAccessoriesMarkup(accessories = {}) {
+      const a = normalizeAvatarAccessories(accessories);
+      const out = [];
+      if (a.hat) out.push('<span class="acc hat">🧢</span>');
+      if (a.sunglasses) out.push('<span class="acc glasses">🕶️</span>');
+      if (a.drink) out.push('<span class="acc drink">🍸</span>');
+      if (a.cigarette) out.push('<span class="acc cigarette">🚬</span>');
+      return out.join("");
+    }
+    function resolveMemberAvatarAccessories(profile = {}, passId = "") {
+      const direct = normalizeAvatarAccessories(profile?.avatarAccessories || null);
+      if (direct.hat || direct.drink || direct.cigarette || direct.sunglasses) return direct;
+      const key = String(passId || profile?.passCode || "").trim().toUpperCase();
+      if (key) {
+        const fromDirectory = normalizeAvatarAccessories(loadMemberDirectory()?.[key]?.avatarAccessories || null);
+        if (fromDirectory.hat || fromDirectory.drink || fromDirectory.cigarette || fromDirectory.sunglasses) return fromDirectory;
+      }
+      return normalizeAvatarAccessories(null);
+    }
     function getAvatarSourceById(value) {
       return AVATAR_LIBRARY_BY_ID[normalizeAvatarId(value)]?.src || AVATAR_LIBRARY_BY_ID[DEFAULT_AVATAR_ID].src;
     }
@@ -40138,12 +40291,18 @@ let onboardingIndex = 0;
       if (avatarText && opts.keepText !== true) {
         avatarText.textContent = "";
       }
+      const passKey = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
+      const accessories = resolveMemberAvatarAccessories(memberProfile || {}, passKey);
+      if (avatarAccessories) {
+        avatarAccessories.innerHTML = renderAvatarAccessoriesMarkup(accessories);
+      }
     }
-    function avatarBadgeMarkup(avatarId, label = "Member avatar") {
+    function avatarBadgeMarkup(avatarId, label = "Member avatar", accessories = null) {
       const safeId = normalizeAvatarId(avatarId);
       const safeLabel = escapeHtmlText(label);
       const src = escapeHtmlText(getAvatarSourceById(safeId));
-      return `<span class="mini-avatar" title="${safeLabel}" aria-label="${safeLabel}" style="display:inline-flex;width:22px;height:22px;border-radius:999px;border:1px solid color-mix(in srgb, var(--accent-primary-live) 50%, rgba(148,163,184,0.4));background:#020617 url('${src}') center/cover no-repeat;box-shadow:0 0 10px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);"></span>`;
+      const acc = renderAvatarAccessoriesMarkup(normalizeAvatarAccessories(accessories || null));
+      return `<span class="mini-avatar" title="${safeLabel}" aria-label="${safeLabel}" style="background-image:url('${src}');"><span class="mini-avatar-accessories">${acc}</span></span>`;
     }
     function applyAvatarFlair(flair = "", opts = {}) {
       if (!avatarInitials) return;
@@ -40179,6 +40338,25 @@ let onboardingIndex = 0;
       avatarInitials.classList.remove("has-image");
       avatarInitials.style.removeProperty("--avatar-image");
       if (avatarText) avatarText.textContent = String(text || "FD").slice(0, 3).toUpperCase();
+      if (avatarAccessories) avatarAccessories.innerHTML = "";
+    }
+    function setAvatarAccessoriesForCurrentMember(next = {}, opts = {}) {
+      const safe = normalizeAvatarAccessories(next);
+      if (!memberProfile) memberProfile = {};
+      memberProfile.avatarAccessories = safe;
+      if (avatarAccessories) {
+        avatarAccessories.innerHTML = renderAvatarAccessoriesMarkup(safe);
+      }
+      const passKey = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
+      if (passKey && allowLocalCache()) {
+        setMemberDirectoryEntry(passKey, { avatarAccessories: safe });
+      }
+      if (opts.persist !== false) persistMemberState({ avatarAccessories: safe });
+      renderTonightHub();
+      renderStaffPendingQueue();
+      if (typeof renderStaffVenueLog === "function") renderStaffVenueLog();
+      if (typeof renderStaffDealRedemptionLog === "function") renderStaffDealRedemptionLog();
+      if (typeof renderCeoMembersTable === "function") renderCeoMembersTable();
     }
     function setAvatarForCurrentMember(avatarId, opts = {}) {
       const safeId = normalizeAvatarId(avatarId);
@@ -40212,6 +40390,7 @@ let onboardingIndex = 0;
           <div class="small" style="color:#cbd5f5;">Pick from preloaded FoCo After Dark avatars.</div>
           <div class="avatar-picker-grid" data-avatar-picker-grid></div>
           <div class="modal-actions" style="margin-top:14px;">
+            <button type="button" class="btn btn-secondary" data-avatar-picker-customize>Customize</button>
             <button type="button" class="btn btn-secondary" data-avatar-picker-cancel>Cancel</button>
           </div>
         </div>
@@ -40247,6 +40426,97 @@ let onboardingIndex = 0;
           });
         });
       }
+      const customizeBtn = picker.querySelector("[data-avatar-picker-customize]");
+      if (customizeBtn) {
+        customizeBtn.addEventListener("click", () => {
+          close();
+          openAvatarCustomizeModal();
+        });
+      }
+    }
+    async function openAvatarCustomizeModal() {
+      const current = normalizeAvatarAccessories(memberProfile?.avatarAccessories || null);
+      const picker = document.createElement("div");
+      picker.className = "modal-backdrop active";
+      picker.style.zIndex = "15000";
+      picker.innerHTML = `
+        <div class="modal-card avatar-picker-modal" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <div class="modal-title">Customize avatar</div>
+            <button class="modal-close" type="button" data-avatar-custom-close>Close</button>
+          </div>
+          <div class="small" style="color:#cbd5f5;">Optional add-ons. Toggle on/off anytime.</div>
+          <div class="avatar-picker-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));max-height:none;overflow:visible;">
+            <button type="button" class="avatar-preset-btn ${current.hat ? "selected" : ""}" data-acc-toggle="hat">
+              <div class="avatar-preset-label avatar-preset-label-top">Baseball Cap</div>
+              <div class="avatar-preset-preview" style="display:grid;place-items:center;font-size:46px;background:linear-gradient(140deg,rgba(8,14,28,0.92),rgba(14,24,44,0.84));">🧢</div>
+              <div class="avatar-preset-label">${current.hat ? "Enabled" : "Tap to enable"}</div>
+            </button>
+            <button type="button" class="avatar-preset-btn ${current.sunglasses ? "selected" : ""}" data-acc-toggle="sunglasses">
+              <div class="avatar-preset-label avatar-preset-label-top">Sunglasses</div>
+              <div class="avatar-preset-preview" style="display:grid;place-items:center;font-size:46px;background:linear-gradient(140deg,rgba(8,14,28,0.92),rgba(14,24,44,0.84));">🕶️</div>
+              <div class="avatar-preset-label">${current.sunglasses ? "Enabled" : "Tap to enable"}</div>
+            </button>
+            <button type="button" class="avatar-preset-btn ${current.drink ? "selected" : ""}" data-acc-toggle="drink">
+              <div class="avatar-preset-label avatar-preset-label-top">Drink</div>
+              <div class="avatar-preset-preview" style="display:grid;place-items:center;font-size:46px;background:linear-gradient(140deg,rgba(8,14,28,0.92),rgba(14,24,44,0.84));">🍸</div>
+              <div class="avatar-preset-label">${current.drink ? "Enabled" : "Tap to enable"}</div>
+            </button>
+            <button type="button" class="avatar-preset-btn ${current.cigarette ? "selected" : ""}" data-acc-toggle="cigarette">
+              <div class="avatar-preset-label avatar-preset-label-top">Cigarette</div>
+              <div class="avatar-preset-preview" style="display:grid;place-items:center;font-size:46px;background:linear-gradient(140deg,rgba(8,14,28,0.92),rgba(14,24,44,0.84));">🚬</div>
+              <div class="avatar-preset-label">${current.cigarette ? "Enabled" : "Tap to enable"}</div>
+            </button>
+          </div>
+          <div class="modal-actions" style="margin-top:14px;">
+            <button type="button" class="btn btn-secondary" data-avatar-custom-clear>Clear all</button>
+            <button type="button" class="btn btn-primary" data-avatar-custom-save>Save</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(picker);
+      const state = { ...current };
+      const close = () => picker.remove();
+      const syncUi = () => {
+        picker.querySelectorAll("[data-acc-toggle]").forEach((btn) => {
+          const key = btn.getAttribute("data-acc-toggle");
+          const on = !!state[key];
+          btn.classList.toggle("selected", on);
+          const label = btn.querySelector(".avatar-preset-label:last-child");
+          if (label) label.textContent = on ? "Enabled" : "Tap to enable";
+        });
+      };
+      syncUi();
+      picker.querySelectorAll("[data-acc-toggle]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const key = btn.getAttribute("data-acc-toggle");
+          if (!key) return;
+          state[key] = !state[key];
+          syncUi();
+        });
+      });
+      picker.querySelectorAll("[data-avatar-custom-close]").forEach((btn) => btn.addEventListener("click", close));
+      const clearBtn = picker.querySelector("[data-avatar-custom-clear]");
+      if (clearBtn) {
+        clearBtn.addEventListener("click", () => {
+          state.hat = false;
+          state.drink = false;
+          state.cigarette = false;
+          state.sunglasses = false;
+          syncUi();
+        });
+      }
+      const saveBtn = picker.querySelector("[data-avatar-custom-save]");
+      if (saveBtn) {
+        saveBtn.addEventListener("click", () => {
+          setAvatarAccessoriesForCurrentMember(state, { persist: true });
+          showToast("Avatar customization saved.", 1500);
+          close();
+        });
+      }
+      picker.addEventListener("click", (event) => {
+        if (event.target === picker) close();
+      });
     }
     function loadAvatarFlair() {
       let flair = memberProfile?.avatarFlair || "";
@@ -40355,6 +40625,10 @@ let onboardingIndex = 0;
     if (avatarEditBtn) {
       avatarEditBtn.textContent = "Choose avatar";
       avatarEditBtn.addEventListener("click", openAvatarPickerModal);
+    }
+    if (avatarCustomizeBtn) {
+      avatarCustomizeBtn.textContent = "Customize";
+      avatarCustomizeBtn.addEventListener("click", openAvatarCustomizeModal);
     }
     async function openTaglineEditor() {
       const current = (memberProfile?.tagline || "").trim();
@@ -43499,14 +43773,36 @@ let onboardingIndex = 0;
       const fromDirectory = String(loadMemberDirectory()?.[passId]?.username || "").trim().replace(/^@+/, "");
       return fromDirectory ? fromDirectory.slice(0, 24) : "";
     }
-    function getMemberAvatarIdForPass(passId = "", fallbackAvatarId = "") {
+    function getMemberAvatarLookForPass(passId = "", fallbackAvatarId = "", fallbackAccessories = null) {
       const code = String(passId || "").trim().toUpperCase();
-      if (!code) return normalizeAvatarId(fallbackAvatarId || DEFAULT_AVATAR_ID);
-      const realtimeId = normalizeAvatarId(memberAvatarRealtimeCache?.[code], "");
-      if (realtimeId) return realtimeId;
-      const directoryId = normalizeAvatarId(loadMemberDirectory()?.[code]?.avatarId, "");
-      if (directoryId) return directoryId;
-      return normalizeAvatarId(fallbackAvatarId || DEFAULT_AVATAR_ID);
+      const fallbackId = normalizeAvatarId(fallbackAvatarId || DEFAULT_AVATAR_ID);
+      const fallbackAcc = normalizeAvatarAccessories(fallbackAccessories || null);
+      if (!code) return { avatarId: fallbackId, accessories: fallbackAcc };
+      const realtime = memberAvatarRealtimeCache?.[code] || null;
+      if (realtime && typeof realtime === "object") {
+        const realtimeId = normalizeAvatarId(realtime.avatarId || "", "");
+        if (realtimeId) {
+          return {
+            avatarId: realtimeId,
+            accessories: normalizeAvatarAccessories(realtime.avatarAccessories || null)
+          };
+        }
+      } else if (typeof realtime === "string") {
+        const realtimeId = normalizeAvatarId(realtime, "");
+        if (realtimeId) return { avatarId: realtimeId, accessories: fallbackAcc };
+      }
+      const directoryEntry = loadMemberDirectory()?.[code] || null;
+      const directoryId = normalizeAvatarId(directoryEntry?.avatarId || "", "");
+      if (directoryId) {
+        return {
+          avatarId: directoryId,
+          accessories: normalizeAvatarAccessories(directoryEntry?.avatarAccessories || null)
+        };
+      }
+      return { avatarId: fallbackId, accessories: fallbackAcc };
+    }
+    function getMemberAvatarIdForPass(passId = "", fallbackAvatarId = "") {
+      return getMemberAvatarLookForPass(passId, fallbackAvatarId).avatarId;
     }
     function clearMemberAvatarRealtimeWatchers() {
       memberAvatarRealtimeUnsubs.forEach((unsub) => {
@@ -43532,14 +43828,17 @@ let onboardingIndex = 0;
           const q = query(collection(db, "members"), where("passCode", "==", code), limit(1));
           const unsub = subscribeSnapshot(`memberAvatar:${code}`, q, null, (snap) => {
             let avatarId = DEFAULT_AVATAR_ID;
+            let avatarAccessories = normalizeAvatarAccessories(null);
             if (snap && !snap.empty) {
               const data = snap.docs[0].data() || {};
               avatarId = normalizeAvatarId(data.avatarId || DEFAULT_AVATAR_ID);
-              setMemberDirectoryEntry(code, { avatarId });
+              avatarAccessories = normalizeAvatarAccessories(data.avatarAccessories || null);
+              setMemberDirectoryEntry(code, { avatarId, avatarAccessories });
             }
-            memberAvatarRealtimeCache[code] = avatarId;
+            memberAvatarRealtimeCache[code] = { avatarId, avatarAccessories };
             renderStaffPendingQueue();
             if (typeof renderStaffVenueLog === "function") renderStaffVenueLog();
+            if (typeof renderStaffDealRedemptionLog === "function") renderStaffDealRedemptionLog();
           });
           if (typeof unsub === "function") {
             memberAvatarRealtimeUnsubs.set(code, unsub);
@@ -43604,8 +43903,8 @@ let onboardingIndex = 0;
         const username = getEntryUsername(entry);
         const usernameMeta = username ? ` · @${username}` : "";
         const creatorBadge = isCreatorRedemption(entry) ? '<span class="creator-pill">Creator</span>' : "";
-        const avatarId = getMemberAvatarIdForPass(entry.passId, entry.avatarId || DEFAULT_AVATAR_ID);
-        const avatar = avatarBadgeMarkup(avatarId, `${entry.member || "FoCo member"} avatar`);
+        const avatarLook = getMemberAvatarLookForPass(entry.passId, entry.avatarId || DEFAULT_AVATAR_ID, entry.avatarAccessories || null);
+        const avatar = avatarBadgeMarkup(avatarLook.avatarId, `${entry.member || "FoCo member"} avatar`, avatarLook.accessories);
         const pendingReasonCode = String(entry.pendingReasonCode || "").trim();
         const pendingReasonNote = String(entry.pendingReasonNote || "").trim();
         const pendingBy = String(entry.lastActionStaffName || "").trim();
@@ -44537,8 +44836,8 @@ let onboardingIndex = 0;
         const nextAction = isPending ? "confirm" : "pending";
         const actionLabel = isPending ? "Confirm" : "Confirmed";
         const actionClass = isPending ? "btn btn-primary" : "btn btn-secondary";
-        const avatarId = getMemberAvatarIdForPass(entry.passId, entry.avatarId || DEFAULT_AVATAR_ID);
-        const avatar = avatarBadgeMarkup(avatarId, `${entry.member || "FoCo member"} avatar`);
+        const avatarLook = getMemberAvatarLookForPass(entry.passId, entry.avatarId || DEFAULT_AVATAR_ID, entry.avatarAccessories || null);
+        const avatar = avatarBadgeMarkup(avatarLook.avatarId, `${entry.member || "FoCo member"} avatar`, avatarLook.accessories);
         return `
           <div class="staff-pending-row" data-pending-code="${entry.code}" data-pending-status="${isPending ? "pending" : "confirmed"}">
             <div class="staff-pending-meta">
@@ -45706,8 +46005,8 @@ let onboardingIndex = 0;
             const pendingReasonCode = String(entry.pendingReasonCode || "").trim();
             const pendingReasonNote = String(entry.pendingReasonNote || "").trim();
             const pendingBy = String(entry.lastActionStaffName || "").trim();
-            const avatarId = getMemberAvatarIdForPass(entry.passId, entry.avatarId || DEFAULT_AVATAR_ID);
-            const avatar = avatarBadgeMarkup(avatarId, `${getEntryMemberDisplay(entry)} avatar`);
+            const avatarLook = getMemberAvatarLookForPass(entry.passId, entry.avatarId || DEFAULT_AVATAR_ID, entry.avatarAccessories || null);
+            const avatar = avatarBadgeMarkup(avatarLook.avatarId, `${getEntryMemberDisplay(entry)} avatar`, avatarLook.accessories);
             const pendingMeta = displayStatus === "pending" && (pendingReasonCode || pendingReasonNote || pendingBy)
               ? `<div style="color:#fbbf24;font-size:11px;margin-top:2px;">Pending: ${pendingReasonCode || "manual"}${pendingReasonNote ? ` · ${pendingReasonNote}` : ""}${pendingBy ? ` · by ${pendingBy}` : ""}</div>`
               : "";

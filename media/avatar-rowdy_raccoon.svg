@@ -14,8 +14,8 @@
   <rect x="100" y="79" width="56" height="9" rx="4.5" fill="#111827"/>
   <rect x="56" y="228" width="144" height="70" rx="44" fill="url(#shirt)"/>
   <rect x="84" y="167" width="88" height="54" rx="14" fill="#0b1220" opacity="0.86"/>
-  <text x="128" y="190" text-anchor="middle" font-family="Arial, sans-serif" font-size="7.4" fill="#67e8f9" letter-spacing="0.95">FOCO</text>
-  <text x="128" y="199" text-anchor="middle" font-family="Arial, sans-serif" font-size="6.4" fill="#f472b6" letter-spacing="0.8">AFTER DARK</text>
+  <text x="128" y="190" text-anchor="middle" font-family="Arial, sans-serif" font-size="6.2" fill="#67e8f9" letter-spacing="0.62">FOCO</text>
+  <text x="128" y="199" text-anchor="middle" font-family="Arial, sans-serif" font-size="5.0" fill="#f472b6" letter-spacing="0.45">AFTER DARK</text>
   <rect x="160" y="153" width="12" height="42" rx="5" fill="#f8fafc"/>
   <rect x="171" y="151" width="5" height="42" rx="2" fill="#fbbf24"/>
   <circle cx="178" cy="154" r="12" fill="#111827"/>
