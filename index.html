@@ -13323,10 +13323,10 @@
     }
     .foco-map-info-close {
       position: absolute;
-      right: 5px;
-      top: 5px;
-      width: 19px;
-      height: 19px;
+      right: 3px;
+      top: 3px;
+      width: 15px;
+      height: 15px;
       border-radius: 999px;
       border: 1px solid rgba(94, 234, 212, 0.48);
       background: rgba(2, 6, 23, 0.8);
@@ -13334,7 +13334,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
+      font-size: 9px;
       line-height: 1;
       cursor: pointer;
       box-shadow: 0 0 10px rgba(236, 72, 153, 0.18);
@@ -13343,7 +13343,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding-right: 30px;
+      padding-right: 22px;
     }
     .foco-map-info-logo {
       width: 28px;
@@ -26955,6 +26955,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.145",
+        date: "2026-03-08",
+        added: [],
+        improved: [
+          "Special map location pin now renders larger for clearer image visibility once zoomed in"
+        ],
+        fixed: [
+          "Venue map info-card close control was reduced and moved tighter into the corner to avoid title crowding"
+        ]
+      },
+      {
         version: "v0.9.144",
         date: "2026-03-07",
         added: [],
@@ -29557,7 +29568,7 @@
       if (!marker || !window.google?.maps) return;
       const preset = getJailMarkerVisualPreset(state);
       const scale = Math.max(8.8, Number(preset.scale) + Number(pulseFactor || 0));
-      const markerSize = Math.round(Math.max(34, (scale * 3.4)));
+      const markerSize = Math.round(Math.max(46, (scale * 4.8)));
       const markerAnchor = Math.round(markerSize / 2);
       marker.setOptions({
         title: MAP_EASTER_EGG_JAIL.name,
@@ -30119,8 +30130,8 @@
               optimized: false,
               icon: {
                 url: MAP_EASTER_EGG_JAIL_PIN_ICON_URL,
-                scaledSize: new window.google.maps.Size(36, 36),
-                anchor: new window.google.maps.Point(18, 18)
+                scaledSize: new window.google.maps.Size(48, 48),
+                anchor: new window.google.maps.Point(24, 24)
               }
             }
           }
