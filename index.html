@@ -13323,10 +13323,10 @@
     }
     .foco-map-info-close {
       position: absolute;
-      right: 3px;
-      top: 3px;
-      width: 15px;
-      height: 15px;
+      right: 1px;
+      top: 1px;
+      width: 11px;
+      height: 11px;
       border-radius: 999px;
       border: 1px solid rgba(94, 234, 212, 0.48);
       background: rgba(2, 6, 23, 0.8);
@@ -13334,8 +13334,9 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 9px;
+      font-size: 8px;
       line-height: 1;
+      padding: 0;
       cursor: pointer;
       box-shadow: 0 0 10px rgba(236, 72, 153, 0.18);
     }
@@ -13343,7 +13344,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding-right: 22px;
+      padding-right: 18px;
     }
     .foco-map-info-logo {
       width: 28px;
@@ -29394,7 +29395,7 @@
     const MAP_EASTER_EGG_JAIL_STEER_ZOOM_MIN = 16;
     const MAP_EASTER_EGG_JAIL_STEER_TOAST_COOLDOWN_MS = 2400;
     const MAP_EASTER_EGG_JAIL_STEER_APPROACH_DELTA_METERS = 10;
-    const MAP_EASTER_EGG_JAIL_PIN_ICON_URL = "media/jail-mugshot-pin.svg";
+    const MAP_EASTER_EGG_JAIL_PIN_ICON_URL = "media/jail-mugshot.png";
     const MAP_DEFAULT_CENTER = Object.freeze({ lat: 40.5853, lng: -105.0844 });
     let activeMapVenueId = "";
     let googleMapsLoaderPromise = null;
@@ -29568,7 +29569,7 @@
       if (!marker || !window.google?.maps) return;
       const preset = getJailMarkerVisualPreset(state);
       const scale = Math.max(8.8, Number(preset.scale) + Number(pulseFactor || 0));
-      const markerSize = Math.round(Math.max(46, (scale * 4.8)));
+      const markerSize = Math.round(Math.max(58, (scale * 6.2)));
       const markerAnchor = Math.round(markerSize / 2);
       marker.setOptions({
         title: MAP_EASTER_EGG_JAIL.name,
@@ -30130,8 +30131,8 @@
               optimized: false,
               icon: {
                 url: MAP_EASTER_EGG_JAIL_PIN_ICON_URL,
-                scaledSize: new window.google.maps.Size(48, 48),
-                anchor: new window.google.maps.Point(24, 24)
+                scaledSize: new window.google.maps.Size(62, 62),
+                anchor: new window.google.maps.Point(31, 31)
               }
             }
           }
