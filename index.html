@@ -21148,6 +21148,7 @@
     const MEMBER_MOTION_PREFIX = "memberMotion_";
     const MEMBER_TOUCH_SOUND_PREFIX = "memberTouchSound_";
     const MEMBER_ACCENT_UNLOCKS_PREFIX = "memberAccentUnlocks_";
+    const MEMBER_ACCENT_UNLOCKS_PASS_PREFIX = "memberAccentUnlocksPass_";
     const EASTER_EGG_UNLOCK_THEMES = Object.freeze(["espresso_martini", "csu_jungle_juice", "prison_punch"]);
     const UNLOCK_ONLY_ACCENTS = new Set(EASTER_EGG_UNLOCK_THEMES);
     const ACCENT_KEY_LEGACY = "accentTheme";
@@ -26950,6 +26951,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.136",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "iOS touch feedback now uses expanded trigger handling and native-bridge fallbacks to fire haptic response more reliably on tap"
+        ],
+        fixed: [
+          "Global tap feedback now fires across more iOS interaction paths while keeping touch sound gated by the in-app sound toggle"
+        ]
+      },
+      {
         version: "v0.9.135",
         date: "2026-03-07",
         added: [
@@ -29260,7 +29272,7 @@
         "detention center fort collins"
       ]
     });
-    const MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS = 220;
+    const MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS = 160;
     const MAP_DEFAULT_CENTER = Object.freeze({ lat: 40.5853, lng: -105.0844 });
     let activeMapVenueId = "";
     let googleMapsLoaderPromise = null;
@@ -29363,52 +29375,65 @@
     function unlockPrisonPunchFromMap(options = {}) {
       const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
       const source = String(options?.source || "unknown");
-      const uid = String(firebaseAuth?.currentUser?.uid || "");
+      const identity = resolvePrisonPunchIdentityContext();
+      const uid = identity.uid;
       const result = {
         ok: false,
         reason: "unknown",
-        source
+        source,
+        identity: {
+          uid: identity.uid,
+          passCode: identity.passCode
+        },
+        storageKeys: identity.storageKeys.slice()
       };
+      console.log("[map egg] trigger received", { source, showAlreadyUnlocked });
       console.log("[map egg] unlock entry", { source, uid, showAlreadyUnlocked });
-      if (!uid) {
+      console.log("[map egg] identity resolved", {
+        source,
+        uid: identity.uid,
+        passCode: identity.passCode,
+        hasMemberProfile: !!memberProfile
+      });
+      console.log("[map egg] storage namespace", {
+        source,
+        keys: identity.storageKeys
+      });
+      if (!uid && !identity.passCode) {
         showToast("map egg fail: no uid", 1800);
-        if (!currentPassCode) {
-          showToast("map egg fail: no pass code", 1900);
-        }
+        showToast("map egg fail: no pass code", 1900);
       }
-      const preUnlocked = !!isAccentUnlockedForCurrentMember("prison_punch", uid);
+      const preUnlocked = isPrisonPunchUnlockedForIdentity(identity);
       console.log("[map egg] unlock precheck", { source, uid, preUnlocked });
-      let accentUnlocked = false;
+      let writeResult = {
+        ok: false,
+        anyWrite: false,
+        writes: [],
+        reason: "already_unlocked"
+      };
       if (!preUnlocked) {
-        accentUnlocked = !!unlockAccentForCurrentMember("prison_punch", uid);
-        if (!accentUnlocked && !uid && currentPassCode) {
-          console.log("[map egg] unlock no uid; attempting emergency debug fallback namespace");
-          accentUnlocked = !!forceUnlockAccentForCurrentMember("prison_punch");
-        }
+        writeResult = persistPrisonPunchUnlockForIdentity(identity);
       }
-      const unlockDebug = { ...(lastAccentUnlockDebug || {}) };
-      console.log("[map egg] unlock accent result", { source, uid, preUnlocked, accentUnlocked });
-      const persistedUnlocked = !!isAccentUnlockedForCurrentMember("prison_punch", uid);
+      console.log("[map egg] unlock write result", {
+        source,
+        uid,
+        writeResult
+      });
+      const persistedUnlocked = isPrisonPunchUnlockedForIdentity(identity);
       console.log("[map egg] unlock persist result", { source, uid, persistedUnlocked });
-      if (!accentUnlocked && !preUnlocked) {
-        const failureReasons = [];
-        if (!uid) failureReasons.push("no firebaseAuth.currentUser.uid");
-        if (!unlockDebug.key) failureReasons.push("no storage key");
-        if (unlockDebug.reason === "already_unlocked" || persistedUnlocked) failureReasons.push("already unlocked");
-        if (unlockDebug.reason === "storage_write_failed" || unlockDebug.writeSucceeded === false) failureReasons.push("localStorage write failed");
-        if (failureReasons.length) {
-          console.log("[map egg] unlock failure prerequisites", {
-            source,
-            uid,
-            failureReasons,
-            unlockDebug
-          });
-          if (failureReasons.includes("already unlocked")) {
-            showToast("map egg fail: already unlocked", 1900);
-          }
-          if (failureReasons.includes("no storage key")) {
-            showToast("map egg fail: storage key missing", 2000);
-          }
+      console.log("[map egg] unlock verify result", {
+        source,
+        uid,
+        persistedUnlocked,
+        writeReason: writeResult.reason
+      });
+      if (!preUnlocked && !writeResult.ok && !persistedUnlocked) {
+        if (!identity.storageKeys.length) {
+          showToast("map egg fail: storage key missing", 2000);
+        } else if (!identity.passCode) {
+          showToast("map egg fail: no pass code", 1900);
+        } else {
+          showToast("map egg fail: persist sync skipped", 2000);
         }
       }
 
@@ -29421,20 +29446,14 @@
         } else {
           console.log("[map egg] unlock toast fired", { source, uid, toast: "none" });
         }
-      } else if (accentUnlocked && persistedUnlocked) {
+      } else if (writeResult.ok && persistedUnlocked) {
         result.ok = true;
         result.reason = "accent_unlocked";
         showToast("🚔 Easter egg unlocked: Prison Punch accent is now available.", 7000);
         console.log("[map egg] unlock toast fired", { source, uid, toast: "accent_unlocked" });
-        applyAccentTheme("prison_punch");
-      } else if (accentUnlocked && !persistedUnlocked) {
+      } else if (writeResult.ok && !persistedUnlocked) {
         result.ok = false;
         result.reason = "persist_failed";
-        if (!currentPassCode) {
-          showToast("map egg fail: no pass code", 1900);
-        } else {
-          showToast("map egg fail: persist sync skipped", 2000);
-        }
         console.log("[map egg] unlock toast fired", { source, uid, toast: "none" });
       } else if (persistedUnlocked) {
         result.ok = true;
@@ -29451,12 +29470,18 @@
         console.log("[map egg] unlock toast fired", { source, uid, toast: "none" });
       }
 
+      if (result.ok && result.reason === "accent_unlocked" && uid) {
+        syncMemberEasterEggProgress(uid);
+      }
       console.log("[map egg] accent UI refresh start", {
         source,
         uid,
         result: result.reason
       });
       updateAccentChipLocks();
+      if (typeof refreshMembershipChoices === "function") {
+        refreshMembershipChoices();
+      }
       if (typeof renderProfileScreen === "function") {
         try { renderProfileScreen(); } catch (err) { console.warn("[map egg] renderProfileScreen refresh failed", err); }
       }
@@ -29465,7 +29490,7 @@
       }
       if (result.ok && typeof applyAccentTheme === "function") {
         try {
-          applyAccentTheme(currentAccentTheme || "prison_punch");
+          applyAccentTheme(currentAccentTheme || "cyan");
         } catch (err) {
           console.warn("[map egg] applyAccentTheme refresh failed", err);
         }
@@ -29533,7 +29558,7 @@
         if (event?.preventDefault) event.preventDefault();
         if (event?.stopPropagation) event.stopPropagation();
         showToast("Map egg debug: overlay trigger", 1200);
-        console.log("[map egg] jail overlay hotspot clicked");
+        console.log("[map egg] hotspot clicked");
         const result = unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "jail_overlay_hotspot" });
         logMapEggResult("overlay trigger", result);
         openVenueMapInfo(
@@ -29548,7 +29573,11 @@
         hotspotNode.className = "map-jail-hotspot debug-visible";
         hotspotNode.setAttribute("aria-label", "Larimer County Jail easter egg hotspot");
         hotspotNode.setAttribute("title", "Larimer County Jail");
+        hotspotNode.setAttribute("data-map-egg", "jail-hotspot");
         hotspotNode.addEventListener("click", handleActivate);
+        hotspotNode.addEventListener("pointerdown", handleActivate, { passive: false });
+        hotspotNode.addEventListener("mousedown", handleActivate, { passive: false });
+        hotspotNode.addEventListener("touchstart", handleActivate, { passive: false });
         hotspotNode.addEventListener("touchend", handleActivate, { passive: false });
         const panes = this.getPanes?.();
         const hostPane = panes?.overlayMouseTarget || panes?.floatPane || panes?.overlayLayer;
@@ -29576,6 +29605,9 @@
         console.log("[map egg] hotspot removed");
         if (hotspotNode) {
           hotspotNode.removeEventListener("click", handleActivate);
+          hotspotNode.removeEventListener("pointerdown", handleActivate);
+          hotspotNode.removeEventListener("mousedown", handleActivate);
+          hotspotNode.removeEventListener("touchstart", handleActivate);
           hotspotNode.removeEventListener("touchend", handleActivate);
           hotspotNode.remove();
           hotspotNode = null;
@@ -29718,6 +29750,7 @@
             const result = unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "near_jail_click" });
             logMapEggResult("near-jail map click", result);
             openVenueMapInfo({ lat: MAP_EASTER_EGG_JAIL.lat, lng: MAP_EASTER_EGG_JAIL.lng }, MAP_EASTER_EGG_JAIL.name, MAP_EASTER_EGG_JAIL.address);
+            return;
           }
           const placeId = String(event?.placeId || "").trim();
           if (!placeId || !venueGooglePlacesService) return;
@@ -36647,6 +36680,108 @@ let onboardingIndex = 0;
       const safeUid = String(uid || "").trim();
       return safeUid ? `${MEMBER_ACCENT_UNLOCKS_PREFIX}${safeUid}` : "";
     }
+    function getMemberAccentUnlocksPassStorageKey(passCode = currentPassCode) {
+      const safePass = String(passCode || "").trim().toUpperCase();
+      return safePass ? `${MEMBER_ACCENT_UNLOCKS_PASS_PREFIX}${safePass}` : "";
+    }
+    function readAccentUnlockSetByStorageKey(key = "") {
+      const safeKey = String(key || "").trim();
+      if (!safeKey) return new Set();
+      try {
+        const raw = localStorage.getItem(safeKey);
+        const arr = JSON.parse(raw || "[]");
+        return new Set((Array.isArray(arr) ? arr : []).map((x) => String(x || "").toLowerCase()).filter(Boolean));
+      } catch (_) {
+        return new Set();
+      }
+    }
+    function writeAccentUnlockSetByStorageKey(key = "", unlocks = new Set()) {
+      const safeKey = String(key || "").trim();
+      if (!safeKey) return false;
+      try {
+        localStorage.setItem(safeKey, JSON.stringify(Array.from(unlocks)));
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+    function resolvePrisonPunchIdentityContext() {
+      const uid = String(firebaseAuth?.currentUser?.uid || "").trim();
+      const passCode = String(currentPassCode || memberProfile?.passCode || "").trim().toUpperCase();
+      const uidKey = getMemberAccentUnlocksStorageKey(uid);
+      const passKey = getMemberAccentUnlocksPassStorageKey(passCode);
+      const storageKeys = [];
+      if (uidKey) storageKeys.push(uidKey);
+      if (passKey && passKey !== uidKey) storageKeys.push(passKey);
+      return {
+        uid,
+        passCode,
+        uidKey,
+        passKey,
+        storageKeys
+      };
+    }
+    function isPrisonPunchUnlockedForIdentity(identity = resolvePrisonPunchIdentityContext()) {
+      const keys = Array.isArray(identity?.storageKeys) ? identity.storageKeys : [];
+      for (const key of keys) {
+        const unlocks = readAccentUnlockSetByStorageKey(key);
+        if (unlocks.has("prison_punch")) return true;
+      }
+      return false;
+    }
+    function persistPrisonPunchUnlockForIdentity(identity = resolvePrisonPunchIdentityContext()) {
+      const keys = Array.isArray(identity?.storageKeys) ? identity.storageKeys : [];
+      if (!keys.length) {
+        const result = {
+          ok: false,
+          anyWrite: false,
+          writes: [],
+          reason: "no_storage_namespace"
+        };
+        setLastAccentUnlockDebug({
+          ok: false,
+          reason: result.reason,
+          theme: "prison_punch",
+          uid: String(identity?.uid || ""),
+          key: "",
+          writeSucceeded: false,
+          before: [],
+          after: [],
+          fallbackNamespace: String(identity?.passCode || "")
+        });
+        return result;
+      }
+      const writes = [];
+      let anyWrite = false;
+      keys.forEach((key) => {
+        const unlocks = readAccentUnlockSetByStorageKey(key);
+        const before = Array.from(unlocks).sort();
+        unlocks.add("prison_punch");
+        const after = Array.from(unlocks).sort();
+        const writeOk = writeAccentUnlockSetByStorageKey(key, unlocks);
+        writes.push({ key, before, after, writeOk });
+        if (writeOk) anyWrite = true;
+      });
+      const result = {
+        ok: anyWrite,
+        anyWrite,
+        writes,
+        reason: anyWrite ? "accent_unlocked" : "storage_write_failed"
+      };
+      const firstOkWrite = writes.find((w) => w.writeOk) || writes[0] || null;
+      setLastAccentUnlockDebug({
+        ok: result.ok,
+        reason: result.reason,
+        theme: "prison_punch",
+        uid: String(identity?.uid || ""),
+        key: String(firstOkWrite?.key || ""),
+        writeSucceeded: result.anyWrite,
+        before: Array.isArray(firstOkWrite?.before) ? firstOkWrite.before : [],
+        after: Array.isArray(firstOkWrite?.after) ? firstOkWrite.after : [],
+        fallbackNamespace: String(identity?.passCode || "")
+      });
+      return result;
+    }
     function readMemberAccentFromStorage(uid = firebaseAuth?.currentUser?.uid) {
       const key = getMemberAccentStorageKey(uid);
       if (!key) return "";
@@ -36800,14 +36935,7 @@ let onboardingIndex = 0;
     }
     function readMemberAccentUnlocks(uid = firebaseAuth?.currentUser?.uid) {
       const key = getMemberAccentUnlocksStorageKey(uid);
-      if (!key) return new Set();
-      try {
-        const raw = localStorage.getItem(key);
-        const arr = JSON.parse(raw || "[]");
-        return new Set((Array.isArray(arr) ? arr : []).map((x) => String(x || "").toLowerCase()).filter(Boolean));
-      } catch (_) {
-        return new Set();
-      }
+      return readAccentUnlockSetByStorageKey(key);
     }
     function getCurrentMemberEasterEggUnlockSummary(uid = firebaseAuth?.currentUser?.uid) {
       const unlocks = readMemberAccentUnlocks(uid);
@@ -36872,7 +37000,13 @@ let onboardingIndex = 0;
       const t = String(theme || "").toLowerCase();
       if (!t) return false;
       const unlocks = readMemberAccentUnlocks(uid);
-      return unlocks.has(t);
+      if (unlocks.has(t)) return true;
+      if (t === "prison_punch") {
+        const passKey = getMemberAccentUnlocksPassStorageKey(currentPassCode);
+        const passUnlocks = readAccentUnlockSetByStorageKey(passKey);
+        return passUnlocks.has(t);
+      }
+      return false;
     }
     let lastAccentUnlockDebug = {
       ok: false,
@@ -53233,6 +53367,15 @@ let onboardingIndex = 0;
     // iOS-first touch feedback: haptic/vibrate globally + optional tap sound.
     let hapticAudioCtx = null;
     let lastHapticAt = 0;
+    const IOS_HAPTIC_HANDLER_NAMES = Object.freeze([
+      "haptic",
+      "iosHaptic",
+      "nativeHaptic",
+      "impactHaptic",
+      "taptic",
+      "selectionHaptic",
+      "appHaptic"
+    ]);
     function isTouchSoundEnabledForSession() {
       return memberTouchSoundEnabled !== false;
     }
@@ -53246,22 +53389,39 @@ let onboardingIndex = 0;
       if (el.matches('input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="search"], input[type="date"], input[type="time"], textarea, [contenteditable="true"]')) return false;
       return true;
     }
+    function triggerIosBridgeHaptic(style = "light") {
+      let fired = false;
+      try {
+        const bridgeHandlers = window.webkit?.messageHandlers || {};
+        IOS_HAPTIC_HANDLER_NAMES.forEach((name) => {
+          const handler = bridgeHandlers?.[name];
+          if (!handler?.postMessage) return;
+          try {
+            handler.postMessage({ type: "impact", style, event: "tap" });
+            fired = true;
+          } catch (_) {}
+        });
+      } catch (_) {}
+      try {
+        const impact = window.HapticFeedback?.impactOccurred;
+        if (typeof impact === "function") {
+          impact(style);
+          fired = true;
+        }
+      } catch (_) {}
+      return fired;
+    }
     function triggerNativeTapHaptic() {
       let fired = false;
       try {
         if (navigator.vibrate) {
           const pattern = isIOS ? 10 : [8, 10, 6];
-          fired = navigator.vibrate(pattern) === true;
+          const vibrated = navigator.vibrate(pattern);
+          if (vibrated === true || isAndroid) fired = true;
         }
       } catch (_) {}
       if (isIOS && !fired) {
-        try {
-          const bridge = window.webkit?.messageHandlers?.haptic;
-          if (bridge?.postMessage) {
-            bridge.postMessage({ style: "light" });
-            fired = true;
-          }
-        } catch (_) {}
+        fired = triggerIosBridgeHaptic("light") || fired;
       }
       return fired;
     }
@@ -53323,8 +53483,16 @@ let onboardingIndex = 0;
     }
     if ("PointerEvent" in window) {
       document.addEventListener("pointerdown", handleHapticEvent, { passive: true });
+      if (isIOS) {
+        document.addEventListener("pointerup", handleHapticEvent, { passive: true });
+      }
     } else {
       document.addEventListener("touchstart", handleHapticEvent, { passive: true });
+    }
+    if (isIOS) {
+      document.addEventListener("touchstart", handleHapticEvent, { passive: true });
+      document.addEventListener("touchend", handleHapticEvent, { passive: true });
+      document.addEventListener("click", handleHapticEvent, { passive: true, capture: true });
     }
 
   const cheersQuotes = [
