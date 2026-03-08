@@ -26983,6 +26983,17 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.147",
+        date: "2026-03-08",
+        added: [],
+        improved: [
+          "Special map pin styling now includes a cleaner circular ring treatment for improved on-map readability"
+        ],
+        fixed: [
+          "Adjusted special pin artwork framing so the profile image remains fully visible inside the circular marker border"
+        ]
+      },
+      {
         version: "v0.9.146",
         date: "2026-03-08",
         added: [],
@@ -29433,7 +29444,7 @@
     const MAP_EASTER_EGG_JAIL_STEER_ZOOM_MIN = 16;
     const MAP_EASTER_EGG_JAIL_STEER_TOAST_COOLDOWN_MS = 2400;
     const MAP_EASTER_EGG_JAIL_STEER_APPROACH_DELTA_METERS = 10;
-    const MAP_EASTER_EGG_JAIL_PIN_ICON_URL = "media/jail-mugshot.png";
+    const MAP_EASTER_EGG_JAIL_PIN_ICON_URL = "media/jail-mugshot-ring.svg";
     const MAP_DEFAULT_CENTER = Object.freeze({ lat: 40.5853, lng: -105.0844 });
     let activeMapVenueId = "";
     let googleMapsLoaderPromise = null;

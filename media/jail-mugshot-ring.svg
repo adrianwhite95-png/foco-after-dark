@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Jail pin">
+  <defs>
+    <clipPath id="jailClipCircle">
+      <circle cx="64" cy="64" r="50"/>
+    </clipPath>
+  </defs>
+  <circle cx="64" cy="64" r="61" fill="rgba(2,6,23,0.9)"/>
+  <circle cx="64" cy="64" r="58" fill="none" stroke="#22d3ee" stroke-width="3"/>
+  <circle cx="64" cy="64" r="54" fill="none" stroke="#ec4899" stroke-width="2" stroke-opacity="0.85"/>
+  <image href="jail-mugshot.png" x="14" y="14" width="100" height="100" preserveAspectRatio="xMidYMid slice" clip-path="url(#jailClipCircle)"/>
+  <circle cx="64" cy="64" r="50" fill="none" stroke="#f8fafc" stroke-opacity="0.4" stroke-width="1.5"/>
+</svg>
