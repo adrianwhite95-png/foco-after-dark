@@ -11536,6 +11536,72 @@
     #passScreen.pass-laser-refresh .pass-card::after {
       animation: none !important;
     }
+    /* Temporary scroll-optimization mode for profile/pass-heavy visuals.
+       Full visuals resume automatically when scrolling settles. */
+    body.ui-scrolling.screen-profile-pass #passScreen::before,
+    body.ui-scrolling.screen-profile-pass #passScreen::after,
+    body.ui-scrolling.screen-profile-pass #passScreen .pass-card::before,
+    body.ui-scrolling.screen-profile-pass #passScreen .pass-card::after,
+    body.ui-scrolling.screen-profile-pass #passScreen .pulse-band::after,
+    body.ui-scrolling.screen-profile-pass #passScreen .member-hero::before,
+    body.ui-scrolling.screen-profile-pass #passScreen .member-hero::after,
+    body.ui-scrolling.screen-profile-pass #passScreen .profile-summary::before,
+    body.ui-scrolling.screen-profile-pass #passScreen .pulse-thread span,
+    body.ui-scrolling.screen-profile-pass #passScreen .pulse-sparks span,
+    body.ui-scrolling.screen-profile-pass #passScreen .pulse-streaks span,
+    body.ui-scrolling.screen-profile-pass #passScreen .pulse-bursts span,
+    body.ui-scrolling.screen-profile-pass #passScreen .value-radar-ring,
+    body.ui-scrolling.screen-profile-pass #passScreen .value-radar-core,
+    body.ui-scrolling.screen-profile-pass #passScreen .community-stat,
+    body.ui-scrolling.screen-profile-pass .club-fixture,
+    body.ui-scrolling.screen-profile-pass .club-beam,
+    body.ui-scrolling.screen-profile-pass .club-haze {
+      animation-play-state: paused !important;
+    }
+    body.ui-scrolling.screen-profile-pass #passScreen :is(.pass-card, .member-hero, .profile-summary, .alerts-card, .member-command-deck) {
+      backdrop-filter: blur(6px) saturate(1.02) !important;
+      -webkit-backdrop-filter: blur(6px) saturate(1.02) !important;
+      box-shadow:
+        0 14px 28px rgba(2, 6, 20, 0.56),
+        0 0 18px color-mix(in srgb, var(--accent-primary-live) 14%, transparent),
+        inset 0 0 20px color-mix(in srgb, var(--accent-primary-live) 8%, transparent) !important;
+    }
+    body.ui-scrolling.screen-profile-pass :is(#profileActivityScreen .activity-card, #menuScreen .menu-card) {
+      backdrop-filter: blur(6px) saturate(1.01) !important;
+      -webkit-backdrop-filter: blur(6px) saturate(1.01) !important;
+      box-shadow: 0 12px 24px rgba(2, 6, 20, 0.45) !important;
+    }
+    body.ui-scrolling.screen-profile-pass #passScreen::after {
+      opacity: 0.2 !important;
+      filter: blur(14px) saturate(1.08) !important;
+    }
+    body.ui-scrolling.screen-profile-pass .club-atmosphere {
+      opacity: 0.46 !important;
+    }
+    #passScreen :is(.pulse-band, .member-hero, .profile-summary, .alerts-card) {
+      contain: layout paint style;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+    #passScreen :is(.pulse-sparks, .pulse-streaks, .pulse-bursts, .value-radar, .value-radar-ring, .value-radar-core) {
+      will-change: transform, opacity;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+    #passScreen .pulse-band.perf-offscreen-paused :is(.pulse-sparks span, .pulse-streaks span, .pulse-bursts span, .pulse-thread span),
+    #passScreen .member-hero.perf-offscreen-paused::after,
+    #passScreen .profile-summary.perf-offscreen-paused::before,
+    #profileActivityScreen .activity-card.perf-offscreen-paused {
+      animation-play-state: paused !important;
+    }
+    #passScreen .pulse-band.perf-offscreen-paused,
+    #passScreen .member-hero.perf-offscreen-paused,
+    #passScreen .profile-summary.perf-offscreen-paused,
+    #passScreen .alerts-card.perf-offscreen-paused,
+    #profileActivityScreen .activity-card.perf-offscreen-paused {
+      filter: saturate(0.95) brightness(0.97);
+      box-shadow: 0 10px 22px rgba(2, 6, 20, 0.42) !important;
+    }
 
     #passScreen .profile-summary::before {
       animation: profileAuraDrift 16s ease-in-out infinite alternate;
@@ -18283,6 +18349,12 @@
           <button type="button" class="menu-action-btn" id="menuMotionToggle">Set reduced motion</button>
           <p class="menu-motion-note">Applies only to your account visuals.</p>
         </div>
+        <div class="menu-motion-control" id="menuSoundControl">
+          <p class="menu-motion-title">Touch feedback sound</p>
+          <p class="menu-motion-status" id="menuSoundStatus">Touch sound: On</p>
+          <button type="button" class="menu-action-btn" id="menuSoundToggle">Turn touch sound off</button>
+          <p class="menu-motion-note">iPhone haptics stay active. Sound follows this toggle.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -20944,6 +21016,7 @@
       resetSupportForm();
       applyAccentTheme("cyan");
       applyMemberMotionPreference(false);
+      applyMemberTouchSoundPreference(true);
       localStorage.removeItem(ACCENT_KEY_LEGACY);
       localStorage.removeItem(BG_KEY);
       localStorage.removeItem(BG_KEY);
@@ -21031,6 +21104,24 @@
       scanConfirm: document.getElementById("scanConfirmScreen"),
     };
     let currentScreenName = "landing";
+    const PROFILE_PERF_SCROLL_SCREENS = new Set(["pass", "profileActivity", "menu"]);
+    const PROFILE_PERF_SCROLL_IDLE_MS = 150;
+    let profileScrollOptimizationActive = false;
+    let profileScrollEndTimer = null;
+    let profileScrollActivityRaf = 0;
+    let profileVisualObserver = null;
+    const observedProfileVisualTargets = new Set();
+    const profileVisualVisibilityState = new WeakMap();
+    let profileVisualObserveRaf = 0;
+    let pulseBandCopyBound = false;
+    const pulseVisualRenderState = {
+      barsSignature: "",
+      decorSignature: "",
+      coreSignature: "",
+      sparksCount: 0,
+      streaksCount: 0,
+      burstsCount: 0
+    };
     let ageVerifyReturnScreen = "tonight";
     let membershipReturnScreen = "pass";
     let onboardingReturnScreen = null;
@@ -21055,6 +21146,7 @@
     const LAST_SCREEN_PREFIX = "lastScreen_";
     const MEMBER_ACCENT_PREFIX = "memberAccent_";
     const MEMBER_MOTION_PREFIX = "memberMotion_";
+    const MEMBER_TOUCH_SOUND_PREFIX = "memberTouchSound_";
     const MEMBER_ACCENT_UNLOCKS_PREFIX = "memberAccentUnlocks_";
     const EASTER_EGG_UNLOCK_THEMES = Object.freeze(["espresso_martini", "csu_jungle_juice", "prison_punch"]);
     const UNLOCK_ONLY_ACCENTS = new Set(EASTER_EGG_UNLOCK_THEMES);
@@ -22331,6 +22423,14 @@
       globalRefreshBtn.style.left = "auto";
       globalRefreshBtn.style.bottom = "auto";
     }
+    let globalRefreshViewportRaf = 0;
+    function requestGlobalRefreshViewportSync() {
+      if (globalRefreshViewportRaf) return;
+      globalRefreshViewportRaf = requestAnimationFrame(() => {
+        globalRefreshViewportRaf = 0;
+        syncGlobalRefreshViewportPosition();
+      });
+    }
 
     let glassBgRaf = 0;
     function shouldUpdateLandingGlass() {
@@ -22630,6 +22730,105 @@
         event.preventDefault();
       }
     }, { passive: false });
+    function isProfilePerformanceScreen(name = currentScreenName) {
+      return PROFILE_PERF_SCROLL_SCREENS.has(String(name || ""));
+    }
+    function setProfileScrollOptimizationState(active, source = "scroll") {
+      if (active) {
+        if (!profileScrollOptimizationActive) {
+          profileScrollOptimizationActive = true;
+          document.body.classList.add("ui-scrolling");
+          console.log("[perf] scroll start", { source, screen: currentScreenName });
+        }
+        return;
+      }
+      if (!profileScrollOptimizationActive) return;
+      profileScrollOptimizationActive = false;
+      document.body.classList.remove("ui-scrolling");
+      console.log("[perf] scroll end", { source, screen: currentScreenName });
+    }
+    function markProfileScrollActivity(source = "scroll") {
+      if (!isProfilePerformanceScreen()) return;
+      setProfileScrollOptimizationState(true, source);
+      if (profileScrollEndTimer) clearTimeout(profileScrollEndTimer);
+      profileScrollEndTimer = setTimeout(() => {
+        setProfileScrollOptimizationState(false, source);
+      }, PROFILE_PERF_SCROLL_IDLE_MS);
+    }
+    function queueProfileScrollActivity(source = "scroll") {
+      if (!isProfilePerformanceScreen()) return;
+      if (profileScrollActivityRaf) return;
+      profileScrollActivityRaf = requestAnimationFrame(() => {
+        profileScrollActivityRaf = 0;
+        markProfileScrollActivity(source);
+      });
+    }
+    function getProfileVisualTargetsForScreen(name = currentScreenName) {
+      const targets = [];
+      const screenName = String(name || "");
+      if (screenName === "pass") {
+        targets.push(
+          document.querySelector("#passScreen .pulse-band"),
+          document.querySelector("#passScreen .member-hero"),
+          document.querySelector("#passScreen .profile-summary"),
+          document.querySelector("#passScreen .alerts-card")
+        );
+      } else if (screenName === "profileActivity") {
+        targets.push(...Array.from(document.querySelectorAll("#profileActivityScreen .activity-card")));
+      }
+      return targets.filter(Boolean);
+    }
+    function describePerfNode(node) {
+      if (!node) return "unknown";
+      if (node.id) return `#${node.id}`;
+      if (typeof node.className === "string" && node.className.trim()) {
+        return `.${node.className.trim().split(/\s+/).slice(0, 2).join(".")}`;
+      }
+      return String(node.tagName || "node").toLowerCase();
+    }
+    function ensureProfileVisualObserver() {
+      if (profileVisualObserver || typeof IntersectionObserver === "undefined") return;
+      profileVisualObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          const target = entry.target;
+          const visible = !!(entry.isIntersecting && entry.intersectionRatio > 0.08);
+          const prev = profileVisualVisibilityState.get(target);
+          if (prev === visible) return;
+          profileVisualVisibilityState.set(target, visible);
+          target.classList.toggle("perf-offscreen-paused", !visible);
+          if (visible) {
+            console.log("[perf] offscreen animation resumed", describePerfNode(target));
+          } else {
+            console.log("[perf] offscreen animation paused", describePerfNode(target));
+          }
+        });
+      }, {
+        root: null,
+        threshold: [0, 0.08, 0.2]
+      });
+    }
+    function refreshProfileVisualObserverTargets(name = currentScreenName) {
+      ensureProfileVisualObserver();
+      if (!profileVisualObserver) return;
+      observedProfileVisualTargets.forEach((target) => {
+        try { profileVisualObserver.unobserve(target); } catch (_) {}
+        try { target.classList.remove("perf-offscreen-paused"); } catch (_) {}
+      });
+      observedProfileVisualTargets.clear();
+      getProfileVisualTargetsForScreen(name).forEach((target) => {
+        try {
+          profileVisualObserver.observe(target);
+          observedProfileVisualTargets.add(target);
+        } catch (_) {}
+      });
+    }
+    function scheduleProfileVisualObserverRefresh(name = currentScreenName) {
+      if (profileVisualObserveRaf) cancelAnimationFrame(profileVisualObserveRaf);
+      profileVisualObserveRaf = requestAnimationFrame(() => {
+        profileVisualObserveRaf = 0;
+        refreshProfileVisualObserverTargets(name);
+      });
+    }
 
     function showScreen(name) {
       const previousScreenName = currentScreenName;
@@ -22676,6 +22875,14 @@
       document.body.classList.toggle("screen-landing", name === "landing");
       document.body.classList.toggle("screen-waitlist", name === "waitlistGate");
       document.body.classList.toggle("screen-maintenance", name === "maintenance");
+      document.body.classList.toggle("screen-profile-pass", isProfilePerformanceScreen(name));
+      if (!isProfilePerformanceScreen(name)) {
+        if (profileScrollEndTimer) {
+          clearTimeout(profileScrollEndTimer);
+          profileScrollEndTimer = null;
+        }
+        setProfileScrollOptimizationState(false, "screen-change");
+      }
       if (previousScreenName === "ceoPortal" && name !== "ceoPortal") {
         stopCeoLiveAnalyticsWatch();
       }
@@ -22822,6 +23029,7 @@
         stopMemberNoticesListener();
       }
       pulseScreenSkeletons(name);
+      scheduleProfileVisualObserverRefresh(name);
       try {
         const activeScreen = screens[name];
         if (activeScreen) activeScreen.scrollTop = 0;
@@ -25387,6 +25595,7 @@
         resetRewardsProgressState();
         showScreen("landing");
         applyMemberMotionPreference(false);
+        applyMemberTouchSoundPreference(true);
         memberProfile = null;
         memberDocRef = null;
         clearPassRealtime();
@@ -25466,6 +25675,7 @@
         ensurePointsEntry();
         loadAccentTheme();
         applyMemberMotionPreference(false);
+        applyMemberTouchSoundPreference(true);
         ceoSession = true;
         isCeoAccount = true;
         localStorage.setItem("ceoSession", "true");
@@ -25494,6 +25704,7 @@
         applyCachedStats();
         loadAccentTheme();
         loadMemberMotionPreference(user);
+        loadMemberTouchSoundPreference(user);
         showScreen("tonight");
         clearPassLoading();
         return;
@@ -25680,6 +25891,7 @@
       ensurePointsEntry();
       loadAccentTheme();
       loadMemberMotionPreference(user);
+      loadMemberTouchSoundPreference(user);
       showPassLoading();
       renderPassIdentity(user);
       showFreeWelcomeToast();
@@ -26284,6 +26496,9 @@
     const menuMotionControl = document.getElementById("menuMotionControl");
     const menuMotionStatus = document.getElementById("menuMotionStatus");
     const menuMotionToggle = document.getElementById("menuMotionToggle");
+    const menuSoundControl = document.getElementById("menuSoundControl");
+    const menuSoundStatus = document.getElementById("menuSoundStatus");
+    const menuSoundToggle = document.getElementById("menuSoundToggle");
     const menuScreen = document.getElementById("menuScreen");
     const cancelMembershipModal = document.getElementById("cancelMembershipModal");
     const cancelMembershipConfirm = document.getElementById("cancelMembershipConfirm");
@@ -26734,6 +26949,31 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.135",
+        date: "2026-03-07",
+        added: [
+          "Member Menu now includes a touch-sound control for tap feedback so users can keep iPhone haptics while muting tap sounds"
+        ],
+        improved: [
+          "Global touch feedback was upgraded with iOS-first haptic handling across interactive controls for faster, more consistent tap response"
+        ],
+        fixed: [
+          "Tap feedback now respects the in-app touch-sound toggle and no longer plays click audio when touch sound is off"
+        ]
+      },
+      {
+        version: "v0.9.134",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Pass/profile rendering now uses active-scroll performance mode to keep motion-rich visuals responsive during finger scroll",
+          "Profile visual layers now pause expensive offscreen animation work and resume automatically when visible"
+        ],
+        fixed: [
+          "Reduced pass-profile jank from repeated decorative rerenders by caching pulse visuals and skipping unchanged DOM churn"
+        ]
+      },
       {
         version: "v0.9.133",
         date: "2026-03-07",
@@ -30775,11 +31015,68 @@
       const codeForCache = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
       if (codeForCache) saveStatsCache(codeForCache, { total, venuesVisited, avg });
     }
+    function stableSeedFromText(value = "") {
+      const text = String(value || "");
+      let hash = 2166136261;
+      for (let i = 0; i < text.length; i += 1) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      const normalized = hash >>> 0;
+      return normalized || 1;
+    }
+    function buildPulseEntriesSignature(entries = []) {
+      if (!Array.isArray(entries) || !entries.length) return "none";
+      return entries
+        .slice(0, 24)
+        .map((entry) => String(
+          entry?.code
+          || entry?.alertId
+          || entry?.timestamp
+          || entry?.verifiedAt
+          || entry?.createdAt
+          || ""
+        ))
+        .join("|");
+    }
+    function syncPulseDecorLayer(container, styleRows = []) {
+      if (!container) return false;
+      const list = Array.isArray(styleRows) ? styleRows : [];
+      let changed = false;
+      while (container.children.length > list.length) {
+        container.removeChild(container.lastChild);
+        changed = true;
+      }
+      while (container.children.length < list.length) {
+        container.appendChild(document.createElement("span"));
+        changed = true;
+      }
+      for (let i = 0; i < list.length; i += 1) {
+        const node = container.children[i];
+        const nextStyle = String(list[i] || "");
+        if (node.__pulseStyleSig !== nextStyle) {
+          node.style.cssText = nextStyle;
+          node.__pulseStyleSig = nextStyle;
+          changed = true;
+        }
+      }
+      return changed;
+    }
+    function isPulseDecorDeferred() {
+      if (!pulseBand) return false;
+      if (!isProfilePerformanceScreen()) return false;
+      if (profileScrollOptimizationActive) return true;
+      if (pulseBand.classList.contains("perf-offscreen-paused")) return true;
+      return false;
+    }
     function updatePulseBand(stats = {}) {
       if (!pulseBand) return;
       const code = (currentPassCode || "").toUpperCase();
-      if (pulsePassId && code) {
+      let didApplyVisualUpdate = false;
+      let skippedUnchanged = false;
+      if (pulsePassId && code && pulsePassId.textContent !== code) {
         pulsePassId.textContent = code;
+        didApplyVisualUpdate = true;
       }
       const todayKey = getMstDateKey(new Date());
       const log = Array.isArray(redemptionLog) ? redemptionLog : [];
@@ -30792,37 +31089,52 @@
       const todayCount = todayEntries.length;
       if (pulsePrimary) {
         const venues = stats.venuesVisited || 0;
-        pulsePrimary.textContent = todayCount
+        const nextPrimary = todayCount
           ? `${todayCount} redeemed today • ${venues} venues`
           : "Ready for tonight";
+        if (pulsePrimary.textContent !== nextPrimary) {
+          pulsePrimary.textContent = nextPrimary;
+          didApplyVisualUpdate = true;
+        }
       }
-      if (pulseThread) {
+      const total = Number(stats.total || 0);
+      let activeAlertBars = 0;
+      try {
+        activeAlertBars = typeof getActiveAlertsForMember === "function" ? Number(getActiveAlertsForMember().length || 0) : 0;
+      } catch (_) {
+        activeAlertBars = 0;
+      }
+      const palette = window.VIBES || {
+        flirty: { factor: 1.15 },
+        blacking: { factor: 1.6 },
+        social: { factor: 1.3 },
+        casual: { factor: 0.75 },
+        justone: { factor: 0.92 },
+        custom: { factor: 1.2 }
+      };
+      const vibeName = window.currentVibe || "social";
+      const vibeConfig = (palette[vibeName] || palette.social || { factor: 1 });
+      const intensity = Math.min(1, todayCount / 8);
+      const todayEntriesSignature = buildPulseEntriesSignature(todayEntries);
+      const barsSignature = [
+        code,
+        total,
+        Number(stats.venuesVisited || 0),
+        todayCount,
+        activeAlertBars,
+        vibeName,
+        intensity.toFixed(2),
+        todayEntriesSignature
+      ].join("|");
+      if (pulseThread && barsSignature !== pulseVisualRenderState.barsSignature) {
         const bars = Array.from(pulseThread.children);
-        const total = stats.total || 0;
-          let activeAlertBars = 0;
-          try {
-            activeAlertBars = typeof getActiveAlertsForMember === "function" ? Number(getActiveAlertsForMember().length || 0) : 0;
-          } catch (_) {
-            activeAlertBars = 0;
-          }
-          const activeBars = Math.max(
-            0,
-            Math.min(
-              bars.length || 0,
-              Math.round(Math.max(todayCount * 0.9, activeAlertBars * 1.2, (stats.venuesVisited || 0) * 0.7))
-            )
-          );
-          const palette = window.VIBES || {
-            flirty: { factor: 1.15 },
-            blacking: { factor: 1.6 },
-            social: { factor: 1.3 },
-            casual: { factor: 0.75 },
-            justone: { factor: 0.92 },
-            custom: { factor: 1.2 }
-          };
-        const vibeName = window.currentVibe || "social";
-        const vibeConfig = (palette[vibeName] || palette.social || { factor: 1 });
-        const intensity = Math.min(1, todayCount / 8);
+        const activeBars = Math.max(
+          0,
+          Math.min(
+            bars.length || 0,
+            Math.round(Math.max(todayCount * 0.9, activeAlertBars * 1.2, (stats.venuesVisited || 0) * 0.7))
+          )
+        );
         pulseBand.style.setProperty("--pulse-intensity", intensity.toFixed(2));
         pulseBand.style.setProperty("--pulse-aura-speed", `${Math.max(6, 16 - intensity * 8)}s`);
         pulseBand.style.setProperty("--pulse-spark-opacity", (0.2 + intensity * 0.6).toFixed(2));
@@ -30846,65 +31158,104 @@
           bar.style.opacity = (0.64 + intensity * 0.18).toFixed(3);
           bar.classList.toggle("is-active", idx < activeBars);
         });
+        pulseVisualRenderState.barsSignature = barsSignature;
+        didApplyVisualUpdate = true;
       }
       if (pulseSparks || pulseStreaks || pulseBursts) {
-        if (!todayCount) {
-          if (pulseSparks) pulseSparks.innerHTML = "";
-          if (pulseStreaks) pulseStreaks.innerHTML = "";
-          if (pulseBursts) pulseBursts.innerHTML = "";
+        const decorDeferred = isPulseDecorDeferred();
+        const decorSignature = decorDeferred
+          ? `deferred|${barsSignature}`
+          : `live|${barsSignature}`;
+        if (decorDeferred) {
+          skippedUnchanged = true;
+        } else if (decorSignature !== pulseVisualRenderState.decorSignature) {
+          if (!todayCount) {
+            didApplyVisualUpdate = syncPulseDecorLayer(pulseSparks, [])
+              || syncPulseDecorLayer(pulseStreaks, [])
+              || syncPulseDecorLayer(pulseBursts, [])
+              || didApplyVisualUpdate;
+          } else {
+            const seedBase = stableSeedFromText(`${code}|${todayKey}|${todayEntriesSignature}|${vibeName}|${total}`);
+            if (pulseSparks) {
+              const sparkCount = Math.min(24, 6 + Math.round(todayCount * 2));
+              const sparkRows = Array.from({ length: sparkCount }).map((_, idx) => {
+                const seed = seedBase + idx * 41;
+                const left = 12 + seededRandom(seed) * 76;
+                const top = 12 + seededRandom(seed + 2) * 76;
+                const size = 4 + seededRandom(seed + 3) * (6 + intensity * 6);
+                const driftX = (seededRandom(seed + 4) - 0.5) * (20 + intensity * 40);
+                const driftY = (seededRandom(seed + 5) - 0.5) * (20 + intensity * 40);
+                const speed = Math.max(2.2, 6.5 - intensity * 3) + seededRandom(seed + 6) * 2;
+                const delay = (seededRandom(seed + 7) * 1.6).toFixed(2);
+                return `left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--pulse-drift-x:${driftX.toFixed(1)}px;--pulse-drift-y:${driftY.toFixed(1)}px;animation-duration:${speed.toFixed(2)}s;animation-delay:${delay}s;`;
+              });
+              didApplyVisualUpdate = syncPulseDecorLayer(pulseSparks, sparkRows) || didApplyVisualUpdate;
+            }
+            if (pulseStreaks) {
+              const streakCount = Math.min(10, Math.max(0, Math.round(intensity * 8)));
+              const streakRows = Array.from({ length: streakCount }).map((_, idx) => {
+                const seed = seedBase + idx * 73;
+                const left = 15 + seededRandom(seed) * 70;
+                const top = 15 + seededRandom(seed + 2) * 70;
+                const length = 60 + seededRandom(seed + 3) * (90 + intensity * 120);
+                const rotation = (seededRandom(seed + 4) * 360).toFixed(1);
+                const speed = Math.max(1.4, 4.6 - intensity * 2.6) + seededRandom(seed + 5) * 2;
+                const delay = (seededRandom(seed + 6) * 2).toFixed(2);
+                return `left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${length.toFixed(1)}px;--pulse-streak-rot:${rotation}deg;--pulse-streak-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;`;
+              });
+              didApplyVisualUpdate = syncPulseDecorLayer(pulseStreaks, streakRows) || didApplyVisualUpdate;
+            }
+            if (pulseBursts) {
+              const burstCount = Math.min(6, Math.max(0, Math.round(intensity * 5)));
+              const burstRows = Array.from({ length: burstCount }).map((_, idx) => {
+                const seed = seedBase + idx * 67;
+                const left = 18 + seededRandom(seed) * 64;
+                const top = 18 + seededRandom(seed + 2) * 64;
+                const size = 16 + seededRandom(seed + 3) * (24 + intensity * 32);
+                const speed = Math.max(2.2, 5.2 - intensity * 2.4) + seededRandom(seed + 4) * 2;
+                const delay = (seededRandom(seed + 5) * 2.3).toFixed(2);
+                return `left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--pulse-burst-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;`;
+              });
+              didApplyVisualUpdate = syncPulseDecorLayer(pulseBursts, burstRows) || didApplyVisualUpdate;
+            }
+          }
+          pulseVisualRenderState.decorSignature = decorSignature;
         } else {
-          const intensity = Math.min(1, todayCount / 8);
-          if (pulseSparks) {
-            const sparkCount = Math.min(24, 6 + Math.round(todayCount * 2));
-            pulseSparks.innerHTML = Array.from({ length: sparkCount }).map((_, idx) => {
-              const seed = (todayEntries[idx]?.timestamp ? new Date(todayEntries[idx].timestamp).getTime() : Date.now()) + idx * 41;
-              const left = 12 + seededRandom(seed) * 76;
-              const top = 12 + seededRandom(seed + 2) * 76;
-              const size = 4 + seededRandom(seed + 3) * (6 + intensity * 6);
-              const driftX = (seededRandom(seed + 4) - 0.5) * (20 + intensity * 40);
-              const driftY = (seededRandom(seed + 5) - 0.5) * (20 + intensity * 40);
-              const speed = Math.max(2.2, 6.5 - intensity * 3) + seededRandom(seed + 6) * 2;
-              const delay = (seededRandom(seed + 7) * 1.6).toFixed(2);
-              return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--pulse-drift-x:${driftX.toFixed(1)}px;--pulse-drift-y:${driftY.toFixed(1)}px;animation-duration:${speed.toFixed(2)}s;animation-delay:${delay}s;"></span>`;
-            }).join("");
-          }
-          if (pulseStreaks) {
-            const streakCount = Math.min(10, Math.max(0, Math.round(intensity * 8)));
-            pulseStreaks.innerHTML = Array.from({ length: streakCount }).map((_, idx) => {
-              const seed = Date.now() + idx * 73;
-              const left = 15 + seededRandom(seed) * 70;
-              const top = 15 + seededRandom(seed + 2) * 70;
-              const length = 60 + seededRandom(seed + 3) * (90 + intensity * 120);
-              const rotation = (seededRandom(seed + 4) * 360).toFixed(1);
-              const speed = Math.max(1.4, 4.6 - intensity * 2.6) + seededRandom(seed + 5) * 2;
-              const delay = (seededRandom(seed + 6) * 2).toFixed(2);
-              return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${length.toFixed(1)}px;--pulse-streak-rot:${rotation}deg;--pulse-streak-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;"></span>`;
-            }).join("");
-          }
-          if (pulseBursts) {
-            const burstCount = Math.min(6, Math.max(0, Math.round(intensity * 5)));
-            pulseBursts.innerHTML = Array.from({ length: burstCount }).map((_, idx) => {
-              const seed = (todayEntries[idx]?.timestamp ? new Date(todayEntries[idx].timestamp).getTime() : Date.now()) + idx * 67;
-              const left = 18 + seededRandom(seed) * 64;
-              const top = 18 + seededRandom(seed + 2) * 64;
-              const size = 16 + seededRandom(seed + 3) * (24 + intensity * 32);
-              const speed = Math.max(2.2, 5.2 - intensity * 2.4) + seededRandom(seed + 4) * 2;
-              const delay = (seededRandom(seed + 5) * 2.3).toFixed(2);
-              return `<span style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--pulse-burst-speed:${speed.toFixed(2)}s;animation-delay:${delay}s;"></span>`;
-            }).join("");
-          }
+          skippedUnchanged = true;
         }
       }
-      if (pulsePassId) {
+      if (pulsePassId && !pulseBandCopyBound) {
+        pulseBandCopyBound = true;
         pulsePassId.onclick = async () => {
-          if (!code) return;
+          const latestCode = (currentPassCode || "").toUpperCase();
+          if (!latestCode) return;
           try {
-            await navigator.clipboard.writeText(code);
+            await navigator.clipboard.writeText(latestCode);
             showToast("Pass ID copied");
           } catch (_) {
-            showToast(code);
+            showToast(latestCode);
           }
         };
+      }
+      const coreSignature = [
+        barsSignature,
+        pulseVisualRenderState.decorSignature,
+        profileScrollOptimizationActive ? "scrolling" : "steady",
+        pulseBand.classList.contains("perf-offscreen-paused") ? "offscreen" : "onscreen"
+      ].join("|");
+      if (coreSignature === pulseVisualRenderState.coreSignature && skippedUnchanged) {
+        if (currentScreenName === "pass") {
+          console.log("[perf] profile visual rerender skipped unchanged");
+        }
+        return;
+      }
+      pulseVisualRenderState.coreSignature = coreSignature;
+      if (currentScreenName === "pass") {
+        if (didApplyVisualUpdate) {
+          console.log("[perf] profile visual rerender applied");
+        } else {
+          console.log("[perf] profile visual rerender skipped unchanged");
+        }
       }
     }
 
@@ -33228,12 +33579,21 @@ let onboardingIndex = 0;
         softRefresh();
       });
     }
-    window.addEventListener("scroll", syncGlobalRefreshViewportPosition, { passive: true });
-    window.addEventListener("resize", syncGlobalRefreshViewportPosition, { passive: true });
+    window.addEventListener("scroll", requestGlobalRefreshViewportSync, { passive: true });
+    window.addEventListener("resize", requestGlobalRefreshViewportSync, { passive: true });
     if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", syncGlobalRefreshViewportPosition, { passive: true });
-      window.visualViewport.addEventListener("scroll", syncGlobalRefreshViewportPosition, { passive: true });
+      window.visualViewport.addEventListener("resize", requestGlobalRefreshViewportSync, { passive: true });
+      window.visualViewport.addEventListener("scroll", requestGlobalRefreshViewportSync, { passive: true });
     }
+    document.addEventListener("scroll", () => {
+      queueProfileScrollActivity("scroll");
+    }, { passive: true, capture: true });
+    window.addEventListener("wheel", () => {
+      queueProfileScrollActivity("wheel");
+    }, { passive: true });
+    window.addEventListener("touchmove", () => {
+      queueProfileScrollActivity("touchmove");
+    }, { passive: true });
     if (ceoRefreshBtn) {
       ceoRefreshBtn.addEventListener("click", () => {
         if (isAuthBusy()) return;
@@ -33337,7 +33697,14 @@ let onboardingIndex = 0;
         applyMemberMotionPreference(!memberMotionReduced, { persist: true, toast: true });
       });
     }
+    if (menuSoundToggle) {
+      menuSoundToggle.addEventListener("click", () => {
+        if (!firebaseAuth?.currentUser || isCeoAccount || ceoSession) return;
+        applyMemberTouchSoundPreference(!memberTouchSoundEnabled, { persist: true, toast: true });
+      });
+    }
     updateMemberMotionControlUi();
+    updateMemberTouchSoundControlUi();
     attachProfileLogoEasterEgg();
     document.addEventListener("click", (e) => {
       if (!navMenu || !navMenuToggle) return;
@@ -36000,6 +36367,7 @@ let onboardingIndex = 0;
     dealCodes = loadDealCodes();
     let currentAccentTheme = "cyan";
     var memberMotionReduced = false;
+    var memberTouchSoundEnabled = true;
     let currentBgTheme = "default";
     let bgUserSelected = false;
     /* accentToBg mapping removed — background selection disabled */
@@ -36271,6 +36639,10 @@ let onboardingIndex = 0;
       const safeUid = String(uid || "").trim();
       return safeUid ? `${MEMBER_MOTION_PREFIX}${safeUid}` : "";
     }
+    function getMemberTouchSoundStorageKey(uid = firebaseAuth?.currentUser?.uid) {
+      const safeUid = String(uid || "").trim();
+      return safeUid ? `${MEMBER_TOUCH_SOUND_PREFIX}${safeUid}` : "";
+    }
     function getMemberAccentUnlocksStorageKey(uid = firebaseAuth?.currentUser?.uid) {
       const safeUid = String(uid || "").trim();
       return safeUid ? `${MEMBER_ACCENT_UNLOCKS_PREFIX}${safeUid}` : "";
@@ -36304,6 +36676,26 @@ let onboardingIndex = 0;
         localStorage.setItem(key, reduced ? "1" : "0");
       } catch (_) {}
     }
+    function readMemberTouchSoundFromStorage(uid = firebaseAuth?.currentUser?.uid) {
+      const key = getMemberTouchSoundStorageKey(uid);
+      if (!key) return null;
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw == null || raw === "") return null;
+        if (raw === "1" || raw === "true") return true;
+        if (raw === "0" || raw === "false") return false;
+        return null;
+      } catch (_) {
+        return null;
+      }
+    }
+    function writeMemberTouchSoundToStorage(enabled, uid = firebaseAuth?.currentUser?.uid) {
+      const key = getMemberTouchSoundStorageKey(uid);
+      if (!key) return;
+      try {
+        localStorage.setItem(key, enabled ? "1" : "0");
+      } catch (_) {}
+    }
     function updateMemberMotionControlUi() {
       if (!menuMotionControl) return;
       const isMemberSession = !!firebaseAuth?.currentUser && !isCeoAccount && !ceoSession;
@@ -36313,6 +36705,17 @@ let onboardingIndex = 0;
       }
       if (menuMotionToggle) {
         menuMotionToggle.textContent = memberMotionReduced ? "Set full motion" : "Set reduced motion";
+      }
+    }
+    function updateMemberTouchSoundControlUi() {
+      if (!menuSoundControl) return;
+      const isMemberSession = !!firebaseAuth?.currentUser && !isCeoAccount && !ceoSession;
+      menuSoundControl.style.display = isMemberSession ? "" : "none";
+      if (menuSoundStatus) {
+        menuSoundStatus.textContent = memberTouchSoundEnabled ? "Touch sound: On" : "Touch sound: Off";
+      }
+      if (menuSoundToggle) {
+        menuSoundToggle.textContent = memberTouchSoundEnabled ? "Turn touch sound off" : "Turn touch sound on";
       }
     }
     function restartMemberMotionVisuals() {
@@ -36352,6 +36755,25 @@ let onboardingIndex = 0;
         showToast(normalized ? "Visual motion reduced for your account." : "Full motion enabled for your account.", 2200);
       }
     }
+    function applyMemberTouchSoundPreference(enabled, options = {}) {
+      const normalized = enabled !== false;
+      memberTouchSoundEnabled = normalized;
+      document.body.setAttribute("data-touch-sound", normalized ? "on" : "off");
+      updateMemberTouchSoundControlUi();
+      if (options.persist === true && firebaseAuth?.currentUser && !isCeoAccount && !ceoSession) {
+        writeMemberTouchSoundToStorage(normalized, firebaseAuth.currentUser.uid);
+        if (memberProfile && typeof memberProfile === "object") {
+          memberProfile.touchSoundEnabled = normalized;
+        }
+        if (currentPassCode) {
+          setMemberDirectoryEntry(currentPassCode, { touchSoundEnabled: normalized });
+        }
+        persistMemberState({ touchSoundEnabled: normalized });
+      }
+      if (options.toast === true) {
+        showToast(normalized ? "Touch sound enabled." : "Touch sound muted.", 1800);
+      }
+    }
     function loadMemberMotionPreference(user = firebaseAuth?.currentUser) {
       if (!user || isCeoAccount || ceoSession) {
         applyMemberMotionPreference(false);
@@ -36363,6 +36785,18 @@ let onboardingIndex = 0;
       const localPref = readMemberMotionFromStorage(user.uid);
       const resolved = profilePref != null ? profilePref : (localPref === true);
       applyMemberMotionPreference(resolved);
+    }
+    function loadMemberTouchSoundPreference(user = firebaseAuth?.currentUser) {
+      if (!user || isCeoAccount || ceoSession) {
+        applyMemberTouchSoundPreference(true);
+        return;
+      }
+      const profilePref = typeof memberProfile?.touchSoundEnabled === "boolean"
+        ? memberProfile.touchSoundEnabled
+        : null;
+      const localPref = readMemberTouchSoundFromStorage(user.uid);
+      const resolved = profilePref != null ? profilePref : (localPref !== false);
+      applyMemberTouchSoundPreference(resolved);
     }
     function readMemberAccentUnlocks(uid = firebaseAuth?.currentUser?.uid) {
       const key = getMemberAccentUnlocksStorageKey(uid);
@@ -52796,65 +53230,91 @@ let onboardingIndex = 0;
       setTimeout(deferAssetLoading, 800);
     }
 
-    // Touch haptics + click blip for mobile interactions
+    // iOS-first touch feedback: haptic/vibrate globally + optional tap sound.
     let hapticAudioCtx = null;
     let lastHapticAt = 0;
+    function isTouchSoundEnabledForSession() {
+      return memberTouchSoundEnabled !== false;
+    }
     function shouldTriggerHaptic(target) {
       if (!target) return false;
-      const el = target.closest('button, [role="button"], .btn, .pill-ghost, .linkish, .linkish-btn, .nav-item, .perk-option, .refresh-btn, .venue-btn, .chip');
+      if (!isIOS && !isAndroid) return false;
+      const el = target.closest('button, a, [role="button"], .btn, .pill, .pill-ghost, .chip, .accent-chip, .nav-item, .bottom-nav-item, .menu-action-btn, .linkish, .linkish-btn, .perk-option, .refresh-btn, .venue-btn, .modal-close, [data-bottom-nav], [data-menu-action], [data-nav], [data-quick-nav], [data-action]');
       if (!el) return false;
       if (el.hasAttribute("disabled") || el.getAttribute("aria-disabled") === "true") return false;
       if (el.dataset && el.dataset.haptic === "off") return false;
+      if (el.matches('input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="search"], input[type="date"], input[type="time"], textarea, [contenteditable="true"]')) return false;
       return true;
     }
-    function triggerHapticFeedback() {
-      const now = Date.now();
-      if (now - lastHapticAt < 320) return;
+    function triggerNativeTapHaptic() {
+      let fired = false;
+      try {
+        if (navigator.vibrate) {
+          const pattern = isIOS ? 10 : [8, 10, 6];
+          fired = navigator.vibrate(pattern) === true;
+        }
+      } catch (_) {}
+      if (isIOS && !fired) {
+        try {
+          const bridge = window.webkit?.messageHandlers?.haptic;
+          if (bridge?.postMessage) {
+            bridge.postMessage({ style: "light" });
+            fired = true;
+          }
+        } catch (_) {}
+      }
+      return fired;
+    }
+    function triggerTapSound() {
+      if (!isTouchSoundEnabledForSession()) return;
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       if (!hapticAudioCtx) {
         hapticAudioCtx = new AudioCtx();
       }
-      const doHaptic = () => {
+      const play = () => {
         if (hapticAudioCtx.state !== "running") return;
-        lastHapticAt = now;
-        if (navigator.vibrate) {
-          navigator.vibrate([8, 12, 6]);
-        }
-        const oscLow = hapticAudioCtx.createOscillator();
-        const oscHigh = hapticAudioCtx.createOscillator();
-        const gainLow = hapticAudioCtx.createGain();
-        const gainHigh = hapticAudioCtx.createGain();
+        const oscBody = hapticAudioCtx.createOscillator();
+        const oscSnap = hapticAudioCtx.createOscillator();
+        const gainBody = hapticAudioCtx.createGain();
+        const gainSnap = hapticAudioCtx.createGain();
         const t = hapticAudioCtx.currentTime;
-        oscLow.type = "sine";
-        oscLow.frequency.value = 220;
-        oscHigh.type = "sine";
-        oscHigh.frequency.value = 660;
-        gainLow.gain.setValueAtTime(0, t);
-        gainLow.gain.linearRampToValueAtTime(0.05, t + 0.003);
-        gainLow.gain.exponentialRampToValueAtTime(0.0008, t + 0.05);
-        gainHigh.gain.setValueAtTime(0, t);
-        gainHigh.gain.linearRampToValueAtTime(0.02, t + 0.003);
-        gainHigh.gain.exponentialRampToValueAtTime(0.0005, t + 0.035);
-        oscLow.connect(gainLow).connect(hapticAudioCtx.destination);
-        oscHigh.connect(gainHigh).connect(hapticAudioCtx.destination);
-        oscLow.start(t);
-        oscHigh.start(t);
-        oscLow.stop(t + 0.06);
-        oscHigh.stop(t + 0.04);
-        oscHigh.onended = () => {
-          [oscLow, oscHigh, gainLow, gainHigh].forEach(node => {
+        oscBody.type = "triangle";
+        oscBody.frequency.setValueAtTime(920, t);
+        oscSnap.type = "square";
+        oscSnap.frequency.setValueAtTime(1380, t);
+        gainBody.gain.setValueAtTime(0, t);
+        gainBody.gain.linearRampToValueAtTime(0.012, t + 0.0025);
+        gainBody.gain.exponentialRampToValueAtTime(0.0007, t + 0.048);
+        gainSnap.gain.setValueAtTime(0, t);
+        gainSnap.gain.linearRampToValueAtTime(0.007, t + 0.0015);
+        gainSnap.gain.exponentialRampToValueAtTime(0.0004, t + 0.032);
+        oscBody.connect(gainBody).connect(hapticAudioCtx.destination);
+        oscSnap.connect(gainSnap).connect(hapticAudioCtx.destination);
+        oscBody.start(t);
+        oscSnap.start(t);
+        oscBody.stop(t + 0.052);
+        oscSnap.stop(t + 0.036);
+        oscSnap.onended = () => {
+          [oscBody, oscSnap, gainBody, gainSnap].forEach((node) => {
             try { node.disconnect(); } catch (_) {}
           });
         };
       };
       try {
         if (hapticAudioCtx.state === "suspended") {
-          hapticAudioCtx.resume().then(doHaptic).catch(() => {});
+          hapticAudioCtx.resume().then(play).catch(() => {});
         } else {
-          doHaptic();
+          play();
         }
       } catch (_) {}
+    }
+    function triggerHapticFeedback() {
+      const now = Date.now();
+      if (now - lastHapticAt < 120) return;
+      lastHapticAt = now;
+      triggerNativeTapHaptic();
+      triggerTapSound();
     }
     function handleHapticEvent(e) {
       if (!shouldTriggerHaptic(e.target)) return;
