@@ -2441,6 +2441,62 @@
       box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.08);
       pointer-events: none;
     }
+    .avatar.has-image {
+      background: #0b172a;
+      background-image: var(--avatar-image);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    .avatar.has-image .avatar-text {
+      display: none;
+    }
+    .avatar-picker-modal {
+      width: min(720px, 96vw);
+      max-height: min(82vh, 760px);
+      overflow: auto;
+    }
+    .avatar-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .avatar-preset-btn {
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 36%, rgba(148, 163, 184, 0.35));
+      border-radius: 14px;
+      background: rgba(10, 15, 30, 0.88);
+      padding: 8px;
+      color: #e2e8f0;
+      cursor: pointer;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    }
+    .avatar-preset-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 18px color-mix(in srgb, var(--accent-primary-live) 26%, transparent);
+    }
+    .avatar-preset-btn.selected {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 70%, rgba(248, 250, 252, 0.4));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 40%, transparent), 0 0 20px color-mix(in srgb, var(--accent-primary-live) 32%, transparent);
+    }
+    .avatar-preset-preview {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      margin-bottom: 6px;
+    }
+    .avatar-preset-label {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+      text-align: center;
+      line-height: 1.25;
+    }
     .avatar-flair {
       position: absolute;
       top: -6px;
@@ -18005,7 +18061,7 @@
                   <div class="user-tagline" id="userTagline" style="font-size:11px;color:#cbd5f5;cursor:pointer;">Tap to add your vibe.</div>
                   <button type="button" class="tagline-edit-hint" id="userTaglineEditBtn">Tap to edit tagline</button>
                   <div class="avatar-tools" id="avatarTools">
-                    <button type="button" class="avatar-edit-btn" id="avatarEditBtn" title="Edit initials or emoji">Edit badge</button>
+                    <button type="button" class="avatar-edit-btn" id="avatarEditBtn" title="Choose avatar">Choose avatar</button>
                   </div>
                   <div class="badge-row" id="profileBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
                 </div>
@@ -20990,6 +21046,8 @@
     let memberRedemptionsMap = new Map();
     let staffRedemptionsMap = new Map();
     let staffQueueEntries = [];
+    let memberAvatarRealtimeUnsubs = new Map();
+    let memberAvatarRealtimeCache = {};
     let staffRedemptionsVenue = null;
     let staffAlertCheckinsCache = [];
     let staffAlertCheckinsTimer = null;
@@ -26983,6 +27041,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.148",
+        date: "2026-03-08",
+        added: [
+          "Member profiles now include a FoCo After Dark preset avatar picker with branded character options"
+        ],
+        improved: [
+          "Avatar changes now sync live from member profiles across pass views, staff redemption screens, and CEO live member views"
+        ],
+        fixed: [
+          "Avatar rendering now falls back to a default preset consistently when no member avatar is selected"
+        ]
+      },
+      {
         version: "v0.9.147",
         date: "2026-03-08",
         added: [],
@@ -31830,6 +31901,7 @@
             venuePerkLabel: data.venuePerkLabel || data.perkLabel || null,
             member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
             memberUsername: data.memberUsername || null,
+            avatarId: normalizeAvatarId(data.avatarId || DEFAULT_AVATAR_ID),
             passId: (data.passCode || data.passId || passCode).toUpperCase(),
             venue: data.venueId || data.venue || null,
             requestedVenue: data.requestedVenue || null,
@@ -32701,6 +32773,7 @@
                 venuePerkLabel: data.venuePerkLabel || data.perkLabel || null,
                 member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
                 memberUsername: data.memberUsername || null,
+                avatarId: normalizeAvatarId(data.avatarId || DEFAULT_AVATAR_ID),
                 passId: (data.passCode || data.passId || code).toUpperCase(),
                 venue: data.venueId || data.venue || null,
                 requestedVenue: data.requestedVenue || null,
@@ -34691,7 +34764,7 @@ let onboardingIndex = 0;
       if (ceoSession && ceoPreviewTier) {
         if (passUserName) passUserName.textContent = "Preview Member";
         const initials = ceoPreviewTier === "vip" ? "VP" : (ceoPreviewTier === "explorer" ? "EX" : "ST");
-        if (avatarText) avatarText.textContent = initials;
+        applyFallbackAvatarText(initials);
         if (userUsername) userUsername.textContent = "@preview";
         if (userMiniDisplay) userMiniDisplay.textContent = "@preview";
         if (mobileProfileDot) mobileProfileDot.textContent = initials;
@@ -34706,11 +34779,10 @@ let onboardingIndex = 0;
       const displayName = preferredMemberName(user);
       if (passUserName) passUserName.textContent = displayName;
       if (avatarInitials) {
-        const customInitials = (memberProfile && memberProfile.avatarInitials) ? String(memberProfile.avatarInitials).trim() : "";
-        const targetText = customInitials ? customInitials.slice(0, 3).toUpperCase() : initialsFromName(displayName);
-        if (avatarText) avatarText.textContent = targetText;
-        else avatarInitials.textContent = targetText;
-        if (mobileProfileDot) mobileProfileDot.textContent = targetText.slice(0, 2);
+        const resolvedAvatarId = resolveMemberAvatarId(memberProfile || {}, currentPassCode || memberProfile?.passCode || "");
+        applyAvatarToMainProfile(resolvedAvatarId, { keepText: false });
+        if (memberProfile) memberProfile.avatarId = resolvedAvatarId;
+        if (mobileProfileDot) mobileProfileDot.textContent = "•";
       }
       if (!memberProfile) memberProfile = {};
       if (displayName && !memberProfile.legalName) {
@@ -34729,7 +34801,8 @@ let onboardingIndex = 0;
         const emailValue = user.email || "";
         setMemberDirectoryEntry(currentPassCode, {
           username: uname,
-          email: emailValue
+          email: emailValue,
+          avatarId: resolveMemberAvatarId(memberProfile || {}, currentPassCode)
         });
         if (uname && emailValue) {
           saveUsernameMapEntry(uname, emailValue);
@@ -34817,6 +34890,7 @@ let onboardingIndex = 0;
           if (!memberProfile.legalName && displayName) identityPatch.legalName = displayName;
           if (!memberProfile.username && email) identityPatch.username = email.split("@")[0];
           if (!memberProfile.memberSince) identityPatch.memberSince = new Date().toISOString();
+          if (!memberProfile.avatarId) identityPatch.avatarId = DEFAULT_AVATAR_ID;
           if (Object.keys(identityPatch).length) {
             try {
               await setDoc(memberDocRef, identityPatch, { merge: true });
@@ -34835,13 +34909,15 @@ let onboardingIndex = 0;
             perks: { tier: "standard", remaining: getDefaultPerkState("standard") },
             memberSince: new Date().toISOString(),
             legalName: displayName || nameFromEmail(email),
-            username
+            username,
+            avatarId: DEFAULT_AVATAR_ID
           };
           try {
             const createPayload = {
               memberSince: memberProfile.memberSince,
               legalName: memberProfile.legalName || "",
               username: memberProfile.username || "",
+              avatarId: memberProfile.avatarId || DEFAULT_AVATAR_ID,
               requestedTier: "standard",
               ageVerificationRequired: true,
               ageVerificationStatus: "required",
@@ -39813,21 +39889,59 @@ let onboardingIndex = 0;
     renderVenueButtons();
     // Background selection removed; no UI controls remain for choosing background themes.
 
-    const AVATAR_FLAIRS = ["★", "⚡", "♫", "🔥", "♥", "👑"];
+    const DEFAULT_AVATAR_ID = "neon_blaze";
+    const AVATAR_LIBRARY = [
+      { id: "neon_blaze", label: "Neon Blaze", src: "media/avatar-neon_blaze.svg" },
+      { id: "midnight_muse", label: "Midnight Muse", src: "media/avatar-midnight_muse.svg" },
+      { id: "electric_echo", label: "Electric Echo", src: "media/avatar-electric_echo.svg" },
+      { id: "velvet_vibe", label: "Velvet Vibe", src: "media/avatar-velvet_vibe.svg" },
+      { id: "club_comet", label: "Club Comet", src: "media/avatar-club_comet.svg" },
+      { id: "afterglow_ace", label: "Afterglow Ace", src: "media/avatar-afterglow_ace.svg" },
+      { id: "laser_luxe", label: "Laser Luxe", src: "media/avatar-laser_luxe.svg" },
+      { id: "nightshift_nova", label: "Nightshift Nova", src: "media/avatar-nightshift_nova.svg" }
+    ];
+    const AVATAR_LIBRARY_BY_ID = AVATAR_LIBRARY.reduce((acc, avatar) => {
+      acc[avatar.id] = avatar;
+      return acc;
+    }, {});
+    const AVATAR_DISPLAY_NAME_BY_ID = AVATAR_LIBRARY.reduce((acc, avatar) => {
+      acc[avatar.id] = avatar.label;
+      return acc;
+    }, {});
     let currentAvatarFlair = "";
-    function applyAvatarInitials(value = "", opts = {}) {
+    function normalizeAvatarId(value, fallback = DEFAULT_AVATAR_ID) {
+      const key = String(value || "").trim().toLowerCase();
+      if (AVATAR_LIBRARY_BY_ID[key]) return key;
+      return fallback;
+    }
+    function getAvatarSourceById(value) {
+      return AVATAR_LIBRARY_BY_ID[normalizeAvatarId(value)]?.src || AVATAR_LIBRARY_BY_ID[DEFAULT_AVATAR_ID].src;
+    }
+    function resolveMemberAvatarId(profile = {}, passId = "") {
+      const fromProfile = normalizeAvatarId(profile?.avatarId, "");
+      if (fromProfile) return fromProfile;
+      const key = String(passId || profile?.passCode || "").trim().toUpperCase();
+      if (key) {
+        const fromDirectory = normalizeAvatarId(loadMemberDirectory()?.[key]?.avatarId, "");
+        if (fromDirectory) return fromDirectory;
+      }
+      return DEFAULT_AVATAR_ID;
+    }
+    function applyAvatarToMainProfile(avatarId, opts = {}) {
       if (!avatarInitials) return;
-      const trimmed = String(value || "").trim().replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase();
-      if (!trimmed) return;
-      if (avatarText) avatarText.textContent = trimmed;
-      else avatarInitials.textContent = trimmed;
-      if (memberProfile) memberProfile.avatarInitials = trimmed;
-      if (opts.persist !== false) {
-        persistMemberState({ avatarInitials: trimmed });
+      const safeId = normalizeAvatarId(avatarId);
+      avatarInitials.dataset.avatarId = safeId;
+      avatarInitials.classList.add("has-image");
+      avatarInitials.style.setProperty("--avatar-image", `url('${getAvatarSourceById(safeId)}')`);
+      if (avatarText && opts.keepText !== true) {
+        avatarText.textContent = "";
       }
-      if (currentPassCode && allowLocalCache()) {
-        setMemberDirectoryEntry(currentPassCode, { avatarInitials: trimmed });
-      }
+    }
+    function avatarBadgeMarkup(avatarId, label = "Member avatar") {
+      const safeId = normalizeAvatarId(avatarId);
+      const safeLabel = escapeHtmlText(label);
+      const src = escapeHtmlText(getAvatarSourceById(safeId));
+      return `<span class="mini-avatar" title="${safeLabel}" aria-label="${safeLabel}" style="display:inline-flex;width:22px;height:22px;border-radius:999px;border:1px solid color-mix(in srgb, var(--accent-primary-live) 50%, rgba(148,163,184,0.4));background:#020617 url('${src}') center/cover no-repeat;box-shadow:0 0 10px color-mix(in srgb, var(--accent-primary-live) 24%, transparent);"></span>`;
     }
     function applyAvatarFlair(flair = "", opts = {}) {
       if (!avatarInitials) return;
@@ -39856,6 +39970,77 @@ let onboardingIndex = 0;
           entry.avatarFlair = next;
           saveMemberDirectory(directory);
         }
+      }
+    }
+    function applyFallbackAvatarText(text = "FD") {
+      if (!avatarInitials) return;
+      avatarInitials.classList.remove("has-image");
+      avatarInitials.style.removeProperty("--avatar-image");
+      if (avatarText) avatarText.textContent = String(text || "FD").slice(0, 3).toUpperCase();
+    }
+    function setAvatarForCurrentMember(avatarId, opts = {}) {
+      const safeId = normalizeAvatarId(avatarId);
+      if (!memberProfile) memberProfile = {};
+      memberProfile.avatarId = safeId;
+      applyAvatarToMainProfile(safeId, { keepText: false });
+      const passKey = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
+      if (passKey && allowLocalCache()) {
+        setMemberDirectoryEntry(passKey, { avatarId: safeId });
+      }
+      if (opts.persist !== false) {
+        persistMemberState({ avatarId: safeId });
+      }
+      renderStaffPendingQueue();
+      if (typeof renderStaffVenueLog === "function") renderStaffVenueLog();
+      if (typeof renderCeoMembersTable === "function") renderCeoMembersTable();
+    }
+    async function openAvatarPickerModal() {
+      const currentAvatarId = normalizeAvatarId(resolveMemberAvatarId(memberProfile || {}, currentPassCode || ""));
+      const picker = document.createElement("div");
+      picker.className = "modal-backdrop active";
+      picker.style.zIndex = "15000";
+      picker.innerHTML = `
+        <div class="modal-card avatar-picker-modal" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <div class="modal-title">Choose your FoCo avatar</div>
+            <button class="modal-close" type="button" data-avatar-picker-close>Close</button>
+          </div>
+          <div class="small" style="color:#cbd5f5;">Pick from preloaded FoCo After Dark avatars.</div>
+          <div class="avatar-picker-grid" data-avatar-picker-grid></div>
+          <div class="modal-actions" style="margin-top:14px;">
+            <button type="button" class="btn btn-secondary" data-avatar-picker-cancel>Cancel</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(picker);
+      const grid = picker.querySelector("[data-avatar-picker-grid]");
+      if (grid) {
+        grid.innerHTML = AVATAR_LIBRARY.map((avatar) => {
+          const selectedClass = avatar.id === currentAvatarId ? "selected" : "";
+          return `
+            <button type="button" class="avatar-preset-btn ${selectedClass}" data-avatar-id="${avatar.id}">
+              <div class="avatar-preset-preview" style="background-image:url('${escapeHtmlText(avatar.src)}');"></div>
+              <div class="avatar-preset-label">${escapeHtmlText(avatar.label)}</div>
+            </button>
+          `;
+        }).join("");
+      }
+      const close = () => picker.remove();
+      picker.querySelectorAll("[data-avatar-picker-close], [data-avatar-picker-cancel]").forEach((btn) => {
+        btn.addEventListener("click", close);
+      });
+      picker.addEventListener("click", (event) => {
+        if (event.target === picker) close();
+      });
+      if (grid) {
+        grid.querySelectorAll("button[data-avatar-id]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const nextId = btn.dataset.avatarId || DEFAULT_AVATAR_ID;
+            setAvatarForCurrentMember(nextId, { persist: true });
+            showToast(`${AVATAR_DISPLAY_NAME_BY_ID[normalizeAvatarId(nextId)] || "Avatar"} selected`, 1800);
+            close();
+          });
+        });
       }
     }
     function loadAvatarFlair() {
@@ -39943,41 +40128,14 @@ let onboardingIndex = 0;
         });
       });
     }
-    async function openAvatarEditor() {
-      if (!avatarInitials) return;
-      const currentInitials = (memberProfile?.avatarInitials || avatarText?.textContent || avatarInitials.textContent || "").toString().trim();
-      const initialsInput = await openProfileInputModal({
-        title: "Edit badge",
-        label: "Set your initials (up to 3 letters/numbers)",
-        value: currentInitials,
-        maxLength: 3,
-        placeholder: "ABC",
-        saveLabel: "Save initials"
-      });
-      if (initialsInput !== null && initialsInput.trim()) {
-        applyAvatarInitials(initialsInput);
-      }
-      const currentFlair = currentAvatarFlair || "";
-      const emojiInput = await openProfileInputModal({
-        title: "Badge emoji",
-        label: "Pick an emoji for your badge (optional)",
-        value: currentFlair,
-        maxLength: 2,
-        placeholder: "🍸",
-        saveLabel: "Save emoji"
-      });
-      if (emojiInput !== null) {
-        const chosen = (emojiInput.trim() || "").slice(0, 2);
-        applyAvatarFlair(chosen);
-      }
-    }
     if (avatarInitials) {
       avatarInitials.style.cursor = "pointer";
-      avatarInitials.title = "Tap to edit badge";
-      avatarInitials.addEventListener("click", openAvatarEditor);
+      avatarInitials.title = "Tap to choose avatar";
+      avatarInitials.addEventListener("click", openAvatarPickerModal);
     }
     if (avatarEditBtn) {
-      avatarEditBtn.addEventListener("click", openAvatarEditor);
+      avatarEditBtn.textContent = "Choose avatar";
+      avatarEditBtn.addEventListener("click", openAvatarPickerModal);
     }
     async function openTaglineEditor() {
       const current = (memberProfile?.tagline || "").trim();
@@ -40770,6 +40928,7 @@ let onboardingIndex = 0;
           username: String(data.username || "").trim().replace(/^@+/, "").toLowerCase(),
           name: String(data.name || data.displayName || "").trim(),
           displayName: String(data.displayName || data.name || "").trim(),
+          avatarId: normalizeAvatarId(data.avatarId || DEFAULT_AVATAR_ID),
           tier: data.tier || data.membershipTier || null,
           membershipTier: data.membershipTier || data.tier || null,
           membershipOverride: data.membershipOverride || null,
@@ -41312,6 +41471,7 @@ let onboardingIndex = 0;
         try { if (typeof unsub === "function") unsub(); } catch (_) { /* ignore */ }
       });
       staffRedemptionUnsubs = [];
+      clearMemberAvatarRealtimeWatchers();
       staffRedemptionsMap = new Map();
       staffQueueEntries = [];
     }
@@ -41368,6 +41528,7 @@ let onboardingIndex = 0;
           venuePerkLabel: data.venuePerkLabel || data.perkLabel || null,
           member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
           memberUsername: data.memberUsername || null,
+          avatarId: normalizeAvatarId(data.avatarId || DEFAULT_AVATAR_ID),
           passId: (data.passCode || data.passId || "").toUpperCase(),
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
@@ -43119,6 +43280,56 @@ let onboardingIndex = 0;
       const fromDirectory = String(loadMemberDirectory()?.[passId]?.username || "").trim().replace(/^@+/, "");
       return fromDirectory ? fromDirectory.slice(0, 24) : "";
     }
+    function getMemberAvatarIdForPass(passId = "", fallbackAvatarId = "") {
+      const code = String(passId || "").trim().toUpperCase();
+      if (!code) return normalizeAvatarId(fallbackAvatarId || DEFAULT_AVATAR_ID);
+      const realtimeId = normalizeAvatarId(memberAvatarRealtimeCache?.[code], "");
+      if (realtimeId) return realtimeId;
+      const directoryId = normalizeAvatarId(loadMemberDirectory()?.[code]?.avatarId, "");
+      if (directoryId) return directoryId;
+      return normalizeAvatarId(fallbackAvatarId || DEFAULT_AVATAR_ID);
+    }
+    function clearMemberAvatarRealtimeWatchers() {
+      memberAvatarRealtimeUnsubs.forEach((unsub) => {
+        try { if (typeof unsub === "function") unsub(); } catch (_) {}
+      });
+      memberAvatarRealtimeUnsubs.clear();
+    }
+    function syncMemberAvatarRealtimeWatchers(passCodes = []) {
+      if (!db || !authClaimsReady) return;
+      const nextSet = new Set(
+        passCodes
+          .map((code) => String(code || "").trim().toUpperCase())
+          .filter((code) => code && code !== "DEAL")
+      );
+      memberAvatarRealtimeUnsubs.forEach((unsub, code) => {
+        if (nextSet.has(code)) return;
+        try { if (typeof unsub === "function") unsub(); } catch (_) {}
+        memberAvatarRealtimeUnsubs.delete(code);
+      });
+      nextSet.forEach((code) => {
+        if (memberAvatarRealtimeUnsubs.has(code)) return;
+        try {
+          const q = query(collection(db, "members"), where("passCode", "==", code), limit(1));
+          const unsub = subscribeSnapshot(`memberAvatar:${code}`, q, null, (snap) => {
+            let avatarId = DEFAULT_AVATAR_ID;
+            if (snap && !snap.empty) {
+              const data = snap.docs[0].data() || {};
+              avatarId = normalizeAvatarId(data.avatarId || DEFAULT_AVATAR_ID);
+              setMemberDirectoryEntry(code, { avatarId });
+            }
+            memberAvatarRealtimeCache[code] = avatarId;
+            renderStaffPendingQueue();
+            if (typeof renderStaffVenueLog === "function") renderStaffVenueLog();
+          });
+          if (typeof unsub === "function") {
+            memberAvatarRealtimeUnsubs.set(code, unsub);
+          }
+        } catch (err) {
+          console.warn("member avatar listener failed", { code, err });
+        }
+      });
+    }
     function renderStaffPendingQueue() {
       if (!staffPendingList || !staffPendingCount) return;
       if (!staffSession) {
@@ -43157,6 +43368,7 @@ let onboardingIndex = 0;
       staffPendingCount.textContent = pendingCount === entries.length
         ? `${pendingCount} pending`
         : `${pendingCount} pending · ${entries.length} total`;
+      syncMemberAvatarRealtimeWatchers(entries.map((entry) => entry.passId || ""));
       if (!entries.length) {
         staffPendingList.innerHTML = '<span class="small" style="color:#94a3b8;">No pending redemptions yet.</span>';
         return;
@@ -43173,6 +43385,8 @@ let onboardingIndex = 0;
         const username = getEntryUsername(entry);
         const usernameMeta = username ? ` · @${username}` : "";
         const creatorBadge = isCreatorRedemption(entry) ? '<span class="creator-pill">Creator</span>' : "";
+        const avatarId = getMemberAvatarIdForPass(entry.passId, entry.avatarId || DEFAULT_AVATAR_ID);
+        const avatar = avatarBadgeMarkup(avatarId, `${entry.member || "FoCo member"} avatar`);
         const pendingReasonCode = String(entry.pendingReasonCode || "").trim();
         const pendingReasonNote = String(entry.pendingReasonNote || "").trim();
         const pendingBy = String(entry.lastActionStaffName || "").trim();
@@ -43185,7 +43399,7 @@ let onboardingIndex = 0;
         return `
           <div class="staff-pending-row" data-pending-code="${entry.code}" data-pending-status="${statusLabel}">
             <div class="staff-pending-meta">
-              <div><strong>${entry.code}</strong> · Pass ID: ${entry.passId || "—"}${usernameMeta} ${creatorBadge}</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${avatar}<strong>${entry.code}</strong> · Pass ID: ${entry.passId || "—"}${usernameMeta} ${creatorBadge}</div>
               <div class="staff-pending-sub">${perkLabel}${venueName ? ` · ${venueName}` : ""}${vibeMeta}</div>
               ${pendingMeta}
             </div>
@@ -43807,6 +44021,7 @@ let onboardingIndex = 0;
         venuePerkLabel: data.venuePerkLabel || data.perkLabel || null,
         member: data.memberName || data.member || (data.ceo ? "Creator" : "FoCo member"),
         memberUsername: data.memberUsername || null,
+        avatarId: normalizeAvatarId(data.avatarId || DEFAULT_AVATAR_ID),
         passId: (data.passCode || data.passId || "").toUpperCase(),
         venue: data.venueId || data.venue || null,
         requestedVenue: data.requestedVenue || null,
@@ -44096,16 +44311,19 @@ let onboardingIndex = 0;
         staffDealRedemptionLog.innerHTML = '<p style="color:#94a3b8;">No alert redemption codes generated for this shift yet.</p>';
         return;
       }
+      syncMemberAvatarRealtimeWatchers(entries.map((entry) => entry.passId || ""));
       staffDealRedemptionLog.innerHTML = entries.map((entry) => {
         const status = String(entry.status || "pending").toLowerCase();
         const isPending = status === "pending" || status === "requested" || status === "expired";
         const nextAction = isPending ? "confirm" : "pending";
         const actionLabel = isPending ? "Confirm" : "Confirmed";
         const actionClass = isPending ? "btn btn-primary" : "btn btn-secondary";
+        const avatarId = getMemberAvatarIdForPass(entry.passId, entry.avatarId || DEFAULT_AVATAR_ID);
+        const avatar = avatarBadgeMarkup(avatarId, `${entry.member || "FoCo member"} avatar`);
         return `
           <div class="staff-pending-row" data-pending-code="${entry.code}" data-pending-status="${isPending ? "pending" : "confirmed"}">
             <div class="staff-pending-meta">
-              <div><strong>${entry.code}</strong> · ${entry.perk || "Tonight's deal"}</div>
+              <div style="display:flex;align-items:center;gap:8px;">${avatar}<strong>${entry.code}</strong> · ${entry.perk || "Tonight's deal"}</div>
               <div class="staff-pending-sub">${entry.venuePerkLabel || "Alert redemption"} · ${formatMST(entry.timestamp || entry.createdAt || Date.now(), { hour: "2-digit", minute: "2-digit" })}</div>
             </div>
             <div class="staff-pending-actions">
@@ -45030,6 +45248,7 @@ let onboardingIndex = 0;
         passId: passId || undefined,
         member: entry.member || null,
         memberUsername: entry.memberUsername || null,
+        avatarId: normalizeAvatarId(entry.avatarId || DEFAULT_AVATAR_ID),
         venue: entry.venue || null,
         requestedVenue: entry.requestedVenue || null,
         shiftKey: entry.shiftKey || null,
@@ -45071,6 +45290,7 @@ let onboardingIndex = 0;
               passCode: passId || "DEAL",
               memberName: entry.member || (entry.ceo ? "Creator" : "FoCo member"),
               memberUsername: entry.memberUsername || null,
+              avatarId: normalizeAvatarId(entry.avatarId || DEFAULT_AVATAR_ID),
               ceo: !!entry.ceo,
               status: entry.status || "pending",
               createdAt: entry.timestamp ? toTimestamp(entry.timestamp) : serverTimestamp(),
@@ -45120,6 +45340,7 @@ let onboardingIndex = 0;
           passId: (data.passId || "").toUpperCase(),
           member: data.member || (data.ceo ? "Creator" : "FoCo member"),
           memberUsername: data.memberUsername || null,
+          avatarId: normalizeAvatarId(data.avatarId || DEFAULT_AVATAR_ID),
           venue: data.venue || null,
           requestedVenue: data.requestedVenue || null,
           shiftKey: data.shiftKey || null,
@@ -45266,13 +45487,15 @@ let onboardingIndex = 0;
             const pendingReasonCode = String(entry.pendingReasonCode || "").trim();
             const pendingReasonNote = String(entry.pendingReasonNote || "").trim();
             const pendingBy = String(entry.lastActionStaffName || "").trim();
+            const avatarId = getMemberAvatarIdForPass(entry.passId, entry.avatarId || DEFAULT_AVATAR_ID);
+            const avatar = avatarBadgeMarkup(avatarId, `${getEntryMemberDisplay(entry)} avatar`);
             const pendingMeta = displayStatus === "pending" && (pendingReasonCode || pendingReasonNote || pendingBy)
               ? `<div style="color:#fbbf24;font-size:11px;margin-top:2px;">Pending: ${pendingReasonCode || "manual"}${pendingReasonNote ? ` · ${pendingReasonNote}` : ""}${pendingBy ? ` · by ${pendingBy}` : ""}</div>`
               : "";
             return `
               <div class="log-row">
                 <strong>${entry.code} · ${label}</strong>
-                <div>${getEntryMemberDisplay(entry)}</div>
+                <div style="display:flex;align-items:center;gap:8px;">${avatar}<span>${getEntryMemberDisplay(entry)}</span></div>
                 ${venueText}
                 ${pendingMeta}
                 <div class="log-meta">
@@ -47592,8 +47815,7 @@ let onboardingIndex = 0;
       updateCeoPassUI();
       if (userMiniDisplay) userMiniDisplay.textContent = "@FoCoCEO";
       passUserName.textContent = "FoCo CEO";
-      if (avatarText) avatarText.textContent = "CEO";
-      else avatarInitials.textContent = "CEO";
+      applyFallbackAvatarText("CEO");
       passTierText.textContent = "VIP CEO Black Card";
       renderCeoIssued();
       renderCeoReviews();
@@ -50279,6 +50501,7 @@ let onboardingIndex = 0;
         uidShort: uid ? uid.slice(0, 6) : "—",
         username: data.username || data.displayName || data.name || data.legalName || data.passCode || "Member",
         passCode: data.passCode || "",
+        avatarId: normalizeAvatarId(data.avatarId || DEFAULT_AVATAR_ID),
         tier: tierLabel,
         tierKey: isExplorerAccount ? "explorer" : ((isCeoFreeIssued || data.freeMembership === true) ? "ceo_free" : (tierKey || tierLabel.toLowerCase())),
         statusKey,
@@ -50619,7 +50842,17 @@ let onboardingIndex = 0;
       if (ceoMemberVoucherAmount) {
         ceoMemberVoucherAmount.value = "1";
       }
-      ceoMemberPreviewBody.innerHTML = snippets.map((item) => `
+      const previewAvatarId = normalizeAvatarId(member.avatarId || DEFAULT_AVATAR_ID);
+      const previewAvatarSrc = escapeHtmlText(getAvatarSourceById(previewAvatarId));
+      ceoMemberPreviewBody.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid color-mix(in srgb, var(--accent-primary-live) 30%, rgba(148,163,184,0.3));border-radius:12px;background:rgba(8,12,24,0.7);margin-bottom:10px;">
+          <span style="display:inline-flex;width:36px;height:36px;border-radius:999px;border:1px solid color-mix(in srgb, var(--accent-primary-live) 42%, rgba(148,163,184,0.34));background:#020617 url('${previewAvatarSrc}') center/cover no-repeat;"></span>
+          <div style="display:flex;flex-direction:column;line-height:1.2;">
+            <strong style="font-size:13px;color:#e2e8f0;">${escapeHtmlText(member.username || "Member")}</strong>
+            <span style="font-size:11px;color:#94a3b8;">Avatar: ${escapeHtmlText(AVATAR_DISPLAY_NAME_BY_ID[previewAvatarId] || "FoCo preset")}</span>
+          </div>
+        </div>
+      ` + snippets.map((item) => `
         <div class="ceo-member-preview-item"${item.key ? ` data-ceo-preview-key="${item.key}"` : ""}>
           <div class="label">${escapeHtmlText(item.label)}</div>
           <div class="value">${escapeHtmlText(item.value)}</div>
@@ -50688,10 +50921,11 @@ let onboardingIndex = 0;
       const rows = list.map(m => {
         const statusClass = (m.statusKey === "paused" || m.statusKey === "past_due") ? "pill danger" : "pill ghost";
         const activity = getMemberActivityStats(m);
+        const memberAvatar = avatarBadgeMarkup(m.avatarId || DEFAULT_AVATAR_ID, `${m.username} avatar`);
         return `
           <tr>
             <td data-label="Member">
-              <div style="font-weight:600;">${m.username}</div>
+              <div style="display:flex;align-items:center;gap:8px;font-weight:600;">${memberAvatar}<span>${m.username}</span></div>
               <div style="font-size:11px;color:#94a3b8;">${m.passCode ? `Pass ${m.passCode}` : "—"}</div>
             </td>
             <td data-label="UID">${m.uidShort}</td>
@@ -51183,7 +51417,7 @@ let onboardingIndex = 0;
       currentPerkState = null;
       applyMembershipToPass(tier);
       if (passUserName) passUserName.textContent = "Preview Member";
-      if (avatarText) avatarText.textContent = "PM";
+      applyFallbackAvatarText("PM");
       if (userUsername) userUsername.textContent = "@preview";
       if (passIdTop) passIdTop.textContent = "Pass ID: PREVIEW";
       updateCeoPassUI();
@@ -51199,7 +51433,7 @@ let onboardingIndex = 0;
       currentPerkState = null;
       applyMembershipToPass("vip");
       if (passUserName) passUserName.textContent = "FoCo CEO";
-      if (avatarText) avatarText.textContent = "CEO";
+      applyFallbackAvatarText("CEO");
       if (userUsername) userUsername.textContent = "@foco-ceo";
       if (passIdTop) passIdTop.textContent = `Pass ID: ${ensureCeoCardCode()}`;
       updateCeoPassUI();
@@ -51391,6 +51625,7 @@ let onboardingIndex = 0;
           venuePerkLabel: payload.venuePerkLabel || payload.perkLabel || null,
           member: payload.memberName || payload.member || ((payload.ceo || isFounderRedemption) ? "CEO" : "FoCo member"),
           memberUsername: payload.memberUsername || null,
+          avatarId: normalizeAvatarId(payload.avatarId || DEFAULT_AVATAR_ID),
           passId: resolvedPassId,
           venue: payload.venueId || payload.venue || null,
           requestedVenue: payload.requestedVenue || null,
@@ -52443,6 +52678,7 @@ let onboardingIndex = 0;
           passId: (data.passCode || data.passId || currentPassCode || "").toUpperCase(),
           member: data.memberName || data.member || passUserName?.textContent || (data.ceo ? "Creator" : "FoCo member"),
           memberUsername: data.memberUsername || null,
+          avatarId: normalizeAvatarId(data.avatarId || DEFAULT_AVATAR_ID),
           venue: data.venueId || data.venue || null,
           requestedVenue: data.requestedVenue || null,
           shiftKey: data.shiftKey || null,
@@ -53181,6 +53417,7 @@ let onboardingIndex = 0;
           perkLabel: rewardLabel,
           perkKey: selectedPerkId === "reward_shot" ? "reward_shot" : "venue_perk",
           memberUsername: preferredUsername(),
+          avatarId: resolveMemberAvatarId(memberProfile || {}, activePassId),
           vibeLabel,
           vibeKey
         }, {
@@ -53231,6 +53468,7 @@ let onboardingIndex = 0;
         perk: payload?.perkLabel || rewardLabel,
         member: payload?.memberName || passUserName.textContent,
         memberUsername: payload?.memberUsername || preferredUsername() || null,
+        avatarId: normalizeAvatarId(payload?.avatarId || memberProfile?.avatarId || DEFAULT_AVATAR_ID),
         ceo: !!payload?.ceo,
         perkKey: selectedPerkId === "reward_shot" ? "reward_shot" : "venue_perk",
         venuePerkId: payload?.perkId || selectedVenuePerkId || null,
