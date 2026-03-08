@@ -22334,6 +22334,8 @@
     let ceoMembersFilterKey = "all";
     let ceoMembersSearchTerm = "";
     let ceoControlVenueSearchTerm = "";
+    const AVATAR_FALLBACK_SRC = "media/avatar-drunk_duck.svg";
+    let avatarLibraryReady = false;
     const CEO_CONTROL_SWITCHES = [
       { section: "Emergency", key: "maintenance.enabled", label: "Maintenance Mode (App temporarily closed)", help: "Shows full-screen maintenance and disables actions." },
       { section: "Emergency", key: "billing.enabled", label: "Turn off all purchases", help: "Blocks all membership purchase flows." },
@@ -30580,14 +30582,16 @@
       const log = Array.isArray(redemptionLog) ? redemptionLog : [];
       const tierRaw = getEffectiveTierForDisplay();
       const tierLabel = tierLabelFromKey(tierRaw);
-      const avatarId = resolveMemberAvatarId(memberProfile || {}, currentPassCode || memberProfile?.passCode || "");
       tonightMiniName.textContent = preferredMemberName(firebaseAuth.currentUser || {});
       tonightMiniTier.textContent = tierLabel;
       tonightMiniCode.textContent = tierRaw === "explorer"
         ? "Pass locked · Upgrade to redeem"
         : `Pass ID: ${(currentPassCode || "—").toUpperCase()}`;
       if (tonightMiniAvatar) {
-        tonightMiniAvatar.style.backgroundImage = `url('${getAvatarSourceById(avatarId)}')`;
+        const avatarSrc = avatarLibraryReady
+          ? getAvatarSourceById(resolveMemberAvatarId(memberProfile || {}, currentPassCode || memberProfile?.passCode || ""))
+          : AVATAR_FALLBACK_SRC;
+        tonightMiniAvatar.style.backgroundImage = `url('${avatarSrc}')`;
       }
       if (tonightMiniAvatarWrap) {
         tonightMiniAvatarWrap.classList.toggle("explorer-locked", tierRaw === "explorer");
@@ -40069,6 +40073,7 @@ let onboardingIndex = 0;
       acc[avatar.id] = avatar.label;
       return acc;
     }, {});
+    avatarLibraryReady = true;
     let currentAvatarFlair = "";
     function normalizeAvatarId(value, fallback = DEFAULT_AVATAR_ID) {
       const key = String(value || "").trim().toLowerCase();
