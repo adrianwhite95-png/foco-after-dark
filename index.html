@@ -2133,6 +2133,19 @@
       animation: pulseWave var(--pulse-speed, 1.8s) ease-in-out infinite, pulseGlow 3.6s ease-in-out infinite;
       animation-delay: var(--pulse-delay, 0s);
     }
+    .pulse-thread span.is-active {
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--accent-primary-live, #22d3ee) 96%, #ffffff 12%),
+        color-mix(in srgb, var(--accent-secondary-live, #ec4899) 88%, var(--accent-primary-live, #22d3ee) 24%)
+      );
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live, #22d3ee) 42%, transparent),
+        0 12px 24px color-mix(in srgb, var(--accent-glow-live, rgba(34, 211, 238, 0.38)) 92%, transparent),
+        0 0 24px color-mix(in srgb, var(--accent-secondary-live, #ec4899) 40%, transparent);
+      opacity: calc(0.82 + var(--pulse-intensity, 0) * 0.16);
+      filter: saturate(1.18) brightness(1.16);
+    }
     .pulse-meta {
       display: flex;
       justify-content: space-between;
@@ -4362,6 +4375,44 @@
       gap: 10px;
       justify-content: flex-end;
       margin-top: 12px;
+    }
+    .profile-edit-modal {
+      max-width: 460px;
+      border-color: var(--accent-border-live, rgba(103, 232, 249, 0.45));
+      background:
+        linear-gradient(145deg,
+          color-mix(in srgb, var(--accent-primary-live, #22d3ee) 14%, rgba(15, 23, 42, 0.96)),
+          color-mix(in srgb, var(--accent-secondary-live, #ec4899) 10%, rgba(9, 14, 27, 0.97)));
+      box-shadow:
+        0 24px 56px rgba(2, 6, 23, 0.7),
+        0 0 26px color-mix(in srgb, var(--accent-primary-live, #22d3ee) 26%, transparent);
+    }
+    .profile-edit-modal .modal-title {
+      color: var(--accent-primary-live, #67e8f9);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .profile-edit-modal .field input {
+      border-color: var(--accent-border-live, rgba(103, 232, 249, 0.5));
+      background: color-mix(in srgb, rgba(8, 13, 26, 0.96) 84%, var(--accent-surface-live, rgba(103, 232, 249, 0.12)));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-primary-live, #22d3ee) 16%, transparent);
+      color: #f8fcff;
+    }
+    .profile-edit-modal .field input:focus {
+      outline: none;
+      border-color: var(--accent-primary-live, #67e8f9);
+      box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--accent-primary-live, #22d3ee) 24%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, var(--accent-primary-live, #22d3ee) 34%, transparent);
+    }
+    .profile-edit-counter {
+      margin-top: 6px;
+      font-size: 11px;
+      color: #9fb4d9;
+      text-align: right;
+      letter-spacing: 0.06em;
     }
     .force-update-backdrop {
       z-index: 3200;
@@ -26536,8 +26587,22 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.130",
+        date: "2026-03-07",
+        added: [
+          "Profile badge/tagline editing now uses in-app themed edit modals for a cleaner accent-matched experience"
+        ],
+        improved: [
+          "Venue map interaction reliability was hardened so special map-triggered profile unlock events resolve more consistently",
+          "FoCo pulse bars on the profile now emphasize active segments with stronger neon contrast"
+        ],
+        fixed: [
+          "Tagline editing now enforces a strict 20-character limit including spaces"
+        ]
+      },
+      {
         version: "v0.9.129",
-        date: "2026-03-08",
+        date: "2026-03-07",
         added: [],
         improved: [
           "CSU Jungle Juice pass visuals now run a brighter three-laser mix (green, gold, white) with stronger white strobe definition"
@@ -26548,7 +26613,7 @@
       },
       {
         version: "v0.9.128",
-        date: "2026-03-08",
+        date: "2026-03-07",
         added: [],
         improved: [
           "Member login now consistently opens on Tonight for a cleaner, predictable app entry flow"
@@ -28746,8 +28811,17 @@
       address: "2405 Midpoint Dr, Fort Collins, CO 80525, USA",
       lat: 40.5538,
       lng: -105.0336,
-      matchers: ["larimer county jail", "2405 midpoint dr", "midpoint dr fort collins"]
+      matchers: [
+        "larimer county jail",
+        "larimer county detention center",
+        "larimer county sheriff jail",
+        "2405 midpoint dr",
+        "2405 midpoint dr fort collins co 80525",
+        "midpoint dr fort collins",
+        "larimer county jail fort collins"
+      ]
     });
+    const MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS = 220;
     const MAP_DEFAULT_CENTER = Object.freeze({ lat: 40.5853, lng: -105.0844 });
     let activeMapVenueId = "";
     let googleMapsLoaderPromise = null;
@@ -28760,7 +28834,20 @@
     const venueMapGeocodeCache = new Map();
     let mapFallbackLastInteractionMs = 0;
     let mapFallbackUnlockTimer = null;
-    function isNearJailPoint(lat, lng, radiusMeters = 220) {
+    function normalizeMapMatchSource(source = "") {
+      let decoded = String(source || "");
+      try {
+        decoded = decodeURIComponent(decoded);
+      } catch (_) {
+        // keep raw source text
+      }
+      return decoded
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    function isNearJailPoint(lat, lng, radiusMeters = MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS) {
       const aLat = Number(lat);
       const aLng = Number(lng);
       if (!Number.isFinite(aLat) || !Number.isFinite(aLng)) return false;
@@ -28772,12 +28859,15 @@
       const hav = Math.sin(dLat / 2) ** 2
         + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
       const distance = 6371000 * (2 * Math.atan2(Math.sqrt(hav), Math.sqrt(1 - hav)));
-      return distance <= Number(radiusMeters || 220);
+      return distance <= Number(radiusMeters || MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS);
     }
     function isPrisonPunchMapSource(source = "") {
-      const normalized = decodeURIComponent(String(source || "").toLowerCase());
+      const normalized = normalizeMapMatchSource(source);
       if (!normalized) return false;
-      return MAP_EASTER_EGG_JAIL.matchers.some((matcher) => normalized.includes(String(matcher || "").toLowerCase()));
+      return MAP_EASTER_EGG_JAIL.matchers.some((matcher) => {
+        const normalizedMatcher = normalizeMapMatchSource(matcher);
+        return normalizedMatcher ? normalized.includes(normalizedMatcher) : false;
+      });
     }
     function useInteractiveVenueMap(enabled) {
       if (venueMapCanvas) {
@@ -28824,22 +28914,24 @@
       const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
       const unlocked = unlockAccentForCurrentMember("prison_punch");
       if (unlocked) {
+        console.log("[map egg] unlock fired", { source: String(options?.source || "unknown") });
         showToast("🚔 Easter egg unlocked: Prison Punch accent is now available.", 7000);
         applyAccentTheme("prison_punch");
         updateAccentChipLocks();
       } else if (showAlreadyUnlocked) {
+        console.log("[map egg] already unlocked", { source: String(options?.source || "unknown") });
         showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
       }
     }
     function maybeUnlockPrisonPunchFromPlace(place = null, options = {}) {
       const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
-      if (!place) return;
+      if (!place) return false;
       const name = String(place?.name || "").trim();
       const address = String(place?.formatted_address || place?.vicinity || "").trim();
       const source = `${name} ${address}`.trim();
-      if (isPrisonPunchMapSource(source)) {
-        unlockPrisonPunchFromMap({ showAlreadyUnlocked });
-      }
+      if (!isPrisonPunchMapSource(source)) return false;
+      unlockPrisonPunchFromMap({ showAlreadyUnlocked, source: "poi_details" });
+      return true;
     }
     function openVenueMapInfo(position, title = "", subtitle = "") {
       if (!venueGoogleInfoWindow || !venueGoogleMap || !position) return;
@@ -28857,23 +28949,35 @@
     function upsertVenueMapMarker(key, coords, title = "", subtitle = "", options = {}) {
       if (!window.google?.maps || !venueGoogleMap || !coords) return null;
       let marker = venueMapMarkerCache.get(key);
+      const markerOptions = options?.markerOptions && typeof options.markerOptions === "object"
+        ? options.markerOptions
+        : null;
       if (!marker) {
         marker = new google.maps.Marker({
           position: coords,
           map: venueGoogleMap,
-          title: title || "FoCo After Dark"
+          title: title || "FoCo After Dark",
+          clickable: true
         });
         venueMapMarkerCache.set(key, marker);
       } else {
         marker.setPosition(coords);
         marker.setMap(venueGoogleMap);
       }
+      marker.__focoOnClick = typeof options?.onClick === "function" ? options.onClick : null;
+      marker.__focoTitle = title || "FoCo After Dark";
+      marker.__focoSubtitle = subtitle || "";
+      marker.setOptions({
+        title: marker.__focoTitle,
+        clickable: true,
+        ...(markerOptions || {})
+      });
       if (!marker.__focoBound) {
         marker.addListener("click", () => {
-          if (options?.onClick && typeof options.onClick === "function") {
-            options.onClick();
+          if (typeof marker.__focoOnClick === "function") {
+            marker.__focoOnClick();
           }
-          openVenueMapInfo(marker.getPosition(), title, subtitle);
+          openVenueMapInfo(marker.getPosition(), marker.__focoTitle, marker.__focoSubtitle);
         });
         marker.__focoBound = true;
       }
@@ -28938,23 +29042,57 @@
           { lat: MAP_EASTER_EGG_JAIL.lat, lng: MAP_EASTER_EGG_JAIL.lng },
           MAP_EASTER_EGG_JAIL.name,
           MAP_EASTER_EGG_JAIL.address,
-          { onClick: () => unlockPrisonPunchFromMap({ showAlreadyUnlocked: true }) }
+          {
+            onClick: () => {
+              console.log("[map egg] jail marker clicked");
+              unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "jail_marker" });
+            },
+            markerOptions: {
+              zIndex: 1000000,
+              optimized: false,
+              icon: {
+                path: window.google.maps.SymbolPath.CIRCLE,
+                scale: 9.5,
+                fillColor: "#ff2f6d",
+                fillOpacity: 0.98,
+                strokeColor: "#3af3ff",
+                strokeWeight: 2.6
+              }
+            }
+          }
         );
         venueGoogleMap.addListener("click", (event) => {
           const clickedLat = Number(event?.latLng?.lat?.());
           const clickedLng = Number(event?.latLng?.lng?.());
-          if (isNearJailPoint(clickedLat, clickedLng, 260)) {
-            unlockPrisonPunchFromMap({ showAlreadyUnlocked: true });
+          if (Number.isFinite(clickedLat) && Number.isFinite(clickedLng)) {
+            console.log("[map egg] map click lat/lng", { lat: clickedLat, lng: clickedLng });
+          }
+          if (isNearJailPoint(clickedLat, clickedLng, MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS)) {
+            console.log("[map egg] near-jail map click matched", { lat: clickedLat, lng: clickedLng, radiusMeters: MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS });
+            unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "near_jail_click" });
             openVenueMapInfo({ lat: MAP_EASTER_EGG_JAIL.lat, lng: MAP_EASTER_EGG_JAIL.lng }, MAP_EASTER_EGG_JAIL.name, MAP_EASTER_EGG_JAIL.address);
           }
           const placeId = String(event?.placeId || "").trim();
           if (!placeId || !venueGooglePlacesService) return;
+          console.log("[map egg] POI click detected", { placeId });
           if (typeof event.stop === "function") event.stop();
           venueGooglePlacesService.getDetails(
             { placeId, fields: ["name", "formatted_address"] },
             (place, status) => {
               if (status !== window.google.maps.places.PlacesServiceStatus.OK) return;
-              maybeUnlockPrisonPunchFromPlace(place, { showAlreadyUnlocked: true });
+              const placeName = String(place?.name || "").trim();
+              const formattedAddress = String(place?.formatted_address || place?.vicinity || "").trim();
+              const matched = isPrisonPunchMapSource(`${placeName} ${formattedAddress}`);
+              console.log("[map egg] POI details returned", {
+                placeId,
+                placeName,
+                formattedAddress,
+                matched
+              });
+              if (matched) {
+                maybeUnlockPrisonPunchFromPlace(place, { showAlreadyUnlocked: true });
+                openVenueMapInfo({ lat: MAP_EASTER_EGG_JAIL.lat, lng: MAP_EASTER_EGG_JAIL.lng }, MAP_EASTER_EGG_JAIL.name, MAP_EASTER_EGG_JAIL.address);
+              }
             }
           );
         });
@@ -29011,12 +29149,13 @@
     function maybeUnlockPrisonPunchFromFallbackMap() {
       if (currentScreenName !== "map") return;
       if (venueMapInteractiveReady) return;
+      console.log("[map egg] interactive map not ready, fallback path used");
       mapFallbackLastInteractionMs = Date.now();
       clearTimeout(mapFallbackUnlockTimer);
       mapFallbackUnlockTimer = setTimeout(() => {
         if (currentScreenName !== "map") return;
         if (venueMapInteractiveReady) return;
-        unlockPrisonPunchFromMap({ showAlreadyUnlocked: true });
+        unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "iframe_fallback" });
       }, 120);
     }
     function getActiveVenuePerks(venueId) {
@@ -30247,6 +30386,19 @@
       if (pulseThread) {
         const bars = Array.from(pulseThread.children);
         const total = stats.total || 0;
+          let activeAlertBars = 0;
+          try {
+            activeAlertBars = typeof getActiveAlertsForMember === "function" ? Number(getActiveAlertsForMember().length || 0) : 0;
+          } catch (_) {
+            activeAlertBars = 0;
+          }
+          const activeBars = Math.max(
+            0,
+            Math.min(
+              bars.length || 0,
+              Math.round(Math.max(todayCount * 0.9, activeAlertBars * 1.2, (stats.venuesVisited || 0) * 0.7))
+            )
+          );
           const palette = window.VIBES || {
             flirty: { factor: 1.15 },
             blacking: { factor: 1.6 },
@@ -30278,6 +30430,7 @@
           bar.style.setProperty("--pulse-speed", `${Math.max(0.6, 1.6 - intensity * 0.6) + Math.random() * 0.4}s`);
           bar.style.setProperty("--pulse-delay", `${Math.random() * 0.6}s`);
           bar.style.opacity = 0.55 + (0.02 * idx) + intensity * 0.15;
+          bar.classList.toggle("is-active", idx < activeBars);
         });
       }
       if (pulseSparks || pulseStreaks || pulseBursts) {
@@ -38050,15 +38203,96 @@ let onboardingIndex = 0;
         setMemberDirectoryEntry(currentPassCode, entry);
       }
     }
-    function openAvatarEditor() {
+    function openProfileInputModal({
+      title = "Edit value",
+      label = "Value",
+      value = "",
+      maxLength = 40,
+      placeholder = "",
+      saveLabel = "Save"
+    } = {}) {
+      return new Promise((resolve) => {
+        const backdrop = document.createElement("div");
+        backdrop.className = "modal-backdrop active";
+        backdrop.style.zIndex = "15000";
+        const safeMax = Math.max(1, Math.min(140, Number(maxLength) || 40));
+        backdrop.innerHTML = `
+          <div class="modal-card profile-edit-modal" role="dialog" aria-modal="true">
+            <div class="modal-header">
+              <div class="modal-title">${escapeHtmlText(title)}</div>
+              <button class="modal-close" type="button" data-profile-edit-close>Close</button>
+            </div>
+            <div class="field" style="margin-top:4px;">
+              <label>${escapeHtmlText(label)}</label>
+              <input type="text" maxlength="${safeMax}" value="${escapeHtmlText(String(value || ""))}" placeholder="${escapeHtmlText(placeholder)}" data-profile-edit-input />
+              <div class="profile-edit-counter" data-profile-edit-counter></div>
+            </div>
+            <div class="modal-actions" style="margin-top:12px;">
+              <button type="button" class="btn btn-secondary" data-profile-edit-cancel>Cancel</button>
+              <button type="button" class="btn btn-primary" data-profile-edit-save>${escapeHtmlText(saveLabel)}</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(backdrop);
+        const input = backdrop.querySelector("[data-profile-edit-input]");
+        const counter = backdrop.querySelector("[data-profile-edit-counter]");
+        const saveBtn = backdrop.querySelector("[data-profile-edit-save]");
+        const cancelBtn = backdrop.querySelector("[data-profile-edit-cancel]");
+        const closeBtn = backdrop.querySelector("[data-profile-edit-close]");
+        const cleanup = (nextValue = null) => {
+          backdrop.remove();
+          resolve(nextValue);
+        };
+        const refreshCounter = () => {
+          if (!counter || !input) return;
+          counter.textContent = `${String(input.value || "").length}/${safeMax}`;
+        };
+        if (input) {
+          input.focus();
+          input.select();
+          input.addEventListener("input", refreshCounter);
+          input.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              cleanup(String(input.value || ""));
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              cleanup(null);
+            }
+          });
+        }
+        refreshCounter();
+        if (saveBtn) saveBtn.addEventListener("click", () => cleanup(String(input?.value || "")));
+        if (cancelBtn) cancelBtn.addEventListener("click", () => cleanup(null));
+        if (closeBtn) closeBtn.addEventListener("click", () => cleanup(null));
+        backdrop.addEventListener("click", (event) => {
+          if (event.target === backdrop) cleanup(null);
+        });
+      });
+    }
+    async function openAvatarEditor() {
       if (!avatarInitials) return;
       const currentInitials = (memberProfile?.avatarInitials || avatarText?.textContent || avatarInitials.textContent || "").toString().trim();
-      const initialsInput = prompt("Set your initials (up to 3 letters/numbers):", currentInitials);
+      const initialsInput = await openProfileInputModal({
+        title: "Edit badge",
+        label: "Set your initials (up to 3 letters/numbers)",
+        value: currentInitials,
+        maxLength: 3,
+        placeholder: "ABC",
+        saveLabel: "Save initials"
+      });
       if (initialsInput !== null && initialsInput.trim()) {
         applyAvatarInitials(initialsInput);
       }
       const currentFlair = currentAvatarFlair || "";
-      const emojiInput = prompt("Pick an emoji for your badge (1 character):", currentFlair);
+      const emojiInput = await openProfileInputModal({
+        title: "Badge emoji",
+        label: "Pick an emoji for your badge (optional)",
+        value: currentFlair,
+        maxLength: 2,
+        placeholder: "🍸",
+        saveLabel: "Save emoji"
+      });
       if (emojiInput !== null) {
         const chosen = (emojiInput.trim() || "").slice(0, 2);
         applyAvatarFlair(chosen);
@@ -38072,11 +38306,18 @@ let onboardingIndex = 0;
     if (avatarEditBtn) {
       avatarEditBtn.addEventListener("click", openAvatarEditor);
     }
-    function openTaglineEditor() {
+    async function openTaglineEditor() {
       const current = (memberProfile?.tagline || "").trim();
-      const input = prompt("Set your tagline (60 chars max):", current || "");
+      const input = await openProfileInputModal({
+        title: "Edit tagline",
+        label: "Set your tagline (20 chars max)",
+        value: current || "",
+        maxLength: 20,
+        placeholder: "Your vibe",
+        saveLabel: "Save tagline"
+      });
       if (input === null) return;
-      const trimmed = input.trim().slice(0, 60);
+      const trimmed = String(input || "").trim().slice(0, 20);
       if (!trimmed) {
         if (userTaglineEl) userTaglineEl.textContent = "Tap to add your vibe.";
         updateMemberProfile({ tagline: "" });
