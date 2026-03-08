@@ -17338,6 +17338,7 @@
                   <span>VIP + flash deals rotate all night</span>
                   <span>Members unlock full details instantly</span>
                   <span>CSU student discounts available at checkout</span>
+                  <span>Please add app to home screen for full features</span>
                 </div>
               </section>
               <div class="home-support-stack">
@@ -26861,6 +26862,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.139",
+        date: "2026-03-07",
+        added: [
+          "Home hero highlights now include a direct add-to-home-screen reminder for full app features"
+        ],
+        improved: [
+          "Jail easter-egg unlock transition now applies the Prison Punch accent cleanly without color flicker on first unlock"
+        ],
+        fixed: [
+          "Removed competing post-unlock accent reapply paths that could briefly flash between old and newly unlocked accent themes"
+        ]
+      },
+      {
         version: "v0.9.138",
         date: "2026-03-07",
         added: [],
@@ -29469,6 +29483,7 @@
       const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
       const suppressToasts = options?.suppressToasts === true;
       const source = String(options?.source || "unknown");
+      const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent || "");
       const identity = resolvePrisonPunchIdentityContext();
       const uid = identity.uid;
       const result = { ok: false, reason: "unknown", source };
@@ -29519,9 +29534,10 @@
       if (typeof renderPass === "function") {
         try { renderPass(); } catch (err) { console.warn("[accent] renderPass refresh failed", err); }
       }
-      if (result.ok && typeof applyAccentTheme === "function") {
+      if (result.ok && result.reason === "accent_unlocked" && typeof applyAccentTheme === "function") {
         try {
-          applyAccentTheme(currentAccentTheme || "cyan");
+          const applyDelayMs = isIOSDevice ? 180 : 60;
+          window.setTimeout(() => applyAccentTheme("prison_punch"), applyDelayMs);
         } catch (err) {
           console.warn("[accent] applyAccentTheme refresh failed", err);
         }
@@ -29553,7 +29569,6 @@
       if (toastMode === "jail_marker_exact") {
         if (result?.reason === "accent_unlocked" && result?.ok === true) {
           showToast("Larimer County Jail is where you could end up if you choose to drink and drive. You've unlocked an easter egg.", 7000);
-          try { applyAccentTheme("prison_punch"); } catch (_) {}
           updateAccentChipLocks();
         } else {
           showToast("You already unlocked this easter egg.", 2200);
