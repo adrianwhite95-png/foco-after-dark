@@ -11372,6 +11372,12 @@
         radial-gradient(circle at 24% 24%, color-mix(in srgb, var(--staff-primary) 44%, transparent), transparent 50%),
         radial-gradient(circle at 76% 74%, color-mix(in srgb, var(--staff-secondary) 38%, transparent), transparent 54%);
     }
+    body.theme-csu_jungle_juice #passScreen::after {
+      animation-duration: 18s, 4.8s;
+    }
+    body.theme-csu_jungle_juice #passScreen .member-hero {
+      animation-duration: 7.2s, 12s;
+    }
     body.ios:not(.mobile-performance) #passScreen::before {
       opacity: 0.56;
       filter: blur(16px) saturate(1.16);
@@ -25464,8 +25470,7 @@
         showScreen("membership");
         return;
       }
-      const restoredScreen = getRestorableScreenForUser(user.uid);
-      showScreen(restoredScreen || "tonight");
+      showScreen("tonight");
     }
 
     // Pass screen elements
@@ -26504,6 +26509,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.128",
+        date: "2026-03-08",
+        added: [],
+        improved: [
+          "Member login now consistently opens on Tonight for a cleaner, predictable app entry flow"
+        ],
+        fixed: [
+          "Map place interaction handling was hardened so location-triggered map rewards resolve more reliably across map modes"
+        ]
+      },
       {
         version: "v0.9.127",
         date: "2026-03-07",
@@ -28707,6 +28723,20 @@
     const venueMapGeocodeCache = new Map();
     let mapFallbackLastInteractionMs = 0;
     let mapFallbackUnlockTimer = null;
+    function isNearJailPoint(lat, lng, radiusMeters = 220) {
+      const aLat = Number(lat);
+      const aLng = Number(lng);
+      if (!Number.isFinite(aLat) || !Number.isFinite(aLng)) return false;
+      const toRad = (deg) => deg * (Math.PI / 180);
+      const dLat = toRad(MAP_EASTER_EGG_JAIL.lat - aLat);
+      const dLng = toRad(MAP_EASTER_EGG_JAIL.lng - aLng);
+      const lat1 = toRad(aLat);
+      const lat2 = toRad(MAP_EASTER_EGG_JAIL.lat);
+      const hav = Math.sin(dLat / 2) ** 2
+        + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+      const distance = 6371000 * (2 * Math.atan2(Math.sqrt(hav), Math.sqrt(1 - hav)));
+      return distance <= Number(radiusMeters || 220);
+    }
     function isPrisonPunchMapSource(source = "") {
       const normalized = decodeURIComponent(String(source || "").toLowerCase());
       if (!normalized) return false;
@@ -28874,6 +28904,12 @@
           { onClick: () => unlockPrisonPunchFromMap({ showAlreadyUnlocked: true }) }
         );
         venueGoogleMap.addListener("click", (event) => {
+          const clickedLat = Number(event?.latLng?.lat?.());
+          const clickedLng = Number(event?.latLng?.lng?.());
+          if (isNearJailPoint(clickedLat, clickedLng, 260)) {
+            unlockPrisonPunchFromMap({ showAlreadyUnlocked: true });
+            openVenueMapInfo({ lat: MAP_EASTER_EGG_JAIL.lat, lng: MAP_EASTER_EGG_JAIL.lng }, MAP_EASTER_EGG_JAIL.name, MAP_EASTER_EGG_JAIL.address);
+          }
           const placeId = String(event?.placeId || "").trim();
           if (!placeId || !venueGooglePlacesService) return;
           if (typeof event.stop === "function") event.stop();
@@ -28944,7 +28980,7 @@
         if (currentScreenName !== "map") return;
         if (venueMapInteractiveReady) return;
         unlockPrisonPunchFromMap({ showAlreadyUnlocked: true });
-      }, 360);
+      }, 120);
     }
     function getActiveVenuePerks(venueId) {
       if (!venueId) return [];
@@ -32815,6 +32851,16 @@ let onboardingIndex = 0;
         maybeUnlockPrisonPunchFromFallbackMap();
       }, { passive: true });
       venueMapFrame.addEventListener("touchstart", () => {
+        maybeUnlockPrisonPunchFromFallbackMap();
+      }, { passive: true });
+      venueMapFrame.addEventListener("click", () => {
+        maybeUnlockPrisonPunchFromFallbackMap();
+      }, { passive: true });
+    }
+    const mapWrapEl = document.querySelector("#mapScreen .map-wrap");
+    if (mapWrapEl) {
+      mapWrapEl.addEventListener("click", () => {
+        if (venueMapFrame?.style?.display === "none") return;
         maybeUnlockPrisonPunchFromFallbackMap();
       }, { passive: true });
     }
