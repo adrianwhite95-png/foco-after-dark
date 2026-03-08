@@ -13301,6 +13301,27 @@
       border: 0 !important;
       display: block !important;
     }
+    .map-egg-diagnostics {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      z-index: 8;
+      pointer-events: none;
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(56, 189, 248, 0.38);
+      background: rgba(2, 6, 23, 0.74);
+      color: #e2e8f0;
+      font-size: 10px;
+      line-height: 1.25;
+      letter-spacing: 0.02em;
+      text-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+      white-space: pre-line;
+      font-family: "Space Grotesk", "Inter", sans-serif;
+      max-width: min(82vw, 230px);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
     #bottomNav {
       display: none;
       position: fixed;
@@ -18209,6 +18230,7 @@
         referrerpolicy="no-referrer-when-downgrade"
         src="https://www.google.com/maps?q=Old+Town+Fort+Collins+bars&output=embed">
       </iframe>
+      <div id="mapEggDiagnosticsPill" class="map-egg-diagnostics" aria-hidden="true"></div>
     </div>
     <div class="map-venue-list card-hd" id="mapVenueList"></div>
   </div>
@@ -22857,9 +22879,11 @@
       }
       if (name === "map") {
         renderMapVenueList();
+        updateMapEggDiagnostics("showScreen_map_enter");
         ensureInteractiveVenueMapReady().then((ready) => {
           if (currentScreenName !== "map") return;
           reportMapRuntimeMode("showScreen_map_open");
+          updateMapEggDiagnostics("showScreen_map_ready_check");
           if (!ready) return;
           if (activeMapVenueId) {
             focusVenueOnInteractiveMap(activeMapVenueId);
@@ -26413,6 +26437,7 @@
     const mapVenueList = document.getElementById("mapVenueList");
     const venueMapCanvas = document.getElementById("venueMapCanvas");
     const venueMapFrame = document.getElementById("venueMapFrame");
+    const mapEggDiagnosticsPill = document.getElementById("mapEggDiagnosticsPill");
     const profileActivityName = document.getElementById("profileActivityName");
     const profileActivityTier = document.getElementById("profileActivityTier");
     const profileActivityPass = document.getElementById("profileActivityPass");
@@ -29300,6 +29325,7 @@
       if (venueMapFrame) {
         venueMapFrame.style.display = enabled ? "none" : "block";
       }
+      updateMapEggDiagnostics("map_mode_toggle");
     }
     useInteractiveVenueMap(false);
     function loadGoogleMapsJsApi() {
@@ -29335,15 +29361,58 @@
         || txt.includes("for development purposes only");
     }
     function reportMapRuntimeMode(context = "unknown") {
-      const interactive = venueMapInteractiveReady && venueGoogleMap && venueMapFrame?.style?.display === "none";
-      if (interactive) {
+      const mode = getMapEggRuntimeMode();
+      if (mode === "interactive_js") {
         console.log("[map egg] map mode: interactive_js");
+        updateMapEggDiagnostics(`runtime_report_${context}`);
         return;
       }
       console.log("[map egg] map mode: iframe_fallback");
       if (mapRuntimeFallbackReason) {
         console.warn("[map egg] iframe fallback reason", { context, reason: mapRuntimeFallbackReason });
       }
+      updateMapEggDiagnostics(`runtime_report_${context}`);
+    }
+    function getMapEggRuntimeMode() {
+      const interactive = venueMapInteractiveReady && venueGoogleMap && venueMapFrame?.style?.display === "none";
+      return interactive ? "interactive_js" : "iframe_fallback";
+    }
+    function getMapEggHoldStateLabel() {
+      if (mapJailFocusLocked) return "confirmed";
+      if (mapJailFocusConfirmTimer) return "running";
+      return "idle";
+    }
+    function updateMapEggDiagnostics(source = "unknown") {
+      if (!mapEggDiagnosticsPill) return;
+      const mode = getMapEggRuntimeMode();
+      const center = venueGoogleMap?.getCenter?.() || null;
+      const centerLat = Number(center?.lat?.());
+      const centerLng = Number(center?.lng?.());
+      const zoom = Number(venueGoogleMap?.getZoom?.());
+      const distanceMeters = getDistanceMetersBetween(
+        centerLat,
+        centerLng,
+        MAP_EASTER_EGG_JAIL.lat,
+        MAP_EASTER_EGG_JAIL.lng
+      );
+      const inFinalRadius = Number.isFinite(distanceMeters) && distanceMeters <= MAP_EASTER_EGG_JAIL_FOCUS_RADIUS_METERS;
+      const steerBand = mapJailSteerBand || "none";
+      const holdState = getMapEggHoldStateLabel();
+      const centerText = Number.isFinite(centerLat) && Number.isFinite(centerLng)
+        ? `${centerLat.toFixed(6)}, ${centerLng.toFixed(6)}`
+        : "—";
+      const zoomText = Number.isFinite(zoom) ? zoom.toFixed(2) : "—";
+      const distanceText = Number.isFinite(distanceMeters) ? `${Math.round(distanceMeters)} m` : "—";
+      mapEggDiagnosticsPill.textContent = [
+        `MAP MODE: ${mode}`,
+        `CENTER: ${centerText}`,
+        `ZOOM: ${zoomText}`,
+        `DISTANCE: ${distanceText}`,
+        `FINAL RADIUS: ${inFinalRadius ? "yes" : "no"}`,
+        `HOLD: ${holdState}`,
+        `STEER: ${steerBand}`
+      ].join("\n");
+      mapEggDiagnosticsPill.dataset.source = source;
     }
     function unlockPrisonPunchFromMap(options = {}) {
       const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
@@ -29436,6 +29505,7 @@
       clearTimeout(mapJailFocusConfirmTimer);
       mapJailFocusConfirmTimer = null;
       console.log("[map egg] jail focus timer cancel", { reason: reason || "cancelled" });
+      updateMapEggDiagnostics("focus_timer_cancel");
     }
     function resetJailSteerState(reason = "out_of_range") {
       if (mapJailSteerBand) {
@@ -29447,6 +29517,7 @@
       }
       mapJailSteerBand = "";
       mapJailSteerLastDistanceMeters = Number.POSITIVE_INFINITY;
+      updateMapEggDiagnostics("steer_reset");
     }
     function evaluateJailSteerState(lat, lng, zoom, source = "map_idle") {
       const distanceMeters = getDistanceMetersBetween(
@@ -29473,6 +29544,7 @@
       if (nextBand === "final") {
         mapJailSteerBand = "final";
         mapJailSteerLastDistanceMeters = distanceMeters;
+        updateMapEggDiagnostics("steer_final");
         return;
       }
       const approaching =
@@ -29493,6 +29565,7 @@
       }
       mapJailSteerBand = nextBand;
       mapJailSteerLastDistanceMeters = distanceMeters;
+      updateMapEggDiagnostics(`steer_${nextBand}`);
     }
     function evaluateJailFocusCandidate(source = "map_idle") {
       if (!venueGoogleMap || !venueMapInteractiveReady) return;
@@ -29515,10 +29588,17 @@
       if (!candidate) {
         mapJailFocusLocked = false;
         clearJailFocusConfirmTimer("left_focus_zone");
+        updateMapEggDiagnostics("focus_candidate_false");
         return;
       }
-      if (mapJailFocusLocked) return;
-      if (mapJailFocusConfirmTimer) return;
+      if (mapJailFocusLocked) {
+        updateMapEggDiagnostics("focus_already_confirmed");
+        return;
+      }
+      if (mapJailFocusConfirmTimer) {
+        updateMapEggDiagnostics("focus_timer_running");
+        return;
+      }
       console.log("[map egg] jail focus timer start", {
         source,
         lat,
@@ -29537,6 +29617,7 @@
           && settledZoom >= MAP_EASTER_EGG_JAIL_FOCUS_MIN_ZOOM;
         if (!settledMatch) {
           console.log("[map egg] jail focus timer cancel", { reason: "drifted_before_hold_complete" });
+          updateMapEggDiagnostics("focus_timer_drift_cancel");
           return;
         }
         mapJailFocusLocked = true;
@@ -29546,8 +29627,10 @@
           lng: settledLng,
           zoom: settledZoom
         });
+        updateMapEggDiagnostics("focus_confirmed");
         triggerPrisonPunchFromJailSelection("jail_focus_hold");
       }, MAP_EASTER_EGG_JAIL_FOCUS_SETTLE_MS);
+      updateMapEggDiagnostics("focus_timer_start");
     }
     function openVenueMapInfo(position, title = "", subtitle = "") {
       if (!venueGoogleInfoWindow || !venueGoogleMap || !position) return;
@@ -29631,17 +29714,20 @@
         mapRuntimeFallbackReason = "runtime_error_before_init";
         venueMapInteractiveReady = false;
         useInteractiveVenueMap(false);
+        updateMapEggDiagnostics("runtime_error_before_init");
         return false;
       }
       if (venueMapInteractiveReady && venueGoogleMap) {
         mapRuntimeFallbackReason = "";
         useInteractiveVenueMap(true);
+        updateMapEggDiagnostics("already_interactive_ready");
         return true;
       }
       try {
         await loadGoogleMapsJsApi();
         if (!window.google?.maps) {
           mapRuntimeFallbackReason = "google_maps_api_unavailable";
+          updateMapEggDiagnostics("google_maps_api_unavailable");
           throw new Error("Google Maps API unavailable");
         }
         venueGoogleMap = new google.maps.Map(venueMapCanvas, {
@@ -29680,6 +29766,7 @@
         );
         venueGoogleMap.addListener("idle", () => {
           evaluateJailFocusCandidate("map_idle");
+          updateMapEggDiagnostics("idle");
         });
         venueGoogleMap.addListener("center_changed", () => {
           const center = venueGoogleMap.getCenter?.();
@@ -29692,6 +29779,7 @@
             mapJailFocusLocked = false;
             clearJailFocusConfirmTimer("center_changed_out_of_focus");
           }
+          updateMapEggDiagnostics("center_changed");
         });
         venueGoogleMap.addListener("zoom_changed", () => {
           const center = venueGoogleMap.getCenter?.();
@@ -29704,6 +29792,7 @@
             mapJailFocusLocked = false;
             clearJailFocusConfirmTimer("zoom_changed_out_of_focus");
           }
+          updateMapEggDiagnostics("zoom_changed");
         });
         await new Promise((resolve) => setTimeout(resolve, 220));
         if (interactiveMapHasRuntimeError()) {
@@ -29713,6 +29802,7 @@
         mapRuntimeFallbackReason = "";
         venueMapInteractiveReady = true;
         useInteractiveVenueMap(true);
+        updateMapEggDiagnostics("interactive_ready");
         setTimeout(() => {
           if (!venueMapInteractiveReady) return;
           if (!interactiveMapHasRuntimeError()) return;
@@ -29720,6 +29810,7 @@
           mapRuntimeFallbackReason = "interactive_runtime_error_after_init";
           venueMapInteractiveReady = false;
           useInteractiveVenueMap(false);
+          updateMapEggDiagnostics("interactive_runtime_error_fallback");
           if (currentScreenName === "map") {
             showToast("Interactive map unavailable. Using fallback map.", 2600);
           }
@@ -29735,6 +29826,7 @@
         console.warn("Interactive map unavailable; using embed fallback.", err);
         venueMapInteractiveReady = false;
         useInteractiveVenueMap(false);
+        updateMapEggDiagnostics("interactive_init_failed");
         return false;
       }
     }
