@@ -13323,10 +13323,10 @@
     }
     .foco-map-info-close {
       position: absolute;
-      right: 7px;
-      top: 7px;
-      width: 22px;
-      height: 22px;
+      right: 5px;
+      top: 5px;
+      width: 19px;
+      height: 19px;
       border-radius: 999px;
       border: 1px solid rgba(94, 234, 212, 0.48);
       background: rgba(2, 6, 23, 0.8);
@@ -13334,7 +13334,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 13px;
+      font-size: 11px;
       line-height: 1;
       cursor: pointer;
       box-shadow: 0 0 10px rgba(236, 72, 153, 0.18);
@@ -13343,7 +13343,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding-right: 36px;
+      padding-right: 30px;
     }
     .foco-map-info-logo {
       width: 28px;
@@ -26954,6 +26954,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.142",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Map venue info cards now use a tighter corner close control for cleaner title spacing on iOS and web"
+        ],
+        fixed: [
+          "Adjusted map popup close-button sizing/placement to prevent title overlap inside venue info cards"
+        ]
+      },
       {
         version: "v0.9.141",
         date: "2026-03-07",
