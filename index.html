@@ -2500,6 +2500,12 @@
       text-align: center;
       line-height: 1.25;
     }
+    .avatar-preset-label-top {
+      margin-bottom: 6px;
+      font-weight: 700;
+      color: #f8fafc;
+      text-shadow: 0 0 10px color-mix(in srgb, var(--accent-primary-live) 36%, transparent);
+    }
     .avatar-flair {
       position: absolute;
       top: -6px;
@@ -27044,6 +27050,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.150",
+        date: "2026-03-08",
+        added: [
+          "Avatar picker now features a full cartoon nightlife animal roster with funny themed names and party styling"
+        ],
+        improved: [
+          "Avatar card labels now render above each preset tile with better readability and full-list scrolling"
+        ],
+        fixed: [
+          "Avatar changes now propagate instantly through profile, pass, staff pending, and redeemed voucher views using live member snapshots"
+        ]
+      },
+      {
         version: "v0.9.149",
         date: "2026-03-08",
         added: [
@@ -39905,24 +39924,24 @@ let onboardingIndex = 0;
     renderVenueButtons();
     // Background selection removed; no UI controls remain for choosing background themes.
 
-    const DEFAULT_AVATAR_ID = "alley_fox";
+    const DEFAULT_AVATAR_ID = "drunk_duck";
     const AVATAR_LIBRARY = [
-      { id: "alley_fox", label: "Alley Fox", src: "media/avatar-alley_fox.svg" },
-      { id: "night_wolf", label: "Night Wolf", src: "media/avatar-night_wolf.svg" },
-      { id: "velvet_panther", label: "Velvet Panther", src: "media/avatar-velvet_panther.svg" },
-      { id: "ram_riot", label: "Ram Riot", src: "media/avatar-ram_riot.svg" },
-      { id: "club_bunny", label: "Club Bunny", src: "media/avatar-club_bunny.svg" },
-      { id: "disco_bear", label: "Disco Bear", src: "media/avatar-disco_bear.svg" },
-      { id: "neon_otter", label: "Neon Otter", src: "media/avatar-neon_otter.svg" },
-      { id: "midnight_raccoon", label: "Midnight Raccoon", src: "media/avatar-midnight_raccoon.svg" },
-      { id: "sly_coyote", label: "Sly Coyote", src: "media/avatar-sly_coyote.svg" },
-      { id: "strobe_tiger", label: "Strobe Tiger", src: "media/avatar-strobe_tiger.svg" },
-      { id: "moon_koala", label: "Moon Koala", src: "media/avatar-moon_koala.svg" },
-      { id: "after_dark_panda", label: "After Dark Panda", src: "media/avatar-after_dark_panda.svg" },
-      { id: "laser_frog", label: "Laser Frog", src: "media/avatar-laser_frog.svg" },
-      { id: "vip_penguin", label: "VIP Penguin", src: "media/avatar-vip_penguin.svg" },
-      { id: "glow_deer", label: "Glow Deer", src: "media/avatar-glow_deer.svg" },
-      { id: "electric_lion", label: "Electric Lion", src: "media/avatar-electric_lion.svg" }
+      { id: "drunk_duck", label: "Drunk Duck", src: "media/avatar-drunk_duck.svg" },
+      { id: "intoxicated_insect", label: "Intoxicated Insect", src: "media/avatar-intoxicated_insect.svg" },
+      { id: "tipsy_tiger", label: "Tipsy Tiger", src: "media/avatar-tipsy_tiger.svg" },
+      { id: "boozy_bunny", label: "Boozy Bunny", src: "media/avatar-boozy_bunny.svg" },
+      { id: "hammered_husky", label: "Hammered Husky", src: "media/avatar-hammered_husky.svg" },
+      { id: "wasted_wolf", label: "Wasted Wolf", src: "media/avatar-wasted_wolf.svg" },
+      { id: "party_panda", label: "Party Panda", src: "media/avatar-party_panda.svg" },
+      { id: "buzzed_bear", label: "Buzzed Bear", src: "media/avatar-buzzed_bear.svg" },
+      { id: "lit_lion", label: "Lit Lion", src: "media/avatar-lit_lion.svg" },
+      { id: "sloshed_squirrel", label: "Sloshed Squirrel", src: "media/avatar-sloshed_squirrel.svg" },
+      { id: "cocktail_koala", label: "Cocktail Koala", src: "media/avatar-cocktail_koala.svg" },
+      { id: "neon_newt", label: "Neon Newt", src: "media/avatar-neon_newt.svg" },
+      { id: "margarita_monkey", label: "Margarita Monkey", src: "media/avatar-margarita_monkey.svg" },
+      { id: "tequila_toucan", label: "Tequila Toucan", src: "media/avatar-tequila_toucan.svg" },
+      { id: "vodka_viper", label: "Vodka Viper", src: "media/avatar-vodka_viper.svg" },
+      { id: "gin_giraffe", label: "Gin Giraffe", src: "media/avatar-gin_giraffe.svg" }
     ];
     const AVATAR_LIBRARY_BY_ID = AVATAR_LIBRARY.reduce((acc, avatar) => {
       acc[avatar.id] = avatar;
@@ -40043,8 +40062,9 @@ let onboardingIndex = 0;
           const selectedClass = avatar.id === currentAvatarId ? "selected" : "";
           return `
             <button type="button" class="avatar-preset-btn ${selectedClass}" data-avatar-id="${avatar.id}">
+              <div class="avatar-preset-label avatar-preset-label-top">${escapeHtmlText(avatar.label)}</div>
               <div class="avatar-preset-preview" style="background-image:url('${escapeHtmlText(avatar.src)}');"></div>
-              <div class="avatar-preset-label">${escapeHtmlText(avatar.label)}</div>
+              <div class="avatar-preset-label">Tap to switch</div>
             </button>
           `;
         }).join("");
