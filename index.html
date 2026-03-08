@@ -13293,35 +13293,6 @@
       overflow: hidden;
       background: rgba(2, 6, 23, 0.52);
     }
-    #venueMapFrame {
-      position: absolute;
-      inset: 0;
-      width: 100% !important;
-      height: 100% !important;
-      border: 0 !important;
-      display: block !important;
-    }
-    .map-egg-diagnostics {
-      position: absolute;
-      right: 10px;
-      bottom: 10px;
-      z-index: 8;
-      pointer-events: none;
-      padding: 6px 8px;
-      border-radius: 10px;
-      border: 1px solid rgba(56, 189, 248, 0.38);
-      background: rgba(2, 6, 23, 0.74);
-      color: #e2e8f0;
-      font-size: 10px;
-      line-height: 1.25;
-      letter-spacing: 0.02em;
-      text-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
-      white-space: pre-line;
-      font-family: "Space Grotesk", "Inter", sans-serif;
-      max-width: min(82vw, 230px);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-    }
     #bottomNav {
       display: none;
       position: fixed;
@@ -18221,16 +18192,6 @@
         role="region"
         aria-label="FoCo After Dark interactive venue map">
       </div>
-      <iframe
-        title="FoCo After Dark venue map"
-        id="venueMapFrame"
-        loading="lazy"
-        allowfullscreen
-        allow="fullscreen"
-        referrerpolicy="no-referrer-when-downgrade"
-        src="https://www.google.com/maps?q=Old+Town+Fort+Collins+bars&output=embed">
-      </iframe>
-      <div id="mapEggDiagnosticsPill" class="map-egg-diagnostics" aria-hidden="true"></div>
     </div>
     <div class="map-venue-list card-hd" id="mapVenueList"></div>
   </div>
@@ -21960,7 +21921,6 @@
             setActiveMapVenue(fallbackVenueId);
           } else {
             activeMapVenueId = "";
-            if (venueMapFrame) venueMapFrame.removeAttribute("src");
           }
         }
         if (selectedRedeemVenue && !isVenueVisibleToMembers(selectedRedeemVenue)) {
@@ -26436,7 +26396,6 @@
     const tonightUpgradeBtn = document.getElementById("tonightUpgradeBtn");
     const mapVenueList = document.getElementById("mapVenueList");
     const venueMapCanvas = document.getElementById("venueMapCanvas");
-    const venueMapFrame = document.getElementById("venueMapFrame");
     const mapEggDiagnosticsPill = document.getElementById("mapEggDiagnosticsPill");
     const profileActivityName = document.getElementById("profileActivityName");
     const profileActivityTier = document.getElementById("profileActivityTier");
@@ -26901,6 +26860,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.138",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "Venue Map now runs on a single interactive map runtime so app-owned location interactions stay consistent"
+        ],
+        fixed: [
+          "Removed embedded map fallback behavior that could hide app-owned map markers and prevent map-based interactions from triggering reliably"
+        ]
+      },
       {
         version: "v0.9.137",
         date: "2026-03-07",
@@ -29322,19 +29292,16 @@
       const lngValue = typeof position?.lng === "function" ? Number(position.lng()) : Number(position?.lng);
       return isNearJailPoint(latValue, lngValue, MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS);
     }
-    function useInteractiveVenueMap(enabled) {
+    function useInteractiveVenueMap(enabled = true) {
       if (venueMapCanvas) {
-        venueMapCanvas.style.display = enabled ? "block" : "none";
-      }
-      if (venueMapFrame) {
-        venueMapFrame.style.display = enabled ? "none" : "block";
+        venueMapCanvas.style.display = "block";
       }
       if (!enabled) {
         stopJailMarkerPulse();
       }
       updateMapEggDiagnostics("map_mode_toggle");
     }
-    useInteractiveVenueMap(false);
+    useInteractiveVenueMap(true);
     function loadGoogleMapsJsApi() {
       if (window.google?.maps) return Promise.resolve(true);
       if (googleMapsLoaderPromise) return googleMapsLoaderPromise;
@@ -29374,15 +29341,12 @@
         updateMapEggDiagnostics(`runtime_report_${context}`);
         return;
       }
-      console.log("[map egg] map mode: iframe_fallback");
-      if (mapRuntimeFallbackReason) {
-        console.warn("[map egg] iframe fallback reason", { context, reason: mapRuntimeFallbackReason });
-      }
+      console.warn("[map egg] map mode: interactive_unavailable", { context, reason: mapRuntimeFallbackReason || "unknown" });
       updateMapEggDiagnostics(`runtime_report_${context}`);
     }
     function getMapEggRuntimeMode() {
-      const interactive = venueMapInteractiveReady && venueGoogleMap && venueMapFrame?.style?.display === "none";
-      return interactive ? "interactive_js" : "iframe_fallback";
+      const interactive = venueMapInteractiveReady && venueGoogleMap;
+      return interactive ? "interactive_js" : "interactive_unavailable";
     }
     function getMapEggHoldStateLabel() {
       if (mapJailFocusLocked) return "confirmed";
@@ -29799,13 +29763,26 @@
         applyFocus(coords);
       });
     }
+    let mapInteractiveUnavailableToastAt = 0;
+    function notifyInteractiveMapUnavailable(reason = "", err = null) {
+      const now = Date.now();
+      if ((now - mapInteractiveUnavailableToastAt) > 1800) {
+        mapInteractiveUnavailableToastAt = now;
+        showToast("Interactive map unavailable right now. Please try again.", 2800);
+      }
+      console.warn("[map egg] interactive map failed; jail marker unavailable in iframe mode", {
+        reason: String(reason || "unknown"),
+        error: err ? String(err?.message || err) : "",
+        activeMapVenueId: String(activeMapVenueId || "")
+      });
+    }
     async function ensureInteractiveVenueMapReady() {
       if (!venueMapCanvas) return false;
-      // Keep map behavior stable on web/iOS when Maps JS API is not fully enabled.
       if (!window.google?.maps?.Map && interactiveMapHasRuntimeError()) {
         mapRuntimeFallbackReason = "runtime_error_before_init";
         venueMapInteractiveReady = false;
-        useInteractiveVenueMap(false);
+        useInteractiveVenueMap(true);
+        notifyInteractiveMapUnavailable(mapRuntimeFallbackReason);
         updateMapEggDiagnostics("runtime_error_before_init");
         return false;
       }
@@ -29836,7 +29813,7 @@
         if (window.google?.maps?.places) {
           venueGooglePlacesService = new google.maps.places.PlacesService(venueGoogleMap);
         }
-        upsertVenueMapMarker(
+        const jailMarker = upsertVenueMapMarker(
           "__jail__",
           { lat: MAP_EASTER_EGG_JAIL.lat, lng: MAP_EASTER_EGG_JAIL.lng },
           MAP_EASTER_EGG_JAIL.name,
@@ -29862,6 +29839,13 @@
             }
           }
         );
+        console.log("[map egg] jail marker attached", {
+          lat: MAP_EASTER_EGG_JAIL.lat,
+          lng: MAP_EASTER_EGG_JAIL.lng,
+          mode: getMapEggRuntimeMode(),
+          activeMapVenueId: String(activeMapVenueId || ""),
+          attached: !!jailMarker
+        });
         setJailMarkerVisualState("base");
         venueGoogleMap.addListener("idle", () => {
           evaluateJailFocusCandidate("map_idle");
@@ -29905,13 +29889,11 @@
         setTimeout(() => {
           if (!venueMapInteractiveReady) return;
           if (!interactiveMapHasRuntimeError()) return;
-          console.warn("Interactive map runtime error detected; falling back to embed map.");
           mapRuntimeFallbackReason = "interactive_runtime_error_after_init";
           venueMapInteractiveReady = false;
-          useInteractiveVenueMap(false);
-          updateMapEggDiagnostics("interactive_runtime_error_fallback");
+          updateMapEggDiagnostics("interactive_runtime_error_no_fallback");
           if (currentScreenName === "map") {
-            showToast("Interactive map unavailable. Using fallback map.", 2600);
+            notifyInteractiveMapUnavailable(mapRuntimeFallbackReason);
           }
         }, 1200);
         if (activeMapVenueId) {
@@ -29922,10 +29904,11 @@
         if (!mapRuntimeFallbackReason) {
           mapRuntimeFallbackReason = String(err?.message || "interactive_map_init_failed");
         }
-        console.warn("Interactive map unavailable; using embed fallback.", err);
+        console.warn("Interactive map unavailable; no fallback mode enabled.", err);
         venueMapInteractiveReady = false;
-        useInteractiveVenueMap(false);
+        useInteractiveVenueMap(true);
         stopJailMarkerPulse();
+        notifyInteractiveMapUnavailable(mapRuntimeFallbackReason, err);
         updateMapEggDiagnostics("interactive_init_failed");
         return false;
       }
@@ -29938,14 +29921,6 @@
       const info = isJailTarget
         ? { name: MAP_EASTER_EGG_JAIL.name, address: MAP_EASTER_EGG_JAIL.address }
         : (venuesInfo[venueId] || {});
-      if (venueMapFrame) {
-        const query = [info.name, info.address, "Fort Collins, CO"].filter(Boolean).join(", ");
-        const nextSrcBase = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(query)}&t=m&z=16&output=embed`;
-        const currentSrc = String(venueMapFrame.src || "");
-        venueMapFrame.src = currentSrc.includes(nextSrcBase)
-          ? `${nextSrcBase}&foco_refresh=${Date.now()}`
-          : nextSrcBase;
-      }
       if (venueMapInteractiveReady && venueGoogleMap) {
         focusVenueOnInteractiveMap(venueId);
       } else if (currentScreenName === "map") {
