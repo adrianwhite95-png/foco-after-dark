@@ -1142,6 +1142,27 @@
       letter-spacing: 0.02em;
       box-shadow: none;
     }
+    .venue-emoji-btn {
+      min-width: 38px;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid var(--staff-border-strong);
+      background: rgba(8, 13, 24, 0.9);
+      color: #e2e8f0;
+      font-size: 16px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.2);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+    .venue-emoji-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(125, 211, 252, 0.75);
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.32);
+    }
     .sticky-actions {
       display: flex;
       gap: 8px;
@@ -2419,15 +2440,15 @@
       transform: translateY(-1px);
     }
     .avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 16px;
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
       background: radial-gradient(circle at 30% 10%, var(--accent-primary-live), #0b172a);
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 18px;
+      font-size: 20px;
       color: #020617;
       box-shadow: 0 10px 22px rgba(2, 6, 23, 0.45), 0 0 18px color-mix(in srgb, var(--accent-primary-live) 55%, transparent);
       position: relative;
@@ -2436,7 +2457,7 @@
       content: "";
       position: absolute;
       inset: 2px;
-      border-radius: 14px;
+      border-radius: 16px;
       border: 1px solid rgba(255, 255, 255, 0.25);
       box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.08);
       pointer-events: none;
@@ -18663,6 +18684,7 @@
     </div>
     <div class="staff-meta-row">
       <span class="venue-chip" id="staffVenueBadge">Venue</span>
+      <button type="button" class="venue-emoji-btn" id="staffVenueEmojiBtn" title="Set venue emoji">🏷️</button>
       <span class="pill" id="staffVenueStatus">Live</span>
       <span class="pill" id="staffShiftStatusPill">No shift</span>
       <span class="meta-note" id="staffCloseoutStamp" style="font-size:12px;color:#94a3b8;"></span>
@@ -26723,6 +26745,7 @@
     const staffVenueLabel = document.getElementById("staffVenueLabel");
     const staffPortalTitle = document.getElementById("staffPortalTitle");
     const staffPortalTagline = document.getElementById("staffPortalTagline");
+    const staffVenueEmojiBtn = document.getElementById("staffVenueEmojiBtn");
     const staffVenueLog = document.getElementById("staffVenueLog");
     const staffAnalyticsCard = document.getElementById("staffAnalyticsCard");
     const staffAnalyticsRange = document.getElementById("staffAnalyticsRange");
@@ -27144,6 +27167,19 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.152",
+        date: "2026-03-08",
+        added: [
+          "Venue staff dashboards can now set a venue emoji badge that appears across staff header chips and title"
+        ],
+        improved: [
+          "Member profile avatar tile was increased for better visibility while keeping staff/member list avatar sizing unchanged"
+        ],
+        fixed: [
+          "Tap-to-edit badge now directly opens emoji badge editing so avatar flair updates are immediate and reliable"
+        ]
+      },
       {
         version: "v0.9.151",
         date: "2026-03-08",
@@ -40297,10 +40333,24 @@ let onboardingIndex = 0;
         });
       });
     }
+    async function openBadgeEditor() {
+      const current = String(memberProfile?.avatarFlair || "").trim();
+      const input = await openProfileInputModal({
+        title: "Edit badge",
+        label: "Set badge emoji (up to 2 chars)",
+        value: current,
+        maxLength: 8,
+        placeholder: "🔥",
+        saveLabel: "Save badge"
+      });
+      if (input === null) return;
+      applyAvatarFlair(normalizeVenueEmoji(input), { persist: true });
+      showToast("Badge updated.", 1300);
+    }
     if (avatarInitials) {
       avatarInitials.style.cursor = "pointer";
-      avatarInitials.title = "Tap to choose avatar";
-      avatarInitials.addEventListener("click", openAvatarPickerModal);
+      avatarInitials.title = "Tap to edit badge";
+      avatarInitials.addEventListener("click", openBadgeEditor);
     }
     if (avatarEditBtn) {
       avatarEditBtn.textContent = "Choose avatar";
@@ -46678,6 +46728,49 @@ let onboardingIndex = 0;
       if (staffVenueInput) staffVenueInput.focus();
     }
 
+    function getVenueEmojiStorageKey(venueId) {
+      const key = String(venueId || "").trim().toLowerCase();
+      return key ? `staffVenueEmoji_${key}` : "";
+    }
+    function normalizeVenueEmoji(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      return Array.from(raw).slice(0, 2).join("");
+    }
+    function getVenueEmoji(venueId) {
+      const key = getVenueEmojiStorageKey(venueId);
+      if (!key) return "";
+      try {
+        return normalizeVenueEmoji(localStorage.getItem(key) || "");
+      } catch (_) {
+        return "";
+      }
+    }
+    function setVenueEmoji(venueId, emoji) {
+      const key = getVenueEmojiStorageKey(venueId);
+      if (!key) return;
+      const safe = normalizeVenueEmoji(emoji);
+      try {
+        if (safe) localStorage.setItem(key, safe);
+        else localStorage.removeItem(key);
+      } catch (_) {}
+    }
+    function renderStaffVenueHeader(venueId) {
+      const resolved = resolveVenueId(venueId);
+      const venueName = venuesInfo[resolved]?.name || "Your venue";
+      const emoji = getVenueEmoji(resolved);
+      const decorated = emoji ? `${emoji} ${venueName}` : venueName;
+      if (staffVenueBadge) staffVenueBadge.textContent = decorated;
+      if (staffVenueChip) staffVenueChip.textContent = decorated;
+      if (staffVenueLabel) staffVenueLabel.textContent = decorated;
+      if (staffPortalTitle) staffPortalTitle.innerHTML = `<span>${decorated}</span> Dashboard`;
+      if (staffPortalTagline) staffPortalTagline.textContent = `Live perks, redemptions, and alerts for ${venueName}.`;
+      if (staffVenueEmojiBtn) {
+        staffVenueEmojiBtn.textContent = emoji || "🏷️";
+        staffVenueEmojiBtn.title = emoji ? "Edit venue emoji" : "Set venue emoji";
+      }
+    }
+
     function applyStaffSession(venueId) {
       const resolved = resolveVenueId(venueId);
       if (!resolved) return { success: false, message: "Enter a venue code." };
@@ -46686,11 +46779,7 @@ let onboardingIndex = 0;
       }
       staffSession = { venue: resolved, at: new Date().toISOString() };
       localStorage.setItem("staffSession", JSON.stringify(staffSession));
-      const venueExists = venuesInfo[resolved];
-      const venueName = venueExists ? venuesInfo[resolved].name : "Your venue";
-      staffVenueLabel.textContent = venueName;
-      if (staffPortalTitle) staffPortalTitle.innerHTML = `<span>${venueName}</span> Dashboard`;
-      if (staffPortalTagline) staffPortalTagline.textContent = `Live perks, redemptions, and alerts for ${venueName}.`;
+      renderStaffVenueHeader(resolved);
       staffRedemptionsMap = new Map();
       staffQueueEntries = [];
       staffRedemptionsVenue = resolved;
@@ -46967,10 +47056,7 @@ let onboardingIndex = 0;
       console.info("[staff] applyStaffSession", { venueId });
       // silent: keep staff session feedback inline only
       const venueName = venuesInfo[venueId]?.name || "Your venue";
-      if (staffVenueChip) staffVenueChip.textContent = venueName;
-      if (staffVenueLabel) staffVenueLabel.textContent = venueName;
-      if (staffPortalTitle) staffPortalTitle.innerHTML = `<span>${venueName}</span> Dashboard`;
-      if (staffPortalTagline) staffPortalTagline.textContent = `Live perks, redemptions, and alerts for ${venueName}.`;
+      renderStaffVenueHeader(venueId);
       setRadarGraffiti(venueName);
       const staffAccent = loadStaffAccent(venueId) || "cyan";
       applyStaffAccent(staffAccent);
@@ -47034,6 +47120,28 @@ let onboardingIndex = 0;
       staffLoginSubmit.addEventListener("click", (e) => {
         e.preventDefault();
         processStaffLogin();
+      });
+    }
+    if (staffVenueEmojiBtn) {
+      staffVenueEmojiBtn.addEventListener("click", async () => {
+        const venueId = resolveVenueId(staffSession?.venue || "");
+        if (!venueId) {
+          showToast("Log in to a venue first.", 1600);
+          return;
+        }
+        const current = getVenueEmoji(venueId);
+        const next = await openProfileInputModal({
+          title: "Venue emoji",
+          label: "Set emoji badge (up to 2 chars)",
+          value: current,
+          maxLength: 8,
+          placeholder: "🍸",
+          saveLabel: "Save emoji"
+        });
+        if (next === null) return;
+        setVenueEmoji(venueId, next);
+        renderStaffVenueHeader(venueId);
+        showToast("Venue emoji updated.", 1400);
       });
     }
     if (staffGateAccept) {
@@ -47172,8 +47280,7 @@ let onboardingIndex = 0;
             showScreen("staffLogin");
             return;
           }
-          const venueName = venuesInfo[staffSession.venue]?.name || "Your venue";
-          if (staffVenueChip) staffVenueChip.textContent = venueName;
+          renderStaffVenueHeader(staffSession.venue);
           renderStaffVenueLog();
           renderStaffPendingQueue();
           hydrateStaffVenueData(staffSession.venue);
