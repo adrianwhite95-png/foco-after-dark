@@ -13282,6 +13282,93 @@
       min-height: 320px;
       height: min(46vh, 380px);
     }
+    #mapScreen .gm-style .gm-style-iw-c {
+      background: transparent !important;
+      padding: 0 !important;
+      border-radius: 14px !important;
+      box-shadow: none !important;
+    }
+    #mapScreen .gm-style .gm-style-iw {
+      padding: 0 !important;
+      background: transparent !important;
+    }
+    #mapScreen .gm-style .gm-style-iw-d {
+      overflow: visible !important;
+      max-width: 268px !important;
+      background: transparent !important;
+    }
+    #mapScreen .gm-style .gm-style-iw-chr {
+      display: none !important;
+    }
+    #mapScreen .gm-style .gm-style-iw-tc::after {
+      background: rgba(8, 14, 30, 0.97) !important;
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.32);
+    }
+    #mapScreen .gm-style .gm-ui-hover-effect {
+      display: none !important;
+    }
+    .foco-map-info-window {
+      position: relative;
+      min-width: 190px;
+      max-width: 252px;
+      border-radius: 14px;
+      padding: 12px 12px 10px;
+      border: 1px solid rgba(34, 211, 238, 0.44);
+      background: linear-gradient(160deg, rgba(7, 12, 25, 0.97), rgba(10, 18, 37, 0.97));
+      box-shadow:
+        0 0 0 1px rgba(236, 72, 153, 0.26) inset,
+        0 14px 28px rgba(2, 6, 23, 0.62),
+        0 0 24px rgba(34, 211, 238, 0.18);
+      color: #e2e8f0;
+    }
+    .foco-map-info-close {
+      position: absolute;
+      right: 7px;
+      top: 7px;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(94, 234, 212, 0.48);
+      background: rgba(2, 6, 23, 0.8);
+      color: #f8fafc;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(236, 72, 153, 0.18);
+    }
+    .foco-map-info-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-right: 36px;
+    }
+    .foco-map-info-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      object-fit: cover;
+      border: 1px solid rgba(34, 211, 238, 0.52);
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.28);
+      flex: 0 0 auto;
+    }
+    .foco-map-info-title {
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: 0.01em;
+      line-height: 1.25;
+      color: #f8fafc;
+      text-shadow: 0 0 10px rgba(34, 211, 238, 0.25);
+    }
+    .foco-map-info-subtitle {
+      font-size: 11px;
+      line-height: 1.4;
+      color: #cbd5e1;
+      margin-top: 6px;
+      text-shadow: 0 0 8px rgba(236, 72, 153, 0.16);
+    }
     #venueMapCanvas {
       position: absolute;
       inset: 0;
@@ -17328,6 +17415,9 @@
                 UNLOCK TONIGHT'S PERKS — 21+
               </button>
             </div>
+            <p class="small" style="margin:8px 0 10px;text-align:center;color:#bae6fd;">
+              Add FoCo After Dark to your Home Screen before signing up for the best app experience.
+            </p>
             <div class="home-dashboard-grid">
               <section class="launch-billboard home-tonight-module glassBox photo-glass premiumGlass" aria-label="Tonight's perks and flash deals">
                 <div class="home-marketing-eyebrow">LIVE FORT COLLINS NIGHTLIFE ACCESS</div>
@@ -17427,6 +17517,9 @@
         <div>
           <div class="app-title"><span>FoCo</span> After Dark</div>
           <div class="tagline" id="authModeText">Create your account to get the Nightlife Pass.</div>
+          <p class="small signup-only" id="signupHomeScreenReminder" style="display:block;margin:7px 0 0;text-align:left;color:#bae6fd;">
+            For the best app experience, add FoCo After Dark to your Home Screen, then sign up.
+          </p>
         </div>
       </div>
 
@@ -26862,6 +26955,19 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.141",
+        date: "2026-03-07",
+        added: [
+          "Sign-up flow reminders now include an explicit add-to-home-screen prompt before account creation"
+        ],
+        improved: [
+          "Venue map info cards now use FoCo-branded styling with logo-first layout and stronger dark-neon contrast"
+        ],
+        fixed: [
+          "Map info window close controls no longer crowd venue titles and popup readability is now consistent against map backgrounds"
+        ]
+      },
+      {
         version: "v0.9.140",
         date: "2026-03-07",
         added: [
@@ -29751,10 +29857,13 @@
         };
       }
       venueGoogleInfoWindow.setContent(`
-        <div style="max-width:240px;min-width:180px;padding:10px 12px 10px;border-radius:12px;background:linear-gradient(145deg, rgba(8,14,28,0.96), rgba(17,24,39,0.96));border:1px solid rgba(94,234,212,0.35);box-shadow:0 12px 28px rgba(2,6,23,0.45);color:#e2e8f0;position:relative;">
-          <button type="button" aria-label="Close" onclick="window.__closeVenueMapInfoWindow && window.__closeVenueMapInfoWindow()" style="position:absolute;right:6px;top:6px;width:22px;height:22px;border-radius:999px;border:1px solid rgba(148,163,184,0.42);background:rgba(15,23,42,0.7);color:#f8fafc;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;cursor:pointer;">&times;</button>
-          <div style="font-weight:800;font-size:13px;letter-spacing:.01em;line-height:1.25;color:#f8fafc;padding-right:24px;">${safeTitle}</div>
-          ${safeSubtitle ? `<div style="font-size:11px;line-height:1.35;color:#cbd5e1;margin-top:4px;">${safeSubtitle}</div>` : ""}
+        <div class="foco-map-info-window">
+          <button type="button" class="foco-map-info-close" aria-label="Close" onclick="window.__closeVenueMapInfoWindow && window.__closeVenueMapInfoWindow()">&times;</button>
+          <div class="foco-map-info-head">
+            <img class="foco-map-info-logo" src="foco-logo.png" alt="FoCo After Dark logo" loading="lazy" decoding="async" onerror="this.style.display='none';" />
+            <div class="foco-map-info-title">${safeTitle}</div>
+          </div>
+          ${safeSubtitle ? `<div class="foco-map-info-subtitle">${safeSubtitle}</div>` : ""}
         </div>
       `);
       venueGoogleInfoWindow.setPosition(position);
@@ -29956,7 +30065,10 @@
           clickableIcons: true,
           gestureHandling: "greedy"
         });
-        venueGoogleInfoWindow = new google.maps.InfoWindow();
+        venueGoogleInfoWindow = new google.maps.InfoWindow({
+          maxWidth: 268,
+          headerDisabled: true
+        });
         venueGoogleGeocoder = new google.maps.Geocoder();
         if (window.google?.maps?.places) {
           venueGooglePlacesService = new google.maps.places.PlacesService(venueGoogleMap);
