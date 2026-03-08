@@ -40460,7 +40460,7 @@ let onboardingIndex = 0;
         const fromDirectory = normalizeAvatarAccessories(loadMemberDirectory()?.[key]?.avatarAccessories || null);
         if (fromDirectory.hat || fromDirectory.drink || fromDirectory.cigarette || fromDirectory.sunglasses) return fromDirectory;
       }
-      return normalizeAvatarAccessories(DEFAULT_AVATAR_ACCESSORIES);
+      return normalizeAvatarAccessories(null);
     }
     function getAvatarSourceById(value) {
       return AVATAR_LIBRARY_BY_ID[normalizeAvatarId(value)]?.src || AVATAR_LIBRARY_BY_ID[DEFAULT_AVATAR_ID].src;
