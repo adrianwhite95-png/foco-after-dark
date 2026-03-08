@@ -1142,26 +1142,22 @@
       letter-spacing: 0.02em;
       box-shadow: none;
     }
-    .venue-emoji-btn {
-      min-width: 38px;
-      height: 34px;
-      border-radius: 999px;
-      border: 1px solid var(--staff-border-strong);
-      background: rgba(8, 13, 24, 0.9);
-      color: #e2e8f0;
-      font-size: 16px;
-      line-height: 1;
-      display: inline-flex;
+    .staff-avatar-row {
+      display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 0 14px rgba(56, 189, 248, 0.2);
-      transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+      gap: 12px;
+      margin: 6px 0 10px;
     }
-    .venue-emoji-btn:hover {
-      transform: translateY(-1px);
-      border-color: rgba(125, 211, 252, 0.75);
-      box-shadow: 0 0 18px rgba(56, 189, 248, 0.32);
+    .staff-avatar {
+      width: 74px;
+      height: 74px;
+      border-radius: 22px;
+      font-size: 22px;
+    }
+    .staff-avatar-tools {
+      display: grid;
+      gap: 6px;
     }
     .sticky-actions {
       display: flex;
@@ -2440,15 +2436,15 @@
       transform: translateY(-1px);
     }
     .avatar {
-      width: 60px;
-      height: 60px;
-      border-radius: 18px;
+      width: 86px;
+      height: 86px;
+      border-radius: 24px;
       background: radial-gradient(circle at 30% 10%, var(--accent-primary-live), #0b172a);
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 20px;
+      font-size: 24px;
       color: #020617;
       box-shadow: 0 10px 22px rgba(2, 6, 23, 0.45), 0 0 18px color-mix(in srgb, var(--accent-primary-live) 55%, transparent);
       position: relative;
@@ -2461,6 +2457,28 @@
       border: 1px solid rgba(255, 255, 255, 0.25);
       box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.08);
       pointer-events: none;
+    }
+    .avatar::after,
+    #tonightScreen .tonight-mini-avatar-wrap::after,
+    .mini-avatar::after {
+      content: "";
+      position: absolute;
+      inset: -50% -35%;
+      background: linear-gradient(115deg, rgba(255, 255, 255, 0) 36%, rgba(255, 255, 255, 0.32) 50%, rgba(255, 255, 255, 0) 64%);
+      transform: translateX(-115%) rotate(5deg);
+      animation: avatarLiveGlimmer 3.8s ease-in-out infinite;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.55;
+      z-index: 2;
+    }
+    .avatar::after {
+      border-radius: 24px;
+    }
+    @keyframes avatarLiveGlimmer {
+      0% { transform: translateX(-115%) rotate(5deg); }
+      36% { transform: translateX(105%) rotate(5deg); }
+      100% { transform: translateX(105%) rotate(5deg); }
     }
     .avatar.has-image {
       background: #0b172a;
@@ -2502,13 +2520,15 @@
       font-size: 13px;
     }
     .avatar-accessories .acc.drink {
-      right: -1px;
-      bottom: 6px;
-      font-size: 12px;
+      right: -2px;
+      top: 57%;
+      transform: translateY(-50%);
+      font-size: 13px;
     }
     .avatar-accessories .acc.cigarette {
-      left: 2px;
-      bottom: 8px;
+      left: 56%;
+      top: 59%;
+      transform: translate(-50%, -50%);
       font-size: 11px;
     }
     .mini-avatar {
@@ -2538,12 +2558,14 @@
     }
     .mini-avatar-accessories .acc.drink {
       right: -1px;
-      bottom: 1px;
+      top: 58%;
+      transform: translateY(-50%);
       font-size: 7px;
     }
     .mini-avatar-accessories .acc.cigarette {
-      left: -1px;
-      bottom: 2px;
+      left: 58%;
+      top: 60%;
+      transform: translate(-50%, -50%);
       font-size: 7px;
     }
     .avatar-picker-modal {
@@ -2623,6 +2645,87 @@
       font-weight: 700;
       color: #f8fafc;
       text-shadow: 0 0 10px color-mix(in srgb, var(--accent-primary-live) 36%, transparent);
+    }
+    .avatar-live-preview {
+      margin-top: 10px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 36%, rgba(148,163,184,0.35));
+      border-radius: 14px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: 74px 1fr;
+      align-items: center;
+      gap: 10px;
+      background: rgba(7, 12, 24, 0.84);
+    }
+    .avatar-live-preview .preview-avatar {
+      width: 74px;
+      height: 74px;
+      border-radius: 18px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 42%, rgba(148,163,184,0.35));
+      background: #030712 center/cover no-repeat;
+      position: relative;
+      overflow: hidden;
+    }
+    .avatar-live-preview .preview-meta {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .avatar-live-preview .preview-title {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      font-weight: 700;
+    }
+    .avatar-live-preview .preview-sub {
+      font-size: 11px;
+      color: #b7c4df;
+      letter-spacing: 0.04em;
+    }
+    .avatar-accessory-config {
+      margin-top: 10px;
+      display: grid;
+      gap: 10px;
+    }
+    .avatar-accessory-row {
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 30%, rgba(148,163,184,0.34));
+      border-radius: 12px;
+      padding: 8px;
+      background: rgba(8, 14, 30, 0.86);
+      display: grid;
+      gap: 6px;
+    }
+    .avatar-accessory-row-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      color: #dbe8ff;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .avatar-style-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .avatar-style-btn {
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live) 34%, rgba(148,163,184,0.35));
+      border-radius: 999px;
+      background: rgba(3, 8, 19, 0.9);
+      color: #dbe8ff;
+      padding: 4px 9px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+    }
+    .avatar-style-btn.active {
+      border-color: color-mix(in srgb, var(--accent-primary-live) 72%, rgba(248,250,252,0.5));
+      box-shadow: 0 0 12px color-mix(in srgb, var(--accent-primary-live) 26%, transparent);
+      background: color-mix(in srgb, var(--accent-primary-live) 26%, rgba(5, 10, 22, 0.88));
+      color: #f8fbff;
     }
     .avatar-flair {
       position: absolute;
@@ -12702,6 +12805,21 @@
         0 0 20px color-mix(in srgb, var(--accent-primary-live) 26%, transparent),
         0 0 34px color-mix(in srgb, var(--accent-secondary-live) 16%, transparent);
     }
+    #passScreen .profile-summary .avatar {
+      width: clamp(110px, 18vw, 136px);
+      height: clamp(110px, 18vw, 136px);
+      border-radius: 28px;
+    }
+    #passScreen .profile-summary .avatar .avatar-text {
+      font-size: clamp(20px, 4vw, 28px);
+    }
+    #passScreen .profile-summary .avatar .avatar-flair {
+      font-size: 24px;
+      right: 6px;
+      top: 6px;
+      width: 32px;
+      height: 32px;
+    }
     body.ios.mobile-performance .club-atmosphere {
       opacity: 0.82 !important;
       filter: saturate(1.2) contrast(1.08) !important;
@@ -13423,13 +13541,15 @@
       font-size: 13px;
     }
     #tonightScreen .tonight-mini-avatar-accessories .acc.drink {
-      right: 2px;
-      bottom: 8px;
+      right: 1px;
+      top: 58%;
+      transform: translateY(-50%);
       font-size: 12px;
     }
     #tonightScreen .tonight-mini-avatar-accessories .acc.cigarette {
-      left: 2px;
-      bottom: 9px;
+      left: 57%;
+      top: 60%;
+      transform: translate(-50%, -50%);
       font-size: 11px;
     }
     #tonightScreen .tonight-mini-avatar-wrap.explorer-locked .tonight-mini-avatar {
@@ -18274,7 +18394,6 @@
                   <button type="button" class="tagline-edit-hint" id="userTaglineEditBtn">Tap to edit tagline</button>
                   <div class="avatar-tools" id="avatarTools">
                     <button type="button" class="avatar-edit-btn" id="avatarEditBtn" title="Choose avatar">Choose avatar</button>
-                    <button type="button" class="avatar-edit-btn" id="avatarCustomizeBtn" title="Customize avatar">Customize</button>
                   </div>
                   <div class="badge-row" id="profileBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
                 </div>
@@ -18690,6 +18809,9 @@
     <div class="tagline">
       Doors where FoCo After Dark voucher redemptions unlock venue-approved specials.
     </div>
+    <div class="tagline" style="margin-top:4px;">
+      Love a spot that’s not on FoCo After Dark yet? Ask your favorite venue to join and bring the perks to your night.
+    </div>
         <div class="venues-card card-hd no-tilt smooth-enter">
       <div class="featured-venues" id="featuredVenues">
         <h4>Featured venues <span id="featuredVenuesNewPill" class="pill-new">New</span></h4>
@@ -18781,9 +18903,19 @@
     <div class="tagline" id="staffPortalTagline">
       Track FoCo After Dark redemptions for your establishment.
     </div>
+    <div class="staff-avatar-row">
+      <div class="avatar staff-avatar" id="staffAvatarInitials" title="Tap to edit badge">
+        <span class="avatar-text" id="staffAvatarText">VS</span>
+        <span class="avatar-flair" id="staffAvatarFlair" aria-hidden="true"></span>
+        <span class="avatar-accessories" id="staffAvatarAccessories" aria-hidden="true"></span>
+      </div>
+      <div class="staff-avatar-tools">
+        <button type="button" class="avatar-edit-btn" id="staffAvatarEditBtn" title="Choose avatar">Choose avatar</button>
+        <button type="button" class="avatar-edit-btn" id="staffAvatarCustomizeBtn" title="Customize avatar">Customize</button>
+      </div>
+    </div>
     <div class="staff-meta-row">
       <span class="venue-chip" id="staffVenueBadge">Venue</span>
-      <button type="button" class="venue-emoji-btn" id="staffVenueEmojiBtn" title="Set venue emoji">🏷️</button>
       <span class="pill" id="staffVenueStatus">Live</span>
       <span class="pill" id="staffShiftStatusPill">No shift</span>
       <span class="meta-note" id="staffCloseoutStamp" style="font-size:12px;color:#94a3b8;"></span>
@@ -21205,6 +21337,7 @@
     let staffShiftLockUnsub = null;
     let staffShiftLockMap = {};
     let staffShiftLockMapReady = {};
+    let staffActiveShiftMapReady = {};
     let staffPendingActiveShiftSnapshot = {};
     let staffShiftCleanupToastAt = 0;
     let staffAnalyticsRangeKey = "1d";
@@ -26243,7 +26376,11 @@
     const avatarAccessories = document.getElementById("avatarAccessories");
     const avatarText = document.getElementById("avatarText");
     const avatarEditBtn = document.getElementById("avatarEditBtn");
-    const avatarCustomizeBtn = document.getElementById("avatarCustomizeBtn");
+    const staffAvatarInitials = document.getElementById("staffAvatarInitials");
+    const staffAvatarText = document.getElementById("staffAvatarText");
+    const staffAvatarAccessories = document.getElementById("staffAvatarAccessories");
+    const staffAvatarEditBtn = document.getElementById("staffAvatarEditBtn");
+    const staffAvatarCustomizeBtn = document.getElementById("staffAvatarCustomizeBtn");
     const avatarTools = document.getElementById("avatarTools");
     const passTierText = document.getElementById("passTierText");
     const profileBadges = document.getElementById("profileBadges");
@@ -26847,7 +26984,6 @@
     const staffVenueLabel = document.getElementById("staffVenueLabel");
     const staffPortalTitle = document.getElementById("staffPortalTitle");
     const staffPortalTagline = document.getElementById("staffPortalTagline");
-    const staffVenueEmojiBtn = document.getElementById("staffVenueEmojiBtn");
     const staffVenueLog = document.getElementById("staffVenueLog");
     const staffAnalyticsCard = document.getElementById("staffAnalyticsCard");
     const staffAnalyticsRange = document.getElementById("staffAnalyticsRange");
@@ -27279,14 +27415,14 @@
           "Avatar shirt branding was tightened to fit cleanly as print art on iOS and web"
         ],
         fixed: [
-          "Staff venue headers now support editable venue emoji badges while keeping member badge editing active from tap-to-edit"
+          "Venue staff now use the same FoCo avatar + customization flow as members in the staff header"
         ]
       },
       {
         version: "v0.9.152",
         date: "2026-03-08",
         added: [
-          "Venue staff dashboards can now set a venue emoji badge that appears across staff header chips and title"
+          "Venue staff header now supports big preset avatar selection with optional accessory customization"
         ],
         improved: [
           "Member profile avatar tile was increased for better visibility while keeping staff/member list avatar sizing unchanged"
@@ -31955,9 +32091,10 @@
       const todayCount = todayEntries.length;
       if (pulsePrimary) {
         const venues = stats.venuesVisited || 0;
+        const vibeLabel = getVibeDisplayLabel(currentVibe || "social");
         const nextPrimary = todayCount
           ? `${todayCount} redeemed today • ${venues} venues`
-          : "Ready for tonight";
+          : `Vibe: ${vibeLabel}`;
         if (pulsePrimary.textContent !== nextPrimary) {
           pulsePrimary.textContent = nextPrimary;
           didApplyVisualUpdate = true;
@@ -40234,6 +40371,31 @@ let onboardingIndex = 0;
       acc[avatar.id] = avatar.label;
       return acc;
     }, {});
+    const AVATAR_HAT_STYLES = {
+      cap: { label: "Cap", emoji: "🧢" },
+      bucket: { label: "Bucket", emoji: "🎩" },
+      beanie: { label: "Beanie", emoji: "🧶" }
+    };
+    const AVATAR_GLASSES_STYLES = {
+      classic: { label: "Classic", emoji: "🕶️" },
+      neon: { label: "Neon", emoji: "😎" },
+      star: { label: "Party", emoji: "🤩" }
+    };
+    const AVATAR_DRINK_STYLES = {
+      martini: { label: "Martini", emoji: "🍸" },
+      whiskey: { label: "Whiskey", emoji: "🥃" },
+      beer: { label: "Beer", emoji: "🍺" },
+      shot: { label: "Shot", emoji: "🥂" }
+    };
+    const DEFAULT_AVATAR_ACCESSORIES = {
+      hat: false,
+      hatStyle: "cap",
+      drink: false,
+      drinkStyle: "martini",
+      cigarette: false,
+      sunglasses: false,
+      glassesStyle: "classic"
+    };
     avatarLibraryReady = true;
     let currentAvatarFlair = "";
     function normalizeAvatarId(value, fallback = DEFAULT_AVATAR_ID) {
@@ -40245,17 +40407,20 @@ let onboardingIndex = 0;
       const src = (value && typeof value === "object") ? value : {};
       return {
         hat: src.hat === true,
+        hatStyle: AVATAR_HAT_STYLES[String(src.hatStyle || "").toLowerCase()] ? String(src.hatStyle || "").toLowerCase() : DEFAULT_AVATAR_ACCESSORIES.hatStyle,
         drink: src.drink === true,
+        drinkStyle: AVATAR_DRINK_STYLES[String(src.drinkStyle || "").toLowerCase()] ? String(src.drinkStyle || "").toLowerCase() : DEFAULT_AVATAR_ACCESSORIES.drinkStyle,
         cigarette: src.cigarette === true,
-        sunglasses: src.sunglasses === true
+        sunglasses: src.sunglasses === true,
+        glassesStyle: AVATAR_GLASSES_STYLES[String(src.glassesStyle || "").toLowerCase()] ? String(src.glassesStyle || "").toLowerCase() : DEFAULT_AVATAR_ACCESSORIES.glassesStyle
       };
     }
     function renderAvatarAccessoriesMarkup(accessories = {}) {
       const a = normalizeAvatarAccessories(accessories);
       const out = [];
-      if (a.hat) out.push('<span class="acc hat">🧢</span>');
-      if (a.sunglasses) out.push('<span class="acc glasses">🕶️</span>');
-      if (a.drink) out.push('<span class="acc drink">🍸</span>');
+      if (a.hat) out.push(`<span class="acc hat acc-style-${escapeHtmlText(a.hatStyle)}">${escapeHtmlText(AVATAR_HAT_STYLES[a.hatStyle]?.emoji || AVATAR_HAT_STYLES.cap.emoji)}</span>`);
+      if (a.sunglasses) out.push(`<span class="acc glasses acc-style-${escapeHtmlText(a.glassesStyle)}">${escapeHtmlText(AVATAR_GLASSES_STYLES[a.glassesStyle]?.emoji || AVATAR_GLASSES_STYLES.classic.emoji)}</span>`);
+      if (a.drink) out.push(`<span class="acc drink acc-style-${escapeHtmlText(a.drinkStyle)}">${escapeHtmlText(AVATAR_DRINK_STYLES[a.drinkStyle]?.emoji || AVATAR_DRINK_STYLES.martini.emoji)}</span>`);
       if (a.cigarette) out.push('<span class="acc cigarette">🚬</span>');
       return out.join("");
     }
@@ -40267,7 +40432,7 @@ let onboardingIndex = 0;
         const fromDirectory = normalizeAvatarAccessories(loadMemberDirectory()?.[key]?.avatarAccessories || null);
         if (fromDirectory.hat || fromDirectory.drink || fromDirectory.cigarette || fromDirectory.sunglasses) return fromDirectory;
       }
-      return normalizeAvatarAccessories(null);
+      return normalizeAvatarAccessories(DEFAULT_AVATAR_ACCESSORIES);
     }
     function getAvatarSourceById(value) {
       return AVATAR_LIBRARY_BY_ID[normalizeAvatarId(value)]?.src || AVATAR_LIBRARY_BY_ID[DEFAULT_AVATAR_ID].src;
@@ -40358,6 +40523,51 @@ let onboardingIndex = 0;
       if (typeof renderStaffDealRedemptionLog === "function") renderStaffDealRedemptionLog();
       if (typeof renderCeoMembersTable === "function") renderCeoMembersTable();
     }
+    function getStaffAvatarStorageKey(venueId = "") {
+      const key = String(venueId || "").trim().toLowerCase();
+      return key ? `staffAvatar_${key}` : "";
+    }
+    function getStaffAvatarAccessoriesStorageKey(venueId = "") {
+      const key = String(venueId || "").trim().toLowerCase();
+      return key ? `staffAvatarAccessories_${key}` : "";
+    }
+    function loadStaffAvatarState(venueId = "") {
+      const safeVenue = String(venueId || "").trim().toLowerCase();
+      const fallback = { avatarId: DEFAULT_AVATAR_ID, accessories: normalizeAvatarAccessories(null) };
+      if (!safeVenue) return fallback;
+      try {
+        const avatarId = normalizeAvatarId(localStorage.getItem(getStaffAvatarStorageKey(safeVenue)) || DEFAULT_AVATAR_ID);
+        const rawAcc = localStorage.getItem(getStaffAvatarAccessoriesStorageKey(safeVenue)) || "{}";
+        const accessories = normalizeAvatarAccessories(JSON.parse(rawAcc));
+        return { avatarId, accessories };
+      } catch (_) {
+        return fallback;
+      }
+    }
+    function saveStaffAvatarState(venueId = "", next = {}) {
+      const safeVenue = String(venueId || "").trim().toLowerCase();
+      if (!safeVenue) return;
+      const avatarId = normalizeAvatarId(next.avatarId || DEFAULT_AVATAR_ID);
+      const accessories = normalizeAvatarAccessories(next.accessories || null);
+      try {
+        localStorage.setItem(getStaffAvatarStorageKey(safeVenue), avatarId);
+        localStorage.setItem(getStaffAvatarAccessoriesStorageKey(safeVenue), JSON.stringify(accessories));
+      } catch (_) {}
+    }
+    function applyAvatarToElement(targetEl, textEl, accessoriesEl, avatarId, accessories = null) {
+      if (!targetEl) return;
+      const safeId = normalizeAvatarId(avatarId);
+      targetEl.dataset.avatarId = safeId;
+      targetEl.classList.add("has-image");
+      targetEl.style.setProperty("--avatar-image", `url('${getAvatarSourceById(safeId)}')`);
+      if (textEl) textEl.textContent = "";
+      if (accessoriesEl) accessoriesEl.innerHTML = renderAvatarAccessoriesMarkup(accessories || null);
+    }
+    function renderStaffAvatarHeader(venueId = staffSession?.venue || "") {
+      if (!staffAvatarInitials) return;
+      const state = loadStaffAvatarState(venueId);
+      applyAvatarToElement(staffAvatarInitials, staffAvatarText, staffAvatarAccessories, state.avatarId, state.accessories);
+    }
     function setAvatarForCurrentMember(avatarId, opts = {}) {
       const safeId = normalizeAvatarId(avatarId);
       if (!memberProfile) memberProfile = {};
@@ -40378,6 +40588,11 @@ let onboardingIndex = 0;
     }
     async function openAvatarPickerModal() {
       const currentAvatarId = normalizeAvatarId(resolveMemberAvatarId(memberProfile || {}, currentPassCode || ""));
+      const currentAccessories = resolveMemberAvatarAccessories(memberProfile || {}, currentPassCode || "");
+      const draft = {
+        avatarId: currentAvatarId,
+        accessories: normalizeAvatarAccessories(currentAccessories)
+      };
       const picker = document.createElement("div");
       picker.className = "modal-backdrop active";
       picker.style.zIndex = "15000";
@@ -40387,52 +40602,148 @@ let onboardingIndex = 0;
             <div class="modal-title">Choose your FoCo avatar</div>
             <button class="modal-close" type="button" data-avatar-picker-close>Close</button>
           </div>
-          <div class="small" style="color:#cbd5f5;">Pick from preloaded FoCo After Dark avatars.</div>
+          <div class="small" style="color:#cbd5f5;">Pick your avatar, preview your look, then save.</div>
+          <div class="avatar-live-preview" data-avatar-live-preview>
+            <div class="preview-avatar" data-avatar-live-preview-art></div>
+            <div class="preview-meta">
+              <div class="preview-title" data-avatar-live-preview-name>FoCo avatar</div>
+              <div class="preview-sub">Live preview updates before save</div>
+            </div>
+          </div>
+          <div class="avatar-accessory-config">
+            <div class="avatar-accessory-row">
+              <div class="avatar-accessory-row-head">
+                <span>Hat</span>
+                <label><input type="checkbox" data-acc-toggle="hat" /> Enabled</label>
+              </div>
+              <div class="avatar-style-options" data-style-row="hat"></div>
+            </div>
+            <div class="avatar-accessory-row">
+              <div class="avatar-accessory-row-head">
+                <span>Sunglasses</span>
+                <label><input type="checkbox" data-acc-toggle="sunglasses" /> Enabled</label>
+              </div>
+              <div class="avatar-style-options" data-style-row="glassesStyle"></div>
+            </div>
+            <div class="avatar-accessory-row">
+              <div class="avatar-accessory-row-head">
+                <span>Drink</span>
+                <label><input type="checkbox" data-acc-toggle="drink" /> Enabled</label>
+              </div>
+              <div class="avatar-style-options" data-style-row="drinkStyle"></div>
+            </div>
+            <div class="avatar-accessory-row">
+              <div class="avatar-accessory-row-head">
+                <span>Cigarette</span>
+                <label><input type="checkbox" data-acc-toggle="cigarette" /> Enabled</label>
+              </div>
+            </div>
+          </div>
           <div class="avatar-picker-grid" data-avatar-picker-grid></div>
           <div class="modal-actions" style="margin-top:14px;">
-            <button type="button" class="btn btn-secondary" data-avatar-picker-customize>Customize</button>
+            <button type="button" class="btn btn-secondary" data-avatar-picker-clear>Clear accessories</button>
             <button type="button" class="btn btn-secondary" data-avatar-picker-cancel>Cancel</button>
+            <button type="button" class="btn btn-primary" data-avatar-picker-save>Save avatar</button>
           </div>
         </div>
       `;
       document.body.appendChild(picker);
+      const close = () => picker.remove();
+      const previewEl = picker.querySelector("[data-avatar-live-preview-art]");
+      const previewName = picker.querySelector("[data-avatar-live-preview-name]");
       const grid = picker.querySelector("[data-avatar-picker-grid]");
+      const renderStyleRow = (rowKey, sourceMap, activeKey) => {
+        const row = picker.querySelector(`[data-style-row="${rowKey}"]`);
+        if (!row) return;
+        row.innerHTML = Object.keys(sourceMap).map((key) => {
+          const def = sourceMap[key];
+          const active = key === activeKey ? "active" : "";
+          return `<button type="button" class="avatar-style-btn ${active}" data-style-key="${escapeHtmlText(rowKey)}" data-style-value="${escapeHtmlText(key)}">${escapeHtmlText(def.emoji)} ${escapeHtmlText(def.label)}</button>`;
+        }).join("");
+      };
+      const syncPreview = () => {
+        const safeId = normalizeAvatarId(draft.avatarId);
+        if (previewEl) {
+          previewEl.style.backgroundImage = `url('${getAvatarSourceById(safeId)}')`;
+          previewEl.innerHTML = `<span class="avatar-accessories">${renderAvatarAccessoriesMarkup(draft.accessories)}</span>`;
+        }
+        if (previewName) previewName.textContent = AVATAR_DISPLAY_NAME_BY_ID[safeId] || "FoCo avatar";
+        picker.querySelectorAll('[data-acc-toggle]').forEach((input) => {
+          const key = input.getAttribute("data-acc-toggle");
+          if (!key) return;
+          input.checked = !!draft.accessories[key];
+        });
+        renderStyleRow("hat", AVATAR_HAT_STYLES, draft.accessories.hatStyle);
+        renderStyleRow("glassesStyle", AVATAR_GLASSES_STYLES, draft.accessories.glassesStyle);
+        renderStyleRow("drinkStyle", AVATAR_DRINK_STYLES, draft.accessories.drinkStyle);
+        if (grid) {
+          grid.querySelectorAll("button[data-avatar-id]").forEach((btn) => {
+            btn.classList.toggle("selected", normalizeAvatarId(btn.dataset.avatarId || "") === safeId);
+          });
+        }
+      };
       if (grid) {
         grid.innerHTML = AVATAR_LIBRARY.map((avatar) => {
-          const selectedClass = avatar.id === currentAvatarId ? "selected" : "";
+          const selectedClass = avatar.id === draft.avatarId ? "selected" : "";
           return `
             <button type="button" class="avatar-preset-btn ${selectedClass}" data-avatar-id="${avatar.id}">
               <div class="avatar-preset-label avatar-preset-label-top">${escapeHtmlText(avatar.label)}</div>
               <div class="avatar-preset-preview" style="background-image:url('${escapeHtmlText(avatar.src)}');"></div>
-              <div class="avatar-preset-label">Tap to switch</div>
+              <div class="avatar-preset-label">Tap to preview</div>
             </button>
           `;
         }).join("");
-      }
-      const close = () => picker.remove();
-      picker.querySelectorAll("[data-avatar-picker-close], [data-avatar-picker-cancel]").forEach((btn) => {
-        btn.addEventListener("click", close);
-      });
-      picker.addEventListener("click", (event) => {
-        if (event.target === picker) close();
-      });
-      if (grid) {
         grid.querySelectorAll("button[data-avatar-id]").forEach((btn) => {
           btn.addEventListener("click", () => {
-            const nextId = btn.dataset.avatarId || DEFAULT_AVATAR_ID;
-            setAvatarForCurrentMember(nextId, { persist: true });
-            showToast(`${AVATAR_DISPLAY_NAME_BY_ID[normalizeAvatarId(nextId)] || "Avatar"} selected`, 1800);
-            close();
+            draft.avatarId = normalizeAvatarId(btn.dataset.avatarId || DEFAULT_AVATAR_ID);
+            syncPreview();
           });
         });
       }
-      const customizeBtn = picker.querySelector("[data-avatar-picker-customize]");
-      if (customizeBtn) {
-        customizeBtn.addEventListener("click", () => {
-          close();
-          openAvatarCustomizeModal();
+      picker.querySelectorAll('[data-acc-toggle]').forEach((input) => {
+        input.addEventListener("change", () => {
+          const key = input.getAttribute("data-acc-toggle");
+          if (!key) return;
+          draft.accessories[key] = input.checked;
+          syncPreview();
+        });
+      });
+      picker.addEventListener("click", (event) => {
+        const btn = event.target instanceof HTMLElement ? event.target.closest(".avatar-style-btn") : null;
+        if (btn) {
+          const styleKey = String(btn.getAttribute("data-style-key") || "");
+          const styleValue = String(btn.getAttribute("data-style-value") || "");
+          if (styleKey && styleValue) {
+            draft.accessories[styleKey] = styleValue;
+            if (styleKey === "hat") draft.accessories.hat = true;
+            if (styleKey === "glassesStyle") draft.accessories.sunglasses = true;
+            if (styleKey === "drinkStyle") draft.accessories.drink = true;
+            syncPreview();
+          }
+          return;
+        }
+        if (event.target === picker) close();
+      });
+      picker.querySelectorAll("[data-avatar-picker-close], [data-avatar-picker-cancel]").forEach((btn) => {
+        btn.addEventListener("click", close);
+      });
+      const clearBtn = picker.querySelector("[data-avatar-picker-clear]");
+      if (clearBtn) {
+        clearBtn.addEventListener("click", () => {
+          draft.accessories = normalizeAvatarAccessories(DEFAULT_AVATAR_ACCESSORIES);
+          syncPreview();
         });
       }
+      const saveBtn = picker.querySelector("[data-avatar-picker-save]");
+      if (saveBtn) {
+        saveBtn.addEventListener("click", () => {
+          setAvatarForCurrentMember(draft.avatarId, { persist: true });
+          setAvatarAccessoriesForCurrentMember(draft.accessories, { persist: true });
+          showToast(`${AVATAR_DISPLAY_NAME_BY_ID[normalizeAvatarId(draft.avatarId)] || "Avatar"} saved`, 1700);
+          close();
+        });
+      }
+      syncPreview();
     }
     async function openAvatarCustomizeModal() {
       const current = normalizeAvatarAccessories(memberProfile?.avatarAccessories || null);
@@ -40514,6 +40825,134 @@ let onboardingIndex = 0;
           close();
         });
       }
+      picker.addEventListener("click", (event) => {
+        if (event.target === picker) close();
+      });
+    }
+    async function openStaffAvatarPickerModal() {
+      const venueId = resolveVenueId(staffSession?.venue || "");
+      if (!venueId) {
+        showToast("Log in to a venue first.", 1500);
+        return;
+      }
+      const current = loadStaffAvatarState(venueId);
+      const picker = document.createElement("div");
+      picker.className = "modal-backdrop active";
+      picker.style.zIndex = "15000";
+      picker.innerHTML = `
+        <div class="modal-card avatar-picker-modal" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <div class="modal-title">Choose staff avatar</div>
+            <button class="modal-close" type="button" data-staff-avatar-close>Close</button>
+          </div>
+          <div class="small" style="color:#cbd5f5;">Pick from preloaded FoCo After Dark avatars.</div>
+          <div class="avatar-picker-grid" data-staff-avatar-grid></div>
+          <div class="modal-actions" style="margin-top:14px;">
+            <button type="button" class="btn btn-secondary" data-staff-avatar-customize>Customize</button>
+            <button type="button" class="btn btn-secondary" data-staff-avatar-cancel>Cancel</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(picker);
+      const grid = picker.querySelector("[data-staff-avatar-grid]");
+      if (grid) {
+        grid.innerHTML = AVATAR_LIBRARY.map((avatar) => {
+          const selectedClass = avatar.id === current.avatarId ? "selected" : "";
+          return `
+            <button type="button" class="avatar-preset-btn ${selectedClass}" data-avatar-id="${avatar.id}">
+              <div class="avatar-preset-label avatar-preset-label-top">${escapeHtmlText(avatar.label)}</div>
+              <div class="avatar-preset-preview" style="background-image:url('${escapeHtmlText(avatar.src)}');"></div>
+              <div class="avatar-preset-label">Tap to switch</div>
+            </button>
+          `;
+        }).join("");
+      }
+      const close = () => picker.remove();
+      picker.querySelectorAll("[data-staff-avatar-close], [data-staff-avatar-cancel]").forEach((btn) => btn.addEventListener("click", close));
+      picker.addEventListener("click", (event) => {
+        if (event.target === picker) close();
+      });
+      if (grid) {
+        grid.querySelectorAll("button[data-avatar-id]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const nextId = btn.dataset.avatarId || DEFAULT_AVATAR_ID;
+            saveStaffAvatarState(venueId, { avatarId: nextId, accessories: current.accessories });
+            renderStaffAvatarHeader(venueId);
+            showToast("Staff avatar updated.", 1300);
+            close();
+          });
+        });
+      }
+      const customizeBtn = picker.querySelector("[data-staff-avatar-customize]");
+      if (customizeBtn) {
+        customizeBtn.addEventListener("click", () => {
+          close();
+          openStaffAvatarCustomizeModal();
+        });
+      }
+    }
+    async function openStaffAvatarCustomizeModal() {
+      const venueId = resolveVenueId(staffSession?.venue || "");
+      if (!venueId) {
+        showToast("Log in to a venue first.", 1500);
+        return;
+      }
+      const current = loadStaffAvatarState(venueId);
+      const picker = document.createElement("div");
+      picker.className = "modal-backdrop active";
+      picker.style.zIndex = "15000";
+      picker.innerHTML = `
+        <div class="modal-card avatar-picker-modal" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <div class="modal-title">Customize staff avatar</div>
+            <button class="modal-close" type="button" data-staff-avatar-custom-close>Close</button>
+          </div>
+          <div class="small" style="color:#cbd5f5;">Optional add-ons for the staff profile avatar.</div>
+          <div class="avatar-picker-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));max-height:none;overflow:visible;">
+            <button type="button" class="avatar-preset-btn ${current.accessories.hat ? "selected" : ""}" data-staff-acc-toggle="hat"><div class="avatar-preset-label avatar-preset-label-top">Baseball Cap</div><div class="avatar-preset-preview" style="display:grid;place-items:center;font-size:46px;background:linear-gradient(140deg,rgba(8,14,28,0.92),rgba(14,24,44,0.84));">🧢</div><div class="avatar-preset-label">${current.accessories.hat ? "Enabled" : "Tap to enable"}</div></button>
+            <button type="button" class="avatar-preset-btn ${current.accessories.sunglasses ? "selected" : ""}" data-staff-acc-toggle="sunglasses"><div class="avatar-preset-label avatar-preset-label-top">Sunglasses</div><div class="avatar-preset-preview" style="display:grid;place-items:center;font-size:46px;background:linear-gradient(140deg,rgba(8,14,28,0.92),rgba(14,24,44,0.84));">🕶️</div><div class="avatar-preset-label">${current.accessories.sunglasses ? "Enabled" : "Tap to enable"}</div></button>
+            <button type="button" class="avatar-preset-btn ${current.accessories.drink ? "selected" : ""}" data-staff-acc-toggle="drink"><div class="avatar-preset-label avatar-preset-label-top">Drink</div><div class="avatar-preset-preview" style="display:grid;place-items:center;font-size:46px;background:linear-gradient(140deg,rgba(8,14,28,0.92),rgba(14,24,44,0.84));">🍸</div><div class="avatar-preset-label">${current.accessories.drink ? "Enabled" : "Tap to enable"}</div></button>
+            <button type="button" class="avatar-preset-btn ${current.accessories.cigarette ? "selected" : ""}" data-staff-acc-toggle="cigarette"><div class="avatar-preset-label avatar-preset-label-top">Cigarette</div><div class="avatar-preset-preview" style="display:grid;place-items:center;font-size:46px;background:linear-gradient(140deg,rgba(8,14,28,0.92),rgba(14,24,44,0.84));">🚬</div><div class="avatar-preset-label">${current.accessories.cigarette ? "Enabled" : "Tap to enable"}</div></button>
+          </div>
+          <div class="modal-actions" style="margin-top:14px;">
+            <button type="button" class="btn btn-secondary" data-staff-avatar-custom-clear>Clear all</button>
+            <button type="button" class="btn btn-primary" data-staff-avatar-custom-save>Save</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(picker);
+      const state = { ...current.accessories };
+      const close = () => picker.remove();
+      const syncUi = () => {
+        picker.querySelectorAll("[data-staff-acc-toggle]").forEach((btn) => {
+          const key = btn.getAttribute("data-staff-acc-toggle");
+          const on = !!state[key];
+          btn.classList.toggle("selected", on);
+          const label = btn.querySelector(".avatar-preset-label:last-child");
+          if (label) label.textContent = on ? "Enabled" : "Tap to enable";
+        });
+      };
+      syncUi();
+      picker.querySelectorAll("[data-staff-acc-toggle]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const key = btn.getAttribute("data-staff-acc-toggle");
+          if (!key) return;
+          state[key] = !state[key];
+          syncUi();
+        });
+      });
+      picker.querySelectorAll("[data-staff-avatar-custom-close]").forEach((btn) => btn.addEventListener("click", close));
+      const clearBtn = picker.querySelector("[data-staff-avatar-custom-clear]");
+      if (clearBtn) clearBtn.addEventListener("click", () => {
+        state.hat = false; state.drink = false; state.cigarette = false; state.sunglasses = false; syncUi();
+      });
+      const saveBtn = picker.querySelector("[data-staff-avatar-custom-save]");
+      if (saveBtn) saveBtn.addEventListener("click", () => {
+        saveStaffAvatarState(venueId, { avatarId: current.avatarId, accessories: state });
+        renderStaffAvatarHeader(venueId);
+        showToast("Staff avatar customization saved.", 1400);
+        close();
+      });
       picker.addEventListener("click", (event) => {
         if (event.target === picker) close();
       });
@@ -40614,7 +41053,7 @@ let onboardingIndex = 0;
         saveLabel: "Save badge"
       });
       if (input === null) return;
-      applyAvatarFlair(normalizeVenueEmoji(input), { persist: true });
+      applyAvatarFlair(normalizeShortEmoji(input), { persist: true });
       showToast("Badge updated.", 1300);
     }
     if (avatarInitials) {
@@ -40626,9 +41065,18 @@ let onboardingIndex = 0;
       avatarEditBtn.textContent = "Choose avatar";
       avatarEditBtn.addEventListener("click", openAvatarPickerModal);
     }
-    if (avatarCustomizeBtn) {
-      avatarCustomizeBtn.textContent = "Customize";
-      avatarCustomizeBtn.addEventListener("click", openAvatarCustomizeModal);
+    if (staffAvatarInitials) {
+      staffAvatarInitials.style.cursor = "pointer";
+      staffAvatarInitials.title = "Tap to choose avatar";
+      staffAvatarInitials.addEventListener("click", openStaffAvatarPickerModal);
+    }
+    if (staffAvatarEditBtn) {
+      staffAvatarEditBtn.textContent = "Choose avatar";
+      staffAvatarEditBtn.addEventListener("click", openStaffAvatarPickerModal);
+    }
+    if (staffAvatarCustomizeBtn) {
+      staffAvatarCustomizeBtn.textContent = "Customize";
+      staffAvatarCustomizeBtn.addEventListener("click", openStaffAvatarCustomizeModal);
     }
     async function openTaglineEditor() {
       const current = (memberProfile?.tagline || "").trim();
@@ -42995,8 +43443,12 @@ let onboardingIndex = 0;
     function maybePromptStartShift() {
       if (!staffSession?.venue || suppressStaffShiftPrompt) return;
       if (getActiveShiftForVenue(staffSession.venue)) return;
+      const venueKey = String(staffSession.venue || "").toLowerCase();
+      if (venueKey && staffActiveShiftMapReady[venueKey] !== true) return;
+      if (venueKey && staffShiftLockMapReady[venueKey] !== true) return;
       // Avoid false "start shift" prompts while claims/session listeners are still hydrating.
       if (db && (!authClaimsReady || !hasStaffClaim())) return;
+      if (db && !staffActiveShiftUnsub) return;
       if (currentScreenName !== "staffPortal") return;
       openStaffShiftModal();
     }
@@ -43638,16 +44090,19 @@ let onboardingIndex = 0;
         staffActiveShiftUnsub = null;
       }
       const venueKey = String(venueId || "").toLowerCase();
+      staffActiveShiftMapReady[venueKey] = false;
       const local = loadStaffActiveShiftLocal(venueKey);
       if (local) staffActiveShiftMap[venueKey] = normalizeStaffShiftRecord(local, local.shiftKey) || local;
       else delete staffActiveShiftMap[venueKey];
       renderStaffShiftStatus();
       if (!db || !authClaimsReady || !hasStaffClaim()) {
+        staffActiveShiftMapReady[venueKey] = true;
         maybePromptStartShift();
         return;
       }
       const ref = doc(db, "venues", venueKey, "shiftState", "current");
       staffActiveShiftUnsub = subscribeSnapshot("staffActiveShift", ref, null, (snap) => {
+        staffActiveShiftMapReady[venueKey] = true;
         const payload = {
           exists: snap.exists(),
           data: snap.exists() ? (snap.data() || {}) : null
@@ -43659,6 +44114,7 @@ let onboardingIndex = 0;
         applyStaffActiveShiftSnapshot(venueKey, payload);
       }, (err) => {
         console.warn("staff active shift listener failed", err);
+        staffActiveShiftMapReady[venueKey] = true;
       });
     }
     function stopStaffShiftLockListener() {
@@ -43669,6 +44125,7 @@ let onboardingIndex = 0;
       if (staffSession?.venue) {
         const venueKey = String(staffSession.venue || "").toLowerCase();
         delete staffShiftLockMapReady[venueKey];
+        delete staffActiveShiftMapReady[venueKey];
         delete staffPendingActiveShiftSnapshot[venueKey];
       }
     }
@@ -47027,47 +47484,20 @@ let onboardingIndex = 0;
       if (staffVenueInput) staffVenueInput.focus();
     }
 
-    function getVenueEmojiStorageKey(venueId) {
-      const key = String(venueId || "").trim().toLowerCase();
-      return key ? `staffVenueEmoji_${key}` : "";
-    }
-    function normalizeVenueEmoji(value) {
+    function normalizeShortEmoji(value) {
       const raw = String(value || "").trim();
       if (!raw) return "";
       return Array.from(raw).slice(0, 2).join("");
     }
-    function getVenueEmoji(venueId) {
-      const key = getVenueEmojiStorageKey(venueId);
-      if (!key) return "";
-      try {
-        return normalizeVenueEmoji(localStorage.getItem(key) || "");
-      } catch (_) {
-        return "";
-      }
-    }
-    function setVenueEmoji(venueId, emoji) {
-      const key = getVenueEmojiStorageKey(venueId);
-      if (!key) return;
-      const safe = normalizeVenueEmoji(emoji);
-      try {
-        if (safe) localStorage.setItem(key, safe);
-        else localStorage.removeItem(key);
-      } catch (_) {}
-    }
     function renderStaffVenueHeader(venueId) {
       const resolved = resolveVenueId(venueId);
       const venueName = venuesInfo[resolved]?.name || "Your venue";
-      const emoji = getVenueEmoji(resolved);
-      const decorated = emoji ? `${emoji} ${venueName}` : venueName;
-      if (staffVenueBadge) staffVenueBadge.textContent = decorated;
-      if (staffVenueChip) staffVenueChip.textContent = decorated;
-      if (staffVenueLabel) staffVenueLabel.textContent = decorated;
-      if (staffPortalTitle) staffPortalTitle.innerHTML = `<span>${decorated}</span> Dashboard`;
+      if (staffVenueBadge) staffVenueBadge.textContent = venueName;
+      if (staffVenueChip) staffVenueChip.textContent = venueName;
+      if (staffVenueLabel) staffVenueLabel.textContent = venueName;
+      if (staffPortalTitle) staffPortalTitle.innerHTML = `<span>${venueName}</span> Dashboard`;
       if (staffPortalTagline) staffPortalTagline.textContent = `Live perks, redemptions, and alerts for ${venueName}.`;
-      if (staffVenueEmojiBtn) {
-        staffVenueEmojiBtn.textContent = emoji || "🏷️";
-        staffVenueEmojiBtn.title = emoji ? "Edit venue emoji" : "Set venue emoji";
-      }
+      renderStaffAvatarHeader(resolved);
     }
 
     function applyStaffSession(venueId) {
@@ -47419,28 +47849,6 @@ let onboardingIndex = 0;
       staffLoginSubmit.addEventListener("click", (e) => {
         e.preventDefault();
         processStaffLogin();
-      });
-    }
-    if (staffVenueEmojiBtn) {
-      staffVenueEmojiBtn.addEventListener("click", async () => {
-        const venueId = resolveVenueId(staffSession?.venue || "");
-        if (!venueId) {
-          showToast("Log in to a venue first.", 1600);
-          return;
-        }
-        const current = getVenueEmoji(venueId);
-        const next = await openProfileInputModal({
-          title: "Venue emoji",
-          label: "Set emoji badge (up to 2 chars)",
-          value: current,
-          maxLength: 8,
-          placeholder: "🍸",
-          saveLabel: "Save emoji"
-        });
-        if (next === null) return;
-        setVenueEmoji(venueId, next);
-        renderStaffVenueHeader(venueId);
-        showToast("Venue emoji updated.", 1400);
       });
     }
     if (staffGateAccept) {
