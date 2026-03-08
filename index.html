@@ -2124,27 +2124,38 @@
     .pulse-thread span {
       display: block;
       height: var(--pulse-height, 14px);
-      border-radius: 10px;
-      background: linear-gradient(180deg, color-mix(in srgb, var(--vibe-primary, var(--accent-primary-live)) 90%, transparent), color-mix(in srgb, var(--vibe-secondary, var(--accent-secondary-live)) 70%, transparent));
-      box-shadow: 0 8px 18px var(--vibe-glow, var(--accent-glow-live, rgba(34, 211, 238, 0.35)));
+      border-radius: 11px;
+      border: 1px solid color-mix(in srgb, var(--accent-primary-live, #22d3ee) 44%, transparent);
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--accent-primary-live, #22d3ee) 92%, transparent),
+        color-mix(in srgb, var(--accent-secondary-live, #ec4899) 78%, transparent)
+      );
+      box-shadow:
+        inset 0 1px 0 color-mix(in srgb, #ffffff 26%, transparent),
+        0 8px 18px color-mix(in srgb, var(--accent-glow-live, rgba(34, 211, 238, 0.35)) 84%, transparent);
       opacity: calc(0.55 + var(--pulse-intensity, 0) * 0.45);
-      transition: height 280ms ease, opacity 280ms ease;
+      transition: height 280ms ease, opacity 280ms ease, filter 220ms ease, box-shadow 220ms ease;
       transform-origin: bottom;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      will-change: transform, opacity, filter;
       animation: pulseWave var(--pulse-speed, 1.8s) ease-in-out infinite, pulseGlow 3.6s ease-in-out infinite;
       animation-delay: var(--pulse-delay, 0s);
     }
     .pulse-thread span.is-active {
       background: linear-gradient(
         180deg,
-        color-mix(in srgb, var(--accent-primary-live, #22d3ee) 96%, #ffffff 12%),
-        color-mix(in srgb, var(--accent-secondary-live, #ec4899) 88%, var(--accent-primary-live, #22d3ee) 24%)
+        color-mix(in srgb, var(--accent-primary-live, #22d3ee) 98%, #ffffff 16%),
+        color-mix(in srgb, var(--accent-secondary-live, #ec4899) 92%, var(--accent-primary-live, #22d3ee) 20%)
       );
       box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--accent-primary-live, #22d3ee) 42%, transparent),
+        inset 0 1px 0 color-mix(in srgb, #ffffff 38%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--accent-primary-live, #22d3ee) 50%, transparent),
         0 12px 24px color-mix(in srgb, var(--accent-glow-live, rgba(34, 211, 238, 0.38)) 92%, transparent),
-        0 0 24px color-mix(in srgb, var(--accent-secondary-live, #ec4899) 40%, transparent);
+        0 0 26px color-mix(in srgb, var(--accent-secondary-live, #ec4899) 46%, transparent);
       opacity: calc(0.82 + var(--pulse-intensity, 0) * 0.16);
-      filter: saturate(1.18) brightness(1.16);
+      filter: saturate(1.22) contrast(1.08) brightness(1.16);
     }
     .pulse-meta {
       display: flex;
@@ -13206,6 +13217,50 @@
       overflow: hidden;
       background: rgba(2, 6, 23, 0.52);
     }
+    #mapScreen .map-jail-hotspot {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 52px;
+      height: 52px;
+      transform: translate(-50%, -50%);
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      cursor: pointer;
+      pointer-events: auto;
+      touch-action: manipulation;
+      z-index: 2147483600;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+    }
+    #mapScreen .map-jail-hotspot::before {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border-radius: inherit;
+      border: 1px solid rgba(255, 47, 109, 0.12);
+      background: radial-gradient(circle, rgba(255, 47, 109, 0.09) 0%, rgba(58, 243, 255, 0.02) 72%);
+      box-shadow: 0 0 8px rgba(255, 47, 109, 0.16);
+      opacity: 0.35;
+    }
+    #mapScreen .map-jail-hotspot::after {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border-radius: inherit;
+      border: 1px dashed rgba(58, 243, 255, 0.18);
+      opacity: 0.22;
+    }
+    #mapScreen .map-jail-hotspot.debug-visible::before,
+    #mapScreen .map-jail-hotspot.debug-visible::after {
+      opacity: 0.9;
+    }
+    #mapScreen .map-jail-hotspot:focus-visible::before {
+      opacity: 0.95;
+      border-color: rgba(58, 243, 255, 0.62);
+      box-shadow: 0 0 0 2px rgba(58, 243, 255, 0.28), 0 0 16px rgba(58, 243, 255, 0.48);
+    }
     #venueMapFrame {
       position: absolute;
       inset: 0;
@@ -16531,21 +16586,26 @@
     @media (min-width: 961px) {
       #landingScreen .launch-header-actions,
       #landingScreen .home-dashboard-grid {
-        max-width: 1140px;
+        max-width: 1180px;
       }
       #landingScreen .home-dashboard-grid {
-        grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+        grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
         align-items: start;
-        column-gap: 12px;
-        row-gap: 10px;
+        column-gap: 16px;
+        row-gap: 12px;
       }
       #landingScreen .home-tonight-module {
+        padding: 16px 18px;
         min-height: 0;
         height: auto;
         align-self: start;
       }
       #landingScreen .home-support-stack {
+        gap: 11px;
         align-self: start;
+      }
+      #landingScreen .home-utility-panel {
+        padding: 11px 12px;
       }
       #landingScreen .home-dashboard-grid > * {
         min-width: 0;
@@ -16555,11 +16615,14 @@
     @media (min-width: 768px) and (max-width: 960px) {
       #landingScreen .launch-header-actions,
       #landingScreen .home-dashboard-grid {
-        max-width: 940px;
-        width: min(940px, calc(100vw - 28px));
+        max-width: 920px;
+        width: min(920px, calc(100vw - 44px));
       }
       #landingScreen .home-dashboard-grid {
         grid-template-columns: minmax(0, 1fr);
+        gap: 11px;
+      }
+      #landingScreen .home-support-stack {
         gap: 10px;
       }
       #landingScreen .home-tonight-module,
@@ -16569,22 +16632,38 @@
         min-width: 0;
       }
     }
+    @media (min-width: 900px) and (max-width: 960px) {
+      #landingScreen .home-dashboard-grid {
+        grid-template-columns: minmax(0, 1.03fr) minmax(0, 0.97fr);
+        align-items: start;
+      }
+      #landingScreen .home-tonight-module {
+        padding: 14px 15px;
+      }
+      #landingScreen .home-support-stack {
+        align-self: start;
+      }
+    }
     @media (min-width: 961px) and (max-width: 1180px) {
       #landingScreen .launch-header-actions,
       #landingScreen .home-dashboard-grid {
-        max-width: 1020px;
-        width: min(1020px, calc(100vw - 36px));
+        max-width: 1080px;
+        width: min(1080px, calc(100vw - 42px));
       }
       #landingScreen .home-dashboard-grid {
-        grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
-        column-gap: 10px;
+        grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
+        column-gap: 12px;
+        row-gap: 11px;
       }
       #landingScreen .launch-billboard,
       #landingScreen .home-tonight-module {
-        padding: 12px 13px 11px;
+        padding: 13px 14px 12px;
+      }
+      #landingScreen .home-support-stack {
+        gap: 10px;
       }
       #landingScreen .launch-social-proof .proof-row {
-        min-height: 52px;
+        min-height: 54px;
       }
     }
     @media (max-width: 920px) {
@@ -26587,6 +26666,18 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.131",
+        date: "2026-03-07",
+        added: [],
+        improved: [
+          "FoCo pulse visuals now use a sharper accent-consistent neon render for clearer HD profile presentation",
+          "Home layout spacing was retuned for web and iPad with cleaner card fit and better visual rhythm while preserving iPhone behavior"
+        ],
+        fixed: [
+          "Map interaction reliability was upgraded with an app-owned hotspot layer to improve difficult location-triggered unlock taps"
+        ]
+      },
+      {
         version: "v0.9.130",
         date: "2026-03-07",
         added: [
@@ -28815,10 +28906,19 @@
         "larimer county jail",
         "larimer county detention center",
         "larimer county sheriff jail",
+        "larimer county sheriff office",
+        "larimer county jail fort collins co",
+        "larimer county jail fort collins co 80525",
+        "larimer county jail 2405 midpoint dr",
         "2405 midpoint dr",
+        "2405 midpoint drive",
         "2405 midpoint dr fort collins co 80525",
+        "2405 midpoint drive fort collins co 80525",
         "midpoint dr fort collins",
-        "larimer county jail fort collins"
+        "midpoint drive fort collins",
+        "larimer county jail fort collins",
+        "80525 usa",
+        "detention center fort collins"
       ]
     });
     const MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS = 220;
@@ -28829,6 +28929,7 @@
     let venueGoogleInfoWindow = null;
     let venueGoogleGeocoder = null;
     let venueGooglePlacesService = null;
+    let venueJailHotspotOverlay = null;
     let venueMapInteractiveReady = false;
     const venueMapMarkerCache = new Map();
     const venueMapGeocodeCache = new Map();
@@ -28841,8 +28942,12 @@
       } catch (_) {
         // keep raw source text
       }
+      decoded = decoded.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
       return decoded
         .toLowerCase()
+        .replace(/&/g, " and ")
+        .replace(/[\u2018\u2019\u201A\u201B\u2032]/g, "'")
+        .replace(/[\u201C\u201D\u201E\u201F\u2033]/g, "\"")
         .replace(/[^a-z0-9]+/g, " ")
         .replace(/\s+/g, " ")
         .trim();
@@ -28912,14 +29017,17 @@
     }
     function unlockPrisonPunchFromMap(options = {}) {
       const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
+      const source = String(options?.source || "unknown");
+      const uid = String(firebaseAuth?.currentUser?.uid || "");
       const unlocked = unlockAccentForCurrentMember("prison_punch");
+      console.log("[map egg] unlock attempt", { source, uid, unlocked });
       if (unlocked) {
-        console.log("[map egg] unlock fired", { source: String(options?.source || "unknown") });
+        console.log("[map egg] unlock fired", { source, uid, unlockedResult: true });
         showToast("🚔 Easter egg unlocked: Prison Punch accent is now available.", 7000);
         applyAccentTheme("prison_punch");
         updateAccentChipLocks();
       } else if (showAlreadyUnlocked) {
-        console.log("[map egg] already unlocked", { source: String(options?.source || "unknown") });
+        console.log("[map egg] already unlocked", { source, uid, unlockedResult: false });
         showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
       }
     }
@@ -28945,6 +29053,66 @@
       `);
       venueGoogleInfoWindow.setPosition(position);
       venueGoogleInfoWindow.open({ map: venueGoogleMap, shouldFocus: false });
+    }
+    function teardownJailHotspotOverlay() {
+      if (!venueJailHotspotOverlay || typeof venueJailHotspotOverlay.setMap !== "function") return;
+      venueJailHotspotOverlay.setMap(null);
+      venueJailHotspotOverlay = null;
+    }
+    function attachJailHotspotOverlay(mapInstance) {
+      if (!mapInstance || !window.google?.maps?.OverlayView) return null;
+      teardownJailHotspotOverlay();
+      const overlay = new window.google.maps.OverlayView();
+      let hotspotNode = null;
+      let lastHotspotActivationMs = 0;
+      const handleActivate = (event) => {
+        const now = Date.now();
+        if ((now - lastHotspotActivationMs) < 420) return;
+        lastHotspotActivationMs = now;
+        if (event?.preventDefault) event.preventDefault();
+        if (event?.stopPropagation) event.stopPropagation();
+        console.log("[map egg] jail overlay hotspot clicked");
+        unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "jail_overlay_hotspot" });
+        openVenueMapInfo(
+          { lat: MAP_EASTER_EGG_JAIL.lat, lng: MAP_EASTER_EGG_JAIL.lng },
+          MAP_EASTER_EGG_JAIL.name,
+          MAP_EASTER_EGG_JAIL.address
+        );
+      };
+      overlay.onAdd = function onAdd() {
+        hotspotNode = document.createElement("button");
+        hotspotNode.type = "button";
+        hotspotNode.className = `map-jail-hotspot${QA_MODE ? " debug-visible" : ""}`;
+        hotspotNode.setAttribute("aria-label", "Larimer County Jail easter egg hotspot");
+        hotspotNode.setAttribute("title", "Larimer County Jail");
+        hotspotNode.addEventListener("click", handleActivate);
+        hotspotNode.addEventListener("touchend", handleActivate, { passive: false });
+        const panes = this.getPanes?.();
+        const hostPane = panes?.overlayMouseTarget || panes?.floatPane || panes?.overlayLayer;
+        if (hostPane) hostPane.appendChild(hotspotNode);
+      };
+      overlay.draw = function draw() {
+        if (!hotspotNode) return;
+        const projection = this.getProjection?.();
+        if (!projection) return;
+        const point = projection.fromLatLngToDivPixel(
+          new window.google.maps.LatLng(MAP_EASTER_EGG_JAIL.lat, MAP_EASTER_EGG_JAIL.lng)
+        );
+        if (!point) return;
+        hotspotNode.style.left = `${Math.round(point.x)}px`;
+        hotspotNode.style.top = `${Math.round(point.y)}px`;
+      };
+      overlay.onRemove = function onRemove() {
+        if (hotspotNode) {
+          hotspotNode.removeEventListener("click", handleActivate);
+          hotspotNode.removeEventListener("touchend", handleActivate);
+          hotspotNode.remove();
+          hotspotNode = null;
+        }
+      };
+      overlay.setMap(mapInstance);
+      venueJailHotspotOverlay = overlay;
+      return overlay;
     }
     function upsertVenueMapMarker(key, coords, title = "", subtitle = "", options = {}) {
       if (!window.google?.maps || !venueGoogleMap || !coords) return null;
@@ -29012,6 +29180,7 @@
       if (!venueMapCanvas) return false;
       // Keep map behavior stable on web/iOS when Maps JS API is not fully enabled.
       if (!window.google?.maps?.Map && interactiveMapHasRuntimeError()) {
+        teardownJailHotspotOverlay();
         venueMapInteractiveReady = false;
         useInteractiveVenueMap(false);
         return false;
@@ -29032,6 +29201,7 @@
           clickableIcons: true,
           gestureHandling: "greedy"
         });
+        attachJailHotspotOverlay(venueGoogleMap);
         venueGoogleInfoWindow = new google.maps.InfoWindow();
         venueGoogleGeocoder = new google.maps.Geocoder();
         if (window.google?.maps?.places) {
@@ -29106,6 +29276,7 @@
           if (!venueMapInteractiveReady) return;
           if (!interactiveMapHasRuntimeError()) return;
           console.warn("Interactive map runtime error detected; falling back to embed map.");
+          teardownJailHotspotOverlay();
           venueMapInteractiveReady = false;
           useInteractiveVenueMap(false);
           if (currentScreenName === "map") {
@@ -29118,6 +29289,7 @@
         return true;
       } catch (err) {
         console.warn("Interactive map unavailable; using embed fallback.", err);
+        teardownJailHotspotOverlay();
         venueMapInteractiveReady = false;
         useInteractiveVenueMap(false);
         return false;
@@ -30427,9 +30599,10 @@
           }
           const spread = Math.max(10, Math.min(72, (todayCount * 5) + base * (vibeConfig.factor || 1)));
           bar.style.setProperty("--pulse-height", `${spread}px`);
-          bar.style.setProperty("--pulse-speed", `${Math.max(0.6, 1.6 - intensity * 0.6) + Math.random() * 0.4}s`);
-          bar.style.setProperty("--pulse-delay", `${Math.random() * 0.6}s`);
-          bar.style.opacity = 0.55 + (0.02 * idx) + intensity * 0.15;
+          const pulseSpeed = Math.max(0.82, 1.46 - intensity * 0.5) + ((idx % 3) * 0.06);
+          bar.style.setProperty("--pulse-speed", `${pulseSpeed.toFixed(2)}s`);
+          bar.style.setProperty("--pulse-delay", `${(idx * 0.035).toFixed(2)}s`);
+          bar.style.opacity = (0.64 + intensity * 0.18).toFixed(3);
           bar.classList.toggle("is-active", idx < activeBars);
         });
       }
