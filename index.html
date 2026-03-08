@@ -26862,13 +26862,27 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.140",
+        date: "2026-03-07",
+        added: [
+          "Venue map popups now include an in-card close (X) control for faster dismissal"
+        ],
+        improved: [
+          "Special accent unlock availability now syncs more reliably across signed-in devices for the same account"
+        ],
+        fixed: [
+          "Map popup readability was retuned with stronger contrast styling",
+          "Special-location map pin visibility now appears only at a tighter zoom level"
+        ]
+      },
+      {
         version: "v0.9.139",
         date: "2026-03-07",
         added: [
           "Home hero highlights now include a direct add-to-home-screen reminder for full app features"
         ],
         improved: [
-          "Jail easter-egg unlock transition now applies the Prison Punch accent cleanly without color flicker on first unlock"
+          "Special accent transition timing now applies newly unlocked themes cleanly without first-apply color flicker"
         ],
         fixed: [
           "Removed competing post-unlock accent reapply paths that could briefly flash between old and newly unlocked accent themes"
@@ -29219,7 +29233,7 @@
     const MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS = 160;
     const MAP_EASTER_EGG_JAIL_FOCUS_RADIUS_METERS = 110;
     const MAP_EASTER_EGG_JAIL_FOCUS_MIN_ZOOM = 16;
-    const MAP_EASTER_EGG_JAIL_VISIBLE_MIN_ZOOM = 15;
+    const MAP_EASTER_EGG_JAIL_VISIBLE_MIN_ZOOM = 16;
     const MAP_EASTER_EGG_JAIL_FOCUS_SETTLE_MS = 3000;
     const MAP_EASTER_EGG_JAIL_STEER_TARGET = Object.freeze({
       lat: 40.56434597768495,
@@ -29731,10 +29745,16 @@
       if (!venueGoogleInfoWindow || !venueGoogleMap || !position) return;
       const safeTitle = escapeHtmlText(String(title || "").trim() || "FoCo After Dark");
       const safeSubtitle = escapeHtmlText(String(subtitle || "").trim());
+      if (typeof window !== "undefined") {
+        window.__closeVenueMapInfoWindow = () => {
+          try { venueGoogleInfoWindow?.close(); } catch (_) {}
+        };
+      }
       venueGoogleInfoWindow.setContent(`
-        <div style="max-width:220px;padding:4px 4px 2px;color:#0b1220;">
-          <div style="font-weight:800;font-size:13px;letter-spacing:.01em;line-height:1.25;color:#0b1220;">${safeTitle}</div>
-          ${safeSubtitle ? `<div style="font-size:11px;line-height:1.35;color:#334155;margin-top:3px;">${safeSubtitle}</div>` : ""}
+        <div style="max-width:240px;min-width:180px;padding:10px 12px 10px;border-radius:12px;background:linear-gradient(145deg, rgba(8,14,28,0.96), rgba(17,24,39,0.96));border:1px solid rgba(94,234,212,0.35);box-shadow:0 12px 28px rgba(2,6,23,0.45);color:#e2e8f0;position:relative;">
+          <button type="button" aria-label="Close" onclick="window.__closeVenueMapInfoWindow && window.__closeVenueMapInfoWindow()" style="position:absolute;right:6px;top:6px;width:22px;height:22px;border-radius:999px;border:1px solid rgba(148,163,184,0.42);background:rgba(15,23,42,0.7);color:#f8fafc;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;cursor:pointer;">&times;</button>
+          <div style="font-weight:800;font-size:13px;letter-spacing:.01em;line-height:1.25;color:#f8fafc;padding-right:24px;">${safeTitle}</div>
+          ${safeSubtitle ? `<div style="font-size:11px;line-height:1.35;color:#cbd5e1;margin-top:4px;">${safeSubtitle}</div>` : ""}
         </div>
       `);
       venueGoogleInfoWindow.setPosition(position);
@@ -29746,6 +29766,14 @@
       if (!marker) return false;
       openVenueMapInfo(marker.getPosition(), marker.__focoTitle || getVenueDisplayName(venueId), marker.__focoSubtitle || "");
       return true;
+    }
+    function ensureVenueMapInfoOpen(venueId, attempt = 0) {
+      const safeId = String(venueId || "").trim();
+      if (!safeId || safeId === "__jail__") return;
+      if (openVenueMapInfoById(safeId)) return;
+      if (attempt >= 6) return;
+      const delayMs = attempt < 2 ? 150 : 230;
+      setTimeout(() => ensureVenueMapInfoOpen(safeId, attempt + 1), delayMs);
     }
     function upsertVenueMapMarker(key, coords, title = "", subtitle = "", options = {}) {
       if (!window.google?.maps || !venueGoogleMap || !coords) return null;
@@ -30057,9 +30085,7 @@
         const focusPromise = focusVenueOnInteractiveMap(venueId);
         if (shouldOpenInfo && !isJailTarget) {
           Promise.resolve(focusPromise).then(() => {
-            if (!openVenueMapInfoById(venueId)) {
-              setTimeout(() => openVenueMapInfoById(venueId), 220);
-            }
+            ensureVenueMapInfoOpen(venueId);
           });
         }
         void syncInteractiveVenueMarkers("set_active_map_venue");
@@ -30069,9 +30095,7 @@
           const focusPromise = focusVenueOnInteractiveMap(venueId);
           if (shouldOpenInfo && !isJailTarget) {
             Promise.resolve(focusPromise).then(() => {
-              if (!openVenueMapInfoById(venueId)) {
-                setTimeout(() => openVenueMapInfoById(venueId), 260);
-              }
+              ensureVenueMapInfoOpen(venueId);
             });
           }
           void syncInteractiveVenueMarkers("set_active_map_venue_ready");
@@ -32352,7 +32376,23 @@
                 currentPassCode = mergedPass;
                 persistLocalPassCode(currentPassCode);
               }
+              const profileUnlockThemes = normalizeMemberAccentUnlockThemes(data.easterEggUnlockedThemes);
+              if (profileUnlockThemes.length) {
+                memberProfile.easterEggUnlockedThemes = profileUnlockThemes.slice();
+                memberProfile.easterEggUnlockedCount = Math.max(
+                  Number(memberProfile?.easterEggUnlockedCount || 0),
+                  Number(data.easterEggUnlockedCount || 0),
+                  profileUnlockThemes.length
+                );
+              }
               if (mergedPass) setMemberDirectoryEntry(mergedPass, memberProfile);
+              const unlockSyncApplied = hydrateMemberAccentUnlocksFromProfile(uid);
+              if (unlockSyncApplied) {
+                updateAccentChipLocks();
+                if (typeof renderProfileScreen === "function" && currentScreenName === "profile") {
+                  try { renderProfileScreen(); } catch (_) {}
+                }
+              }
               if (data.accent) applyAccentTheme(data.accent);
               if (typeof data.customVibeText === "string") {
                 currentCustomVibeText = sanitizeCustomVibeText(data.customVibeText);
@@ -34756,6 +34796,7 @@ let onboardingIndex = 0;
         passCode: memberProfile.passCode,
         memberSince: memberProfile.memberSince,
       });
+      hydrateMemberAccentUnlocksFromProfile(user.uid);
       cachePassProfile(memberProfile.passCode, memberProfile, user.uid);
       maybeShowVoucherGrantNotice(memberProfile);
       return memberProfile;
@@ -37119,9 +37160,51 @@ let onboardingIndex = 0;
       const resolved = profilePref != null ? profilePref : (localPref !== false);
       applyMemberTouchSoundPreference(resolved);
     }
+    function normalizeMemberAccentUnlockThemes(themes = memberProfile?.easterEggUnlockedThemes) {
+      if (!Array.isArray(themes)) return [];
+      return themes
+        .map((theme) => String(theme || "").toLowerCase().trim())
+        .filter((theme) => theme && EASTER_EGG_UNLOCK_THEMES.includes(theme));
+    }
+    function hydrateMemberAccentUnlocksFromProfile(uid = firebaseAuth?.currentUser?.uid) {
+      const normalizedThemes = normalizeMemberAccentUnlockThemes();
+      if (!normalizedThemes.length) return false;
+      const storageKeys = [
+        getMemberAccentUnlocksStorageKey(uid),
+        getMemberAccentUnlocksPassStorageKey(currentPassCode || memberProfile?.passCode || "")
+      ].filter(Boolean);
+      if (!storageKeys.length) return false;
+      let changed = false;
+      storageKeys.forEach((key) => {
+        const unlocks = readAccentUnlockSetByStorageKey(key);
+        let localChanged = false;
+        normalizedThemes.forEach((theme) => {
+          if (!unlocks.has(theme)) {
+            unlocks.add(theme);
+            localChanged = true;
+          }
+        });
+        if (localChanged && writeAccentUnlockSetByStorageKey(key, unlocks)) {
+          changed = true;
+        }
+      });
+      return changed;
+    }
     function readMemberAccentUnlocks(uid = firebaseAuth?.currentUser?.uid) {
       const key = getMemberAccentUnlocksStorageKey(uid);
-      return readAccentUnlockSetByStorageKey(key);
+      const unlocks = readAccentUnlockSetByStorageKey(key);
+      const normalizedThemes = normalizeMemberAccentUnlockThemes();
+      let changed = false;
+      normalizedThemes.forEach((theme) => {
+        if (!unlocks.has(theme)) {
+          unlocks.add(theme);
+          changed = true;
+        }
+      });
+      if (changed && key) {
+        writeAccentUnlockSetByStorageKey(key, unlocks);
+      }
+      return unlocks;
     }
     function getCurrentMemberEasterEggUnlockSummary(uid = firebaseAuth?.currentUser?.uid) {
       const unlocks = readMemberAccentUnlocks(uid);
@@ -37185,6 +37268,8 @@ let onboardingIndex = 0;
     function isAccentUnlockedForCurrentMember(theme = "", uid = firebaseAuth?.currentUser?.uid) {
       const t = String(theme || "").toLowerCase();
       if (!t) return false;
+      const profileThemes = normalizeMemberAccentUnlockThemes();
+      if (profileThemes.includes(t)) return true;
       const unlocks = readMemberAccentUnlocks(uid);
       if (unlocks.has(t)) return true;
       if (t === "prison_punch") {
