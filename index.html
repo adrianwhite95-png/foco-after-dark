@@ -13282,27 +13282,6 @@
       min-height: 320px;
       height: min(46vh, 380px);
     }
-    #mapScreen .map-debug-row {
-      margin-top: 10px;
-      display: flex;
-      justify-content: flex-end;
-    }
-    #mapScreen .map-debug-btn {
-      min-height: 42px;
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(74, 255, 118, 0.82);
-      background: rgba(1, 9, 4, 0.72);
-      color: #afffc3;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      box-shadow: 0 0 0 1px rgba(74, 255, 118, 0.24) inset, 0 0 18px rgba(74, 255, 118, 0.34);
-    }
-    #mapScreen .map-debug-btn:active {
-      transform: translateY(1px);
-    }
     #venueMapCanvas {
       position: absolute;
       inset: 0;
@@ -13313,51 +13292,6 @@
       border-radius: inherit;
       overflow: hidden;
       background: rgba(2, 6, 23, 0.52);
-    }
-    #mapScreen .map-jail-hotspot {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 56px;
-      height: 56px;
-      transform: translate(-50%, -50%);
-      border: 2px solid rgba(73, 255, 120, 0.92);
-      border-radius: 999px;
-      background: rgba(0, 10, 5, 0.72);
-      cursor: pointer;
-      pointer-events: auto;
-      touch-action: manipulation;
-      z-index: 2147483600;
-      -webkit-tap-highlight-color: transparent;
-      outline: none;
-      box-shadow: 0 0 0 2px rgba(73, 255, 120, 0.28), 0 0 26px rgba(73, 255, 120, 0.58);
-    }
-    #mapScreen .map-jail-hotspot::before {
-      content: "";
-      position: absolute;
-      inset: 8px;
-      border-radius: inherit;
-      border: 1px dashed rgba(255, 255, 255, 0.85);
-      background: radial-gradient(circle, rgba(74, 255, 118, 0.34) 0%, rgba(74, 255, 118, 0.08) 70%);
-      opacity: 1;
-    }
-    #mapScreen .map-jail-hotspot::after {
-      content: "EGG";
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      color: #f4ffe9;
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: 0.09em;
-      text-shadow: 0 0 8px rgba(73, 255, 120, 0.92);
-      opacity: 1;
-    }
-    #mapScreen .map-jail-hotspot:focus-visible::before {
-      opacity: 0.95;
-      border-color: rgba(58, 243, 255, 0.62);
-      box-shadow: 0 0 0 2px rgba(58, 243, 255, 0.28), 0 0 16px rgba(58, 243, 255, 0.48);
     }
     #venueMapFrame {
       position: absolute;
@@ -18276,9 +18210,6 @@
         src="https://www.google.com/maps?q=Old+Town+Fort+Collins+bars&output=embed">
       </iframe>
     </div>
-    <div class="map-debug-row">
-      <button type="button" class="map-debug-btn" id="mapJailDebugUnlockBtn">DEBUG: Unlock Prison Punch</button>
-    </div>
     <div class="map-venue-list card-hd" id="mapVenueList"></div>
   </div>
   <div id="profileActivityScreen" class="screen">
@@ -22927,7 +22858,9 @@
       if (name === "map") {
         renderMapVenueList();
         ensureInteractiveVenueMapReady().then((ready) => {
-          if (!ready || currentScreenName !== "map") return;
+          if (currentScreenName !== "map") return;
+          reportMapRuntimeMode("showScreen_map_open");
+          if (!ready) return;
           if (activeMapVenueId) {
             focusVenueOnInteractiveMap(activeMapVenueId);
           }
@@ -26480,7 +26413,6 @@
     const mapVenueList = document.getElementById("mapVenueList");
     const venueMapCanvas = document.getElementById("venueMapCanvas");
     const venueMapFrame = document.getElementById("venueMapFrame");
-    const mapJailDebugUnlockBtn = document.getElementById("mapJailDebugUnlockBtn");
     const profileActivityName = document.getElementById("profileActivityName");
     const profileActivityTier = document.getElementById("profileActivityTier");
     const profileActivityPass = document.getElementById("profileActivityPass");
@@ -29254,8 +29186,8 @@
     const MAP_EASTER_EGG_JAIL = Object.freeze({
       name: "Larimer County Jail",
       address: "2405 Midpoint Dr, Fort Collins, CO 80525, USA",
-      lat: 40.5538,
-      lng: -105.0336,
+      lat: 40.56434597768495,
+      lng: -105.03246888304204,
       matchers: [
         "larimer county jail",
         "larimer county detention center",
@@ -29276,6 +29208,18 @@
       ]
     });
     const MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS = 160;
+    const MAP_EASTER_EGG_JAIL_FOCUS_RADIUS_METERS = 110;
+    const MAP_EASTER_EGG_JAIL_FOCUS_MIN_ZOOM = 16;
+    const MAP_EASTER_EGG_JAIL_FOCUS_SETTLE_MS = 3000;
+    const MAP_EASTER_EGG_JAIL_STEER_TARGET = Object.freeze({
+      lat: 40.56434597768495,
+      lng: -105.03246888304204
+    });
+    const MAP_EASTER_EGG_JAIL_STEER_OUTER_RADIUS_METERS = 260;
+    const MAP_EASTER_EGG_JAIL_STEER_MID_RADIUS_METERS = 140;
+    const MAP_EASTER_EGG_JAIL_STEER_ZOOM_MIN = 16;
+    const MAP_EASTER_EGG_JAIL_STEER_TOAST_COOLDOWN_MS = 2400;
+    const MAP_EASTER_EGG_JAIL_STEER_APPROACH_DELTA_METERS = 10;
     const MAP_DEFAULT_CENTER = Object.freeze({ lat: 40.5853, lng: -105.0844 });
     let activeMapVenueId = "";
     let googleMapsLoaderPromise = null;
@@ -29283,12 +29227,15 @@
     let venueGoogleInfoWindow = null;
     let venueGoogleGeocoder = null;
     let venueGooglePlacesService = null;
-    let venueJailHotspotOverlay = null;
     let venueMapInteractiveReady = false;
+    let mapRuntimeFallbackReason = "";
+    let mapJailFocusConfirmTimer = null;
+    let mapJailFocusLocked = false;
+    let mapJailSteerBand = "";
+    let mapJailSteerLastToastMs = 0;
+    let mapJailSteerLastDistanceMeters = Number.POSITIVE_INFINITY;
     const venueMapMarkerCache = new Map();
     const venueMapGeocodeCache = new Map();
-    let mapFallbackLastInteractionMs = 0;
-    let mapFallbackUnlockTimer = null;
     function normalizeMapMatchSource(source = "") {
       let decoded = String(source || "");
       try {
@@ -29310,15 +29257,25 @@
       const aLat = Number(lat);
       const aLng = Number(lng);
       if (!Number.isFinite(aLat) || !Number.isFinite(aLng)) return false;
+      const distance = getDistanceMetersBetween(aLat, aLng, MAP_EASTER_EGG_JAIL.lat, MAP_EASTER_EGG_JAIL.lng);
+      return distance <= Number(radiusMeters || MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS);
+    }
+    function getDistanceMetersBetween(latA, lngA, latB, lngB) {
+      const aLat = Number(latA);
+      const aLng = Number(lngA);
+      const bLat = Number(latB);
+      const bLng = Number(lngB);
+      if (!Number.isFinite(aLat) || !Number.isFinite(aLng) || !Number.isFinite(bLat) || !Number.isFinite(bLng)) {
+        return Number.POSITIVE_INFINITY;
+      }
       const toRad = (deg) => deg * (Math.PI / 180);
-      const dLat = toRad(MAP_EASTER_EGG_JAIL.lat - aLat);
-      const dLng = toRad(MAP_EASTER_EGG_JAIL.lng - aLng);
+      const dLat = toRad(bLat - aLat);
+      const dLng = toRad(bLng - aLng);
       const lat1 = toRad(aLat);
-      const lat2 = toRad(MAP_EASTER_EGG_JAIL.lat);
+      const lat2 = toRad(bLat);
       const hav = Math.sin(dLat / 2) ** 2
         + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-      const distance = 6371000 * (2 * Math.atan2(Math.sqrt(hav), Math.sqrt(1 - hav)));
-      return distance <= Number(radiusMeters || MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS);
+      return 6371000 * (2 * Math.atan2(Math.sqrt(hav), Math.sqrt(1 - hav)));
     }
     function isPrisonPunchMapSource(source = "") {
       const normalized = normalizeMapMatchSource(source);
@@ -29327,6 +29284,14 @@
         const normalizedMatcher = normalizeMapMatchSource(matcher);
         return normalizedMatcher ? normalized.includes(normalizedMatcher) : false;
       });
+    }
+    function isJailVenueSelectionTarget(position, title = "", subtitle = "") {
+      const titleText = String(title || "").trim();
+      const subtitleText = String(subtitle || "").trim();
+      if (isPrisonPunchMapSource(`${titleText} ${subtitleText}`)) return true;
+      const latValue = typeof position?.lat === "function" ? Number(position.lat()) : Number(position?.lat);
+      const lngValue = typeof position?.lng === "function" ? Number(position.lng()) : Number(position?.lng);
+      return isNearJailPoint(latValue, lngValue, MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS);
     }
     function useInteractiveVenueMap(enabled) {
       if (venueMapCanvas) {
@@ -29369,45 +29334,28 @@
         || txt.includes("can't load google maps correctly")
         || txt.includes("for development purposes only");
     }
-    function logMapEggResult(path = "unknown", result = null) {
-      const payload = result && typeof result === "object"
-        ? result
-        : { ok: false, reason: "unknown", source: path };
-      console.log(`[map egg] ${path} result`, payload);
+    function reportMapRuntimeMode(context = "unknown") {
+      const interactive = venueMapInteractiveReady && venueGoogleMap && venueMapFrame?.style?.display === "none";
+      if (interactive) {
+        console.log("[map egg] map mode: interactive_js");
+        return;
+      }
+      console.log("[map egg] map mode: iframe_fallback");
+      if (mapRuntimeFallbackReason) {
+        console.warn("[map egg] iframe fallback reason", { context, reason: mapRuntimeFallbackReason });
+      }
     }
     function unlockPrisonPunchFromMap(options = {}) {
       const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
       const source = String(options?.source || "unknown");
       const identity = resolvePrisonPunchIdentityContext();
       const uid = identity.uid;
-      const result = {
-        ok: false,
-        reason: "unknown",
-        source,
-        identity: {
-          uid: identity.uid,
-          passCode: identity.passCode
-        },
-        storageKeys: identity.storageKeys.slice()
-      };
-      console.log("[map egg] trigger received", { source, showAlreadyUnlocked });
-      console.log("[map egg] unlock entry", { source, uid, showAlreadyUnlocked });
-      console.log("[map egg] identity resolved", {
-        source,
-        uid: identity.uid,
-        passCode: identity.passCode,
-        hasMemberProfile: !!memberProfile
-      });
-      console.log("[map egg] storage namespace", {
-        source,
-        keys: identity.storageKeys
-      });
+      const result = { ok: false, reason: "unknown", source };
       if (!uid && !identity.passCode) {
-        showToast("map egg fail: no uid", 1800);
-        showToast("map egg fail: no pass code", 1900);
+        result.reason = "no_user";
+        return result;
       }
       const preUnlocked = isPrisonPunchUnlockedForIdentity(identity);
-      console.log("[map egg] unlock precheck", { source, uid, preUnlocked });
       let writeResult = {
         ok: false,
         anyWrite: false,
@@ -29417,113 +29365,189 @@
       if (!preUnlocked) {
         writeResult = persistPrisonPunchUnlockForIdentity(identity);
       }
-      console.log("[map egg] unlock write result", {
-        source,
-        uid,
-        writeResult
-      });
       const persistedUnlocked = isPrisonPunchUnlockedForIdentity(identity);
-      console.log("[map egg] unlock persist result", { source, uid, persistedUnlocked });
-      console.log("[map egg] unlock verify result", {
-        source,
-        uid,
-        persistedUnlocked,
-        writeReason: writeResult.reason
-      });
-      if (!preUnlocked && !writeResult.ok && !persistedUnlocked) {
-        if (!identity.storageKeys.length) {
-          showToast("map egg fail: storage key missing", 2000);
-        } else if (!identity.passCode) {
-          showToast("map egg fail: no pass code", 1900);
-        } else {
-          showToast("map egg fail: persist sync skipped", 2000);
-        }
-      }
-
       if (preUnlocked) {
         result.ok = true;
         result.reason = "already_unlocked";
-        if (showAlreadyUnlocked) {
-          showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
-          console.log("[map egg] unlock toast fired", { source, uid, toast: "already_unlocked" });
-        } else {
-          console.log("[map egg] unlock toast fired", { source, uid, toast: "none" });
-        }
+        if (showAlreadyUnlocked) showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
       } else if (writeResult.ok && persistedUnlocked) {
         result.ok = true;
         result.reason = "accent_unlocked";
         showToast("🚔 Easter egg unlocked: Prison Punch accent is now available.", 7000);
-        console.log("[map egg] unlock toast fired", { source, uid, toast: "accent_unlocked" });
       } else if (writeResult.ok && !persistedUnlocked) {
         result.ok = false;
         result.reason = "persist_failed";
-        console.log("[map egg] unlock toast fired", { source, uid, toast: "none" });
       } else if (persistedUnlocked) {
         result.ok = true;
         result.reason = "already_unlocked";
-        if (showAlreadyUnlocked) {
-          showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
-          console.log("[map egg] unlock toast fired", { source, uid, toast: "already_unlocked" });
-        } else {
-          console.log("[map egg] unlock toast fired", { source, uid, toast: "none" });
-        }
+        if (showAlreadyUnlocked) showToast("Prison Punch is already unlocked. Check Accent settings.", 2600);
       } else {
         result.ok = false;
         result.reason = "unknown";
-        console.log("[map egg] unlock toast fired", { source, uid, toast: "none" });
       }
-
       if (result.ok && result.reason === "accent_unlocked" && uid) {
         syncMemberEasterEggProgress(uid);
       }
-      console.log("[map egg] accent UI refresh start", {
-        source,
-        uid,
-        result: result.reason
-      });
       updateAccentChipLocks();
       if (typeof refreshMembershipChoices === "function") {
         refreshMembershipChoices();
       }
       if (typeof renderProfileScreen === "function") {
-        try { renderProfileScreen(); } catch (err) { console.warn("[map egg] renderProfileScreen refresh failed", err); }
+        try { renderProfileScreen(); } catch (err) { console.warn("[accent] renderProfileScreen refresh failed", err); }
       }
       if (typeof renderPass === "function") {
-        try { renderPass(); } catch (err) { console.warn("[map egg] renderPass refresh failed", err); }
+        try { renderPass(); } catch (err) { console.warn("[accent] renderPass refresh failed", err); }
       }
       if (result.ok && typeof applyAccentTheme === "function") {
         try {
           applyAccentTheme(currentAccentTheme || "cyan");
         } catch (err) {
-          console.warn("[map egg] applyAccentTheme refresh failed", err);
+          console.warn("[accent] applyAccentTheme refresh failed", err);
         }
       }
-      console.log("[map egg] accent UI refresh done", {
-        source,
-        uid,
-        result: result.reason
-      });
-      if (result.reason === "accent_unlocked") {
-        console.log("[map egg] unlock fired", { source, uid });
-      } else if (result.reason === "already_unlocked") {
-        console.log("[map egg] already unlocked", { source, uid });
-      }
-      console.log("[map egg] unlock return", result);
       return result;
     }
-    function maybeUnlockPrisonPunchFromPlace(place = null, options = {}) {
-      const showAlreadyUnlocked = options?.showAlreadyUnlocked === true;
-      const sourceLabel = String(options?.source || "poi_match");
-      if (!place) {
-        return { ok: false, reason: "unknown", source: sourceLabel };
+    let lastCanonicalJailTriggerMs = 0;
+    function triggerPrisonPunchFromJailSelection(source = "unknown", options = {}) {
+      const sourceLabel = String(source || "unknown").trim() || "unknown";
+      const now = Date.now();
+      console.log("[map egg] canonical jail trigger", { source: sourceLabel });
+      if ((now - lastCanonicalJailTriggerMs) < 320) {
+        const deduped = { ok: false, reason: "trigger_debounced", source: sourceLabel };
+        showToast("Jail location recognized", 1400);
+        console.log("[map egg] canonical jail result", deduped);
+        return deduped;
       }
-      const name = String(place?.name || "").trim();
-      const address = String(place?.formatted_address || place?.vicinity || "").trim();
-      const source = `${name} ${address}`.trim();
-      if (!isPrisonPunchMapSource(source)) {
-        return { ok: false, reason: "unknown", source: sourceLabel };
+      lastCanonicalJailTriggerMs = now;
+      const result = unlockPrisonPunchFromMap({
+        showAlreadyUnlocked: options?.showAlreadyUnlocked === true,
+        source: sourceLabel
+      });
+      if (result?.reason === "already_unlocked") {
+        showToast("Prison Punch already unlocked", 1800);
+      } else if (!(result?.ok === true && result?.reason === "accent_unlocked")) {
+        showToast("Jail location recognized", 1500);
       }
-      return unlockPrisonPunchFromMap({ showAlreadyUnlocked, source: sourceLabel });
+      console.log("[map egg] canonical jail result", result);
+      return result;
+    }
+    function clearJailFocusConfirmTimer(reason = "") {
+      if (!mapJailFocusConfirmTimer) return;
+      clearTimeout(mapJailFocusConfirmTimer);
+      mapJailFocusConfirmTimer = null;
+      console.log("[map egg] jail focus timer cancel", { reason: reason || "cancelled" });
+    }
+    function resetJailSteerState(reason = "out_of_range") {
+      if (mapJailSteerBand) {
+        console.log("[map egg] steer reset", {
+          reason,
+          band: mapJailSteerBand,
+          lastDistanceMeters: mapJailSteerLastDistanceMeters
+        });
+      }
+      mapJailSteerBand = "";
+      mapJailSteerLastDistanceMeters = Number.POSITIVE_INFINITY;
+    }
+    function evaluateJailSteerState(lat, lng, zoom, source = "map_idle") {
+      const distanceMeters = getDistanceMetersBetween(
+        lat,
+        lng,
+        MAP_EASTER_EGG_JAIL_STEER_TARGET.lat,
+        MAP_EASTER_EGG_JAIL_STEER_TARGET.lng
+      );
+      if (!Number.isFinite(distanceMeters) || !Number.isFinite(Number(zoom)) || Number(zoom) < MAP_EASTER_EGG_JAIL_STEER_ZOOM_MIN) {
+        resetJailSteerState("zoom_or_position");
+        return;
+      }
+      let nextBand = "";
+      if (distanceMeters <= MAP_EASTER_EGG_JAIL_FOCUS_RADIUS_METERS) {
+        nextBand = "final";
+      } else if (distanceMeters <= MAP_EASTER_EGG_JAIL_STEER_MID_RADIUS_METERS) {
+        nextBand = "mid";
+      } else if (distanceMeters <= MAP_EASTER_EGG_JAIL_STEER_OUTER_RADIUS_METERS) {
+        nextBand = "outer";
+      } else {
+        resetJailSteerState("out_of_range");
+        return;
+      }
+      if (nextBand === "final") {
+        mapJailSteerBand = "final";
+        mapJailSteerLastDistanceMeters = distanceMeters;
+        return;
+      }
+      const approaching =
+        !Number.isFinite(mapJailSteerLastDistanceMeters)
+        || (mapJailSteerLastDistanceMeters - distanceMeters) >= MAP_EASTER_EGG_JAIL_STEER_APPROACH_DELTA_METERS;
+      const now = Date.now();
+      const cooldownMet = (now - mapJailSteerLastToastMs) >= MAP_EASTER_EGG_JAIL_STEER_TOAST_COOLDOWN_MS;
+      const shouldToast = approaching && cooldownMet && mapJailSteerBand !== nextBand;
+      if (shouldToast) {
+        if (nextBand === "outer") {
+          showToast("Getting warmer...", 1500);
+          console.log("[map egg] steer outer", { source, distanceMeters, zoom });
+        } else if (nextBand === "mid") {
+          showToast("You’re close… hold there.", 1700);
+          console.log("[map egg] steer mid", { source, distanceMeters, zoom });
+        }
+        mapJailSteerLastToastMs = now;
+      }
+      mapJailSteerBand = nextBand;
+      mapJailSteerLastDistanceMeters = distanceMeters;
+    }
+    function evaluateJailFocusCandidate(source = "map_idle") {
+      if (!venueGoogleMap || !venueMapInteractiveReady) return;
+      const center = venueGoogleMap.getCenter?.();
+      const zoom = Number(venueGoogleMap.getZoom?.() || 0);
+      const lat = Number(center?.lat?.());
+      const lng = Number(center?.lng?.());
+      evaluateJailSteerState(lat, lng, zoom, source);
+      const nearJail = isNearJailPoint(lat, lng, MAP_EASTER_EGG_JAIL_FOCUS_RADIUS_METERS);
+      const zoomReady = zoom >= MAP_EASTER_EGG_JAIL_FOCUS_MIN_ZOOM;
+      const candidate = nearJail && zoomReady;
+      console.log("[map egg] jail focus candidate", {
+        source,
+        lat,
+        lng,
+        zoom,
+        nearJail,
+        zoomReady
+      });
+      if (!candidate) {
+        mapJailFocusLocked = false;
+        clearJailFocusConfirmTimer("left_focus_zone");
+        return;
+      }
+      if (mapJailFocusLocked) return;
+      if (mapJailFocusConfirmTimer) return;
+      console.log("[map egg] jail focus timer start", {
+        source,
+        lat,
+        lng,
+        zoom,
+        holdMs: MAP_EASTER_EGG_JAIL_FOCUS_SETTLE_MS
+      });
+      mapJailFocusConfirmTimer = setTimeout(() => {
+        mapJailFocusConfirmTimer = null;
+        if (!venueGoogleMap || !venueMapInteractiveReady) return;
+        const settledCenter = venueGoogleMap.getCenter?.();
+        const settledZoom = Number(venueGoogleMap.getZoom?.() || 0);
+        const settledLat = Number(settledCenter?.lat?.());
+        const settledLng = Number(settledCenter?.lng?.());
+        const settledMatch = isNearJailPoint(settledLat, settledLng, MAP_EASTER_EGG_JAIL_FOCUS_RADIUS_METERS)
+          && settledZoom >= MAP_EASTER_EGG_JAIL_FOCUS_MIN_ZOOM;
+        if (!settledMatch) {
+          console.log("[map egg] jail focus timer cancel", { reason: "drifted_before_hold_complete" });
+          return;
+        }
+        mapJailFocusLocked = true;
+        console.log("[map egg] jail focus confirmed", {
+          source,
+          lat: settledLat,
+          lng: settledLng,
+          zoom: settledZoom
+        });
+        triggerPrisonPunchFromJailSelection("jail_focus_hold");
+      }, MAP_EASTER_EGG_JAIL_FOCUS_SETTLE_MS);
     }
     function openVenueMapInfo(position, title = "", subtitle = "") {
       if (!venueGoogleInfoWindow || !venueGoogleMap || !position) return;
@@ -29537,88 +29561,6 @@
       `);
       venueGoogleInfoWindow.setPosition(position);
       venueGoogleInfoWindow.open({ map: venueGoogleMap, shouldFocus: false });
-    }
-    function teardownJailHotspotOverlay() {
-      if (!venueJailHotspotOverlay || typeof venueJailHotspotOverlay.setMap !== "function") return;
-      console.log("[map egg] hotspot removed");
-      venueJailHotspotOverlay.setMap(null);
-      venueJailHotspotOverlay = null;
-    }
-    function attachJailHotspotOverlay(mapInstance) {
-      console.log("[map egg] hotspot attach start", {
-        hasMap: !!mapInstance,
-        hasOverlayView: !!window.google?.maps?.OverlayView
-      });
-      if (!mapInstance || !window.google?.maps?.OverlayView) return null;
-      teardownJailHotspotOverlay();
-      const overlay = new window.google.maps.OverlayView();
-      let hotspotNode = null;
-      let lastHotspotActivationMs = 0;
-      const handleActivate = (event) => {
-        const now = Date.now();
-        if ((now - lastHotspotActivationMs) < 420) return;
-        lastHotspotActivationMs = now;
-        if (event?.preventDefault) event.preventDefault();
-        if (event?.stopPropagation) event.stopPropagation();
-        showToast("Map egg debug: overlay trigger", 1200);
-        console.log("[map egg] hotspot clicked");
-        const result = unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "jail_overlay_hotspot" });
-        logMapEggResult("overlay trigger", result);
-        openVenueMapInfo(
-          { lat: MAP_EASTER_EGG_JAIL.lat, lng: MAP_EASTER_EGG_JAIL.lng },
-          MAP_EASTER_EGG_JAIL.name,
-          MAP_EASTER_EGG_JAIL.address
-        );
-      };
-      overlay.onAdd = function onAdd() {
-        hotspotNode = document.createElement("button");
-        hotspotNode.type = "button";
-        hotspotNode.className = "map-jail-hotspot debug-visible";
-        hotspotNode.setAttribute("aria-label", "Larimer County Jail easter egg hotspot");
-        hotspotNode.setAttribute("title", "Larimer County Jail");
-        hotspotNode.setAttribute("data-map-egg", "jail-hotspot");
-        hotspotNode.addEventListener("click", handleActivate);
-        hotspotNode.addEventListener("pointerdown", handleActivate, { passive: false });
-        hotspotNode.addEventListener("mousedown", handleActivate, { passive: false });
-        hotspotNode.addEventListener("touchstart", handleActivate, { passive: false });
-        hotspotNode.addEventListener("touchend", handleActivate, { passive: false });
-        const panes = this.getPanes?.();
-        const hostPane = panes?.overlayMouseTarget || panes?.floatPane || panes?.overlayLayer;
-        if (hostPane) hostPane.appendChild(hotspotNode);
-        console.log("[map egg] hotspot attached", {
-          hostPane: hostPane ? (hostPane.className || hostPane.tagName || "unknown") : "none"
-        });
-      };
-      overlay.draw = function draw() {
-        console.log("[map egg] hotspot draw");
-        if (!hotspotNode) return;
-        const projection = this.getProjection?.();
-        if (!projection) return;
-        const point = projection.fromLatLngToDivPixel(
-          new window.google.maps.LatLng(MAP_EASTER_EGG_JAIL.lat, MAP_EASTER_EGG_JAIL.lng)
-        );
-        if (!point) return;
-        const x = Math.round(point.x);
-        const y = Math.round(point.y);
-        hotspotNode.style.left = `${x}px`;
-        hotspotNode.style.top = `${y}px`;
-        console.log("[map egg] hotspot position", { x, y });
-      };
-      overlay.onRemove = function onRemove() {
-        console.log("[map egg] hotspot removed");
-        if (hotspotNode) {
-          hotspotNode.removeEventListener("click", handleActivate);
-          hotspotNode.removeEventListener("pointerdown", handleActivate);
-          hotspotNode.removeEventListener("mousedown", handleActivate);
-          hotspotNode.removeEventListener("touchstart", handleActivate);
-          hotspotNode.removeEventListener("touchend", handleActivate);
-          hotspotNode.remove();
-          hotspotNode = null;
-        }
-      };
-      overlay.setMap(mapInstance);
-      venueJailHotspotOverlay = overlay;
-      return overlay;
     }
     function upsertVenueMapMarker(key, coords, title = "", subtitle = "", options = {}) {
       if (!window.google?.maps || !venueGoogleMap || !coords) return null;
@@ -29667,7 +29609,6 @@
         if (!coords || !Number.isFinite(Number(coords.lat)) || !Number.isFinite(Number(coords.lng))) return;
         venueGoogleMap.panTo(coords);
         venueGoogleMap.setZoom(Math.max(14, Number(venueGoogleMap.getZoom() || 14)));
-        attachJailHotspotOverlay(venueGoogleMap);
         upsertVenueMapMarker(`venue:${venueId}`, coords, venueName, venueAddress);
       };
       if (cached) {
@@ -29687,19 +29628,22 @@
       if (!venueMapCanvas) return false;
       // Keep map behavior stable on web/iOS when Maps JS API is not fully enabled.
       if (!window.google?.maps?.Map && interactiveMapHasRuntimeError()) {
-        teardownJailHotspotOverlay();
+        mapRuntimeFallbackReason = "runtime_error_before_init";
         venueMapInteractiveReady = false;
         useInteractiveVenueMap(false);
         return false;
       }
       if (venueMapInteractiveReady && venueGoogleMap) {
-        attachJailHotspotOverlay(venueGoogleMap);
+        mapRuntimeFallbackReason = "";
         useInteractiveVenueMap(true);
         return true;
       }
       try {
         await loadGoogleMapsJsApi();
-        if (!window.google?.maps) throw new Error("Google Maps API unavailable");
+        if (!window.google?.maps) {
+          mapRuntimeFallbackReason = "google_maps_api_unavailable";
+          throw new Error("Google Maps API unavailable");
+        }
         venueGoogleMap = new google.maps.Map(venueMapCanvas, {
           center: MAP_DEFAULT_CENTER,
           zoom: 13,
@@ -29709,7 +29653,6 @@
           clickableIcons: true,
           gestureHandling: "greedy"
         });
-        attachJailHotspotOverlay(venueGoogleMap);
         venueGoogleInfoWindow = new google.maps.InfoWindow();
         venueGoogleGeocoder = new google.maps.Geocoder();
         if (window.google?.maps?.places) {
@@ -29721,12 +29664,6 @@
           MAP_EASTER_EGG_JAIL.name,
           MAP_EASTER_EGG_JAIL.address,
           {
-            onClick: () => {
-              showToast("Map egg debug: marker trigger", 1200);
-              console.log("[map egg] jail marker clicked");
-              const result = unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "jail_marker" });
-              logMapEggResult("jail marker", result);
-            },
             markerOptions: {
               zIndex: 1000000,
               optimized: false,
@@ -29741,57 +29678,46 @@
             }
           }
         );
-        venueGoogleMap.addListener("click", (event) => {
-          const clickedLat = Number(event?.latLng?.lat?.());
-          const clickedLng = Number(event?.latLng?.lng?.());
-          if (Number.isFinite(clickedLat) && Number.isFinite(clickedLng)) {
-            console.log("[map egg] map click lat/lng", { lat: clickedLat, lng: clickedLng });
+        venueGoogleMap.addListener("idle", () => {
+          evaluateJailFocusCandidate("map_idle");
+        });
+        venueGoogleMap.addListener("center_changed", () => {
+          const center = venueGoogleMap.getCenter?.();
+          const zoom = Number(venueGoogleMap.getZoom?.() || 0);
+          const lat = Number(center?.lat?.());
+          const lng = Number(center?.lng?.());
+          const candidate = isNearJailPoint(lat, lng, MAP_EASTER_EGG_JAIL_FOCUS_RADIUS_METERS)
+            && zoom >= MAP_EASTER_EGG_JAIL_FOCUS_MIN_ZOOM;
+          if (!candidate) {
+            mapJailFocusLocked = false;
+            clearJailFocusConfirmTimer("center_changed_out_of_focus");
           }
-          if (isNearJailPoint(clickedLat, clickedLng, MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS)) {
-            showToast("Map egg debug: near-jail trigger", 1200);
-            console.log("[map egg] near-jail map click matched", { lat: clickedLat, lng: clickedLng, radiusMeters: MAP_EASTER_EGG_JAIL_UNLOCK_RADIUS_METERS });
-            const result = unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "near_jail_click" });
-            logMapEggResult("near-jail map click", result);
-            openVenueMapInfo({ lat: MAP_EASTER_EGG_JAIL.lat, lng: MAP_EASTER_EGG_JAIL.lng }, MAP_EASTER_EGG_JAIL.name, MAP_EASTER_EGG_JAIL.address);
-            return;
+        });
+        venueGoogleMap.addListener("zoom_changed", () => {
+          const center = venueGoogleMap.getCenter?.();
+          const zoom = Number(venueGoogleMap.getZoom?.() || 0);
+          const lat = Number(center?.lat?.());
+          const lng = Number(center?.lng?.());
+          const candidate = isNearJailPoint(lat, lng, MAP_EASTER_EGG_JAIL_FOCUS_RADIUS_METERS)
+            && zoom >= MAP_EASTER_EGG_JAIL_FOCUS_MIN_ZOOM;
+          if (!candidate) {
+            mapJailFocusLocked = false;
+            clearJailFocusConfirmTimer("zoom_changed_out_of_focus");
           }
-          const placeId = String(event?.placeId || "").trim();
-          if (!placeId || !venueGooglePlacesService) return;
-          console.log("[map egg] POI click detected", { placeId });
-          if (typeof event.stop === "function") event.stop();
-          venueGooglePlacesService.getDetails(
-            { placeId, fields: ["name", "formatted_address"] },
-            (place, status) => {
-              if (status !== window.google.maps.places.PlacesServiceStatus.OK) return;
-              const placeName = String(place?.name || "").trim();
-              const formattedAddress = String(place?.formatted_address || place?.vicinity || "").trim();
-              const matched = isPrisonPunchMapSource(`${placeName} ${formattedAddress}`);
-              console.log("[map egg] POI details returned", {
-                placeId,
-                placeName,
-                formattedAddress,
-                matched
-              });
-              if (matched) {
-                showToast("Map egg debug: poi trigger", 1200);
-                const result = maybeUnlockPrisonPunchFromPlace(place, { showAlreadyUnlocked: true, source: "poi_match" });
-                logMapEggResult("poi match", result);
-                openVenueMapInfo({ lat: MAP_EASTER_EGG_JAIL.lat, lng: MAP_EASTER_EGG_JAIL.lng }, MAP_EASTER_EGG_JAIL.name, MAP_EASTER_EGG_JAIL.address);
-              }
-            }
-          );
         });
         await new Promise((resolve) => setTimeout(resolve, 220));
         if (interactiveMapHasRuntimeError()) {
+          mapRuntimeFallbackReason = "interactive_runtime_error_after_init";
           throw new Error("Interactive Google map runtime error");
         }
+        mapRuntimeFallbackReason = "";
         venueMapInteractiveReady = true;
         useInteractiveVenueMap(true);
         setTimeout(() => {
           if (!venueMapInteractiveReady) return;
           if (!interactiveMapHasRuntimeError()) return;
           console.warn("Interactive map runtime error detected; falling back to embed map.");
-          teardownJailHotspotOverlay();
+          mapRuntimeFallbackReason = "interactive_runtime_error_after_init";
           venueMapInteractiveReady = false;
           useInteractiveVenueMap(false);
           if (currentScreenName === "map") {
@@ -29803,8 +29729,10 @@
         }
         return true;
       } catch (err) {
+        if (!mapRuntimeFallbackReason) {
+          mapRuntimeFallbackReason = String(err?.message || "interactive_map_init_failed");
+        }
         console.warn("Interactive map unavailable; using embed fallback.", err);
-        teardownJailHotspotOverlay();
         venueMapInteractiveReady = false;
         useInteractiveVenueMap(false);
         return false;
@@ -29812,9 +29740,12 @@
     }
     function setActiveMapVenue(venueId) {
       if (!venueId) return;
-      if (!venuesInfo?.[venueId]) return;
+      const isJailTarget = venueId === "__jail__";
+      if (!isJailTarget && !venuesInfo?.[venueId]) return;
       activeMapVenueId = venueId;
-      const info = venuesInfo[venueId] || {};
+      const info = isJailTarget
+        ? { name: MAP_EASTER_EGG_JAIL.name, address: MAP_EASTER_EGG_JAIL.address }
+        : (venuesInfo[venueId] || {});
       if (venueMapFrame) {
         const query = [info.name, info.address, "Fort Collins, CO"].filter(Boolean).join(", ");
         const nextSrcBase = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(query)}&t=m&z=16&output=embed`;
@@ -29832,20 +29763,6 @@
         });
       }
       renderMapVenueList();
-    }
-    function maybeUnlockPrisonPunchFromFallbackMap() {
-      if (currentScreenName !== "map") return;
-      if (venueMapInteractiveReady) return;
-      console.log("[map egg] interactive map not ready, fallback path used");
-      mapFallbackLastInteractionMs = Date.now();
-      clearTimeout(mapFallbackUnlockTimer);
-      mapFallbackUnlockTimer = setTimeout(() => {
-        if (currentScreenName !== "map") return;
-        if (venueMapInteractiveReady) return;
-        showToast("Map egg debug: fallback trigger", 1200);
-        const result = unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "iframe_fallback" });
-        logMapEggResult("iframe fallback", result);
-      }, 120);
     }
     function getActiveVenuePerks(venueId) {
       if (!venueId) return [];
@@ -33853,58 +33770,6 @@ let onboardingIndex = 0;
         setActiveMapVenue(venueId);
       });
     }
-    if (venueMapFrame) {
-      venueMapFrame.addEventListener("pointerdown", () => {
-        maybeUnlockPrisonPunchFromFallbackMap();
-      }, { passive: true });
-      venueMapFrame.addEventListener("touchstart", () => {
-        maybeUnlockPrisonPunchFromFallbackMap();
-      }, { passive: true });
-      venueMapFrame.addEventListener("click", () => {
-        maybeUnlockPrisonPunchFromFallbackMap();
-      }, { passive: true });
-    }
-    const mapWrapEl = document.querySelector("#mapScreen .map-wrap");
-    if (mapWrapEl) {
-      mapWrapEl.addEventListener("click", () => {
-        if (venueMapFrame?.style?.display === "none") return;
-        maybeUnlockPrisonPunchFromFallbackMap();
-      }, { passive: true });
-    }
-    if (mapJailDebugUnlockBtn) {
-      mapJailDebugUnlockBtn.addEventListener("click", () => {
-        console.log("[map egg] auth/pass snapshot", {
-          uid: firebaseAuth?.currentUser?.uid || "",
-          currentPassCode: currentPassCode || "",
-          currentScreenName
-        });
-        showToast("Map egg debug: debug button trigger", 1300);
-        const result = unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "debug_button" });
-        console.log("[map egg] debug button result", result);
-        showToast(`Debug result: ${JSON.stringify(result)}`, 2600);
-      });
-    }
-    window.addEventListener("message", (event) => {
-      if (currentScreenName !== "map") return;
-      const origin = String(event?.origin || "").toLowerCase();
-      if (!origin.includes("google")) return;
-      const payload = typeof event?.data === "string" ? event.data : JSON.stringify(event?.data || "");
-      if (isPrisonPunchMapSource(payload)) {
-        showToast("Map egg debug: fallback trigger", 1200);
-        const result = unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "iframe_message_fallback" });
-        logMapEggResult("iframe fallback", result);
-      }
-    });
-    window.addEventListener("blur", () => {
-      if (currentScreenName !== "map") return;
-      if (!venueMapFrame || document.activeElement !== venueMapFrame) return;
-      if (venueMapInteractiveReady) return;
-      if ((Date.now() - Number(mapFallbackLastInteractionMs || 0)) > 3000) return;
-      // iframe fallback path: treat focused map interaction as intentional hidden-map interaction
-      showToast("Map egg debug: fallback trigger", 1200);
-      const result = unlockPrisonPunchFromMap({ showAlreadyUnlocked: true, source: "iframe_blur_fallback" });
-      logMapEggResult("iframe fallback", result);
-    });
     document.addEventListener("keydown", (event) => {
       const isCmdK = (event.metaKey || event.ctrlKey) && String(event.key || "").toLowerCase() === "k";
       if (!isCmdK) return;
