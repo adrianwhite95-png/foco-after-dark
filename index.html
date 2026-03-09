@@ -2590,6 +2590,7 @@
       color: #e2e8f0;
       cursor: pointer;
       transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+      position: relative;
     }
     .avatar-preset-btn:hover {
       transform: translateY(-1px);
@@ -2598,6 +2599,24 @@
     .avatar-preset-btn.selected {
       border-color: color-mix(in srgb, var(--accent-primary-live) 70%, rgba(248, 250, 252, 0.4));
       box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary-live) 40%, transparent), 0 0 20px color-mix(in srgb, var(--accent-primary-live) 32%, transparent);
+    }
+    .avatar-preset-btn.selected::before {
+      content: "✓";
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: #052e16;
+      background: #22c55e;
+      box-shadow: 0 0 14px rgba(34, 197, 94, 0.48);
+      z-index: 3;
+      pointer-events: none;
     }
     .avatar-preset-preview {
       width: 100%;

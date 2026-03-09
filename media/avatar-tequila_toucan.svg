@@ -16,7 +16,7 @@
   
   <path d="M56 230c6-40 33-66 72-66s66 26 72 66" fill="url(#shirt)"/>
   <path d="M82 178h92v48H82z" fill="#0b1220" opacity="0.82"/><path d="M96 178v48M160 178v48" stroke="#67e8f9" stroke-width="3" opacity="0.6"/>
-  <text x="128" y="188" text-anchor="middle" font-family="Arial, sans-serif" font-size="5.6" font-weight="700" fill="#67e8f9" letter-spacing="0.28">FOCO</text>
-  <text x="128" y="197" text-anchor="middle" font-family="Arial, sans-serif" font-size="4.4" font-weight="700" fill="#f472b6" letter-spacing="0.18">AFTER DARK</text>
+  <text x="128" y="194" text-anchor="middle" font-family="Arial, sans-serif" font-size="5.8" font-weight="700" fill="#67e8f9" letter-spacing="0.22">FOCO</text>
+  <text x="128" y="203" text-anchor="middle" font-family="Arial, sans-serif" font-size="4.5" font-weight="700" fill="#f472b6" letter-spacing="0.14">AFTER DARK</text>
   <rect x="176" y="152" width="24" height="42" rx="8" fill="#e0f2fe"/><rect x="178" y="166" width="20" height="26" rx="6" fill="#38bdf8" opacity="0.88"/>
 </svg>
