@@ -10,10 +10,10 @@
   <path d="M124 105c5 4 13 4 18 0" fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
   <path d="M146 126c8 5 10 15 6 24-5 11-19 16-31 10" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
   <rect x="110" y="70" width="50" height="11" rx="5.5" fill="#111827"/>
-  <rect x="84" y="176" width="88" height="52" rx="15" fill="#0b1220" opacity="0.88"/>
+  <rect x="84" y="176" width="88" height="48" rx="13" fill="#0b1220" opacity="0.9"/>
   <path d="M58 230c8-41 33-66 70-66s62 25 70 66" fill="url(#shirt)"/>
-  <text x="128" y="194" text-anchor="middle" font-family="Arial, sans-serif" font-size="5.8" font-weight="700" fill="#67e8f9" letter-spacing="0.22">FOCO</text>
-  <text x="128" y="203" text-anchor="middle" font-family="Arial, sans-serif" font-size="4.5" font-weight="700" fill="#f472b6" letter-spacing="0.14">AFTER DARK</text>
+  <text x="128" y="194" text-anchor="middle" font-family="Arial, sans-serif" font-size="7.2" font-weight="700" fill="#67e8f9" stroke="#060b18" stroke-width="0.7" letter-spacing="0.10">FoCo</text>
+  <text x="128" y="204" text-anchor="middle" font-family="Arial, sans-serif" font-size="5.4" font-weight="700" fill="#f472b6" stroke="#060b18" stroke-width="0.6" letter-spacing="0.08">AFTER DARK</text>
   <path d="M170 144c7-7 21-7 28 0 7 7 7 18 0 26l-14 23-14-23c-7-8-7-19 0-26z" fill="#f97316"/>
   <path d="M184 139v52" stroke="#f8fafc" stroke-width="4" stroke-linecap="round"/>
   <circle cx="184" cy="170" r="16" fill="#fb7185" opacity="0.6"/>
