@@ -1150,10 +1150,10 @@
       margin: 6px 0 10px;
     }
     .staff-avatar {
-      width: 74px;
-      height: 74px;
-      border-radius: 22px;
-      font-size: 22px;
+      width: 94px;
+      height: 94px;
+      border-radius: 26px;
+      font-size: 24px;
     }
     .staff-avatar-tools {
       display: grid;
@@ -40453,13 +40453,6 @@ let onboardingIndex = 0;
       return out.join("");
     }
     function resolveMemberAvatarAccessories(profile = {}, passId = "") {
-      const direct = normalizeAvatarAccessories(profile?.avatarAccessories || null);
-      if (direct.hat || direct.drink || direct.cigarette || direct.sunglasses) return direct;
-      const key = String(passId || profile?.passCode || "").trim().toUpperCase();
-      if (key) {
-        const fromDirectory = normalizeAvatarAccessories(loadMemberDirectory()?.[key]?.avatarAccessories || null);
-        if (fromDirectory.hat || fromDirectory.drink || fromDirectory.cigarette || fromDirectory.sunglasses) return fromDirectory;
-      }
       return normalizeAvatarAccessories(null);
     }
     function getAvatarSourceById(value) {
@@ -40616,11 +40609,7 @@ let onboardingIndex = 0;
     }
     async function openAvatarPickerModal() {
       const currentAvatarId = normalizeAvatarId(resolveMemberAvatarId(memberProfile || {}, currentPassCode || ""));
-      const currentAccessories = resolveMemberAvatarAccessories(memberProfile || {}, currentPassCode || "");
-      const draft = {
-        avatarId: currentAvatarId,
-        accessories: normalizeAvatarAccessories(currentAccessories)
-      };
+      const draft = { avatarId: currentAvatarId };
       const picker = document.createElement("div");
       picker.className = "modal-backdrop active";
       picker.style.zIndex = "15000";
@@ -40630,80 +40619,19 @@ let onboardingIndex = 0;
             <div class="modal-title">Choose your FoCo avatar</div>
             <button class="modal-close" type="button" data-avatar-picker-close>Close</button>
           </div>
-          <div class="small" style="color:#cbd5f5;">Pick your avatar, preview your look, then save.</div>
-          <div class="avatar-live-preview" data-avatar-live-preview>
-            <div class="preview-avatar" data-avatar-live-preview-art></div>
-            <div class="preview-meta">
-              <div class="preview-title" data-avatar-live-preview-name>FoCo avatar</div>
-              <div class="preview-sub">Live preview updates before save</div>
-            </div>
-          </div>
-          <div class="avatar-accessory-config">
-            <div class="avatar-accessory-row">
-              <div class="avatar-accessory-row-head">
-                <span>Hat</span>
-                <label><input type="checkbox" data-acc-toggle="hat" /> Enabled</label>
-              </div>
-              <div class="avatar-style-options" data-style-row="hat"></div>
-            </div>
-            <div class="avatar-accessory-row">
-              <div class="avatar-accessory-row-head">
-                <span>Sunglasses</span>
-                <label><input type="checkbox" data-acc-toggle="sunglasses" /> Enabled</label>
-              </div>
-              <div class="avatar-style-options" data-style-row="glassesStyle"></div>
-            </div>
-            <div class="avatar-accessory-row">
-              <div class="avatar-accessory-row-head">
-                <span>Drink</span>
-                <label><input type="checkbox" data-acc-toggle="drink" /> Enabled</label>
-              </div>
-              <div class="avatar-style-options" data-style-row="drinkStyle"></div>
-            </div>
-            <div class="avatar-accessory-row">
-              <div class="avatar-accessory-row-head">
-                <span>Cigarette</span>
-                <label><input type="checkbox" data-acc-toggle="cigarette" /> Enabled</label>
-              </div>
-            </div>
-          </div>
+          <div class="small" style="color:#cbd5f5;">Pick from preloaded FoCo After Dark avatars.</div>
           <div class="avatar-picker-grid" data-avatar-picker-grid></div>
           <div class="modal-actions" style="margin-top:14px;">
-            <button type="button" class="btn btn-secondary" data-avatar-picker-clear>Clear accessories</button>
             <button type="button" class="btn btn-secondary" data-avatar-picker-cancel>Cancel</button>
-            <button type="button" class="btn btn-primary" data-avatar-picker-save>Save avatar</button>
+            <button type="button" class="btn btn-primary" data-avatar-picker-save>Save</button>
           </div>
         </div>
       `;
       document.body.appendChild(picker);
       const close = () => picker.remove();
-      const previewEl = picker.querySelector("[data-avatar-live-preview-art]");
-      const previewName = picker.querySelector("[data-avatar-live-preview-name]");
       const grid = picker.querySelector("[data-avatar-picker-grid]");
-      const renderStyleRow = (rowKey, sourceMap, activeKey) => {
-        const row = picker.querySelector(`[data-style-row="${rowKey}"]`);
-        if (!row) return;
-        row.innerHTML = Object.keys(sourceMap).map((key) => {
-          const def = sourceMap[key];
-          const active = key === activeKey ? "active" : "";
-          return `<button type="button" class="avatar-style-btn ${active}" data-style-key="${escapeHtmlText(rowKey)}" data-style-value="${escapeHtmlText(key)}">${escapeHtmlText(def.emoji)} ${escapeHtmlText(def.label)}</button>`;
-        }).join("");
-      };
       const syncPreview = () => {
         const safeId = normalizeAvatarId(draft.avatarId);
-        if (previewEl) {
-          previewEl.style.backgroundImage = `url('${getAvatarSourceById(safeId)}')`;
-          previewEl.innerHTML = `<span class="avatar-accessories">${renderAvatarAccessoriesMarkup(draft.accessories)}</span>`;
-        }
-        if (previewName) previewName.textContent = AVATAR_DISPLAY_NAME_BY_ID[safeId] || "FoCo avatar";
-        picker.querySelectorAll('[data-acc-toggle]').forEach((input) => {
-          const key = input.getAttribute("data-acc-toggle");
-          if (!key) return;
-          input.checked = !!draft.accessories[key];
-        });
-        renderStyleRow("hat", AVATAR_HAT_STYLES, draft.accessories.hatStyle);
-        renderStyleRow("glassesStyle", AVATAR_GLASSES_STYLES, draft.accessories.glassesStyle);
-        renderStyleRow("drinkStyle", AVATAR_DRINK_STYLES, draft.accessories.drinkStyle);
         if (grid) {
           grid.querySelectorAll("button[data-avatar-id]").forEach((btn) => {
             btn.classList.toggle("selected", normalizeAvatarId(btn.dataset.avatarId || "") === safeId);
@@ -40717,7 +40645,7 @@ let onboardingIndex = 0;
             <button type="button" class="avatar-preset-btn ${selectedClass}" data-avatar-id="${avatar.id}">
               <div class="avatar-preset-label avatar-preset-label-top">${escapeHtmlText(avatar.label)}</div>
               <div class="avatar-preset-preview" style="background-image:url('${escapeHtmlText(avatar.src)}');"></div>
-              <div class="avatar-preset-label">Tap to preview</div>
+              <div class="avatar-preset-label">Tap to switch</div>
             </button>
           `;
         }).join("");
@@ -40728,45 +40656,17 @@ let onboardingIndex = 0;
           });
         });
       }
-      picker.querySelectorAll('[data-acc-toggle]').forEach((input) => {
-        input.addEventListener("change", () => {
-          const key = input.getAttribute("data-acc-toggle");
-          if (!key) return;
-          draft.accessories[key] = input.checked;
-          syncPreview();
-        });
-      });
       picker.addEventListener("click", (event) => {
-        const btn = event.target instanceof HTMLElement ? event.target.closest(".avatar-style-btn") : null;
-        if (btn) {
-          const styleKey = String(btn.getAttribute("data-style-key") || "");
-          const styleValue = String(btn.getAttribute("data-style-value") || "");
-          if (styleKey && styleValue) {
-            draft.accessories[styleKey] = styleValue;
-            if (styleKey === "hat") draft.accessories.hat = true;
-            if (styleKey === "glassesStyle") draft.accessories.sunglasses = true;
-            if (styleKey === "drinkStyle") draft.accessories.drink = true;
-            syncPreview();
-          }
-          return;
-        }
         if (event.target === picker) close();
       });
       picker.querySelectorAll("[data-avatar-picker-close], [data-avatar-picker-cancel]").forEach((btn) => {
         btn.addEventListener("click", close);
       });
-      const clearBtn = picker.querySelector("[data-avatar-picker-clear]");
-      if (clearBtn) {
-        clearBtn.addEventListener("click", () => {
-          draft.accessories = normalizeAvatarAccessories(DEFAULT_AVATAR_ACCESSORIES);
-          syncPreview();
-        });
-      }
       const saveBtn = picker.querySelector("[data-avatar-picker-save]");
       if (saveBtn) {
         saveBtn.addEventListener("click", () => {
           setAvatarForCurrentMember(draft.avatarId, { persist: true });
-          setAvatarAccessoriesForCurrentMember(draft.accessories, { persist: true });
+          setAvatarAccessoriesForCurrentMember(normalizeAvatarAccessories(null), { persist: true });
           showToast(`${AVATAR_DISPLAY_NAME_BY_ID[normalizeAvatarId(draft.avatarId)] || "Avatar"} saved`, 1700);
           close();
         });
