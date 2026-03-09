@@ -3170,12 +3170,6 @@
         0 18px 30px rgba(6, 10, 24, 0.6),
         0 0 22px rgba(103, 232, 249, 0.45);
     }
-    #landingRefreshBtn {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      z-index: 6;
-    }
     .global-refresh-btn {
       position: fixed;
       top: max(14px, calc(env(safe-area-inset-top, 0px) + 10px));
@@ -8025,14 +8019,6 @@
       }
       .landing-feature-grid { grid-template-columns: 1fr; }
       .hero-highlight { text-align: left; }
-      #landingRefreshBtn {
-        top: 12px;
-        right: 12px;
-        min-height: 36px;
-        padding: 0 12px;
-        font-size: 12px;
-        letter-spacing: 0.06em;
-      }
       .secondary-actions .btn { width: 100%; }
       #redeemModal .perk-grid { max-height: 32vh; }
       #landingScreen .landing-wrapper {
@@ -17971,7 +17957,6 @@
           </div>
           <div class="landing-wrapper neonFrame appFrame">
             <div class="landing-strobe" aria-hidden="true"></div>
-            <button id="landingRefreshBtn" class="refresh-btn" title="Reload">Reload</button>
             <div class="brand-logo brand-logo-landing">
               <img src="foco-logo.png" alt="FoCo After Dark neon logo" class="brand-logo-img" />
             </div>
@@ -23514,10 +23499,8 @@
           renderLandingRewardsModule();
         }
         startLandingLaserShow();
-        if (landingRefreshBtn) landingRefreshBtn.style.display = name === "landing" ? "inline-flex" : "none";
       } else {
         stopLandingLaserShow();
-        if (landingRefreshBtn) landingRefreshBtn.style.display = "none";
       }
       updateRefreshButtonsVisibility();
       ensureLimiterDebugPanel();
@@ -26522,7 +26505,6 @@
     // Pass screen elements
     const userMiniDisplay = document.getElementById("userMiniDisplay");
     const refreshBtn = document.getElementById("refreshBtn");
-    const landingRefreshBtn = document.getElementById("landingRefreshBtn");
     const memberRefreshBtn = document.getElementById("memberRefreshBtn");
     const globalRefreshBtn = document.getElementById("globalRefreshBtn");
     const pullRefreshIndicator = document.getElementById("pullRefreshIndicator");
@@ -27572,6 +27554,17 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.158",
+        date: "2026-03-08",
+        added: [],
+        improved: [
+          "Pull-to-refresh now forces a deeper live data sync for member, venue, map, and alert surfaces"
+        ],
+        fixed: [
+          "Removed the remaining landing/home reload button to keep refresh behavior unified"
+        ]
+      },
       {
         version: "v0.9.157",
         date: "2026-03-08",
@@ -34772,10 +34765,39 @@ let onboardingIndex = 0;
       }
       try {
         showScreen(targetScreen);
+        void performManualRealtimeRefresh(targetScreen);
         maybeSchedulePushAutoSync("manual-refresh", false);
       } catch (_) {
         hardReloadApp("soft-refresh-fallback");
       }
+    }
+    async function performManualRealtimeRefresh(targetScreen = currentScreenName) {
+      const tasks = [];
+      if (firebaseAuth?.currentUser && !firebaseAuth.currentUser.isAnonymous && typeof refreshMemberStats === "function") {
+        tasks.push(Promise.resolve().then(() => refreshMemberStats()));
+      }
+      if (typeof refreshFeaturedVenuesData === "function") {
+        tasks.push(Promise.resolve().then(() => refreshFeaturedVenuesData()));
+      }
+      if (typeof refreshAlertsTicker === "function") {
+        tasks.push(Promise.resolve().then(() => refreshAlertsTicker()));
+      }
+      if (typeof refreshVipDeals === "function") {
+        tasks.push(Promise.resolve().then(() => refreshVipDeals({ silent: true })));
+      }
+      if (typeof refreshTonightAlerts === "function") {
+        tasks.push(Promise.resolve().then(() => refreshTonightAlerts({ silent: true })));
+      }
+      if (String(targetScreen || "") === "map" && typeof syncInteractiveVenueMarkers === "function") {
+        tasks.push(Promise.resolve().then(() => syncInteractiveVenueMarkers("manual-pull-refresh")));
+      }
+      if (String(targetScreen || "") === "staffPortal" && typeof refreshStaffAlertCheckins === "function") {
+        tasks.push(Promise.resolve().then(() => refreshStaffAlertCheckins({ force: true })));
+      }
+      if (!tasks.length) return;
+      try {
+        await Promise.allSettled(tasks);
+      } catch (_) {}
     }
     if (refreshBtn) {
       refreshBtn.addEventListener("click", () => {
@@ -34786,22 +34808,6 @@ let onboardingIndex = 0;
           return;
         }
         softRefresh();
-      });
-    }
-    if (landingRefreshBtn) {
-      landingRefreshBtn.addEventListener("click", () => {
-        if (isAuthBusy()) {
-          if (typeof showToast === "function") {
-            showToast("Finish login first.", 1800);
-          }
-          return;
-        }
-        if (requiredUpdateVersion && requiredUpdateVersion !== appliedServerVersion) {
-          showForcedUpdateModal();
-          forceApplyUpdate();
-          return;
-        }
-        hardReloadApp("landing-refresh");
       });
     }
     if (memberRefreshBtn) {
