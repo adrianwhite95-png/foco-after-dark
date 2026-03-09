@@ -3223,7 +3223,7 @@
       text-transform: uppercase;
       color: rgba(186, 230, 253, 0.82);
       text-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
-      opacity: 0.84;
+      opacity: 0;
       white-space: nowrap;
       padding: 1px 8px;
       border-radius: 999px;
@@ -3231,9 +3231,10 @@
       border: 1px solid rgba(56, 189, 248, 0.22);
       backdrop-filter: blur(4px);
       -webkit-backdrop-filter: blur(4px);
+      transition: opacity 120ms ease;
     }
-    .pull-refresh-indicator.visible + .pull-refresh-hint {
-      opacity: 0;
+    .pull-refresh-hint.visible {
+      opacity: 0.84;
     }
     @media (max-width: 640px) {
       .pull-refresh-hint {
@@ -17923,7 +17924,7 @@
         <span class="pull-refresh-icon" aria-hidden="true">↻</span>
         <span id="pullRefreshLabel">Pull to refresh</span>
       </div>
-      <div class="pull-refresh-hint" aria-hidden="true">Pull to refresh</div>
+      <div id="pullRefreshHint" class="pull-refresh-hint" aria-hidden="true">Pull to refresh</div>
       <div id="app">
         <!-- MAINTENANCE SCREEN -->
         <div id="maintenanceScreen" class="screen maintenance-screen">
@@ -23535,6 +23536,7 @@
         stopLandingLaserShow();
       }
       updateRefreshButtonsVisibility();
+      requestPullRefreshHintSync();
       ensureLimiterDebugPanel();
       if (name === "pass") {
         setPassBrandTagline();
@@ -26541,6 +26543,7 @@
     const globalRefreshBtn = document.getElementById("globalRefreshBtn");
     const pullRefreshIndicator = document.getElementById("pullRefreshIndicator");
     const pullRefreshLabel = document.getElementById("pullRefreshLabel");
+    const pullRefreshHint = document.getElementById("pullRefreshHint");
     const ceoRefreshBtn = document.getElementById("ceoRefreshBtn");
     const statusBanner = document.getElementById("statusBanner");
     const maintenanceMessage = document.getElementById("maintenanceMessage");
@@ -34876,9 +34879,25 @@ let onboardingIndex = 0;
       wheelTimer: 0,
       startTarget: null
     };
+    let pullRefreshHintRaf = 0;
     function pullRefreshScrollTop() {
       const root = document.scrollingElement || document.documentElement || document.body;
       return Number(root?.scrollTop || window.scrollY || 0);
+    }
+    function syncPullRefreshHintVisibility() {
+      if (!pullRefreshHint) return;
+      const atTop = pullRefreshScrollTop() <= 2;
+      const onLanding = String(currentScreenName || "") === "landing";
+      const indicatorVisible = !!pullRefreshIndicator?.classList.contains("visible");
+      const show = onLanding && atTop && !indicatorVisible && !pullRefreshState.refreshing;
+      pullRefreshHint.classList.toggle("visible", show);
+    }
+    function requestPullRefreshHintSync() {
+      if (pullRefreshHintRaf) return;
+      pullRefreshHintRaf = window.requestAnimationFrame(() => {
+        pullRefreshHintRaf = 0;
+        syncPullRefreshHintVisibility();
+      });
     }
     function canUsePullRefresh() {
       if (isAuthBusy()) return false;
@@ -34900,12 +34919,14 @@ let onboardingIndex = 0;
           ? "Refreshing..."
           : (ready ? "Release to refresh" : "Pull to refresh");
       }
+      requestPullRefreshHintSync();
     }
     function hidePullRefreshIndicator() {
       if (!pullRefreshIndicator) return;
       pullRefreshIndicator.classList.remove("visible", "ready", "refreshing");
       pullRefreshIndicator.style.transform = "translate3d(-50%, -110%, 0) scale(0.92)";
       if (pullRefreshLabel) pullRefreshLabel.textContent = "Pull to refresh";
+      requestPullRefreshHintSync();
     }
     function resetPullRefreshState() {
       pullRefreshState.pulling = false;
@@ -34931,6 +34952,7 @@ let onboardingIndex = 0;
         pullRefreshState.refreshing = false;
         resetPullRefreshState();
         hidePullRefreshIndicator();
+        requestPullRefreshHintSync();
       }, 900);
     }
     document.addEventListener("touchstart", (event) => {
@@ -35003,10 +35025,15 @@ let onboardingIndex = 0;
     }, { passive: true });
     window.addEventListener("scroll", requestGlobalRefreshViewportSync, { passive: true });
     window.addEventListener("resize", requestGlobalRefreshViewportSync, { passive: true });
+    window.addEventListener("scroll", requestPullRefreshHintSync, { passive: true });
+    window.addEventListener("resize", requestPullRefreshHintSync, { passive: true });
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", requestGlobalRefreshViewportSync, { passive: true });
       window.visualViewport.addEventListener("scroll", requestGlobalRefreshViewportSync, { passive: true });
+      window.visualViewport.addEventListener("resize", requestPullRefreshHintSync, { passive: true });
+      window.visualViewport.addEventListener("scroll", requestPullRefreshHintSync, { passive: true });
     }
+    requestPullRefreshHintSync();
     document.addEventListener("scroll", () => {
       queueProfileScrollActivity("scroll");
     }, { passive: true, capture: true });
