@@ -2539,6 +2539,35 @@
       transform: translate(-50%, -50%);
       font-size: 11px;
     }
+    #staffPortalScreen .avatar.staff-avatar .avatar-accessories .acc.hat {
+      top: -2px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: clamp(20px, 2.2vw, 24px);
+    }
+    #staffPortalScreen .avatar.staff-avatar .avatar-accessories .acc.glasses {
+      top: 30%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: clamp(17px, 1.9vw, 20px);
+    }
+    #staffPortalScreen .avatar.staff-avatar .avatar-accessories .acc.drink {
+      right: 6%;
+      top: 72%;
+      transform: translateY(-50%);
+      font-size: clamp(18px, 2.1vw, 24px);
+    }
+    #staffPortalScreen .avatar.staff-avatar .avatar-accessories .acc.cigarette {
+      left: 63%;
+      top: 57%;
+      transform: translate(-50%, -50%);
+      font-size: clamp(16px, 1.8vw, 20px);
+    }
+    #staffPortalScreen .avatar.staff-avatar::after {
+      opacity: 1;
+      animation-duration: 3.2s;
+      filter: blur(10px);
+    }
     .mini-avatar {
       position: relative;
       display: inline-flex;
@@ -27543,6 +27572,15 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.157",
+        date: "2026-03-08",
+        added: [],
+        improved: [
+          "Venue staff avatar accessories now align to face/body landmarks better (hat, glasses, cigarette, drink) and keep stronger glimmer presence"
+        ],
+        fixed: []
+      },
       {
         version: "v0.9.156",
         date: "2026-03-08",
