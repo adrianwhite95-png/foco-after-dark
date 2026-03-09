@@ -2528,7 +2528,7 @@
       font-size: 13px;
     }
     .avatar-accessories .acc.drink {
-      right: -2px;
+      left: -2px;
       top: 57%;
       transform: translateY(-50%);
       font-size: 13px;
@@ -2552,7 +2552,7 @@
       font-size: clamp(17px, 1.9vw, 20px);
     }
     #staffPortalScreen .avatar.staff-avatar .avatar-accessories .acc.drink {
-      right: 6%;
+      left: 6%;
       top: 72%;
       transform: translateY(-50%);
       font-size: clamp(18px, 2.1vw, 24px);
@@ -2594,7 +2594,7 @@
       font-size: 7px;
     }
     .mini-avatar-accessories .acc.drink {
-      right: -1px;
+      left: -1px;
       top: 58%;
       transform: translateY(-50%);
       font-size: 7px;
@@ -13675,7 +13675,7 @@
       font-size: 13px;
     }
     #tonightScreen .tonight-mini-avatar-accessories .acc.drink {
-      right: 1px;
+      left: 1px;
       top: 58%;
       transform: translateY(-50%);
       font-size: 12px;
@@ -27554,6 +27554,15 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.159",
+        date: "2026-03-08",
+        added: [],
+        improved: [
+          "Avatar drink accessory now renders on the left side across profile, tonight, mini, and staff views for consistent character layout"
+        ],
+        fixed: []
+      },
       {
         version: "v0.9.158",
         date: "2026-03-08",
