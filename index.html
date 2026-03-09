@@ -27544,6 +27544,15 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.156",
+        date: "2026-03-08",
+        added: [],
+        improved: [
+          "Pull-to-refresh now requires a stronger downward pull to avoid accidental refresh while scrolling"
+        ],
+        fixed: []
+      },
+      {
         version: "v0.9.155",
         date: "2026-03-08",
         added: [],
@@ -34770,6 +34779,8 @@ let onboardingIndex = 0;
         softRefresh();
       });
     }
+    const PULL_REFRESH_TRIGGER_PX = 112;
+    const PULL_REFRESH_VISUAL_START_PX = 20;
     const pullRefreshState = {
       pulling: false,
       ready: false,
@@ -34863,8 +34874,9 @@ let onboardingIndex = 0;
       if (delta <= 0) return;
       if (pullRefreshState.startTarget?.closest?.("#venueMapCanvas, .gm-style")) return;
       event.preventDefault();
-      pullRefreshState.distance = Math.min(130, delta * 0.58);
-      pullRefreshState.ready = pullRefreshState.distance >= 76;
+      if (delta < PULL_REFRESH_VISUAL_START_PX) return;
+      pullRefreshState.distance = Math.min(150, delta * 0.48);
+      pullRefreshState.ready = pullRefreshState.distance >= PULL_REFRESH_TRIGGER_PX;
       showPullRefreshIndicator(pullRefreshState.distance, pullRefreshState.ready, false);
     }, { passive: false });
     document.addEventListener("touchend", () => {
@@ -34890,7 +34902,7 @@ let onboardingIndex = 0;
         pullRefreshState.wheelDistance = Math.max(0, pullRefreshState.wheelDistance - event.deltaY * 0.3);
       }
       if (!pullRefreshState.refreshing && pullRefreshState.wheelDistance > 0) {
-        const ready = pullRefreshState.wheelDistance >= 76;
+        const ready = pullRefreshState.wheelDistance >= PULL_REFRESH_TRIGGER_PX;
         showPullRefreshIndicator(pullRefreshState.wheelDistance, ready, false);
         if (ready) {
           pullRefreshState.wheelDistance = 0;
