@@ -3211,6 +3211,37 @@
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
     }
+    .pull-refresh-hint {
+      position: fixed;
+      left: 50%;
+      top: max(2px, env(safe-area-inset-top, 0px));
+      transform: translateX(-50%);
+      z-index: 14480;
+      pointer-events: none;
+      font-size: 10px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: rgba(186, 230, 253, 0.82);
+      text-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
+      opacity: 0.84;
+      white-space: nowrap;
+      padding: 1px 8px;
+      border-radius: 999px;
+      background: rgba(3, 8, 23, 0.36);
+      border: 1px solid rgba(56, 189, 248, 0.22);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    .pull-refresh-indicator.visible + .pull-refresh-hint {
+      opacity: 0;
+    }
+    @media (max-width: 640px) {
+      .pull-refresh-hint {
+        top: max(1px, env(safe-area-inset-top, 0px));
+        font-size: 9px;
+        letter-spacing: 0.08em;
+      }
+    }
     .pull-refresh-indicator.visible {
       opacity: 1;
       transform: translate3d(-50%, 0, 0) scale(1);
@@ -17892,6 +17923,7 @@
         <span class="pull-refresh-icon" aria-hidden="true">↻</span>
         <span id="pullRefreshLabel">Pull to refresh</span>
       </div>
+      <div class="pull-refresh-hint" aria-hidden="true">Pull to refresh</div>
       <div id="app">
         <!-- MAINTENANCE SCREEN -->
         <div id="maintenanceScreen" class="screen maintenance-screen">
