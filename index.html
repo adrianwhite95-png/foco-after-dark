@@ -4641,6 +4641,16 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
+    #pointsRedemptionList .perk-option {
+      min-width: 100%;
+    }
+    .points-redeem-action-btn {
+      width: auto !important;
+      min-width: 120px;
+      flex: 0 0 auto;
+      align-self: center;
+      white-space: nowrap;
+    }
     .perk-label {
       display: block;
       font-weight: 600;
@@ -38018,6 +38028,7 @@ let onboardingIndex = 0;
       memberProfile.points = nextPoints;
       memberProfile.easterEggCompletionBonusAwardedAt = awardedAt;
       memberProfile.easterEggCompletionBonusPoints = 1000;
+      const activeUid = String(firebaseAuth?.currentUser?.uid || "").trim();
       if (passCode) {
         setPointsForPass(passCode, nextPoints, { skipPersist: true, forceLower: true });
         setMemberDirectoryEntry(passCode, {
@@ -38028,13 +38039,21 @@ let onboardingIndex = 0;
           easterEggUnlockedThemes: activeSummary.themes.slice()
         });
       }
-      persistMemberState({
+      const bonusPayload = {
         points: nextPoints,
         easterEggCompletionBonusAwardedAt: awardedAt,
         easterEggCompletionBonusPoints: 1000,
         easterEggUnlockedCount: activeSummary.count,
         easterEggUnlockedThemes: activeSummary.themes.slice()
-      });
+      };
+      const ref = memberDocRef || (db && activeUid ? doc(db, "members", activeUid) : null);
+      if (ref && guardWriteAction("easterEggCompletionBonus", "App is locked (read-only).", { silent: true })) {
+        setDoc(ref, bonusPayload, { merge: true }).catch((err) => {
+          console.warn("Failed to persist easter egg completion bonus", err);
+        });
+      } else {
+        persistMemberState(bonusPayload);
+      }
       updatePointsUI();
       showToast("⭐ 3/3 easter eggs found — +1000 points awarded.", 4600);
       return true;
@@ -39257,12 +39276,12 @@ let onboardingIndex = 0;
       if (!canRedeemPoints()) {
         if (isCeoActive() || isFreeMember() || memberProfile?.ceo === true) {
           pointsRedemptionList.innerHTML = POINTS_TOKEN_REDEMPTIONS.map((option) => `
-            <div class="perk-option" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;opacity:.72;">
-              <div>
+            <div class="perk-option" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;opacity:.72;flex-wrap:wrap;">
+              <div style="min-width:0;flex:1 1 220px;">
                 <strong style="display:block;font-size:13px;">${option.pointsCost} pts → +${option.tokenAmount} monthly voucher tokens</strong>
                 <span class="small" style="color:#94a3b8;">Not needed on unlimited accounts</span>
               </div>
-              <button type="button" class="btn btn-primary" disabled style="width:auto;min-width:128px;padding:8px 12px;font-size:11px;opacity:.72;">Included</button>
+              <button type="button" class="btn btn-primary points-redeem-action-btn" disabled style="padding:8px 12px;font-size:11px;opacity:.72;">Included</button>
             </div>
           `).join("");
           if (pointsRedeemPreview) {
@@ -39276,17 +39295,17 @@ let onboardingIndex = 0;
       pointsRedemptionList.innerHTML = POINTS_TOKEN_REDEMPTIONS.map((option) => {
         const canApply = available >= option.pointsCost;
         return `
-          <div class="perk-option" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;">
-            <div>
+          <div class="perk-option" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;flex-wrap:wrap;">
+            <div style="min-width:0;flex:1 1 220px;">
               <strong style="display:block;font-size:13px;">${option.pointsCost} pts → +${option.tokenAmount} monthly voucher tokens</strong>
               <span class="small" style="color:#94a3b8;">Current billing cycle only</span>
             </div>
             <button
               type="button"
-              class="btn btn-primary"
+              class="btn btn-primary points-redeem-action-btn"
               data-points-redemption-id="${option.id}"
               ${canApply ? "" : "disabled"}
-              style="width:auto;min-width:128px;padding:8px 12px;font-size:11px;"
+              style="padding:8px 12px;font-size:11px;"
             >
               Apply Points
             </button>
