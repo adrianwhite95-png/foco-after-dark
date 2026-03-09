@@ -2842,6 +2842,24 @@
     .meta-value {
       font-size: 12px;
     }
+    .meta-group.easter-egg-complete {
+      border-color: rgba(250, 204, 21, 0.7) !important;
+      box-shadow: 0 0 18px rgba(250, 204, 21, 0.3);
+      position: relative;
+    }
+    .meta-corner-star {
+      position: absolute;
+      right: 6px;
+      top: 4px;
+      font-size: 13px;
+      color: #facc15;
+      text-shadow: 0 0 10px rgba(250, 204, 21, 0.65);
+      display: none;
+      line-height: 1;
+    }
+    .meta-group.easter-egg-complete .meta-corner-star {
+      display: inline-block;
+    }
 
     .qr-wrapper {
       margin: 6px 0 10px;
@@ -18413,6 +18431,11 @@
                   <div class="meta-label">Last check-in</div>
                   <div class="meta-value" id="lastCheckinText">—</div>
                 </div>
+                <div class="meta-group" id="easterEggCounterGroup">
+                  <div class="meta-label">Easter eggs</div>
+                  <div class="meta-value" id="easterEggCounterText">0 / 3</div>
+                  <span class="meta-corner-star" id="easterEggCounterStar" aria-hidden="true">★</span>
+                </div>
               </div>
             </div>
             <div class="profile-side-col">
@@ -26396,6 +26419,9 @@
     const memberSinceText = document.getElementById("memberSinceText");
     const expiryText = document.getElementById("expiryText");
     const lastCheckinText = document.getElementById("lastCheckinText");
+    const easterEggCounterGroup = document.getElementById("easterEggCounterGroup");
+    const easterEggCounterText = document.getElementById("easterEggCounterText");
+    const easterEggCounterStar = document.getElementById("easterEggCounterStar");
     const pointsBalance = document.getElementById("pointsBalance");
     const ceoPassBanner = document.getElementById("ceoPassBanner");
     const ceoPortalShortcut = document.getElementById("ceoPortalShortcut");
@@ -33136,6 +33162,8 @@
               setPointsForPass(mergedPass, data.points, { skipPersist: true, forceLower: true });
             }
             updatePointsUI();
+            maybeAwardEasterEggCompletionBonus();
+            updateEasterEggCounterUI();
             renderVipDealForMember();
             renderPassIdentity(firebaseAuth.currentUser);
             if (avatarAccessories) {
@@ -35223,6 +35251,8 @@ let onboardingIndex = 0;
         if (memberSinceText) memberSinceText.textContent = "Preview mode";
         if (expiryText) expiryText.textContent = "Preview mode";
         if (lastCheckinText) lastCheckinText.textContent = "Preview mode";
+        if (easterEggCounterText) easterEggCounterText.textContent = `-- / ${EASTER_EGG_UNLOCK_THEMES.length}`;
+        if (easterEggCounterGroup) easterEggCounterGroup.classList.remove("easter-egg-complete");
         if (userTaglineEl) userTaglineEl.textContent = "Visual test account for CEO preview.";
         return;
       }
@@ -35297,6 +35327,7 @@ let onboardingIndex = 0;
       }
       updateMemberMotionControlUi();
       renderAchievementsList();
+      updateEasterEggCounterUI();
     }
     function toInputDateValue(date) {
       const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -37934,6 +37965,61 @@ let onboardingIndex = 0;
         total: EASTER_EGG_UNLOCK_THEMES.length
       };
     }
+    function getEasterEggUnlockCountForUi() {
+      const profileCount = Number(memberProfile?.easterEggUnlockedCount || 0);
+      if (Number.isFinite(profileCount) && profileCount > 0) {
+        return Math.max(0, Math.min(EASTER_EGG_UNLOCK_THEMES.length, profileCount));
+      }
+      return getCurrentMemberEasterEggUnlockSummary().count;
+    }
+    function updateEasterEggCounterUI() {
+      if (!easterEggCounterText) return;
+      const total = EASTER_EGG_UNLOCK_THEMES.length;
+      const count = getEasterEggUnlockCountForUi();
+      easterEggCounterText.textContent = `${count} / ${total}`;
+      const complete = count >= total;
+      if (easterEggCounterGroup) {
+        easterEggCounterGroup.classList.toggle("easter-egg-complete", complete);
+      }
+      if (easterEggCounterStar) {
+        easterEggCounterStar.style.display = complete ? "inline-block" : "none";
+      }
+    }
+    function maybeAwardEasterEggCompletionBonus(summary = null) {
+      const activeSummary = summary || getCurrentMemberEasterEggUnlockSummary();
+      const total = EASTER_EGG_UNLOCK_THEMES.length;
+      if (!activeSummary || Number(activeSummary.count || 0) < total) return false;
+      const alreadyAwarded = !!memberProfile?.easterEggCompletionBonusAwardedAt;
+      if (alreadyAwarded) return false;
+      const passCode = (currentPassCode || memberProfile?.passCode || "").toUpperCase();
+      const basePoints = Number(memberProfile?.points || getPointsForPass(passCode) || 0);
+      const nextPoints = Math.max(0, basePoints) + 1000;
+      const awardedAt = new Date().toISOString();
+      memberProfile = memberProfile || {};
+      memberProfile.points = nextPoints;
+      memberProfile.easterEggCompletionBonusAwardedAt = awardedAt;
+      memberProfile.easterEggCompletionBonusPoints = 1000;
+      if (passCode) {
+        setPointsForPass(passCode, nextPoints, { skipPersist: true, forceLower: true });
+        setMemberDirectoryEntry(passCode, {
+          points: nextPoints,
+          easterEggCompletionBonusAwardedAt: awardedAt,
+          easterEggCompletionBonusPoints: 1000,
+          easterEggUnlockedCount: activeSummary.count,
+          easterEggUnlockedThemes: activeSummary.themes.slice()
+        });
+      }
+      persistMemberState({
+        points: nextPoints,
+        easterEggCompletionBonusAwardedAt: awardedAt,
+        easterEggCompletionBonusPoints: 1000,
+        easterEggUnlockedCount: activeSummary.count,
+        easterEggUnlockedThemes: activeSummary.themes.slice()
+      });
+      updatePointsUI();
+      showToast("⭐ 3/3 easter eggs found — +1000 points awarded.", 4600);
+      return true;
+    }
     function syncMemberEasterEggProgress(uid = firebaseAuth?.currentUser?.uid) {
       const safeUid = String(uid || "").trim();
       const activeUid = String(firebaseAuth?.currentUser?.uid || "").trim();
@@ -37955,6 +38041,7 @@ let onboardingIndex = 0;
         return;
       }
       const summary = getCurrentMemberEasterEggUnlockSummary(safeUid);
+      maybeAwardEasterEggCompletionBonus(summary);
       console.log("[accent unlock] sync progress summary", {
         count: summary.count,
         themes: summary.themes
@@ -37981,6 +38068,7 @@ let onboardingIndex = 0;
         easterEggUnlockedCount: summary.count,
         easterEggUnlockedThemes: summary.themes.slice()
       });
+      updateEasterEggCounterUI();
       console.log("[accent unlock] sync progress persist payload", syncPayload);
       persistMemberState(syncPayload);
     }
