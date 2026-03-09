@@ -12875,6 +12875,20 @@
       width: 32px;
       height: 32px;
     }
+    #staffPortalScreen .avatar.staff-avatar {
+      width: clamp(136px, 19vw, 176px) !important;
+      height: clamp(136px, 19vw, 176px) !important;
+      border-radius: clamp(30px, 4.2vw, 38px) !important;
+      font-size: clamp(30px, 4.2vw, 40px) !important;
+    }
+    @media (max-width: 900px) {
+      #staffPortalScreen .avatar.staff-avatar {
+        width: clamp(128px, 30vw, 160px) !important;
+        height: clamp(128px, 30vw, 160px) !important;
+        border-radius: clamp(28px, 5vw, 34px) !important;
+        font-size: clamp(28px, 5vw, 36px) !important;
+      }
+    }
     body.ios.mobile-performance .club-atmosphere {
       opacity: 0.82 !important;
       filter: saturate(1.2) contrast(1.08) !important;
@@ -13835,6 +13849,9 @@
       z-index: 12050;
       pointer-events: auto;
       touch-action: manipulation;
+    }
+    body.member-nav-visible #bottomNav {
+      display: grid !important;
     }
     #bottomNav .bottom-nav-item {
       width: 100% !important;
@@ -23527,9 +23544,12 @@
         const ceoInPreview = !!(ceoSession && ceoPreviewTier);
         const shouldShowBottomNav = !isWaitlistModeEnabled() && hasAuthedMember && memberPrimaryScreens.has(name) && !staffSession && (!ceoSession || ceoInPreview);
         bottomNav.style.display = shouldShowBottomNav ? "grid" : "none";
+        document.body.classList.toggle("member-nav-visible", shouldShowBottomNav);
         bottomNavItems.forEach((item) => {
           item.classList.toggle("active", item.dataset.bottomNav === name);
         });
+      } else {
+        document.body.classList.remove("member-nav-visible");
       }
       if (firebaseAuth?.currentUser && memberPrimaryScreens.has(name) && !staffSession && (!ceoSession || !!ceoPreviewTier)) {
         startMemberNoticesListener(firebaseAuth.currentUser.uid || "");
