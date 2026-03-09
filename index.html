@@ -3162,6 +3162,56 @@
       left: auto !important;
       bottom: auto !important;
     }
+    .pull-refresh-indicator {
+      position: fixed;
+      left: 50%;
+      top: calc(env(safe-area-inset-top, 0px) + 8px);
+      transform: translate3d(-50%, -110%, 0) scale(0.92);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 14500;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(103, 232, 249, 0.45);
+      background: rgba(5, 11, 28, 0.9);
+      color: #a5f3fc;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      box-shadow: 0 10px 24px rgba(3, 8, 24, 0.55), 0 0 16px rgba(34, 211, 238, 0.2);
+      transition: transform 140ms ease, opacity 120ms ease, box-shadow 120ms ease;
+      will-change: transform, opacity;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .pull-refresh-indicator.visible {
+      opacity: 1;
+      transform: translate3d(-50%, 0, 0) scale(1);
+    }
+    .pull-refresh-indicator.ready {
+      border-color: rgba(34, 197, 94, 0.56);
+      color: #dcfce7;
+      box-shadow: 0 12px 26px rgba(3, 12, 28, 0.56), 0 0 22px rgba(34, 197, 94, 0.28);
+    }
+    .pull-refresh-indicator.refreshing .pull-refresh-icon {
+      animation: pullRefreshSpin 0.78s linear infinite;
+    }
+    .pull-refresh-icon {
+      font-size: 15px;
+      line-height: 1;
+      transform-origin: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    @keyframes pullRefreshSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
     #memberRefreshBtn {
       display: none !important;
     }
@@ -17824,6 +17874,10 @@
       <button type="button" class="ceo-preview-exit" id="ceoPreviewExitBtn">Return to CEO</button>
       <div id="statusBanner" class="status-banner" style="display:none;"></div>
       <button id="globalRefreshBtn" class="refresh-btn global-refresh-btn" title="Refresh" style="display:none;">Refresh</button>
+      <div id="pullRefreshIndicator" class="pull-refresh-indicator" aria-hidden="true">
+        <span class="pull-refresh-icon" aria-hidden="true">↻</span>
+        <span id="pullRefreshLabel">Pull to refresh</span>
+      </div>
       <div id="app">
         <!-- MAINTENANCE SCREEN -->
         <div id="maintenanceScreen" class="screen maintenance-screen">
@@ -26443,6 +26497,8 @@
     const landingRefreshBtn = document.getElementById("landingRefreshBtn");
     const memberRefreshBtn = document.getElementById("memberRefreshBtn");
     const globalRefreshBtn = document.getElementById("globalRefreshBtn");
+    const pullRefreshIndicator = document.getElementById("pullRefreshIndicator");
+    const pullRefreshLabel = document.getElementById("pullRefreshLabel");
     const ceoRefreshBtn = document.getElementById("ceoRefreshBtn");
     const statusBanner = document.getElementById("statusBanner");
     const maintenanceMessage = document.getElementById("maintenanceMessage");
@@ -27488,6 +27544,19 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.154",
+        date: "2026-03-08",
+        added: [
+          "Pull-to-refresh is now available across iOS, iPad, and web with a live circular refresh indicator"
+        ],
+        improved: [
+          "Venue staff profile avatar was scaled up for stronger visibility across all device sizes"
+        ],
+        fixed: [
+          "Member bottom navigation visibility was stabilized so core actions like logout stay accessible"
+        ]
+      },
       {
         version: "v0.9.153",
         date: "2026-03-08",
@@ -34691,6 +34760,140 @@ let onboardingIndex = 0;
         softRefresh();
       });
     }
+    const pullRefreshState = {
+      pulling: false,
+      ready: false,
+      refreshing: false,
+      startY: 0,
+      distance: 0,
+      wheelDistance: 0,
+      wheelTimer: 0,
+      startTarget: null
+    };
+    function pullRefreshScrollTop() {
+      const root = document.scrollingElement || document.documentElement || document.body;
+      return Number(root?.scrollTop || window.scrollY || 0);
+    }
+    function canUsePullRefresh() {
+      if (isAuthBusy()) return false;
+      if (pullRefreshState.refreshing) return false;
+      if (isWaitlistModeEnabled()) return false;
+      const blockedScreens = new Set(["auth", "membership", "payment", "ageVerify", "waitlist", "maintenance"]);
+      if (blockedScreens.has(String(currentScreenName || ""))) return false;
+      return true;
+    }
+    function showPullRefreshIndicator(distance = 0, ready = false, refreshing = false) {
+      if (!pullRefreshIndicator) return;
+      const lift = Math.max(0, Math.min(24, Math.round(distance * 0.22)));
+      pullRefreshIndicator.classList.add("visible");
+      pullRefreshIndicator.classList.toggle("ready", !!ready);
+      pullRefreshIndicator.classList.toggle("refreshing", !!refreshing);
+      pullRefreshIndicator.style.transform = `translate3d(-50%, ${lift}px, 0) scale(1)`;
+      if (pullRefreshLabel) {
+        pullRefreshLabel.textContent = refreshing
+          ? "Refreshing..."
+          : (ready ? "Release to refresh" : "Pull to refresh");
+      }
+    }
+    function hidePullRefreshIndicator() {
+      if (!pullRefreshIndicator) return;
+      pullRefreshIndicator.classList.remove("visible", "ready", "refreshing");
+      pullRefreshIndicator.style.transform = "translate3d(-50%, -110%, 0) scale(0.92)";
+      if (pullRefreshLabel) pullRefreshLabel.textContent = "Pull to refresh";
+    }
+    function resetPullRefreshState() {
+      pullRefreshState.pulling = false;
+      pullRefreshState.ready = false;
+      pullRefreshState.distance = 0;
+      pullRefreshState.startY = 0;
+      pullRefreshState.startTarget = null;
+    }
+    function runPullToRefresh() {
+      if (!canUsePullRefresh()) return;
+      pullRefreshState.refreshing = true;
+      showPullRefreshIndicator(84, true, true);
+      try {
+        if (navigator?.vibrate) navigator.vibrate(12);
+      } catch (_) {}
+      const user = firebaseAuth?.currentUser || null;
+      if (user && !user.isAnonymous) {
+        softRefresh();
+      } else {
+        hardReloadApp("pull-refresh-landing");
+      }
+      window.setTimeout(() => {
+        pullRefreshState.refreshing = false;
+        resetPullRefreshState();
+        hidePullRefreshIndicator();
+      }, 900);
+    }
+    document.addEventListener("touchstart", (event) => {
+      if (!canUsePullRefresh()) return;
+      if (pullRefreshScrollTop() > 0) return;
+      const touch = event.touches && event.touches[0];
+      if (!touch) return;
+      const target = event.target;
+      if (target?.closest?.("input, textarea, select, [contenteditable='true'], #venueMapCanvas, .gm-style")) return;
+      pullRefreshState.pulling = true;
+      pullRefreshState.startY = touch.clientY;
+      pullRefreshState.distance = 0;
+      pullRefreshState.ready = false;
+      pullRefreshState.startTarget = target;
+    }, { passive: true });
+    document.addEventListener("touchmove", (event) => {
+      if (!pullRefreshState.pulling || pullRefreshState.refreshing) return;
+      const touch = event.touches && event.touches[0];
+      if (!touch) return;
+      if (pullRefreshScrollTop() > 0) {
+        resetPullRefreshState();
+        hidePullRefreshIndicator();
+        return;
+      }
+      const delta = touch.clientY - pullRefreshState.startY;
+      if (delta <= 0) return;
+      if (pullRefreshState.startTarget?.closest?.("#venueMapCanvas, .gm-style")) return;
+      event.preventDefault();
+      pullRefreshState.distance = Math.min(130, delta * 0.58);
+      pullRefreshState.ready = pullRefreshState.distance >= 76;
+      showPullRefreshIndicator(pullRefreshState.distance, pullRefreshState.ready, false);
+    }, { passive: false });
+    document.addEventListener("touchend", () => {
+      if (!pullRefreshState.pulling) return;
+      const shouldRefresh = pullRefreshState.ready && !pullRefreshState.refreshing;
+      resetPullRefreshState();
+      if (shouldRefresh) {
+        runPullToRefresh();
+      } else if (!pullRefreshState.refreshing) {
+        hidePullRefreshIndicator();
+      }
+    }, { passive: true });
+    window.addEventListener("wheel", (event) => {
+      if (!canUsePullRefresh()) return;
+      if (pullRefreshScrollTop() > 0) {
+        pullRefreshState.wheelDistance = 0;
+        if (!pullRefreshState.refreshing) hidePullRefreshIndicator();
+        return;
+      }
+      if (event.deltaY < 0 && Math.abs(event.deltaY) >= Math.abs(event.deltaX || 0)) {
+        pullRefreshState.wheelDistance = Math.min(130, pullRefreshState.wheelDistance + Math.abs(event.deltaY) * 0.36);
+      } else if (event.deltaY > 0) {
+        pullRefreshState.wheelDistance = Math.max(0, pullRefreshState.wheelDistance - event.deltaY * 0.3);
+      }
+      if (!pullRefreshState.refreshing && pullRefreshState.wheelDistance > 0) {
+        const ready = pullRefreshState.wheelDistance >= 76;
+        showPullRefreshIndicator(pullRefreshState.wheelDistance, ready, false);
+        if (ready) {
+          pullRefreshState.wheelDistance = 0;
+          runPullToRefresh();
+          return;
+        }
+      }
+      if (pullRefreshState.wheelTimer) window.clearTimeout(pullRefreshState.wheelTimer);
+      pullRefreshState.wheelTimer = window.setTimeout(() => {
+        pullRefreshState.wheelDistance = 0;
+        if (!pullRefreshState.refreshing) hidePullRefreshIndicator();
+      }, 220);
+    }, { passive: true });
     window.addEventListener("scroll", requestGlobalRefreshViewportSync, { passive: true });
     window.addEventListener("resize", requestGlobalRefreshViewportSync, { passive: true });
     if (window.visualViewport) {
