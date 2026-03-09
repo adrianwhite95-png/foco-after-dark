@@ -1150,14 +1150,22 @@
       margin: 6px 0 10px;
     }
     .staff-avatar {
-      width: 94px;
-      height: 94px;
-      border-radius: 26px;
-      font-size: 24px;
+      width: 128px;
+      height: 128px;
+      border-radius: 30px;
+      font-size: 30px;
     }
     .staff-avatar-tools {
       display: grid;
       gap: 6px;
+    }
+    @media (max-width: 720px) {
+      .staff-avatar {
+        width: 114px;
+        height: 114px;
+        border-radius: 28px;
+        font-size: 27px;
+      }
     }
     .sticky-actions {
       display: flex;
