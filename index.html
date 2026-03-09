@@ -20235,7 +20235,7 @@
         <p>This app includes fast animations, strobe-like lighting effects, and flashing neon visuals that may affect people with photosensitive epilepsy or other light-sensitivity conditions. Use caution, reduce screen brightness, and stop using the app immediately if you feel discomfort.</p>
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">Data accuracy & audit logs</h4>
-        <p>We log redemption attempts, verification events, and timestamps for operational, analytics, and fraud-prevention purposes. We strive for accuracy, but logs may be delayed or incomplete due to connectivity or device issues.</p>
+        <p>We log redemption attempts, verification events, timestamps, and token activity for operational, analytics, and fraud-prevention purposes. We strive for accuracy, but logs may be delayed or incomplete due to connectivity or device issues.</p>
 
         <h4 style="margin-top:10px;margin-bottom:6px;color:var(--accent-cyan);font-size:13px;">App behavior (PWA)</h4>
         <p>When installed to a home screen, the app may cache assets for performance. Updates are delivered when the app reconnects and reloads. If the app is locked by administrators, access is restricted until unlocked by the CEO.</p>
@@ -20257,12 +20257,14 @@
             <li><strong>Authentication & identifiers:</strong> Firebase UID, device identifiers, and Pass ID for your membership.</li>
             <li><strong>Redemption & audit logs:</strong> voucher codes generated, redemption attempts, timestamps, venue identifiers, and staff verification events to support operations and fraud prevention.</li>
             <li><strong>Payment info:</strong> we use third-party processors for payments and do not store full card numbers in-app; only masked card references or tokens may be kept for billing convenience.</li>
+            <li><strong>Profile personalization:</strong> selected avatar preset, accent/theme choices, and unlock/progress state for in-app personalization features.</li>
+            <li><strong>Notifications:</strong> push token/device endpoint data used only to deliver app alerts, venue posts, and service updates.</li>
             <li><strong>Support communications:</strong> messages you send to support, including optional contact details.</li>
             <li><strong>Usage & analytics:</strong> device & browser info, interaction events, crash reports, and performance metrics to improve the product.</li>
           </ul>
 
           <h5 style="margin-top:10px;color:var(--accent-cyan);font-size:13px;">How we use information</h5>
-          <p style="color:#cbd5f5;">We use information to operate and improve the service: to authenticate members, enable and verify voucher redemptions, prevent abuse and fraud, provide support, process payments, and analyze usage for product improvements. We may also use aggregated, de-identified data for analytics and partner reporting.</p>
+          <p style="color:#cbd5f5;">We use information to operate and improve the service: to authenticate members, enable and verify voucher redemptions, manage points and token balances by billing cycle, prevent abuse and fraud, provide support, process payments, and analyze usage for product improvements. We may also use aggregated, de-identified data for analytics and partner reporting.</p>
 
           <h5 style="margin-top:10px;color:var(--accent-cyan);font-size:13px;">AI features</h5>
           <p style="color:#cbd5f5;">Some in-app features may use AI to generate responses or summaries (for example, HQ assistant tools). AI output may be inaccurate or incomplete. Do not rely on AI responses for legal, medical, or safety decisions. We may use prompts and system data to improve reliability, but we do not train public AI models on your private data without permission.</p>
@@ -27611,6 +27613,15 @@
     var landingTierBoostNote = document.getElementById("landingTierBoostNote");
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
+      {
+        version: "v0.9.161",
+        date: "2026-03-08",
+        added: [],
+        improved: [
+          "Legal/About privacy disclosures now include profile personalization and notification token handling, plus clearer token-activity language"
+        ],
+        fixed: []
+      },
       {
         version: "v0.9.160",
         date: "2026-03-08",
