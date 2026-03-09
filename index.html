@@ -27612,6 +27612,15 @@
     var landingRenewalBonusNote = document.getElementById("landingRenewalBonusNote");
     const PATCH_NOTES = [
       {
+        version: "v0.9.160",
+        date: "2026-03-08",
+        added: [],
+        improved: [
+          "Included Perks on member profiles now show tier-specific details for Standard, VIP, CEO Issued, and CEO views including loyalty point multipliers and tier token-pack pricing"
+        ],
+        fixed: []
+      },
+      {
         version: "v0.9.159",
         date: "2026-03-08",
         added: [],
@@ -55350,6 +55359,7 @@ let onboardingIndex = 0;
         perksListEl.innerHTML = `
           <li class="perk-row"><span class="perk-dot"></span> Unlimited monthly venue perks</li>
           <li class="perk-row"><span class="perk-dot"></span> VIP-only offers</li>
+          <li class="perk-row"><span class="perk-dot"></span> Loyalty points earn at 1.25x rate</li>
           <li class="perk-row"><span class="perk-dot"></span> Issue free passes anytime</li>
         `;
         statusPill.textContent = "CEO";
@@ -55360,6 +55370,8 @@ let onboardingIndex = 0;
         perksListEl.innerHTML = `
           <li class="perk-row"><span class="perk-dot"></span> Monthly venue perks set by bars</li>
           <li class="perk-row"><span class="perk-dot"></span> Up to 5 voucher redemptions monthly</li>
+          <li class="perk-row"><span class="perk-dot"></span> Loyalty points earn at 1.0x rate</li>
+          <li class="perk-row"><span class="perk-dot"></span> Token packs: +2 $4.00 · +4 $7.00 · +6 $12.00</li>
           <li class="perk-row"><span class="perk-dot"></span> Perks refresh on your billing date</li>
         `;
         statusPill.textContent = "Standard";
@@ -55369,6 +55381,8 @@ let onboardingIndex = 0;
         perksListEl.innerHTML = `
           <li class="perk-row"><span class="perk-dot"></span> Unlimited monthly venue perks</li>
           <li class="perk-row"><span class="perk-dot"></span> Priority access on all nights</li>
+          <li class="perk-row"><span class="perk-dot"></span> Loyalty points earn at 1.25x rate</li>
+          <li class="perk-row"><span class="perk-dot"></span> Unlimited vouchers included (no token pack purchases needed)</li>
           <li class="perk-row"><span class="perk-dot"></span> Never expires</li>
         `;
         statusPill.textContent = "CEO Issued";
@@ -55381,10 +55395,13 @@ let onboardingIndex = 0;
         perksListEl.innerHTML = ceoActive ? `
           <li class="perk-row"><span class="perk-dot"></span> Unlimited monthly venue perks</li>
           <li class="perk-row"><span class="perk-dot"></span> VIP-only offers</li>
+          <li class="perk-row"><span class="perk-dot"></span> Loyalty points earn at 1.25x rate</li>
           <li class="perk-row"><span class="perk-dot"></span> Issue free passes anytime</li>
         ` : `
           <li class="perk-row"><span class="perk-dot"></span> Up to 10 voucher redemptions monthly</li>
           <li class="perk-row"><span class="perk-dot"></span> VIP-only offers</li>
+          <li class="perk-row"><span class="perk-dot"></span> Loyalty points earn at 1.25x rate</li>
+          <li class="perk-row"><span class="perk-dot"></span> VIP token packs: +2 $3.50 · +4 $6.00 · +6 $10.50</li>
           <li class="perk-row"><span class="perk-dot"></span> Perks refresh on your billing date</li>
         `;
         statusPill.textContent = ceoActive ? "CEO" : "VIP";
